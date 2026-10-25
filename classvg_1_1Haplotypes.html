@@ -71,13 +71,14 @@ $(function() {
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="classvg_1_1Haplotypes-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::Haplotypes Class Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p><code>#include &lt;recombinator.hpp&gt;</code></p>
+<p><code>#include &lt;recombinator_haplotypes.hpp&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -85,7 +86,6 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Haplotypes_1_1Header.html" title="Header of the serialized file.">Header</a> of the serialized file.  <a href="structvg_1_1Haplotypes_1_1Header.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Subchain</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Representation of a subchain.  <a href="structvg_1_1Haplotypes_1_1Subchain.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html">TopLevelChain</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Representation of a top-level chain.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#details">More...</a><br /></td></tr>
@@ -104,12 +104,12 @@ Public Types</h2></td></tr>
  }</td></tr>
 <tr class="memdesc:a2e2fbea03cc9fb69389a653d3d8fc28a"><td class="mdescLeft">&#160;</td><td class="mdescRight">The amount of progress information that should be printed to stderr.  <a href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">More...</a><br /></td></tr>
 <tr class="separator:a2e2fbea03cc9fb69389a653d3d8fc28a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aebc70f387d48bd0e5c8f0c607c496535"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; gbwt::size_type, gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">sequence_type</a></td></tr>
-<tr class="memdesc:aebc70f387d48bd0e5c8f0c607c496535"><td class="mdescLeft">&#160;</td><td class="mdescRight">A GBWT sequence as (sequence identifier, offset in a node).  <a href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">More...</a><br /></td></tr>
-<tr class="separator:aebc70f387d48bd0e5c8f0c607c496535"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa032022df55d45eed0ad1c509a95a5c7"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; std::uint32_t, std::uint32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#aa032022df55d45eed0ad1c509a95a5c7">compact_sequence_type</a></td></tr>
-<tr class="memdesc:aa032022df55d45eed0ad1c509a95a5c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">A more space-efficient representation of <code>sequence_type</code>.  <a href="classvg_1_1Haplotypes.html#aa032022df55d45eed0ad1c509a95a5c7">More...</a><br /></td></tr>
-<tr class="separator:aa032022df55d45eed0ad1c509a95a5c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9e0964818ad8d820c32b24d876db5f11"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1KmerPresenceMatrix.html#a6d268176fc89d8d1088abd95a042050d">KmerPresenceMatrix::sequence_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a9e0964818ad8d820c32b24d876db5f11">sequence_type</a></td></tr>
+<tr class="memdesc:a9e0964818ad8d820c32b24d876db5f11"><td class="mdescLeft">&#160;</td><td class="mdescRight">A GBWT sequence as (sequence identifier, offset in a node).  <a href="classvg_1_1Haplotypes.html#a9e0964818ad8d820c32b24d876db5f11">More...</a><br /></td></tr>
+<tr class="separator:a9e0964818ad8d820c32b24d876db5f11"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a55e4b74f5ebcfaf6755c902a560e7111"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1KmerPresenceMatrix.html#adc54c1f5a55ec034aa0cb7e6188cb91d">KmerPresenceMatrix::compact_sequence_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a55e4b74f5ebcfaf6755c902a560e7111">compact_sequence_type</a></td></tr>
+<tr class="memdesc:a55e4b74f5ebcfaf6755c902a560e7111"><td class="mdescLeft">&#160;</td><td class="mdescRight">A more space-efficient representation of <code>sequence_type</code>.  <a href="classvg_1_1Haplotypes.html#a55e4b74f5ebcfaf6755c902a560e7111">More...</a><br /></td></tr>
+<tr class="separator:a55e4b74f5ebcfaf6755c902a560e7111"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -155,29 +155,40 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a9f3d8db67fd1488075960f77b361c161"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aabf788ef8783a229fa095209bf61d7eb"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html">TopLevelChain</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#aabf788ef8783a229fa095209bf61d7eb">chains</a></td></tr>
 <tr class="separator:aabf788ef8783a229fa095209bf61d7eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:a04c2eeb68e3a0967852e925a1bf4c136"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a04c2eeb68e3a0967852e925a1bf4c136">SUBCHAIN_LENGTH</a> = 10000</td></tr>
+<tr class="memdesc:a04c2eeb68e3a0967852e925a1bf4c136"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default target length of a subchain.  <a href="classvg_1_1Haplotypes.html#a04c2eeb68e3a0967852e925a1bf4c136">More...</a><br /></td></tr>
+<tr class="separator:a04c2eeb68e3a0967852e925a1bf4c136"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1f554fa6000ccca506f5080ff8b7f3e5"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a1f554fa6000ccca506f5080ff8b7f3e5">KFF_BLOCK_SIZE</a> = 1000000</td></tr>
+<tr class="memdesc:a1f554fa6000ccca506f5080ff8b7f3e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Block size (in kmers) for reading KFF files.  <a href="classvg_1_1Haplotypes.html#a1f554fa6000ccca506f5080ff8b7f3e5">More...</a><br /></td></tr>
+<tr class="separator:a1f554fa6000ccca506f5080ff8b7f3e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A representation of the haplotypes in a graph.</p>
 <p>The graph is partitioned into top-level chains, which are further partitioned into subchains. Each subchain contains a set of kmers and a collection of sequences. Each sequence is defined by a bitvector marking the kmers that are present.</p>
 <p>At the moment, the kmers are minimizers with a single occurrence in the graph. The requirement is that each kmer is specific to a single subchain and does not occur anywhere else in either orientation. (If no haplotype crosses a snarl, that snarl is broken into a suffix and a prefix, and those subchains may share kmers.)</p>
 <p>NOTE: This assumes that the top-level chains are linear, not cyclical.</p>
-<p>Versions:</p><ul>
-<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 6: Tags for storing metadata, such as graph names. Compatible with version 5.</li>
-<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 5: Every path in the graph is assigned to a construction job. This allows including reference paths that do not visit any snarls in the sampled graph. Not compatible with earlier versions.</li>
-<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 4: Subchains can have fragmented haplotypes instead of a single GBWT sequence always crossing from start to end. Compatible with version 3.</li>
-<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 3: Subchains use smaller integers when possible. Compatible with version 2.</li>
-<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 2: Top-level chains include a contig name. Compatible with version 1.</li>
+<p>Versions:</p>
+<ul>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 7: Work in progress. Compressed kmer presence matrices, with faster haplotype scoring by taking advantage of the compression. Versions 5 and 6 can still be read.</li>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 6: Tags for storing metadata, such as graph names. <a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 5 can still be read.</li>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 5: Every path in the graph is assigned to a construction job. This allows including reference paths that do not visit any snarls in the sampled graph. Earlier versions cannot be used anymore.</li>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 4: Subchains can have fragmented haplotypes instead of a single GBWT sequence always crossing from start to end. Versions 1 to 3 can still be read.</li>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 3: Subchains use smaller integers when possible. Versions 1 and 2 can still be read.</li>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 2: Top-level chains include a contig name. <a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 1 can still be read.</li>
 <li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 1: Initial version. </li>
 </ul>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
-<a id="aa032022df55d45eed0ad1c509a95a5c7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa032022df55d45eed0ad1c509a95a5c7">&#9670;&nbsp;</a></span>compact_sequence_type</h2>
+<a id="a55e4b74f5ebcfaf6755c902a560e7111"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a55e4b74f5ebcfaf6755c902a560e7111">&#9670;&nbsp;</a></span>compact_sequence_type</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef std::pair&lt;std::uint32_t, std::uint32_t&gt; <a class="el" href="classvg_1_1Haplotypes.html#aa032022df55d45eed0ad1c509a95a5c7">vg::Haplotypes::compact_sequence_type</a></td>
+          <td class="memname">typedef <a class="el" href="classvg_1_1KmerPresenceMatrix.html#adc54c1f5a55ec034aa0cb7e6188cb91d">KmerPresenceMatrix::compact_sequence_type</a> <a class="el" href="classvg_1_1Haplotypes.html#a55e4b74f5ebcfaf6755c902a560e7111">vg::Haplotypes::compact_sequence_type</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -186,14 +197,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aebc70f387d48bd0e5c8f0c607c496535"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aebc70f387d48bd0e5c8f0c607c496535">&#9670;&nbsp;</a></span>sequence_type</h2>
+<a id="a9e0964818ad8d820c32b24d876db5f11"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9e0964818ad8d820c32b24d876db5f11">&#9670;&nbsp;</a></span>sequence_type</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef std::pair&lt;gbwt::size_type, gbwt::size_type&gt; <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">vg::Haplotypes::sequence_type</a></td>
+          <td class="memname">typedef <a class="el" href="classvg_1_1KmerPresenceMatrix.html#a6d268176fc89d8d1088abd95a042050d">KmerPresenceMatrix::sequence_type</a> <a class="el" href="classvg_1_1Haplotypes.html#a9e0964818ad8d820c32b24d876db5f11">vg::Haplotypes::sequence_type</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -583,6 +594,54 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a1f554fa6000ccca506f5080ff8b7f3e5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1f554fa6000ccca506f5080ff8b7f3e5">&#9670;&nbsp;</a></span>KFF_BLOCK_SIZE</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t vg::Haplotypes::KFF_BLOCK_SIZE = 1000000</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Block size (in kmers) for reading KFF files. </p>
+
+</div>
+</div>
+<a id="a04c2eeb68e3a0967852e925a1bf4c136"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a04c2eeb68e3a0967852e925a1bf4c136">&#9670;&nbsp;</a></span>SUBCHAIN_LENGTH</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t vg::Haplotypes::SUBCHAIN_LENGTH = 10000</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Default target length of a subchain. </p>
+
+</div>
+</div>
 <a id="a1878ebcf830e7090d4db9d15524499aa"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1878ebcf830e7090d4db9d15524499aa">&#9670;&nbsp;</a></span>tags</h2>
 
@@ -598,8 +657,8 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following files:<ul>
-<li>src/<a class="el" href="recombinator_8hpp.html">recombinator.hpp</a></li>
-<li>src/<a class="el" href="recombinator_8cpp.html">recombinator.cpp</a></li>
+<li>src/<a class="el" href="recombinator__haplotypes_8hpp.html">recombinator_haplotypes.hpp</a></li>
+<li>src/<a class="el" href="recombinator__haplotypes_8cpp.html">recombinator_haplotypes.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

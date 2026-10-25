@@ -94,7 +94,7 @@ Public Types</h2></td></tr>
 <tr class="memitem:a7b5fa99a041f7c61f73644541dd926b1"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Haplotypes::Verbosity</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a7b5fa99a041f7c61f73644541dd926b1">Verbosity</a></td></tr>
 <tr class="memdesc:a7b5fa99a041f7c61f73644541dd926b1"><td class="mdescLeft">&#160;</td><td class="mdescRight">The amount of progress information that should be printed to stderr.  <a href="classvg_1_1HaplotypePartitioner.html#a7b5fa99a041f7c61f73644541dd926b1">More...</a><br /></td></tr>
 <tr class="separator:a7b5fa99a041f7c61f73644541dd926b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa06fc618c54377342c05b7306b8dec72"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">Haplotypes::sequence_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">sequence_type</a></td></tr>
+<tr class="memitem:aa06fc618c54377342c05b7306b8dec72"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1Haplotypes.html#a9e0964818ad8d820c32b24d876db5f11">Haplotypes::sequence_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">sequence_type</a></td></tr>
 <tr class="memdesc:aa06fc618c54377342c05b7306b8dec72"><td class="mdescLeft">&#160;</td><td class="mdescRight">A GBWT sequence as (sequence identifier, offset in a node).  <a href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">More...</a><br /></td></tr>
 <tr class="separator:aa06fc618c54377342c05b7306b8dec72"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2780337120cfec8463356829af22aa97"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Haplotypes::Subchain::kmer_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">kmer_type</a></td></tr>
@@ -129,9 +129,6 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
-<tr class="memitem:a3343e960c394c9c092d08ff931f37081"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a3343e960c394c9c092d08ff931f37081">SUBCHAIN_LENGTH</a> = 10000</td></tr>
-<tr class="memdesc:a3343e960c394c9c092d08ff931f37081"><td class="mdescLeft">&#160;</td><td class="mdescRight">Target length of a subchain.  <a href="classvg_1_1HaplotypePartitioner.html#a3343e960c394c9c092d08ff931f37081">More...</a><br /></td></tr>
-<tr class="separator:a3343e960c394c9c092d08ff931f37081"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0ef19f69054a8df7277e7afd2a5de83f"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a0ef19f69054a8df7277e7afd2a5de83f">APPROXIMATE_JOBS</a> = 32</td></tr>
 <tr class="memdesc:a0ef19f69054a8df7277e7afd2a5de83f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Approximate number of construction jobs to be created.  <a href="classvg_1_1HaplotypePartitioner.html#a0ef19f69054a8df7277e7afd2a5de83f">More...</a><br /></td></tr>
 <tr class="separator:a0ef19f69054a8df7277e7afd2a5de83f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -148,10 +145,10 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a8bdd15927542e95eb536fc9e9bb69aa7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af88d6e4839d697b5780c453441d3abb0"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">sequence_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#af88d6e4839d697b5780c453441d3abb0">get_sequences</a> (<a class="el" href="structvg_1_1HaplotypePartitioner_1_1Subchain.html">Subchain</a> subchain) const</td></tr>
 <tr class="separator:af88d6e4839d697b5780c453441d3abb0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a16638525e7b8ceca27c326af457519b6"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a16638525e7b8ceca27c326af457519b6">unique_minimizers</a> (gbwt::size_type sequence_id) const</td></tr>
-<tr class="separator:a16638525e7b8ceca27c326af457519b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a872f28e53ed59936e0553158571dc5c2"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a872f28e53ed59936e0553158571dc5c2">unique_minimizers</a> (<a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">sequence_type</a> sequence, <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Subchain.html">Subchain</a> subchain, size_t &amp;fragments) const</td></tr>
-<tr class="separator:a872f28e53ed59936e0553158571dc5c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b1fa5539db20a2274d7f3b9ce05bbd9"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a4b1fa5539db20a2274d7f3b9ce05bbd9">unique_minimizers</a> (gbwt::size_type sequence_id, gbwt::CachedGBWT &amp;cached_gbwt, <a class="el" href="classvg_1_1hash__map.html">vg::hash_map</a>&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">kmer_type</a>, size_t &gt; &amp;kmer_cache) const</td></tr>
+<tr class="separator:a4b1fa5539db20a2274d7f3b9ce05bbd9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad92c71e3db865c1aaf549669c9ff510e"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#ad92c71e3db865c1aaf549669c9ff510e">unique_minimizers</a> (<a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">sequence_type</a> sequence, <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Subchain.html">Subchain</a> subchain, size_t &amp;fragments, gbwt::CachedGBWT &amp;cached_gbwt, <a class="el" href="classvg_1_1hash__map.html">vg::hash_map</a>&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">kmer_type</a>, size_t &gt; &amp;kmer_cache) const</td></tr>
+<tr class="separator:ad92c71e3db865c1aaf549669c9ff510e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a74a37ea177a421b5581d3ed6c4e1d09a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypePartitioner.html#a74a37ea177a421b5581d3ed6c4e1d09a">build_subchains</a> (const gbwtgraph::TopLevelChain &amp;chain, <a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html">Haplotypes::TopLevelChain</a> &amp;output, const <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Parameters.html">Parameters</a> &amp;parameters) const</td></tr>
 <tr class="separator:a74a37ea177a421b5581d3ed6c4e1d09a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -197,7 +194,7 @@ Private Member Functions</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">Haplotypes::sequence_type</a> <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">vg::HaplotypePartitioner::sequence_type</a></td>
+          <td class="memname">typedef <a class="el" href="classvg_1_1Haplotypes.html#a9e0964818ad8d820c32b24d876db5f11">Haplotypes::sequence_type</a> <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">vg::HaplotypePartitioner::sequence_type</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -489,8 +486,8 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a16638525e7b8ceca27c326af457519b6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a16638525e7b8ceca27c326af457519b6">&#9670;&nbsp;</a></span>unique_minimizers() <span class="overload">[1/2]</span></h2>
+<a id="a4b1fa5539db20a2274d7f3b9ce05bbd9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b1fa5539db20a2274d7f3b9ce05bbd9">&#9670;&nbsp;</a></span>unique_minimizers() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -502,8 +499,24 @@ Private Member Functions</h2></td></tr>
           <td class="memname">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt; vg::HaplotypePartitioner::unique_minimizers </td>
           <td>(</td>
           <td class="paramtype">gbwt::size_type&#160;</td>
-          <td class="paramname"><em>sequence_id</em></td><td>)</td>
-          <td> const</td>
+          <td class="paramname"><em>sequence_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::CachedGBWT &amp;&#160;</td>
+          <td class="paramname"><em>cached_gbwt</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1hash__map.html">vg::hash_map</a>&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">kmer_type</a>, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>kmer_cache</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -515,8 +528,8 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a872f28e53ed59936e0553158571dc5c2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a872f28e53ed59936e0553158571dc5c2">&#9670;&nbsp;</a></span>unique_minimizers() <span class="overload">[2/2]</span></h2>
+<a id="ad92c71e3db865c1aaf549669c9ff510e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad92c71e3db865c1aaf549669c9ff510e">&#9670;&nbsp;</a></span>unique_minimizers() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -540,7 +553,19 @@ Private Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t &amp;&#160;</td>
-          <td class="paramname"><em>fragments</em>&#160;</td>
+          <td class="paramname"><em>fragments</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::CachedGBWT &amp;&#160;</td>
+          <td class="paramname"><em>cached_gbwt</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1hash__map.html">vg::hash_map</a>&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">kmer_type</a>, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>kmer_cache</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -649,30 +674,6 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="a3343e960c394c9c092d08ff931f37081"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3343e960c394c9c092d08ff931f37081">&#9670;&nbsp;</a></span>SUBCHAIN_LENGTH</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">constexpr size_t vg::HaplotypePartitioner::SUBCHAIN_LENGTH = 10000</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Target length of a subchain. </p>
 
 </div>
 </div>

@@ -78,16 +78,15 @@ $(function() {
 <p>Representation of a top-level chain.  
  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#details">More...</a></p>
 
-<p><code>#include &lt;recombinator.hpp&gt;</code></p>
+<p><code>#include &lt;recombinator_haplotypes.hpp&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:ad5f88539013b3d1c0caed224550e3a06"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#ad5f88539013b3d1c0caed224550e3a06">simple_sds_serialize</a> (std::ostream &amp;out) const</td></tr>
 <tr class="memdesc:ad5f88539013b3d1c0caed224550e3a06"><td class="mdescLeft">&#160;</td><td class="mdescRight">Serializes the object to a stream in the Simple-SDS format.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#ad5f88539013b3d1c0caed224550e3a06">More...</a><br /></td></tr>
 <tr class="separator:ad5f88539013b3d1c0caed224550e3a06"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a34163c2bf756a469dd6bba7880836f82"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a34163c2bf756a469dd6bba7880836f82">simple_sds_load</a> (std::istream &amp;in)</td></tr>
-<tr class="memdesc:a34163c2bf756a469dd6bba7880836f82"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads the object from a stream in the Simple-SDS format.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a34163c2bf756a469dd6bba7880836f82">More...</a><br /></td></tr>
-<tr class="separator:a34163c2bf756a469dd6bba7880836f82"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a55f0592b744425ab38656f22ae501572"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a55f0592b744425ab38656f22ae501572">simple_sds_load</a> (std::istream &amp;in, std::uint32_t version=<a class="el" href="structvg_1_1Haplotypes_1_1Header.html#a68bfc0fe68e8fc1b42ad078eaa234777">Header::VERSION</a>)</td></tr>
+<tr class="separator:a55f0592b744425ab38656f22ae501572"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb004505c7fcc83e89b15c229da33a03"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#afb004505c7fcc83e89b15c229da33a03">simple_sds_size</a> () const</td></tr>
 <tr class="memdesc:afb004505c7fcc83e89b15c229da33a03"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the size of the object in elements.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#afb004505c7fcc83e89b15c229da33a03">More...</a><br /></td></tr>
 <tr class="separator:afb004505c7fcc83e89b15c229da33a03"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -100,6 +99,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a0f28a2f70f5f09a423d0f97a8e4343c4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a0f28a2f70f5f09a423d0f97a8e4343c4">job_id</a></td></tr>
 <tr class="memdesc:a0f28a2f70f5f09a423d0f97a8e4343c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">GBWT construction job for this chain.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a0f28a2f70f5f09a423d0f97a8e4343c4">More...</a><br /></td></tr>
 <tr class="separator:a0f28a2f70f5f09a423d0f97a8e4343c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a19c57a129cf58b4b2bffc1a63e440bdf"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a19c57a129cf58b4b2bffc1a63e440bdf">placeholder</a></td></tr>
+<tr class="memdesc:a19c57a129cf58b4b2bffc1a63e440bdf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Placeholder for the default scoring model.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a19c57a129cf58b4b2bffc1a63e440bdf">More...</a><br /></td></tr>
+<tr class="separator:a19c57a129cf58b4b2bffc1a63e440bdf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9478eb5ec8559cfcfcb57677e718e256"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a9478eb5ec8559cfcfcb57677e718e256">contig_name</a></td></tr>
 <tr class="memdesc:a9478eb5ec8559cfcfcb57677e718e256"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contig name corresponding to the chain.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a9478eb5ec8559cfcfcb57677e718e256">More...</a><br /></td></tr>
 <tr class="separator:a9478eb5ec8559cfcfcb57677e718e256"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -110,8 +112,8 @@ Public Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Representation of a top-level chain. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="a34163c2bf756a469dd6bba7880836f82"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a34163c2bf756a469dd6bba7880836f82">&#9670;&nbsp;</a></span>simple_sds_load()</h2>
+<a id="a55f0592b744425ab38656f22ae501572"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a55f0592b744425ab38656f22ae501572">&#9670;&nbsp;</a></span>simple_sds_load()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -120,13 +122,22 @@ Public Attributes</h2></td></tr>
           <td class="memname">void vg::Haplotypes::TopLevelChain::simple_sds_load </td>
           <td>(</td>
           <td class="paramtype">std::istream &amp;&#160;</td>
-          <td class="paramname"><em>in</em></td><td>)</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">std::uint32_t&#160;</td>
+          <td class="paramname"><em>version</em> = <code><a class="el" href="structvg_1_1Haplotypes_1_1Header.html#a68bfc0fe68e8fc1b42ad078eaa234777">Header::VERSION</a></code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Loads the object from a stream in the Simple-SDS format. </p>
+<p>Loads the object from a stream in the Simple-SDS format. As there is no header, the expected version must be provided. </p>
 
 </div>
 </div>
@@ -218,6 +229,22 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a19c57a129cf58b4b2bffc1a63e440bdf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a19c57a129cf58b4b2bffc1a63e440bdf">&#9670;&nbsp;</a></span>placeholder</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Haplotypes::TopLevelChain::placeholder</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Placeholder for the default scoring model. </p>
+
+</div>
+</div>
 <a id="ae31e41720bb3a859e4762aa9e2c5318b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae31e41720bb3a859e4762aa9e2c5318b">&#9670;&nbsp;</a></span>subchains</h2>
 
@@ -235,8 +262,8 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <hr/>The documentation for this struct was generated from the following files:<ul>
-<li>src/<a class="el" href="recombinator_8hpp.html">recombinator.hpp</a></li>
-<li>src/<a class="el" href="recombinator_8cpp.html">recombinator.cpp</a></li>
+<li>src/<a class="el" href="recombinator__haplotypes_8hpp.html">recombinator_haplotypes.hpp</a></li>
+<li>src/<a class="el" href="recombinator__haplotypes_8cpp.html">recombinator_haplotypes.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

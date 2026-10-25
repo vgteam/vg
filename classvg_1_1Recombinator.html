@@ -95,17 +95,10 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
-<tr class="memitem:a15178d62423d603319fd8a23664afd5f"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5f">kmer_presence</a> { <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5fa38113783fd68477aac0ec616b4ed4fb9">absent</a>
-, <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5fa3f649a400509ec3cc8b778d14ce2dd26">heterozygous</a>
-, <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5fa24ced965e66bc34d849a25192e59fbdf">present</a>
-, <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5fa892a529e9382089dc28f99204da4dbaa">frequent</a>
- }</td></tr>
-<tr class="memdesc:a15178d62423d603319fd8a23664afd5f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Kmer classification.  <a href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5f">More...</a><br /></td></tr>
-<tr class="separator:a15178d62423d603319fd8a23664afd5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a097faaea0512d01e5e7732dd1991f129"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Haplotypes::Verbosity</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a097faaea0512d01e5e7732dd1991f129">Verbosity</a></td></tr>
 <tr class="memdesc:a097faaea0512d01e5e7732dd1991f129"><td class="mdescLeft">&#160;</td><td class="mdescRight">The amount of progress information that should be printed to stderr.  <a href="classvg_1_1Recombinator.html#a097faaea0512d01e5e7732dd1991f129">More...</a><br /></td></tr>
 <tr class="separator:a097faaea0512d01e5e7732dd1991f129"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8a1ad77c3ad37fbcfa48dc5f89f591af"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">Haplotypes::sequence_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a8a1ad77c3ad37fbcfa48dc5f89f591af">sequence_type</a></td></tr>
+<tr class="memitem:a8a1ad77c3ad37fbcfa48dc5f89f591af"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1Haplotypes.html#a9e0964818ad8d820c32b24d876db5f11">Haplotypes::sequence_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a8a1ad77c3ad37fbcfa48dc5f89f591af">sequence_type</a></td></tr>
 <tr class="memdesc:a8a1ad77c3ad37fbcfa48dc5f89f591af"><td class="mdescLeft">&#160;</td><td class="mdescRight">A GBWT sequence as (sequence identifier, offset in a node).  <a href="classvg_1_1Recombinator.html#a8a1ad77c3ad37fbcfa48dc5f89f591af">More...</a><br /></td></tr>
 <tr class="separator:a8a1ad77c3ad37fbcfa48dc5f89f591af"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -144,9 +137,6 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a567c0ae71f8bae880186eb4758dc2cd1"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a567c0ae71f8bae880186eb4758dc2cd1">COVERAGE</a> = 0</td></tr>
 <tr class="memdesc:a567c0ae71f8bae880186eb4758dc2cd1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Expected kmer coverage. Use 0 to estimate from kmer counts.  <a href="classvg_1_1Recombinator.html#a567c0ae71f8bae880186eb4758dc2cd1">More...</a><br /></td></tr>
 <tr class="separator:a567c0ae71f8bae880186eb4758dc2cd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aae3d85fd81e178aedb975015652a6cc4"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#aae3d85fd81e178aedb975015652a6cc4">KFF_BLOCK_SIZE</a> = 1000000</td></tr>
-<tr class="memdesc:aae3d85fd81e178aedb975015652a6cc4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Block size (in kmers) for reading KFF files.  <a href="classvg_1_1Recombinator.html#aae3d85fd81e178aedb975015652a6cc4">More...</a><br /></td></tr>
-<tr class="separator:aae3d85fd81e178aedb975015652a6cc4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5c415fe934bb25c07068a2ca0291ea00"><td class="memItemLeft" align="right" valign="top">constexpr static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a5c415fe934bb25c07068a2ca0291ea00">PRESENT_DISCOUNT</a> = 0.9</td></tr>
 <tr class="separator:a5c415fe934bb25c07068a2ca0291ea00"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acfb904a0f73882a7d9140efe4e78108e"><td class="memItemLeft" align="right" valign="top">constexpr static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#acfb904a0f73882a7d9140efe4e78108e">HET_ADJUSTMENT</a> = 0.05</td></tr>
@@ -173,7 +163,7 @@ Private Member Functions</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">Haplotypes::sequence_type</a> <a class="el" href="classvg_1_1Recombinator.html#a8a1ad77c3ad37fbcfa48dc5f89f591af">vg::Recombinator::sequence_type</a></td>
+          <td class="memname">typedef <a class="el" href="classvg_1_1Haplotypes.html#a9e0964818ad8d820c32b24d876db5f11">Haplotypes::sequence_type</a> <a class="el" href="classvg_1_1Recombinator.html#a8a1ad77c3ad37fbcfa48dc5f89f591af">vg::Recombinator::sequence_type</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -195,29 +185,6 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>The amount of progress information that should be printed to stderr. </p>
-
-</div>
-</div>
-<h2 class="groupheader">Member Enumeration Documentation</h2>
-<a id="a15178d62423d603319fd8a23664afd5f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a15178d62423d603319fd8a23664afd5f">&#9670;&nbsp;</a></span>kmer_presence</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">enum <a class="el" href="classvg_1_1Recombinator.html#a15178d62423d603319fd8a23664afd5f">vg::Recombinator::kmer_presence</a></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Kmer classification. </p>
-<table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a15178d62423d603319fd8a23664afd5fa38113783fd68477aac0ec616b4ed4fb9"></a>absent&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a15178d62423d603319fd8a23664afd5fa3f649a400509ec3cc8b778d14ce2dd26"></a>heterozygous&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a15178d62423d603319fd8a23664afd5fa24ced965e66bc34d849a25192e59fbdf"></a>present&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a15178d62423d603319fd8a23664afd5fa892a529e9382089dc28f99204da4dbaa"></a>frequent&#160;</td><td class="fielddoc"></td></tr>
-</table>
 
 </div>
 </div>
@@ -541,30 +508,6 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="aae3d85fd81e178aedb975015652a6cc4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aae3d85fd81e178aedb975015652a6cc4">&#9670;&nbsp;</a></span>KFF_BLOCK_SIZE</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">constexpr size_t vg::Recombinator::KFF_BLOCK_SIZE = 1000000</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Block size (in kmers) for reading KFF files. </p>
 
 </div>
 </div>
