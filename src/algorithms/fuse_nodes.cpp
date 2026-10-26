@@ -56,7 +56,7 @@ handle_t fuse_nodes(handlegraph::MutablePathDeletableHandleGraph* graph,
     });
 
     // Handle a neighbour that is left or right itself, so the edges built below
-    // land on fused.
+    // connect to fused.
     auto translate = [&](const handle_t& h) {
         if (h == left || h == right) {
             return fused;

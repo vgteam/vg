@@ -24,34 +24,51 @@ static string spell_path(const PathHandleGraph& graph, const string& name) {
     return sequence;
 }
 
-TEST_CASE("can_fuse_nodes accepts a clean boundary and rejects the rest", "[fuse_nodes][algorithms]") {
+TEST_CASE("can_fuse_nodes accepts a left node with nothing on its right and a right node with nothing on its left", "[fuse_nodes][algorithms]") {
     bdsg::HashGraph graph;
-    handle_t n1 = graph.create_handle("AAA");
-    handle_t n2 = graph.create_handle("CC");
-    handle_t n3 = graph.create_handle("GGGG");
-    handle_t n4 = graph.create_handle("TT");
-    graph.create_edge(n1, n2);
-    graph.create_edge(n3, n4);
-
-    SECTION("nothing on the inner sides of the pair") {
-        REQUIRE(algorithms::can_fuse_nodes(graph, n2, n3));
-    }
-    SECTION("the left node has something on its right") {
-        REQUIRE(!algorithms::can_fuse_nodes(graph, n1, n3));
-    }
-    SECTION("the right node has something on its left") {
-        REQUIRE(!algorithms::can_fuse_nodes(graph, n2, n4));
-    }
-    SECTION("a node cannot be fused with itself") {
-        REQUIRE(!algorithms::can_fuse_nodes(graph, n2, n2));
-    }
-    SECTION("an edge between the pair would be swallowed, so it is refused") {
-        graph.create_edge(n2, n3);
-        REQUIRE(!algorithms::can_fuse_nodes(graph, n2, n3));
-    }
+    handle_t a = graph.create_handle("TT");
+    handle_t left = graph.create_handle("AAA");
+    handle_t right = graph.create_handle("CC");
+    handle_t b = graph.create_handle("GGGG");
+    // Edges on the outer sides don't matter.
+    graph.create_edge(a, left);
+    graph.create_edge(right, b);
+    REQUIRE(algorithms::can_fuse_nodes(graph, left, right));
 }
 
-TEST_CASE("fuse_nodes concatenates sequence, re-hangs edges, and keeps paths", "[fuse_nodes][algorithms]") {
+TEST_CASE("can_fuse_nodes rejects a left node with an edge on its right side", "[fuse_nodes][algorithms]") {
+    bdsg::HashGraph graph;
+    handle_t left = graph.create_handle("AAA");
+    handle_t right = graph.create_handle("CC");
+    handle_t other = graph.create_handle("GGGG");
+    graph.create_edge(left, other);
+    REQUIRE(!algorithms::can_fuse_nodes(graph, left, right));
+}
+
+TEST_CASE("can_fuse_nodes rejects a right node with an edge on its left side", "[fuse_nodes][algorithms]") {
+    bdsg::HashGraph graph;
+    handle_t left = graph.create_handle("AAA");
+    handle_t right = graph.create_handle("CC");
+    handle_t other = graph.create_handle("GGGG");
+    graph.create_edge(other, right);
+    REQUIRE(!algorithms::can_fuse_nodes(graph, left, right));
+}
+
+TEST_CASE("can_fuse_nodes rejects fusing a node with itself", "[fuse_nodes][algorithms]") {
+    bdsg::HashGraph graph;
+    handle_t node = graph.create_handle("AAA");
+    REQUIRE(!algorithms::can_fuse_nodes(graph, node, node));
+}
+
+TEST_CASE("can_fuse_nodes rejects two nodes already joined by an edge", "[fuse_nodes][algorithms]") {
+    bdsg::HashGraph graph;
+    handle_t left = graph.create_handle("AAA");
+    handle_t right = graph.create_handle("CC");
+    graph.create_edge(left, right);
+    REQUIRE(!algorithms::can_fuse_nodes(graph, left, right));
+}
+
+TEST_CASE("fuse_nodes concatenates the sequences and keeps outer edges and paths", "[fuse_nodes][algorithms]") {
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("AAA");
     handle_t n2 = graph.create_handle("CC");
@@ -60,8 +77,8 @@ TEST_CASE("fuse_nodes concatenates sequence, re-hangs edges, and keeps paths", "
     graph.create_edge(n1, n2);
     graph.create_edge(n3, n4);
 
-    // Three paths over the seam: one ends on it, one starts on it, and one
-    // crosses it backwards, an orientation the rewrite has to preserve.
+    // One path ends on the fused pair, one starts on it, and one visits it in reverse;
+    // fusing must keep all three, including the reverse one and its orientation.
     path_handle_t left_path = graph.create_path_handle("left");
     graph.append_step(left_path, n1);
     graph.append_step(left_path, n2);
@@ -96,8 +113,8 @@ TEST_CASE("fuse_nodes turns a cycle through the pair into a self-loop", "[fuse_n
     handle_t n2 = graph.create_handle("CC");
     handle_t n3 = graph.create_handle("GGGG");
     graph.create_edge(n1, n2);
-    // Back edge closing a cycle over the pair. Neither end of it sits on the
-    // inner side of the seam, so the pair is still fusable.
+    // This edge closes a cycle, but it doesn't touch the sides being fused,
+    // so fusing is still allowed.
     graph.create_edge(n3, n2);
 
     REQUIRE(algorithms::can_fuse_nodes(graph, n2, n3));

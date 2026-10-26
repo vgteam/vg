@@ -8,6 +8,7 @@
 #include <getopt.h>
 
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -27,12 +28,16 @@ void help_combine(char** argv) {
     cerr << "usage: " << argv[0] << " combine [options] <graph1.vg> [graph2.vg ...] >merged.vg" << endl
          << "Combines one or more graphs into a single file." << endl
          << "Input graphs must not share any path name." << endl
+         << "Pieces of one path in different inputs must all run in the same direction." << endl
          << endl
          << "Options:" << endl
          << "  -s, --seam POLICY     how to resolve overlap between adjacent chunks:" << endl
          << "                          renumber  assume no overlap [default]" << endl
          << "                          shared    overlap by shared nodes" << endl
-         << "                          trim      overlap in REFERENCE coordinates" << endl
+         << "                          trim      overlap in reference path coordinates." << endl
+         << "                                    Every path must run in the same direction" << endl
+         << "                                    as the reference path, and start and end" << endl
+         << "                                    on its end nodes where chunks are joined." << endl
          << "  -u, --fuse            requires --seam trim. Fuse the boundary nodes into" << endl
          << "                        one node instead of adding an edge." << endl
          << "  -P, --phase-block-is-offset" << endl
@@ -54,7 +59,7 @@ static SeamPolicy parse_seam_policy(const string& value, const Logger& logger) {
     }
     logger.error() << "unrecognized --seam policy \"" << value
                    << "\"; expected one of: renumber, shared, trim." << endl;
-    return SeamPolicy::RENUMBER; // not reached; logger.error() exits
+    throw std::logic_error("unreachable"); // logger.error() stream exits after logging
 }
 
 int main_combine(int argc, char** argv) {
@@ -65,7 +70,7 @@ int main_combine(int argc, char** argv) {
         return 1;
     }
 
-    SeamPolicy seam = SeamPolicy::RENUMBER;
+    SeamPolicy seam_policy = SeamPolicy::RENUMBER;
     bool fuse = false;
     bool phase_block_is_offset = false;
 
@@ -94,7 +99,7 @@ int main_combine(int argc, char** argv) {
         switch (c)
         {
         case 's':
-            seam = parse_seam_policy(optarg, logger);
+            seam_policy = parse_seam_policy(optarg, logger);
             break;
         case 'u':
             fuse = true;
@@ -114,7 +119,7 @@ int main_combine(int argc, char** argv) {
     }
 
     // --fuse requires --seam trim.
-    if (fuse && seam != SeamPolicy::COORD_TRIM) {
+    if (fuse && seam_policy != SeamPolicy::COORD_TRIM) {
         logger.error() << "--fuse/-u requires --seam trim." << endl;
     }
 
@@ -126,9 +131,18 @@ int main_combine(int argc, char** argv) {
         inputs.push_back(std::move(in));
     }
 
-    GraphCombiner combiner(seam, fuse, phase_block_is_offset);
-    unique_ptr<MutablePathDeletableHandleGraph> combined =
-        combiner.combine(std::move(inputs));
+    GraphCombiner combiner(seam_policy, fuse, phase_block_is_offset, "vg combine");
+    unique_ptr<MutablePathDeletableHandleGraph> combined;
+    try {
+        combined = combiner.combine(std::move(inputs));
+    } catch (const FuseError& e) {
+        logger.error() << e.what() << " Without --fuse, --seam trim joins them with an "
+                       << "edge instead and keeps everything." << endl;
+    } catch (const CombineError& e) {
+        logger.error() << e.what() << endl;
+    } catch (const std::invalid_argument& e) {
+        logger.error() << e.what() << endl;
+    }
     vg::io::save_handle_graph(combined.get(), cout);
     return 0;
 }
