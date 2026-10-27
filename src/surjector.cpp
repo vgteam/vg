@@ -160,8 +160,9 @@ using namespace std;
             throw invalid_argument("diploid input must contain exactly one primary placement");
         }
 
-        // Keep each candidate's primary alignment together with its supplementary pieces.
-        // Only primary alignments compete when choosing between candidates.
+        // Keep each candidate's non-supplementary alignment together with its supplementary pieces.
+        // Rank candidates using the score of their non-supplementary alignment;
+        // supplementary pieces do not contribute to the candidate score.
         struct Candidate {
             vector<Alignment> pieces;
             vector<tuple<string, int64_t, bool>> positions;
@@ -187,15 +188,15 @@ using namespace std;
                 ->compute_first_mapping_quality(scores, false);
             return max<int32_t>(0, min(max_diploid_mapping_quality, value));
         };
-        // Visit the input primary first so deduplication keeps its metadata when
-        // multiple inputs describe the same graph path.
+        // Surject the primary first, so if another placement has the same graph path,
+        // the primary's copy is the one kept.
         vector<const Alignment*> ordered_sources{primary};
         for (const auto& source : placements) {
             if (&source != primary) {
                 ordered_sources.push_back(&source);
             }
         }
-        // Remove existing SA tags before rebuilding links for the new surjections.
+        // Drop old SA tags before building new ones.
         auto clear_sa = [](Alignment& aln) {
             if (!has_annotation(aln, "tags")) {
                 return;
@@ -216,6 +217,8 @@ using namespace std;
             else set_annotation(aln, "tags", retained);
         };
         unordered_set<string> seen_paths;
+        // Surject each distinct input placement, select its preferred candidate,
+        // and assign haplotype quality.
         for (const auto* source_ptr : ordered_sources) {
             const auto& source = *source_ptr;
             if (source.path().mapping_size() == 0) {
@@ -251,6 +254,7 @@ using namespace std;
                 continue;
             }
             stable_sort(candidates.begin() + first_candidate, candidates.end(), better);
+            // Compare candidates from this input placement to assign haplotype quality.
             vector<double> scores;
             for (size_t i = first_candidate; i < candidates.size(); ++i) {
                 scores.push_back(candidates[i].pieces.front().score());
@@ -274,6 +278,7 @@ using namespace std;
             return output;
         }
         stable_sort(candidates.begin(), candidates.end(), better);
+        // Compare candidates from all input placements to assign global mapping quality.
         vector<double> scores;
         for (const auto& candidate : candidates) {
             scores.push_back(candidate.pieces.front().score());
