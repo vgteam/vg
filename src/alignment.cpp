@@ -1043,6 +1043,7 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         bam_aux_append(bam, "NR", 'Z', pos.size() + 1, (uint8_t*) pos.c_str());
     }
     
+    // Build hp/hq/aq SAM tags from the diploid annotations set by surject_diploid.
     const auto diploid_tags = io::encode_diploid_tags(alignment);
 
     // TODO: it would be nice wrap htslib and set the other tags this way as well
@@ -3137,6 +3138,7 @@ Alignment bam_to_alignment(const bam1_t *b,
     for (size_t i = 0; i < tags.size(); ++i) {
         auto& tag = tags[i];
         auto tag_name = tag.substr(0, 2);
+        // Restore hp/hq/aq as diploid annotations.
         if (io::decode_diploid_tag(alignment, tag_name, tag.at(3), tag.substr(5))) {
             ++removed;
         }
