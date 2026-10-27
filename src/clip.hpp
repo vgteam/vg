@@ -103,8 +103,9 @@ void clip_contained_stubs(MutablePathMutableHandleGraph* graph, PathPositionHand
 /**
  * stubbify reference: clip the edges on the outer sides of the reference paths' first and last nodes
  * (except those a reference path walks). with keep_connected, only clip the ones that lead from an end back
- * into the graph, or tie a piece to more than one end: a piece hanging off one end stays attached (with one
- * node side cut to give it a tip if it has none), so no node is cut off from the reference.
+ * into the graph, or tie a piece to more than one end: a piece hanging off one end stays attached, so no node
+ * is cut off from the reference. a dead end of a piece that only loops gets a tip by having the edges on one
+ * of its node sides cut, since vg haplotypes can't use a graph whose reference end leads only into cycles.
  */
 void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len,
                         bool keep_connected, bool verbose);

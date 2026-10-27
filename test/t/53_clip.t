@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 44
+plan tests 48
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 
@@ -102,7 +102,13 @@ rm -f tiny.gfa tiny-stubs.gfa region.bed tiny-nostubs.gfa
 printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t9\tTTTT\n" > rev-stub.gfa
 printf "L\t1\t-\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t9\t+\t1\t-\t0M\nP\tx\t1-,2+,3+\t*\n" >> rev-stub.gfa
 is "$(vg clip rev-stub.gfa -S -P x | vg paths -L -x -)" "x" "path stubbification leaves a reverse-strand reference path whole"
-is "$(vg clip rev-stub.gfa -S -P x | vg stats -E -)" "2" "path stubbification cuts the stub off a reverse-strand reference end"
+is "$(vg clip rev-stub.gfa -S -P x | vg view - | grep -c $'^L\t9\t')" "0" "path stubbification cuts the stub off a reverse-strand reference start"
+
+# a reference path that ends on the reverse strand: its outer side is the node's left side
+printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t9\tTTTT\n" > rev-end.gfa
+printf "L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t-\t0M\nL\t3\t-\t9\t+\t0M\nP\tx\t1+,2+,3-\t*\n" >> rev-end.gfa
+is "$(vg clip rev-end.gfa -S -P x | vg paths -L -x -)" "x" "path stubbification leaves a path ending on the reverse strand whole"
+is "$(vg clip rev-end.gfa -S -P x | vg view - | grep -c $'^L\t3\t-\t9\t')" "0" "path stubbification cuts the stub off a reverse-strand reference end"
 
 # reference x is 1 2 3 4.  10 hangs off 1 but also enters 3, 11 hangs off 1, 12-13 hang off 4, and
 # 14 runs off 4 and back into 1
@@ -115,7 +121,7 @@ printf "P\th4\t4+,12+,13+\t*\nP\th5\t3+,4+,14+,1+,2+\t*\n" >> ends.gfa
 is "$(vg clip ends.gfa -S -P x | vg stats -s - | wc -l)" "4" "path stubbification cuts off everything hanging off the ends"
 is "$(vg clip ends.gfa -Sk -P x | vg stats -s - | wc -l)" "1" "connected path stubbification keeps one component"
 is "$(vg clip ends.gfa -Sk -P x | vg stats -E -)" "8" "connected path stubbification only cuts the edges that close cycles through the ends"
-is "$(vg clip ends.gfa -Sk -P x | vg view - | grep -c -P '^L\t10\t\+\t1\t')" "0" "connected path stubbification cuts a re-entering stub off the end"
+is "$(vg clip ends.gfa -Sk -P x | vg view - | grep -c $'^L\t10\t+\t1\t')" "0" "connected path stubbification cuts a re-entering stub off the end"
 
 # 20 hangs off 1 with a self loop and no tip: it stays attached, without the loop
 printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t20\tTTA\n" > loop-stub.gfa
@@ -140,7 +146,7 @@ is "$(vg clip ref-ends.gfa -S -P x -P y | vg paths -L -x - | sort | tr '\n' ' ')
 printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t4\tTTTT\nS\t14\tCATCAT\nL\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\n" > two-ends.gfa
 printf "L\t3\t+\t4\t+\t0M\nL\t4\t+\t14\t+\t0M\nL\t14\t+\t1\t+\t0M\nP\tx\t1+,2+,3+,4+\t*\nP\th1\t3+,4+,14+\t*\n" >> two-ends.gfa
 printf "P\th2\t3+,4+,14+\t*\nP\th3\t3+,4+,14+,1+,2+\t*\n" >> two-ends.gfa
-is "$(vg clip two-ends.gfa -Sk -P x | vg view - | grep -c -P '^L\t4\t\+\t14\t')" "1" "connected path stubbification keeps a piece on the end most haplotypes use"
+is "$(vg clip two-ends.gfa -Sk -P x | vg view - | grep -c $'^L\t4\t+\t14\t')" "1" "connected path stubbification keeps a piece on the end most haplotypes use"
 
 # a ring with a bubble and no tips off 3: only the least used edge, 13 back to 10, needs to go
 printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t10\tCA\nS\t11\tG\nS\t12\tT\nS\t13\tAC\n" > ring.gfa
@@ -155,7 +161,19 @@ printf "L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t3\t+\t4\t+\t0M\nL\t4\t+\t10\t+\
 printf "L\t11\t+\t11\t+\t0M\nL\t11\t+\t1\t+\t0M\nP\tx\t1+,2+,3+,4+\t*\nP\th1\t3+,4+,10+,11+,11+,11+,1+,2+\t*\nP\th2\t11+,11+,11+,1+,2+\t*\n" >> bridge.gfa
 is "$(vg clip bridge.gfa -Sk -P x | vg paths -L -x - | grep -c '^h2$')" "1" "connected path stubbification only makes tips for pieces that have none left"
 
-rm -f rev-stub.gfa ends.gfa loop-stub.gfa shared-end.gfa ref-ends.gfa two-ends.gfa ring.gfa bridge.gfa
+# off 4, 8 leads to a tip at 10 but also to 9, a dead end that only loops: 9 needs a tip too
+printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t4\tTTTT\nS\t8\tCA\nS\t9\tGT\nS\t10\tAC\n" > dead-end.gfa
+printf "L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t3\t+\t4\t+\t0M\nL\t4\t+\t8\t+\t0M\nL\t8\t+\t10\t+\t0M\nL\t8\t+\t9\t+\t0M\n" >> dead-end.gfa
+printf "L\t9\t+\t9\t+\t0M\nP\tx\t1+,2+,3+,4+\t*\nP\th1\t1+,2+,3+,4+,8+,10+\t*\nP\th2\t3+,4+,8+,9+,9+,9+\t*\n" >> dead-end.gfa
+is "$(vg clip dead-end.gfa -Sk -P x | vg view - | grep ^L | cut -f 2-5 | LC_ALL=C sort | tr '\t\n' ': ')" "1:+:2:+ 2:+:3:+ 3:+:4:+ 4:+:8:+ 8:+:10:+ 8:+:9:+ " "connected path stubbification gives a looped dead end a tip"
+
+# off 4, 18 hangs off the right side of 17 by both its sides: a dead end at 17's right side that only loops
+printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t4\tTTTT\nS\t16\tCA\nS\t17\tGT\nS\t18\tAC\n" > side-loop.gfa
+printf "L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t3\t+\t4\t+\t0M\nL\t4\t+\t17\t+\t0M\nL\t16\t+\t17\t+\t0M\nL\t17\t+\t18\t+\t0M\n" >> side-loop.gfa
+printf "L\t17\t+\t18\t-\t0M\nP\tx\t1+,2+,3+,4+\t*\nP\th1\t1+,2+,3+,4+,17+,18+\t*\nP\th2\t16+,17+,18-,17-,4-,3-\t*\n" >> side-loop.gfa
+is "$(vg clip side-loop.gfa -Sk -P x | vg stats -E -) $(vg clip side-loop.gfa -Sk -P x | vg stats -s - | wc -l)" "6 1" "connected path stubbification gives a dead end on one side of a node a tip"
+
+rm -f rev-stub.gfa rev-end.gfa ends.gfa loop-stub.gfa shared-end.gfa ref-ends.gfa two-ends.gfa ring.gfa bridge.gfa dead-end.gfa side-loop.gfa
 
 # clipping A's private node 3 leaves two 8 bp pieces of A
 printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t4\tTTTT\nS\t5\tACGT\n" > frag.gfa
