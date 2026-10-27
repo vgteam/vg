@@ -116,7 +116,8 @@ string edit_site_id(nid_t node, uint32_t offset, char kind, const string& alt);
 
 namespace multipass {
 
-/// A chain of sites nested in a site, as its bounds from `oriented_bounds`.
+/// A chain of sites nested in a site, given by its bounds, start to end as the decomposition
+/// orients the chain.
 ///
 /// A chain of one site has that site's bounds. A symbolic allele names a chain by the node IDs of
 /// these bounds.

@@ -21,12 +21,16 @@ using handlegraph::net_handle_t;
 using handlegraph::SnarlDecomposition;
 
 /**
- * The two bounds of a site or chain, oriented like the start and end of a Snarl.
+ * The bounds of a site or chain, as a start handle oriented into it and an end handle oriented out
+ * of it.
  *
- * `start` reads into the site and `end` reads out of it. Most sites lie between the inward sides
- * of `start` and `end`, which can be one node, as in a looping chain. A site made from an edit in
- * the reads lies inside nodes instead (`inside_node`). Its boundaries then lie inside the nodes of
- * `start` and `end`, and are not node sides. The decomposition gives only bounds between nodes.
+ * A walk through the site or chain from start to end visits `start` first and `end` last, in these
+ * orientations. Most sites lie between the inward sides of `start` and `end`. `start` and `end` can
+ * be one node, as in a looping chain.
+ *
+ * A site made from an edit in the reads lies inside nodes instead (`inside_node`). Its boundaries
+ * then lie inside the nodes of `start` and `end`, and are not node sides. The decomposition gives
+ * only bounds between nodes.
  */
 struct SiteBounds {
     handle_t start;
