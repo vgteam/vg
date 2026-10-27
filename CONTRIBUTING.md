@@ -72,6 +72,23 @@ make compile_commands.json
 
 This builds vg's dependencies, if needed, but not vg itself.
 
+### Dev Containers
+
+vg includes a devcontainer setup, but it is only expected to work on UCSC's behind-the-firewall infrastructure, because it mounts shared data that will not be available in other environments.
+
+To use the dev container, make sure you have a supported release of Node, and run:
+
+```
+npx @devcontainers/cli up --remove-existing-container
+```
+
+To get a shell in the container, use:
+```
+npx @devcontainers/cli exec bash
+```
+
+(Make sure to only do this if you are not already operating inside the dev container.)
+
 ### Command-line unit tests
 
 We have a suite of Bash-TAP tests within `test/t/`. Run with `prove -v` for proper error handling.
