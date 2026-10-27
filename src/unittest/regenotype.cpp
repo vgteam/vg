@@ -3,11 +3,14 @@
 /// Unit tests for the phase-aware genotype correction.
 ///
 /// A run with a temper of 0 does not exercise `Lambda`, since at tau = 0 the weighting is the
-/// identity whatever `Lambda` holds. A run with one re-genotyping pass does not either, since it
-/// records nothing again.
-/// Taking the larger correction over the two orders also hides a `Lambda` whose sign is wrong at
-/// every site. So `Lambda` wired backwards at some sites would look like the shuffled control, and
-/// these tests are what check its sign.
+/// identity whatever `Lambda` holds. A run limited to one linkage pass does not either, since it
+/// computes and reports the correction but does not apply it.
+///
+/// At a heterozygous genotype, the correction uses whichever order of the two alleles on the
+/// strands fits the reads better. So a `Lambda` whose sign is wrong at every site gives the same
+/// corrected likelihoods as the right one. A `Lambda` wired backwards at some sites would look
+/// like a run with `RegenotypeParams::shuffle` on. These tests are what check the sign of
+/// `Lambda`.
 
 #include <cmath>
 #include <map>
@@ -268,11 +271,10 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
     REQUIRE(het_gap_incoherent < het_gap_coherent);
 }
 
-TEST_CASE("the per-read escape is exactly nothing at temper 0, whatever the ceiling",
-          "[regenotype]") {
-    // At temper 0 the ceiling must leave every read's log-odds at 0, so that a temper of 0 still
-    // changes nothing. It does so for any ceiling c. At tau = 0 the sigmoid is 1/2, so the
-    // probability is c / 2 + (1 - c) / 2 = 1/2, and its logit is 0.
+TEST_CASE("at temper 0 every read's log-odds are 0, whatever the ceiling", "[regenotype]") {
+    // A temper of 0 must change nothing, so every read's log-odds must be 0 there for any
+    // ceiling c. At tau = 0 the sigmoid is 1/2, so the probability is c / 2 + (1 - c) / 2 = 1/2,
+    // and its logit is 0.
     for (double c : {1.0, 0.99, 0.95, 0.5, 0.01}) {
         for (double lam : {0.0, 17.3, -1215.0, 1e9, -1e-9}) {
             REQUIRE(StrandCalibration{0.0, c}.log_odds(lam) == 0.0);
@@ -280,17 +282,18 @@ TEST_CASE("the per-read escape is exactly nothing at temper 0, whatever the ceil
     }
 }
 
-TEST_CASE("the per-read escape caps how confident a read may be", "[regenotype]") {
-    // The point of the ceiling. At c = 1 a read at |Lambda| = 1215 and the fitted temper asserts
-    // a strand at odds of e^60, which the calibration says is wrong -- observed agreement there
-    // is 0.973, not 1. The escape holds it to something the data supports.
+TEST_CASE("the ceiling caps how confident a read may be", "[regenotype]") {
+    // A read with |Lambda| = 1215, at a temper of about 0.05, has tau * Lambda of about 60. With
+    // a ceiling of 1, its strand probability is within 1e-12 of 1, so its log-odds are large.
+    // With a ceiling of 0.95, the probability is at most 0.975, and the log-odds are at most
+    // about 3.7.
     const double tau = 0.0498438;
     const double wild = StrandCalibration{tau, 1.0}.log_odds(1215.0);
     const double held = StrandCalibration{tau, 0.95}.log_odds(1215.0);
     REQUIRE(wild > 20.0);
     REQUIRE(held < 5.0);
     REQUIRE(std::isfinite(wild));   // clamped off 1, or the logit is infinite
-    // Monotone in the evidence, and still ordered the same way.
+    // Under the ceiling, the log-odds still grow with |Lambda|, and negating Lambda negates them.
     REQUIRE(StrandCalibration{tau, 0.95}.log_odds(102.0) < held);
     REQUIRE(StrandCalibration{tau, 0.95}.log_odds(-1215.0) == Approx(-held).epsilon(1e-12));
 }
