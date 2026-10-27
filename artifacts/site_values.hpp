@@ -32,17 +32,28 @@ using namespace std;
 /// read-likelihood caller never calls.
 bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Traversal& walk);
 
-/// The sequence of each visit of an allele's walk, read the way the walk reads the node.
-///
-/// It spells an allele that its walk does not spell, such as the walk with a base changed inside
-/// one of its nodes. It is empty for an allele that its walk spells.
+/**
+ * The sequence an allele has at each node its walk visits, for an allele the graph cannot spell.
+ *
+ * An allele of an edit site differs from the graph inside a node, such as by one changed base, so
+ * no walk of the graph spells it. The allele still has a walk, which says which nodes it covers.
+ * Element `i` is the allele's sequence where the walk visits node `walk[i]`, read the way the walk
+ * reads that node: the node's sequence with the edit applied.
+ *
+ * An allele whose walk spells it has none, and this is empty.
+ */
 using StepSequences = vector<string>;
 
-/// The `StepSequences` of each allele of a site, by allele.
-///
-/// It is empty when every allele is spelled by its walk, as for every site the decomposition
-/// holds. An allele with step sequences is spelled, scored and written as them. No panel haplotype
-/// carries such an allele.
+/**
+ * The `StepSequences` of each allele of a site, indexed like the site's walks.
+ *
+ * For a site of the decomposition, every walk spells its allele, and this is empty. For an edit
+ * site, the reference allele's entry is empty, and each other allele's entry holds its edited
+ * sequences.
+ *
+ * Code that spells, scores or writes an allele uses its step sequences where it has them (see
+ * `own_sequences`). No panel haplotype carries an allele that has them.
+ */
 using AlleleSequences = vector<StepSequences>;
 
 /// Get the step sequences of allele `allele` in `sequences`, or null when its walk spells it or
