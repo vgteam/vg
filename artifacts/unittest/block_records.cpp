@@ -8,7 +8,7 @@
 #include <bdsg/overlays/path_position_overlays.hpp>
 
 #include "catch.hpp"
-#include "../block_records.hpp"
+#include "block_records.hpp"
 
 namespace vg {
 namespace unittest {

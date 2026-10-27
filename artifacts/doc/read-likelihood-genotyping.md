@@ -310,7 +310,7 @@ vg has such a table built in for each common reference assembly and sample sex, 
 An `XY` table makes chrX haploid outside its pseudoautosomal regions and chrY and the
 mitochondrion haploid, and an `XX` table gives chrY ploidy 0 and makes the mitochondrion haploid.
 A contig with no line is diploid, so one table serves a whole-genome run and a run on any one
-contig alike, with no `--ploidy`. The tables are in `src/ploidy_presets.cpp`; for another assembly
+contig alike, with no `--ploidy`. The tables are in `artifacts/ploidy_presets.cpp`; for another assembly
 or karyotype, copy the nearest one into a BED file, edit it, and pass it with `--ploidy-bed`.
 
 A nested site takes its ploidy from its parent's genotype instead (see
@@ -857,15 +857,15 @@ holds it.
 
 | Constant | Defined in | What it sets |
 |---|---|---|
-| `LinkageModel::Params::escape` | `src/linkage_model.hpp` | the escape penalty $\epsilon_{\mathrm{esc}}$ on a strand with an [unknown allele](read-likelihood-linkage-model.md#mutation-and-escape) |
-| `LinkageModel::Params::rho_min` | `src/linkage_model.hpp` | the floor $\rho_{\min}$ in the switch probability (see [Transitions](read-likelihood-linkage-model.md#transitions)) |
-| `LinkageModel::Params::window`, `margin` | `src/linkage_model.hpp` | the number of sites each forward–backward window keeps, and the extra sites decoded and discarded on each side |
-| `RATE_BUCKET`, `RATE_ID_WINDOW` | `src/allele_likelihood.hpp` | reference bp per rate-window bucket (a rate window is three buckets), and node IDs per rate window when there are no reference positions |
-| `banded` and `band`, in `score_by_optimal_pairing` | `src/allele_likelihood.cpp` | the grid size, in read visits times allele visits, above which optimal pairing is restricted to a band, and the band's half-width in allele visits |
+| `LinkageModel::Params::escape` | `artifacts/linkage_model.hpp` | the escape penalty $\epsilon_{\mathrm{esc}}$ on a strand with an [unknown allele](read-likelihood-linkage-model.md#mutation-and-escape) |
+| `LinkageModel::Params::rho_min` | `artifacts/linkage_model.hpp` | the floor $\rho_{\min}$ in the switch probability (see [Transitions](read-likelihood-linkage-model.md#transitions)) |
+| `LinkageModel::Params::window`, `margin` | `artifacts/linkage_model.hpp` | the number of sites each forward–backward window keeps, and the extra sites decoded and discarded on each side |
+| `RATE_BUCKET`, `RATE_ID_WINDOW` | `artifacts/allele_likelihood.hpp` | reference bp per rate-window bucket (a rate window is three buckets), and node IDs per rate window when there are no reference positions |
+| `banded` and `band`, in `score_by_optimal_pairing` | `artifacts/allele_likelihood.cpp` | the grid size, in read visits times allele visits, above which optimal pairing is restricted to a band, and the band's half-width in allele visits |
 | `max_yens_traversals` | `src/subcommand/call_main.cpp` | the most candidate alleles support enumeration keeps |
-| the difference limit in `LinkageModel::run_length_site` | `src/linkage_model.cpp` | the largest homopolymer length difference to which `--hp-prior` applies |
-| the `int8_t` of `LinkageCollector::allele_arena` | `src/linkage_model.hpp` | the most alleles a site's compact allele set may hold for the linkage model |
-| the 64-bit crossing mask of `ChildPlacer::child_crossing_mask` | `src/child_placer.hpp` | the most candidate alleles a parent site can have for vg to tell which of them cross a child site |
-| the `min_length` argument of `set_depth_quality` | `src/read_likelihood_caller.hpp` | the change in allele length at which `--depth-quality` applies |
-| the minimum counted reads in `read_phase_flips` | `src/read_phasing.cpp` | the reads a site needs before low coherence can remove it from the phase chain |
-| `RegenotypeParams::fit_bins`, `fit_min_per_bin`, and the grid in `fit_calibration` | `src/regenotype.hpp`, `src/regenotype.cpp` | the bins, the fewest observations per bin, and the candidate values used to fit $\tau$ |
+| the difference limit in `LinkageModel::run_length_site` | `artifacts/linkage_model.cpp` | the largest homopolymer length difference to which `--hp-prior` applies |
+| the `int8_t` of `LinkageCollector::allele_arena` | `artifacts/linkage_model.hpp` | the most alleles a site's compact allele set may hold for the linkage model |
+| the 64-bit crossing mask of `ChildPlacer::child_crossing_mask` | `artifacts/child_placer.hpp` | the most candidate alleles a parent site can have for vg to tell which of them cross a child site |
+| the `min_length` argument of `set_depth_quality` | `artifacts/read_likelihood_caller.hpp` | the change in allele length at which `--depth-quality` applies |
+| the minimum counted reads in `read_phase_flips` | `artifacts/read_phasing.cpp` | the reads a site needs before low coherence can remove it from the phase chain |
+| `RegenotypeParams::fit_bins`, `fit_min_per_bin`, and the grid in `fit_calibration` | `artifacts/regenotype.hpp`, `artifacts/regenotype.cpp` | the bins, the fewest observations per bin, and the candidate values used to fit $\tau$ |

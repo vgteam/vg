@@ -540,7 +540,7 @@ is $(awk -F'\t' '$1 == "#haplotype" {n++} END {print (n > 0) ? 1 : 0}' rl_mosaic
 # names its haplotypes portably, and it hands the consumer a GBWT position. One test each.
 is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "5" "the mosaic declares version 5"
 
-# The set of header keys is the format's contract with a parser, and doc/read-likelihood-genotyping.md
+# The set of header keys is the format's contract with a parser, and artifacts/doc/read-likelihood-genotyping.md
 # enumerates it. Adding a key without documenting it is exactly the drift that shipped a header with
 # five undocumented #note lines while the doc's example showed none, so pin the set: if this fails,
 # update the doc's key list in the same commit.
@@ -762,7 +762,7 @@ is $(if [ $(wc -l < rl_ra.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi
 rm -f rl_ra.vcf
 
 # Only an explicit --optimal-pairing selects optimal pairing. Both pairings are tested in
-# src/unittest/allele_likelihood_scoring.cpp, since this fixture cannot tell them apart. Here we
+# artifacts/unittest/allele_likelihood_scoring.cpp, since this fixture cannot tell them apart. Here we
 # check that the --preset help, which lists every setting a preset applies, does not list it.
 is $(vg call --help 2>&1 | grep -A4 -- "--preset NAME" | grep -c -- "--hp-prior 20") "1" \
    "the --preset help lists the settings a preset applies"

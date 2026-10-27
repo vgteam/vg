@@ -17,7 +17,7 @@
 #include "../graph_caller.hpp"
 #include "../flow_caller.hpp"
 #include "../legacy_caller.hpp"
-#include "../multipass_caller.hpp"
+#include "multipass_caller.hpp"
 #include "../snarl_manager_decomposition.hpp"
 #include "../nested_flow_caller.hpp"
 #include "../vcf_genotyper.hpp"
@@ -28,9 +28,9 @@
 #include "../gbwtgraph_helper.hpp"
 #include "../gref.hpp"
 #include "../traversal_clusters.hpp"
-#include "../read_likelihood_caller.hpp"
-#include "../ploidy_presets.hpp"
-#include "../site_read_source.hpp"
+#include "read_likelihood_caller.hpp"
+#include "ploidy_presets.hpp"
+#include "site_read_source.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>

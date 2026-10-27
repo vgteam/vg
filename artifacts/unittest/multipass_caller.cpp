@@ -5,15 +5,15 @@
 /// either.
 
 #include "catch.hpp"
-#include "../alignment_scorer.hpp"
-#include "../allele_likelihood.hpp"
-#include "../integrated_snarl_finder.hpp"
-#include "../multipass_caller.hpp"
-#include "../read_likelihood_caller.hpp"
-#include "../site_read_source.hpp"
-#include "../traversal_support.hpp"
-#include "../vcf_output_caller.hpp"
-#include "support/decomposition_pair.hpp"
+#include "alignment_scorer.hpp"
+#include "allele_likelihood.hpp"
+#include "integrated_snarl_finder.hpp"
+#include "multipass_caller.hpp"
+#include "read_likelihood_caller.hpp"
+#include "site_read_source.hpp"
+#include "traversal_support.hpp"
+#include "vcf_output_caller.hpp"
+#include "decomposition_pair.hpp"
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/overlays/path_position_overlays.hpp>

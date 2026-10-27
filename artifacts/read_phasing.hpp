@@ -19,7 +19,7 @@
  *      site, where a wrong link in the chain would flip every site after it.
  *   5. Order by reads alone the sites the panel does not order that no read links to the chain.
  *
- * The method is described in doc/read-likelihood-read-phasing.md, under "Read phasing".
+ * The method is described in artifacts/doc/read-likelihood-read-phasing.md, under "Read phasing".
  */
 
 #include <cstddef>

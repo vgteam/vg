@@ -140,7 +140,8 @@ def units(path, text):
 
 def main():
     paths = []
-    for top, exts in (('doc', ('.md',)), ('src', ('.cpp', '.hpp'))):
+    for top, exts in (('doc', ('.md',)), ('src', ('.cpp', '.hpp')),
+                      ('artifacts', ('.md', '.cpp', '.hpp'))):
         for root, _, files in os.walk(top):
             paths += [os.path.join(root, f) for f in files if f.endswith(exts)]
     ok = True
@@ -163,7 +164,8 @@ def main():
                     if pattern.search(comment) and comment not in LINE_RULE_COMMENTS_ALLOWED:
                         print(f"{path}:{line}: {message}")
                         ok = False
-            if path.startswith(os.path.join('src', 'unittest') + os.sep):
+            if path.startswith((os.path.join('src', 'unittest') + os.sep,
+                                os.path.join('artifacts', 'unittest') + os.sep)):
                 for number, line in enumerate(text.split('\n'), 1):
                     for match in TEST_NAME.finditer(line):
                         if OPTION.search(match.group(1)):

@@ -1,0 +1,19 @@
+# Artifacts
+
+The code and write-ups in this tree were written by coding agents, and no person has yet read them
+and cleared them for reading. They build and run as part of vg, and its tests cover them, but their
+comments and documents may not explain them well. Read the code in `src/` to learn how vg works.
+
+The tree mirrors `src/`:
+
+- `artifacts/` holds library code. It goes into `libvg`, beside the code in `src/`.
+- `artifacts/unittest/` holds unit tests, and `artifacts/unittest/support/` their helpers. They go
+  into the `vg` binary and into a test binary of their own in `bin/unittest/`, beside the tests in
+  `src/unittest/`.
+- `artifacts/doc/` holds write-ups, listed in `artifacts/doc/README.md`.
+
+Code in `src/` may include headers from here. No file here other than a `README.md` may share a
+name with a file in `src/` or `doc/`, since objects, test binaries and includes are found by name.
+The Makefile stops with an error if one does.
+
+A file leaves this tree for `src/` or `doc/` once a person has read it and cleared it for reading.

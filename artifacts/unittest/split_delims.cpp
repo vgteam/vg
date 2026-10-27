@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "../utility.hpp"
+#include "utility.hpp"
 
 #include "catch.hpp"
 

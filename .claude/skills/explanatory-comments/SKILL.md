@@ -9,6 +9,12 @@ A doc comment or doc section explains one concept to a reader who is new to the 
 only a few ideas in mind at once. This skill gives the rules such prose follows and a protocol that
 tests it.
 
+## Where a write-up goes
+
+A Markdown write-up that you write goes in `artifacts/doc/`, and is listed in
+`artifacts/doc/README.md`. It moves to `doc/` only when a person has read it and cleared it for
+reading. See `artifacts/README.md`.
+
 ## Rules
 
 - **One coherent abstraction per comment or section.** It says what one thing does, succinctly, in

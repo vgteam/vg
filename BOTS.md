@@ -153,6 +153,10 @@ Some words mean something narrower, or something else, inside one module. In tha
 - *temporary index*: the mutable description of a snarl tree from which the index is built.
 - *prefix sum*: When computing distances, for a node in a chain, the distance from the start of the chain to the start of the node.
 
+## Machine-Written Files
+- New source files, unit tests and write-ups that you write go in `artifacts/`, `artifacts/unittest/` and `artifacts/doc/`, not in `src/` or `doc/`. A file moves to `src/` or `doc/` only when a person has read it and cleared it for reading. See `artifacts/README.md`.
+- A file in `artifacts/` other than a `README.md` must not share a name with a file in `src/` or `doc/`. The Makefile checks this.
+
 ## Writing Classes and Functions
 - When adding, splitting or reviewing classes and structs, use the `class-identity` skill.
 - Before finishing a task that adds or redesigns a class or adds a function, lint them with the `lint-new-code` skill. Keep each class and function it makes you split coherent by the `class-identity` skill.

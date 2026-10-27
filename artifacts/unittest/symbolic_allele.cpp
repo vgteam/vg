@@ -11,8 +11,8 @@
 #include <bdsg/hash_graph.hpp>
 
 #include "catch.hpp"
-#include "../snarl_manager_decomposition.hpp"
-#include "../symbolic_allele.hpp"
+#include "snarl_manager_decomposition.hpp"
+#include "symbolic_allele.hpp"
 
 namespace vg {
 namespace unittest {

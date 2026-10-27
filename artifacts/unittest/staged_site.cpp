@@ -3,7 +3,7 @@
 /// Unit tests for StagedSiteTable.
 
 #include "catch.hpp"
-#include "../staged_site.hpp"
+#include "staged_site.hpp"
 
 namespace vg {
 namespace unittest {

@@ -4,16 +4,16 @@
 /// SnarlDecomposition implementation built from the same decomposition.
 
 #include "catch.hpp"
-#include "../decomposition_sites.hpp"
-#include "../handle.hpp"
-#include "../vg.hpp"
-#include "../integrated_snarl_finder.hpp"
-#include "../snarl_manager_decomposition.hpp"
-#include "support/decomposition_lineup.hpp"
-#include "support/snarl_decomposition_fuzzer.hpp"
-#include "support/random_graph.hpp"
-#include "support/randomly_flipped_nodes.hpp"
-#include "support/randomness.hpp"
+#include "decomposition_sites.hpp"
+#include "handle.hpp"
+#include "vg.hpp"
+#include "integrated_snarl_finder.hpp"
+#include "snarl_manager_decomposition.hpp"
+#include "decomposition_lineup.hpp"
+#include "snarl_decomposition_fuzzer.hpp"
+#include "random_graph.hpp"
+#include "randomly_flipped_nodes.hpp"
+#include "randomness.hpp"
 
 #include <bdsg/hash_graph.hpp>
 

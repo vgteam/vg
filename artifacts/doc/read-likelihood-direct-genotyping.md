@@ -378,7 +378,7 @@ length that set the expected read count. Those two come from the reads that begi
 Reads with MAPQ below `--read-min-mapq`, secondary alignments, and alignments with no placement
 are discarded as they are read in. The reads come from one of four sources:
 
-- `--gam` or `--gaf-reads`: a GAM or [GAF](static/GAF.md) file, loaded into memory.
+- `--gam` or `--gaf-reads`: a GAM or [GAF](../../doc/static/GAF.md) file, loaded into memory.
 - `--gam` with `--gam-index`: a GAM file sorted and indexed by `vg gamsort --index`. Reads are
   fetched from it as they are needed, one range of consecutive node IDs at a time; node IDs in a
   typical pangenome graph increase roughly along the genome.

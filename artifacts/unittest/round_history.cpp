@@ -2,7 +2,7 @@
 /// Tests for RoundHistory, the record of the states that re-genotyping rounds reach.
 
 #include "catch.hpp"
-#include "../round_history.hpp"
+#include "round_history.hpp"
 
 namespace vg {
 namespace unittest {

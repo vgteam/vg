@@ -11,9 +11,9 @@
 #include <bdsg/hash_graph.hpp>
 
 #include "catch.hpp"
-#include "../alignment.hpp"
-#include "../off_panel.hpp"
-#include "../site_values.hpp"
+#include "alignment.hpp"
+#include "off_panel.hpp"
+#include "site_values.hpp"
 
 namespace vg {
 namespace unittest {

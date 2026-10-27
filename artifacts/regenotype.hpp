@@ -22,7 +22,7 @@
  * likelihood the direct pass computed. The rest of that likelihood, such as the depth term, stays
  * as it was, so only `PhaseReadEvidence` has to be kept. The direct pass's own read term used the
  * mixture weights, which equal `v` when the two alleles have the same length. The method is
- * described in doc/read-likelihood-read-phasing.md, under "Re-genotyping from the phase".
+ * described in artifacts/doc/read-likelihood-read-phasing.md, under "Re-genotyping from the phase".
  */
 
 #include <cstddef>

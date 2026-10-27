@@ -1,5 +1,6 @@
-/// \file graph_caller.cpp
-/// Tests for the VCF output buffer's record ordering.
+/// \file multipass_parts.cpp
+/// Tests for parts of the read-likelihood caller: the VCF output buffer's record ordering, child
+/// offsets, the staged-site tree, anchor strands and phase swaps.
 ///
 /// Records sharing a position are rare in real output, so the order of ties is checked here.
 
@@ -13,14 +14,14 @@
 #include <bdsg/hash_graph.hpp>
 
 #include "catch.hpp"
-#include "../graph_caller.hpp"
-#include "../flow_caller.hpp"
-#include "../vcf_output_caller.hpp"
-#include "../child_placer.hpp"
-#include "../phase_table.hpp"
-#include "../read_strand_table.hpp"
-#include "../staged_site.hpp"
-#include "../vcf_record.hpp"
+#include "graph_caller.hpp"
+#include "flow_caller.hpp"
+#include "vcf_output_caller.hpp"
+#include "child_placer.hpp"
+#include "phase_table.hpp"
+#include "read_strand_table.hpp"
+#include "staged_site.hpp"
+#include "vcf_record.hpp"
 
 namespace vg {
 namespace unittest {

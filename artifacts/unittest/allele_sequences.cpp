@@ -11,8 +11,8 @@
 #include <gbwt/dynamic_gbwt.h>
 
 #include "catch.hpp"
-#include "../panel_lookup.hpp"
-#include "../site_values.hpp"
+#include "panel_lookup.hpp"
+#include "site_values.hpp"
 
 namespace vg {
 namespace unittest {
