@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 36
+plan tests 38
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 
@@ -156,6 +156,15 @@ printf "L\t11\t+\t11\t+\t0M\nL\t11\t+\t1\t+\t0M\nP\tx\t1+,2+,3+,4+\t*\nP\th1\t3+
 is "$(vg clip bridge.gfa -Sk -P x | vg paths -L -x - | grep -c '^h2$')" "1" "connected path stubbification only makes tips for pieces that have none left"
 
 rm -f rev-stub.gfa ends.gfa loop-stub.gfa shared-end.gfa ref-ends.gfa two-ends.gfa ring.gfa bridge.gfa
+
+# clipping A's private node 3 leaves two 8 bp pieces of A
+printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t4\tTTTT\nS\t5\tACGT\n" > frag.gfa
+printf "L\t1\t+\t2\t+\t0M\nL\t2\t+\t4\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t3\t+\t4\t+\t0M\nL\t4\t+\t5\t+\t0M\n" >> frag.gfa
+printf "P\tREF#0#chr1\t1+,2+,4+,5+\t*\nP\tA#1#chr1\t1+,2+,3+,4+,5+\t*\nP\tB#1#chr1\t1+,2+,4+,5+\t*\n" >> frag.gfa
+is "$(vg clip frag.gfa -d 2 -P REF | vg paths -L -x - | grep -c '^A#')" "2" "depth clipping keeps both pieces of a chopped path"
+is "$(vg clip frag.gfa -d 2 -P REF -m 9 | vg paths -L -x - | grep -c '^A#')" "0" "min fragment length drops pieces that end at a clipped node"
+
+rm -f frag.gfa
 
 vg clip graphs/snarl-clip.gfa -A 2 -d 2 -P x > sc-A2d2.gfa
 is "$(vg find -x sc-A2d2.gfa -n 4 | wc -l)" "0" "Node 4 correctly clipped with snarl length and depth filter"
