@@ -21,7 +21,8 @@
     "containerUser": "${localEnv:USER}",
     "containerEnv": {
         "LANG": "${localEnv:LANG}",
-        "CLAUDE_CONFIG_DIR": "/home/${localEnv:USER}/.claude"
+        "CLAUDE_CONFIG_DIR": "/home/${localEnv:USER}/.claude",
+        "DISABLE_AUTOUPDATER": "1"
     },
     "postCreateCommand": "npx -y claude-carbon; make get-deps"
 }
