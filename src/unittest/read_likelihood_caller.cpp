@@ -1,11 +1,11 @@
 /// \file read_likelihood_caller.cpp
 ///
-/// Unit tests for the layer that turns a reads x alleles matrix into a genotype and
-/// its quality fields.
+/// Unit tests for ReadLikelihoodSnarlCaller, which turns a matrix of read and allele likelihoods
+/// into a genotype and its quality fields.
 ///
-/// The matrix itself is tested under `[allele_likelihood]`. These tests check what the
-/// quality fields contain: the two multiplicative discounts on GQ, one of them gated on
-/// allele size, and the keys of the genotype likelihoods.
+/// The matrix itself is tested under `[allele_likelihood]`. These tests check what the quality
+/// fields contain: the two factors that discount GQ, and the keys of the genotype likelihoods. One
+/// of the factors, the depth discount, applies only where the alleles differ in length by enough.
 
 #include <cmath>
 #include <string>
@@ -29,9 +29,11 @@ using namespace std;
 
 namespace {
 
-/// A site with a reference path, a SNP alternative, and a deletion, so that both a
-/// same-length and a length-changing call can be exercised. Node 4 is long enough that
-/// dropping nodes 2/3 is a >= 50 bp change, which is what arms the depth discount.
+/// A site whose alleles are the reference walk, a walk of the same length through another node,
+/// and a 60 bp deletion.
+///
+/// The deletion changes the allele length by more than the 50 bp at which the depth discount
+/// starts to apply, and the other alternative changes it by nothing.
 struct CallerSite {
     bdsg::HashGraph graph;
     Snarl snarl;
@@ -97,15 +99,16 @@ Alignment matching_read(const HandleGraph& graph, const string& name,
     return aln;
 }
 
-/// Genotype one site, returning the call and its info together so the fields can be
-/// inspected. `configure` runs against the caller before genotyping.
+/// The genotype of a site, with the call info that explains it.
 struct Called {
     vector<int> genotype;
-    const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* info;
-    unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> owned;
+    /// The call info, or null if the caller made none.
+    unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> info;
     /// The caller's `gq_factor` for `info`, under the settings it was called with.
     double gq_factor = 0.0;
 };
+
+/// Genotype the site from `reads`. `configure` runs against the caller before genotyping.
 
 Called call_site(CallerSite& site, const vector<Alignment>& reads,
                  const function<void(ReadLikelihoodSnarlCaller&)>& configure = nullptr,
@@ -131,8 +134,7 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
                                      /* top-level: nothing encloses it */ {});
     Called out;
     out.genotype = result.first;
-    out.info = result.second.get();
-    out.owned = std::move(result.second);
+    out.info = std::move(result.second);
     if (out.info != nullptr) {
         out.gq_factor = caller.gq_factor(*out.info);
     }
@@ -171,7 +173,7 @@ TEST_CASE("GQ rises with the evidence and never exceeds the undiscounted value",
     REQUIRE(strong.info->explained_share <= 1.0);
 }
 
-TEST_CASE("--no-share-quality makes GQ the raw ratio, and the share still reports",
+TEST_CASE("Without the share discount, GQ is the raw ratio and the share is still reported",
           "[read_likelihood_caller]") {
     CallerSite site;
     vector<Alignment> reads;
@@ -203,7 +205,7 @@ TEST_CASE("--no-share-quality makes GQ the raw ratio, and the share still report
     REQUIRE(discounted.info->gq == Approx(raw.info->gq * discounted.info->explained_share));
 }
 
-TEST_CASE("gq_factor and achievable_gap are what GQ and GQN were computed with",
+TEST_CASE("GQ and GQN can be recomputed from gq_factor and achievable_gap",
           "[read_likelihood_caller]") {
     // A moved record's quality fields are rewritten from these two, so each must reproduce the
     // per-site value it stands for, under every setting that changes GQ.
@@ -250,7 +252,7 @@ TEST_CASE("gq_factor and achievable_gap are what GQ and GQN were computed with",
     REQUIRE(deep_raw.gq_factor == Approx(deep_raw.info->depth_discount));
 }
 
-TEST_CASE("The depth discount is gated on the called allele's length change",
+TEST_CASE("The depth discount does not apply when the alleles have the same length",
           "[read_likelihood_caller]") {
     CallerSite site;
     vector<Alignment> reads;
@@ -258,9 +260,9 @@ TEST_CASE("The depth discount is gated on the called allele's length change",
         reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 2, 4}));
     }
 
-    // Reference against SNP is a 0 bp change, so however implausible the depth, the
-    // discount must not fire. This is the gate that keeps a ranking signal aimed at
-    // structural variants from touching the SNVs, which are the bulk of every call set.
+    // The reference and the SNP alternative have the same length, so the discount must not
+    // apply however implausible the depth is. It is meant for ranking structural variants, and
+    // must leave the SNVs, which are most of every call set, as they are.
     Called snp_site = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
         c.set_depth_quality(1.0, 50);
     });
@@ -269,8 +271,8 @@ TEST_CASE("The depth discount is gated on the called allele's length change",
 
     Called undiscounted = call_site(site, reads);
     REQUIRE(undiscounted.info != nullptr);
-    // Identical GQ: the only difference between the runs is a discount that is gated
-    // off. If the gate were removed or its comparison inverted, these would diverge.
+    // The two runs differ only by a discount that does not apply here, so GQ must be the same.
+    // If the length test were dropped or inverted, the GQs would differ.
     REQUIRE(snp_site.info->gq == Approx(undiscounted.info->gq));
 }
 
@@ -404,7 +406,7 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     Called called = call_site(site, reads);
     REQUIRE(called.info != nullptr);
     REQUIRE(called.genotype == vector<int>({0, 1}));
-    auto& info = *called.owned;
+    auto& info = *called.info;
 
     // Re-genotyping changes the likelihoods in place; here 1/1 is made the best genotype, with
     // 0/1 second.
@@ -428,7 +430,7 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
         REQUIRE(info.gq == Approx(gap * share));
         REQUIRE(info.gq < gap);
     }
-    SECTION("with --no-share-quality") {
+    SECTION("without the share discount") {
         caller.set_share_discount(false);
         caller.recompute_gq(info);
         REQUIRE(info.gq == Approx(gap));
@@ -501,7 +503,7 @@ TEST_CASE("A moved record's quality fields come from the stored direct call",
         moved.direct.gq_factor = 0.5;   // the share, as by default
         REQUIRE(rewrite(shared, "s", moved, 0.0));
         REQUIRE(field(shared, "GQ") == "11");
-        moved.direct.gq_factor = 1.0;   // --no-share-quality, no depth discount
+        moved.direct.gq_factor = 1.0;   // neither the share discount nor the depth discount
         REQUIRE(rewrite(unshared, "s", moved, 0.0));
         REQUIRE(field(unshared, "GQ") == "23");
     }

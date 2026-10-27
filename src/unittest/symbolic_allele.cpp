@@ -433,7 +433,8 @@ TEST_CASE("A resolvable lookup with mismatched boundaries is still refused", "[s
     // into_which_snarl succeeds and returns (1,5) -- and the site claims to be (1,4), which matches
     // neither forward (end 5 != 4) nor reversed (start 1 != 4). Without this the suite only ever
     // asserted that reversals are accepted, never that impostors are still rejected, because the
-    // other negative case exits at the null-lookup gate and never reaches the predicate at all.
+    // other negative case returns as soon as the lookup finds no snarl, and never reaches the
+    // predicate at all.
     Snarl top = make_snarl(1, 5);
     Snarl child = make_snarl(2, 4);
     auto mgr = make_manager(top, {child});

@@ -179,7 +179,8 @@ class StagedSiteTable;
  * The staged sites, and the sites enclosing them, as a `SiteTree`.
  *
  * The VCF's nesting INFO tags are computed from it. Each staged site lies under the sites in its
- * `StagedSite::enclosing`, so a site the decomposition does not hold is placed like one it holds.
+ * `StagedSite::enclosing`. That gives a site the decomposition does not hold, such as an edit site,
+ * a place in the tree.
  * A site that is both staged and enclosing appears once.
  *
  * A site whose ID is made from its bounds is matched to its records by its boundary visits. A site

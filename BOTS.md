@@ -7,6 +7,9 @@
   - Until then, to try a change to a library such as libbdsg: run `make` in the dependency's own directory, copy its `.a` into `lib/`, delete `bin/vg`, and run `make -o lib/libbdsg.a` (naming the library you changed), which relinks without remaking the library or recompiling vg.
 - You may be getting errors from `clangd`. If these errors seem spurious, stop and demand a `clangd` that works properly.
 
+## Waiting for Background Work
+- Never wait for a process by polling `pgrep -f` or `pkill -f` with a pattern. The shell running the check has the pattern in its own command line, so the check finds itself and never ends. Wait on the job itself instead: run it in the background and wait to be told it finished, `wait` on its PID, or poll for a file the job writes as its last step.
+
 ## Testing
 
 ### Running Bash-TAP Tests
@@ -156,6 +159,9 @@ Some words mean something narrower, or something else, inside one module. In tha
 
 ## Writing Comments
 - Before finishing a task in which you wrote or changed code comments, use the `intelligible-comments` skill to rewrite them so that a programmer new to the code understands each one on one reading.
+- Name a setting by what it means, or by its name in the library code, never by a command-line option. This holds in library comments and in unit tests: their comments, `TEST_CASE` and `SECTION` names, and messages. Only `src/subcommand/` names options. `make lint` checks this.
+- Do not write "gate", "gated" or "gating" for the condition under which something happens. Say what must be true for it to happen ("the depth discount applies where the alleles differ in length by 50 bp or more"). `make lint` checks this.
+- Say what a thing is. Do not define it by likeness or by reference to something else ("oriented like the start and end of a Snarl", "in the order `find_traversals()` uses"). If the next sentence explains the thing, delete the indirect one.
 
 ## Documentation
 - When writing or reviewing doc comments or design docs, follow `.claude/skills/explanatory-comments/SKILL.md`. (Yes, there are two different skills for working on comments. This one is more about what ought to be explained, and how to organize ideas, rather than how to write them out in words.) 

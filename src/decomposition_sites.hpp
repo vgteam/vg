@@ -21,7 +21,7 @@ using handlegraph::net_handle_t;
 using handlegraph::SnarlDecomposition;
 
 /**
- * The two bounds of a site or chain, oriented like the start and end of a Snarl.
+ * The two bounds of a site or chain.
  *
  * `start` reads into the site and `end` reads out of it. Most sites lie between the inward sides
  * of `start` and `end`, which can be one node, as in a looping chain. A site made from an edit in

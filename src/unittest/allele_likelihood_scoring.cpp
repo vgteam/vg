@@ -110,10 +110,10 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
 /// zero-padded, and row r of the result is reads[r].
 ///
 /// `optimal_pairing` selects how the pairing is chosen: false is greedy pairing, the default, and
-/// true is optimal pairing, which `--optimal-pairing` turns on. The invariants below must hold for
-/// both, since they are properties of the scoring model, not of how the pairing is searched for.
+/// true is optimal pairing. The invariants below must hold for both, since they are properties of
+/// the scoring model, not of how the pairing is searched for.
 ///
-/// `insertion_nats` is --insertion-nats.
+/// `insertion_nats` is `AlleleLikelihoodParams::insertion_gap_nats`.
 template<typename Site>
 static AlleleReadLikelihoods score_site(Site& site, const vector<Alignment>& reads,
                                         int ploidy = 2, bool optimal_pairing = false,
@@ -404,7 +404,7 @@ TEST_CASE("No read's allele preference depends on the flank's length",
         for (const Alignment& a : long_reads) long_src.add(a);
         QualAdjAlignmentScorer qs;
         MatrixAlignmentScorer ps;
-        // Both pairings: greedy is the default and optimal is what --optimal-pairing selects.
+        // Both pairings: greedy, the default, and optimal.
         for (bool optimal_pairing : {false, true}) {
         AlleleLikelihoodParams params;
         params.optimal_pairing = optimal_pairing;
@@ -417,13 +417,13 @@ TEST_CASE("No read's allele preference depends on the flank's length",
             bounds_of(longf.graph, longf.snarl), walks_of(longf.graph, longf.traversals),
             /* top-level: nothing encloses it */ {}, 2);
 
-        INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
+        INFO("configuration " << c << (optimal_pairing ? " (optimal)" : " (greedy)"));
         REQUIRE(sm.num_reads() == lm.num_reads());
         REQUIRE(sm.num_alleles() == lm.num_alleles());
         for (size_t r = 0; r < sm.num_reads(); ++r) {
             for (size_t a = 0; a < sm.num_alleles(); ++a) {
                 INFO("config " << c << " read " << r << " allele " << a
-                                << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
+                                << (optimal_pairing ? " (optimal)" : " (greedy)"));
                 REQUIRE(sm.rel(r, a) == Approx(lm.rel(r, a)));
             }
         }
@@ -477,7 +477,7 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
             bounds_of(site.graph, site.snarl), walks_of(site.graph, site.traversals),
             /* top-level: nothing encloses it */ {}, 2);
 
-        INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
+        INFO("configuration " << c << (optimal_pairing ? " (optimal)" : " (greedy)"));
         REQUIRE(m.num_reads() == configurations[c].size());
         for (size_t r = 0; r < m.num_reads(); ++r) {
             // A read built to follow allele r's own path matches it exactly, so it is that
@@ -487,7 +487,7 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
             REQUIRE(m.rel(r, r) == Approx(1.0));
             for (size_t a = 0; a < m.num_alleles(); ++a) {
                 INFO("config " << c << " read " << r << " allele " << a
-                                << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
+                                << (optimal_pairing ? " (optimal)" : " (greedy)"));
                 REQUIRE(m.rel(r, a) > 0.0);
             }
         }
@@ -516,7 +516,7 @@ TEST_CASE("Greedy pairing scores a run of unpaired read visits as one gap, as op
 
 TEST_CASE("Optimal pairing keeps the indel invariants greedy pairing has",
           "[allele_likelihood][scoring]") {
-    // --optimal-pairing changes how the pairing is searched for, not what a pairing costs, so the
+    // Optimal pairing changes how the pairing is searched for, not what a pairing costs, so the
     // properties pinned for greedy pairing must survive it, such as the direction symmetry of a one-base
     // indel, which is parameter-free.
     SnpAndDeletionSite site;
@@ -528,7 +528,7 @@ TEST_CASE("Optimal pairing keeps the indel invariants greedy pairing has",
     AlleleReadLikelihoods exact = score_site(site, {spanning, deleting}, 2, true);
 
     for (const auto& named :
-         {make_pair("greedy", &greedy), make_pair("--optimal-pairing", &exact)}) {
+         {make_pair("greedy", &greedy), make_pair("optimal", &exact)}) {
         const AlleleReadLikelihoods& m = *named.second;
         INFO(named.first);
         // Each read matches its own allele exactly.
@@ -620,7 +620,7 @@ TEST_CASE("An unpaired read visit with no bases is not a gap",
     // Node 2 lies between nodes 1 and 3. A read that deletes all of node 2 visits it with no
     // bases. Against the allele that skips nodes 2 and 3, its only gap is node 3's ten bases,
     // as for a read that skips node 2 altogether: the empty visit opens no gap and earns no
-    // --insertion-nats.
+    // `insertion_gap_nats`.
     bdsg::HashGraph graph;
     graph.create_handle("AAAACCCC", 1);
     graph.create_handle("TTTTT", 2);

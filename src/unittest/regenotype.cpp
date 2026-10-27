@@ -2,7 +2,7 @@
 ///
 /// Unit tests for the phase-aware genotype correction.
 ///
-/// Neither `--regeno-temper 0` nor `--regeno-passes 1` exercises `Lambda`: at tau = 0 the
+/// Neither a temper of 0 nor a single linkage pass exercises `Lambda`: at tau = 0 the
 /// weighting is the identity whatever `Lambda` holds, and with one pass nothing is recorded again.
 /// Taking the larger correction over the two orders also hides a `Lambda` whose sign is wrong at
 /// every site. So `Lambda` wired backwards at some sites would look like the shuffled control, and
@@ -61,9 +61,10 @@ static map<vector<int>, double> flat_gl() {
 
 TEST_CASE("a temper of zero leaves every genotype likelihood bit-identical",
           "[regenotype]") {
-    // The gate the whole arm rests on, and it holds by construction rather than by tolerance:
-    // at tau = 0 the tilted weights ARE the slot weights, so the corrected and uncorrected
-    // mixtures are the same arithmetic on the same values.
+    // Re-genotyping at temper 0 must leave the output byte-identical, and this holds by
+    // construction rather than within a tolerance. At tau = 0 the tilted weights ARE the slot
+    // weights, so the corrected and uncorrected mixtures are the same arithmetic on the same
+    // values.
     RegenotypeParams params;
     RegenotypeCounters counters;
     for (uint32_t len1 : {10u, 400u, 12000u}) {
@@ -78,8 +79,8 @@ TEST_CASE("a temper of zero leaves every genotype likelihood bit-identical",
         }
     }
     // And the two orders scored EQUAL, not merely close. If they can differ by a last bit at
-    // temper 0 then the correction is not exactly zero, it is zero-ish -- which is a different
-    // and much weaker claim than the one the byte-identity gate is asked to carry.
+    // temper 0 then the correction is not exactly zero, it is zero-ish -- which is too weak to
+    // keep the output byte-identical.
     REQUIRE(counters.order_reversed == 0);
 }
 
@@ -269,9 +270,9 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
 
 TEST_CASE("the per-read escape is exactly nothing at temper 0, whatever the ceiling",
           "[regenotype]") {
-    // The escape has to leave the byte-identity gate alone, and it does so for a reason that does
-    // not depend on the fitted value: at tau = 0 the sigmoid is 1/2 for any ceiling, so the
-    // probability is 1/2 and its logit is 0.
+    // The escape must also leave the output byte-identical at temper 0, and it does so whatever
+    // the fitted value: at tau = 0 the sigmoid is 1/2 for any ceiling, so the probability is 1/2
+    // and its logit is 0.
     for (double c : {1.0, 0.99, 0.95, 0.5, 0.01}) {
         for (double lam : {0.0, 17.3, -1215.0, 1e9, -1e-9}) {
             REQUIRE(StrandCalibration{0.0, c}.log_odds(lam) == 0.0);

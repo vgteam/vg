@@ -1,8 +1,12 @@
 /// \file off_panel_svs.cpp
 ///
-/// Unit tests for off-panel indels of 50 bases or more: long reads' own indels, which each read
-/// places and sizes a little differently, are counted as one candidate with the medoid read's
-/// insertion as its ALT; and short reads' clips at a deletion's two ends find the deletion.
+/// Unit tests for finding off-panel indels of 50 bases or more in the reads.
+///
+/// Long reads carry such an indel in their own alignments, each read placing and sizing it a
+/// little differently. The tests check that those reads make one candidate, whose ALT is the
+/// insertion of the medoid read. Short reads cannot span such a deletion, but are clipped at its two
+/// ends. The tests check that the clips find the deletion, and that each read of a large deletion
+/// is classed correctly.
 
 #include <string>
 #include <tuple>

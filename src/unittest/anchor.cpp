@@ -488,7 +488,7 @@ TEST_CASE("A homozygous site is emitted unless excluded", "[anchor]") {
 TEST_CASE("A homozygous site splits by read phase only when both strands are supported",
           "[anchor]") {
     // A homozygous site has no allele signal of its own -- both haplotypes spell the same thing --
-    // so --anchors-hom-split partitions its reads by the strand log-odds they carry from OTHER
+    // so `AnchorParams::hom_split` partitions its reads by the strand log-odds they carry from OTHER
     // sites. The layout decision is a site-level one on purpose: a site whose reads all lean the
     // same way has not been partitioned, it has been relabelled.
     vector<AnchorPlacement> starts, ends;
@@ -629,7 +629,8 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
     SECTION("a split read keeps the score it would have had unsplit") {
         // Both slots spell one allele, so the share must be taken over that ONE allele. Halving the
         // mixture would drop a clean read from ~13 phred to ~3 and silently change what
-        // --anchors-min-q and the reliability column mean on exactly the sites this feature adds.
+        // `AnchorParams::min_read_score` and the reliability column mean on exactly the sites this
+        // feature adds.
         vector<AnchorWriter::Anchor> unsplit;
         params.hom_split = false;
         build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, unsplit);
@@ -745,8 +746,8 @@ TEST_CASE("A nested haploid site takes the slot its strand names", "[anchor]") {
     REQUIRE(seen0 == 2);
     REQUIRE(seen1 == 2);
 
-    // --anchors-het-only still drops it, strand or no strand: its one slot holds every read, so it
-    // partitions nothing, which is the property that switch selects on. Only the slot changed.
+    // `AnchorParams::het_only` still drops it, strand or no strand. Its one slot holds every read,
+    // so it partitions no reads, and that is what `het_only` selects on. Only the slot changed.
     out.clear();
     params.het_only = true;
     build_site_anchors(ev, AnchorCall{{0}, 1, 0.9, 1.0}, ">1>4", params, out);
