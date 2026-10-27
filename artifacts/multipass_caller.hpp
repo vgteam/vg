@@ -275,7 +275,7 @@ public:
      */
     MultiPassCaller(const PathPositionHandleGraph& graph, ReadLikelihoodSnarlCaller& genotyper,
                     const SnarlDecomposition& decomposition, VCFOutputCaller& output,
-                    const string& sample_name, TraversalFinder& traversal_finder,
+                    const string& sample_name, SiteTraversalFinder& traversal_finder,
                     ReferencePathTable ref_paths, bool genotype_snarls,
                     const pair<size_t, size_t>& allele_length_range, bool top_down,
                     bool star_allele);

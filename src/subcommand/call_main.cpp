@@ -2787,7 +2787,7 @@ int main_call(int argc, char** argv) {
             multipass_caller.reset(new multipass::MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *read_likelihood_caller, *multipass_sites,
                                                        *multipass_output, sample_name,
-                                                       *traversal_finder,
+                                                       dynamic_cast<SiteTraversalFinder&>(*traversal_finder),
                                                        multipass::ReferencePathTable(
                                                            ref_paths, ref_path_offsets,
                                                            ref_path_ploidies),

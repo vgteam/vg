@@ -32,7 +32,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     gaf_output(gaf_output),
     genotype_snarls(genotype_snarls),
     allele_length_range(allele_length_range),
-    candidates(graph, traversal_finder, ref_path_set, allele_length_range)
+    candidates(graph, dynamic_cast<SiteTraversalFinder&>(traversal_finder), ref_path_set, allele_length_range)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
@@ -70,7 +70,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     allele_length_range(allele_length_range),
     nested(nested),
     star_allele(star_allele),
-    candidates(graph, traversal_finder, ref_path_set, allele_length_range)
+    candidates(graph, dynamic_cast<SiteTraversalFinder&>(traversal_finder), ref_path_set, allele_length_range)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;

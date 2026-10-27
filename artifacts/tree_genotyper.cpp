@@ -105,8 +105,8 @@ struct TreeGenotyper::SiteCall {
     const SiteView& view;
     /// The place of the site in the nesting tree.
     const NestingPlacement& placement;
-    /// The site oriented along its reference path, and its candidate traversals.
-    CandidateFinder::Site site;
+    /// The site oriented along its reference path, and its candidate walks.
+    CandidateFinder::WalkSite site;
     /// The bounds of `site`.
     SiteBounds bounds;
     /// The ID of the site's records (see `StagedSite::id`).
@@ -137,16 +137,15 @@ struct TreeGenotyper::SiteCall {
 
 bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref_path_name,
                                   pair<size_t, size_t> parent_ref_interval,
-                                  const ChildTraversalSets* parent_child_trav_sets,
+                                  const ChildWalkSets* parent_child_walk_sets,
                                   int ploidy_override, const NestingPlacement& placement) {
-    const PathPositionHandleGraph& graph = *parts.graph;
     SiteCall call{view, placement};
-    if (!parts.candidates->find(snarl_of(graph, view.bounds), parent_ref_path_name,
-                                parent_ref_interval, parent_child_trav_sets,
+    if (!parts.candidates->find(view.bounds.start, view.bounds.end, parent_ref_path_name,
+                                parent_ref_interval, parent_child_walk_sets,
                                 placement.no_reference, call.site)) {
         return false;
     }
-    call.bounds = bounds_of(graph, call.site.snarl);
+    call.bounds = SiteBounds{call.site.start, call.site.end};
     // Name the site from its bounds as the candidate finder oriented them.
     call.id = parts.site_id(call.bounds);
     call.record_key = record_key_of(call.id);
@@ -168,8 +167,8 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
     }
 
     bool genotyped;
-    if (parent_child_trav_sets != nullptr && !parent_child_trav_sets->empty()) {
-        genotyped = genotype_in_parent_sets(call, *parent_child_trav_sets);
+    if (parent_child_walk_sets != nullptr && !parent_child_walk_sets->empty()) {
+        genotyped = genotype_in_parent_sets(call, *parent_child_walk_sets);
     } else if (ploidy_override >= 0) {
         genotyped = genotype_nested_chain(call);
     } else {
@@ -180,7 +179,7 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
     // ploidy from. RecurseOnFail calls the children of a failed top-level site as top-level sites,
     // but the children of a failed nested site are not called.
     if (genotyped && options.nested_calling && !call.genotype.empty()
-        && parent_child_trav_sets == nullptr) {
+        && parent_child_walk_sets == nullptr) {
         descend_nested(call);
     }
     if (options.top_down && !call.genotype.empty() && call.nested.children.known) {
@@ -190,22 +189,22 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
     return genotyped;
 }
 
-/// Add each traversal in the parent's traversal sets that `travs` does not already hold.
-static void merge_parent_sets(vector<SnarlTraversal>& travs, const ChildTraversalSets& sets) {
-    for (const TraversalSet& tset : sets) {
-        for (const SnarlTraversal& trav : tset) {
-            if (std::find(travs.begin(), travs.end(), trav) == travs.end()) {
-                travs.push_back(trav);
+/// Add each walk in the parent's walk sets that `walks` does not already hold.
+static void merge_parent_sets(vector<Traversal>& walks, const ChildWalkSets& sets) {
+    for (const WalkSet& set : sets) {
+        for (const Traversal& walk : set) {
+            if (std::find(walks.begin(), walks.end(), walk) == walks.end()) {
+                walks.push_back(walk);
             }
         }
     }
 }
 
-bool TreeGenotyper::genotype_in_parent_sets(SiteCall& call, const ChildTraversalSets& sets) {
+bool TreeGenotyper::genotype_in_parent_sets(SiteCall& call, const ChildWalkSets& sets) {
     // The child has one strand per parent allele.
     call.ploidy = sets.size();
-    merge_parent_sets(call.site.travs, sets);
-    call.walks = walks_of(*parts.graph, call.site.travs);
+    merge_parent_sets(call.site.walks, sets);
+    call.walks = call.site.walks;
 
     // A parent allele with an empty traversal set skips the child, and gets a star or missing
     // allele rather than a genotype.
@@ -249,7 +248,7 @@ static void place_in_tree(StagedSite& staged, const NestingPlacement& placement)
 }
 
 bool TreeGenotyper::genotype_nested_chain(SiteCall& call) {
-    call.walks = walks_of(*parts.graph, call.site.travs);
+    call.walks = call.site.walks;
     unique_ptr<SnarlCaller::CallInfo> trav_call_info;
     SiteScore* trav_score = nullptr;
     // Score the other ploidy too, since the linkage pass can revise the ploidy of a nested chain.
@@ -309,7 +308,7 @@ void TreeGenotyper::record_nested_chain(SiteCall& call) const {
 }
 
 bool TreeGenotyper::genotype_top_level_site(SiteCall& call) {
-    call.walks = walks_of(*parts.graph, call.site.travs);
+    call.walks = call.site.walks;
     unique_ptr<SnarlCaller::CallInfo> trav_call_info;
     SiteScore* trav_score = nullptr;
     std::tie(call.genotype, trav_call_info) = genotype_site(
@@ -420,16 +419,16 @@ void TreeGenotyper::genotype_placed_child(const SiteCall& call, const ChildPlace
 }
 
 void TreeGenotyper::descend_top_down(const SiteCall& call) {
-    const vector<SnarlTraversal>& travs = call.site.travs;
+    const vector<Traversal>& travs = call.site.walks;
     for (const ChildSite& child : call.nested.sites) {
         // Find, for each parent allele, the traversals of the child that agree with it. A star
         // or missing allele gets an empty set.
-        ChildTraversalSets child_trav_sets;
+        ChildWalkSets child_trav_sets;
         bool any_real_traversals = false;
         for (int allele_idx : call.genotype) {
             if (allele_idx >= 0 && allele_idx < travs.size()) {
-                TraversalSet tset = parts.candidates->find_child_traversal_set(
-                    travs[allele_idx], snarl_of(*parts.graph, child.bounds));
+                WalkSet tset = parts.candidates->find_child_walk_set(
+                    travs[allele_idx], child.bounds.start, child.bounds.end);
                 any_real_traversals = any_real_traversals || !tset.empty();
                 child_trav_sets.push_back(std::move(tset));
             } else {

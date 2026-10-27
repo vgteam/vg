@@ -206,7 +206,7 @@ private:
      * @param parent_ref_path_name The reference path of the parent, which a site off the
      * reference takes.
      * @param parent_ref_interval The interval of the parent on its reference path.
-     * @param parent_child_trav_sets If not null, one set per parent allele of the traversals of
+     * @param parent_child_walk_sets If not null, one set per parent allele of the walks of
      * this site that agree with that allele. The genotype takes one allele from each set.
      * Top-down calling passes them.
      * @param ploidy_override If not negative, the ploidy to genotype at, in place of the
@@ -218,14 +218,14 @@ private:
      */
     bool genotype_tree(const SiteView& view, const string& parent_ref_path_name,
                        pair<size_t, size_t> parent_ref_interval,
-                       const ChildTraversalSets* parent_child_trav_sets, int ploidy_override,
+                       const ChildWalkSets* parent_child_walk_sets, int ploidy_override,
                        const NestingPlacement& placement);
 
     /// Genotype a site of top-down calling against its parent's traversal sets, and record and
     /// stage it if it is on a reference path.
     ///
     /// @return False if the genotype does not have one allele per set.
-    bool genotype_in_parent_sets(SiteCall& call, const ChildTraversalSets& sets);
+    bool genotype_in_parent_sets(SiteCall& call, const ChildWalkSets& sets);
 
     /// Genotype a nested chain at the ploidy its parent gives it, and record and stage it as its
     /// placement says.
