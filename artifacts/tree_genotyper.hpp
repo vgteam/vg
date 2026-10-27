@@ -14,6 +14,7 @@
 #include "snarls.hpp"
 #include "candidate_finder.hpp"
 #include "child_placer.hpp"
+#include "edit_snarl_decomposition_overlay.hpp"
 #include "genotype_linker.hpp"
 #include "off_panel.hpp"
 #include "site_read_source.hpp"
@@ -67,6 +68,9 @@ public:
         const SiteReadSource* read_source = nullptr;
         /// What became of each candidate the call bar admits. Set when `edit_source` is.
         EditOutcomes* edit_outcomes = nullptr;
+        /// The sites, with the edit sites laid over them. Each edit site is added there while it
+        /// is being placed and genotyped, and removed after.
+        EditSnarlDecompositionOverlay* sites = nullptr;
     };
 
     /// The choices of which sites below a top-level site are genotyped.
@@ -119,6 +123,7 @@ public:
 private:
     /// The edit site of an off-panel candidate, as a child of the site holding it.
     struct HeldEdit {
+        /// The edit site as a child site, whose net handle is its edit in `Parts::sites`.
         ChildSite child;
         EditSite site;
         EditCandidate candidate;
@@ -154,6 +159,9 @@ private:
 
     /// Return true if the reference reads the walk of `c` forward and once, or not at all.
     bool reference_reads_whole_walk(const EditCandidate& c) const;
+
+    /// Add the edit of `site` to `Parts::sites`, and return its net handle.
+    net_handle_t add_edit(const EditSite& site) const;
 
     /**
      * Make the edit site of `c` into `out`, read the way `read_as` reads its node.

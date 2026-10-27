@@ -244,6 +244,21 @@ TEST_CASE("remove_edits removes the edits at and below an element, and keeps the
     });
 }
 
+TEST_CASE("remove_edit removes one edit and keeps its siblings",
+          "[edit_snarl_decomposition_overlay]") {
+    NestedGraph nested;
+    on_both(nested, [&](const SnarlDecomposition&, EditSnarlDecompositionOverlay& overlay) {
+        const net_handle_t first = overlay.add_edit(nested.handle(4), 0, nested.handle(4), 1);
+        const net_handle_t second = overlay.add_edit(nested.handle(4), 2, nested.handle(4), 3);
+        const net_handle_t node4 = overlay.canonical(overlay.get_net(nested.handle(4), &nested.graph));
+        overlay.remove_edit(first);
+        REQUIRE(children(overlay, node4) == vector<net_handle_t>{second});
+        REQUIRE(overlay.get_site_start_offset(second) == 2);
+        overlay.remove_edit(second);
+        REQUIRE(children(overlay, node4).empty());
+    });
+}
+
 TEST_CASE("An edit with an offset past the end of its node is refused",
           "[edit_snarl_decomposition_overlay]") {
     NestedGraph nested;

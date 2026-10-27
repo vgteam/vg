@@ -74,6 +74,13 @@ public:
                           size_t end_offset);
 
     /**
+     * Remove one edit.
+     *
+     * Its net handle becomes invalid. A later edit reuses its storage.
+     */
+    void remove_edit(const net_handle_t& edit);
+
+    /**
      * Remove the edits that are children of `element` or of anything below it.
      *
      * Their net handles become invalid. Later edits reuse their storage.

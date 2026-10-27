@@ -392,6 +392,7 @@ void TreeGenotyper::descend_nested(const SiteCall& call) {
             // off-reference descent, or crossed by no called allele without the linkage model.
             parts.edit_outcomes->add(unplaced_outcome(held[i].candidate, "not_placed"));
         }
+        parts.sites->remove_edit(held[i].child.net);
     }
 }
 
@@ -401,10 +402,10 @@ void TreeGenotyper::genotype_placed_child(const SiteCall& call, const ChildPlace
     if (child.placement.level < 16) {
         ++parts.descent_counters->depth_hist[child.placement.level];
     }
-    if (child.site.bounds.inside_node) {
+    if (parts.sites->is_edit(child.site.net)) {
         // The child is one of the held edit sites.
         for (size_t i = 0; i < held.size(); ++i) {
-            if (!edit_placed[i] && held[i].child.bounds == child.site.bounds) {
+            if (held[i].child.net == child.site.net) {
                 edit_placed[i] = true;
                 genotype_edit_site(held[i], child.site.enclosing, call.site.ref_path_name,
                                    call.ref_range(), child.ploidy, child.placement, false);
@@ -543,6 +544,11 @@ bool TreeGenotyper::reference_reads_whole_walk(const EditCandidate& c) const {
     return on_reference == 0 || on_reference == c.walk.size();
 }
 
+net_handle_t TreeGenotyper::add_edit(const EditSite& site) const {
+    return parts.sites->add_edit(site.change_start, site.change_start_offset, site.change_end,
+                                 site.change_end_offset);
+}
+
 bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
                                  const NodePlacement& where, EditSite& out) const {
     const PathPositionHandleGraph& graph = *parts.graph;
@@ -656,7 +662,7 @@ vector<TreeGenotyper::HeldEdit> TreeGenotyper::edits_held_by(const SiteView& vie
             continue;
         }
         edit.candidate = c;
-        edit.child = ChildSite{view.net, edit.site.bounds, where.chain};
+        edit.child = ChildSite{add_edit(edit.site), edit.site.bounds, where.chain};
         held.push_back(std::move(edit));
     }
     return held;
@@ -749,8 +755,9 @@ void TreeGenotyper::genotype_free_edits(vector<EditCandidate> candidates) {
             continue;
         }
         edit.candidate = c;
-        edit.child = ChildSite{where.site, edit.site.bounds, where.chain};
+        edit.child = ChildSite{add_edit(edit.site), edit.site.bounds, where.chain};
         genotype_edit_site(edit, {}, "", make_pair(0, 0), -1, NestingPlacement(), true);
+        parts.sites->remove_edit(edit.child.net);
     }
 }
 

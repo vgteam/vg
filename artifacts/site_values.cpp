@@ -42,6 +42,31 @@ EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t of
     site.bounds.offset = offset;
     site.travs.assign(alts.size() + 1, steps);
     site.sequences.resize(alts.size() + 1);
+    // Find the node holding base `position` of the walk, and the bases of the walk before that
+    // node.
+    auto holding = [&](size_t position) {
+        size_t before = 0;
+        for (const handle_t& h : steps) {
+            const size_t length = graph.get_length(h);
+            if (position < before + length) {
+                return make_pair(h, before);
+            }
+            before += length;
+        }
+        return make_pair(steps.back(), before - graph.get_length(steps.back()));
+    };
+    // The boundary after the last changed base, or, for an insertion, after the base before it.
+    const auto [end_node, end_before] = holding(at + length - 1);
+    site.change_end = end_node;
+    site.change_end_offset = at + length - end_before;
+    if (length > 0) {
+        const auto [start_node, start_before] = holding(at);
+        site.change_start = start_node;
+        site.change_start_offset = at - start_before;
+    } else {
+        site.change_start = site.change_end;
+        site.change_start_offset = site.change_end_offset;
+    }
     const size_t host = length > 0 ? at : at - 1;
     for (size_t a = 0; a < alts.size(); ++a) {
         size_t start = 0;

@@ -222,6 +222,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
             .edit_source = off_panel.source(),
             .read_source = read_source,
             .edit_outcomes = off_panel.outcomes(),
+            .sites = &sites,
         },
         TreeGenotyper::Options{
             .nested_calling = nested_calling,

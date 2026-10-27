@@ -112,6 +112,19 @@ net_handle_t EditSnarlDecompositionOverlay::add_edit(const handle_t& start, size
     return edit_net(number, false);
 }
 
+void EditSnarlDecompositionOverlay::remove_edit(const net_handle_t& edit) {
+    std::lock_guard<std::mutex> lock(edits_mutex);
+    const size_t number = edit_number(edit);
+    auto found = children_of.find(edits.at(number).parent);
+    if (found != children_of.end()) {
+        std::erase(found->second, number);
+        if (found->second.empty()) {
+            children_of.erase(found);
+        }
+    }
+    free_numbers.push_back(number);
+}
+
 void EditSnarlDecompositionOverlay::remove_edits(const net_handle_t& element) {
     // Find every element at or below `element` that has edits, by walking up from each.
     std::lock_guard<std::mutex> lock(edits_mutex);
