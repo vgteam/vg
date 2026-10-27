@@ -29,17 +29,23 @@ using namespace std;
 
 namespace {
 
-/// A site with a reference path, a SNP alternative, and a deletion, so that both a
-/// same-length and a length-changing call can be exercised. Node 4 is long enough that
-/// dropping nodes 2/3 is a >= 50 bp change, which is what arms the depth discount.
+/// A snarl from node 1 to node 4 with three traversals: the reference through node 2, a
+/// substitution through node 3, and a deletion along the edge from node 1 to node 4.
+///
+/// Nodes 2 and 3 hold 60 bp each, so the substitution has the reference's length and the
+/// deletion is 60 bp shorter. The depth discount applies to a call only when a called allele
+/// differs in length from the reference allele by at least the minimum length given to the
+/// caller. The lengths leave out the boundary nodes 1 and 4. With a minimum of 50 bp, the
+/// discount can apply to a call of the deletion and never to a call of the substitution.
 struct CallerSite {
     bdsg::HashGraph graph;
     Snarl snarl;
-    vector<SnarlTraversal> traversals;   // 0: ref (1,2,4)  1: alt (1,3,4)  2: del (1,4)
+    /// The traversals by index: 0 is the reference (1,2,4), 1 the substitution (1,3,4), and 2
+    /// the deletion (1,4).
+    vector<SnarlTraversal> traversals;
     unique_ptr<SnarlManager> manager;
 
     CallerSite() {
-        // 60 bp of interior sequence, so ref -> deletion is a 60 bp length change.
         string interior(60, 'T');
         string interior_alt(60, 'G');
         graph.create_handle("AAAACCCCAAAACCCC", 1);
@@ -176,8 +182,8 @@ TEST_CASE("--no-share-quality makes GQ the raw ratio, and the share still report
     CallerSite site;
     vector<Alignment> reads;
     // The share falls below 1 only when some reads prefer an allele the call does not
-    // contain. Ten reference reads, ten SNP reads and four deletion reads give the call
-    // 0/1, which leaves the four deletion reads unexplained.
+    // contain. Ten reference reads, ten substitution reads and four deletion reads give the
+    // call 0/1, which leaves the four deletion reads unexplained.
     for (int i = 0; i < 10; ++i) {
         reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 2, 4}));
         reads.push_back(matching_read(site.graph, "a" + std::to_string(i), {1, 3, 4}));
@@ -411,7 +417,7 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     const double het_ll = info.genotype_lls.at(vector<int>({0, 1}));
     info.genotype_lls[vector<int>({1, 1})] = het_ll + 2.0;
     const double gap = logprob_to_phred(het_ll) - logprob_to_phred(het_ll + 2.0);
-    // Only the SNP reads have allele 1 as their best allele.
+    // Only the substitution reads have allele 1 as their best allele.
     const double share = info.allele_support[1] / (double)info.n_reads;
     REQUIRE(share < 1.0);
 
