@@ -386,14 +386,16 @@ are discarded as they are read in. The reads come from one of four sources:
   and indexed with `tabix -p gaf`, whose index `--gaf-index` names. Reads are fetched from the
   file itself as they are needed, one range of node IDs at a time, by vg's own threads; no
   database or other program is involved.
-- `--gaf-base`: a [GAF-base](https://github.com/jltsiren/gbz-base) database of alignments,
-  queried one range of node IDs at a time by the `gbz-base` program. `--gaf-base-binary` gives the
-  path to that program. It reads the graph from the GBZ-base database given with `--gbz-base`, or
-  else from the input graph.
+- `--gaf-base`: a [GAF-base](https://github.com/jltsiren/gbz-base) database of alignments, made
+  by `gaf-base construct` from a GAF file sorted by `vg gamsort -G`. Each thread that fetches reads
+  starts one `gaf-base batch` process, which keeps the database open, and asks it for one range of
+  node IDs at a time. `--gaf-base-binary` gives the path to `gaf-base`; vg needs its `batch --ids`,
+  added to gbz-base after v0.6.2. Extra arguments for the processes, such as `--record-cache 2M`,
+  can be given in the environment variable `VG_GAFBASE_BATCH_ARGS`.
 
 Loading the reads into memory suits a small read set or a region. For many reads, such as a whole
-genome, `--gaf-reads` with `--gaf-index` is recommended: on a whole human genome it called the
-sites in half the time `--gaf-base` took, with the same calls, and it needs no database. To
+genome, `--gaf-reads` with `--gaf-index` is recommended: on a whole human genome of long reads,
+`--gaf-base` took 15–21% longer for the same calls, and an indexed GAF needs no database. To
 prepare the reads:
 
 ```
