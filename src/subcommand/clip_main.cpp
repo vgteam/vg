@@ -57,9 +57,10 @@ void help_clip(char** argv) {
          << "  -G, --top-net-edges        only clip net-edges inside top-level snarls" << endl
          << "big deletion edge clipping options:" << endl
          << "  -D, --max-deletion-edge N  clip out all edges whose endpoints have" << endl
-         << "                             distance > N on a reference path" << endl
+         << "                             distance > N on a reference path. edges that" << endl
+         << "                             reference paths walk are never clipped" << endl
          << "  -c, --context N            search up to at most N steps from reference paths" << endl
-         << "                             for candidate deletion edges [1]" << endl
+         << "                             for candidate deletion edges [the -D value]" << endl
          << "general options: " << endl
          << "  -P, --path-prefix STR      do not clip out alleles on paths beginning with STR" << endl
          << "                             (specify such references with -P or -b; may repeat)" << endl
