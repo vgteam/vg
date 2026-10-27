@@ -103,16 +103,17 @@ Alignment matching_read(const HandleGraph& graph, const string& name,
     return aln;
 }
 
-/// Genotype one site, returning the call and its info together so the fields can be
-/// inspected. `configure` runs against the caller before genotyping.
+/// The result of genotyping one site with `call_site`.
 struct Called {
     vector<int> genotype;
-    const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* info;
-    unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> owned;
+    /// The call info that `genotype_at` returned with the genotype.
+    unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> info;
     /// The caller's `gq_factor` for `info`, under the settings it was called with.
     double gq_factor = 0.0;
 };
 
+/// Genotype `site` from `reads` with a new caller. `configure`, where given, changes the
+/// caller's settings first.
 Called call_site(CallerSite& site, const vector<Alignment>& reads,
                  const function<void(ReadLikelihoodSnarlCaller&)>& configure = nullptr,
                  int ploidy = 2, int region_ploidy = 0, bool also_score_other = false) {
@@ -137,8 +138,7 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
                                      /* top-level: nothing encloses it */ {});
     Called out;
     out.genotype = result.first;
-    out.info = result.second.get();
-    out.owned = std::move(result.second);
+    out.info = std::move(result.second);
     if (out.info != nullptr) {
         out.gq_factor = caller.gq_factor(*out.info);
     }
@@ -410,7 +410,7 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     Called called = call_site(site, reads);
     REQUIRE(called.info != nullptr);
     REQUIRE(called.genotype == vector<int>({0, 1}));
-    auto& info = *called.owned;
+    auto& info = *called.info;
 
     // Re-genotyping changes the likelihoods in place; here 1/1 is made the best genotype, with
     // 0/1 second.
