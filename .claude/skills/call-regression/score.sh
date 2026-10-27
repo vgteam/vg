@@ -37,7 +37,8 @@ if [ -n "$TRUVARI" ]; then
         --bSample HG002 --cSample "$SAMPLE" --pick ac --passonly --includebed "$T/stvar.bed" \
         > "$S/truvari.log" 2>&1
     if [ -s "$S/truvari/candidate.refine.bed" ]; then
-        "$TRUVARI" refine -f "$REF" -t 16 -u -a mafft "$S/truvari" >> "$S/truvari.log" 2>&1
+        # mafft leaves temporary directories in the working directory.
+        (cd "$S" && "$TRUVARI" refine -f "$REF" -t 16 -u -a mafft "$S/truvari" >> "$S/truvari.log" 2>&1)
     fi
 fi
 

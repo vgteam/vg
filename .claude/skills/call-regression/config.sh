@@ -7,7 +7,7 @@
 REGRESS_DIR=${REGRESS_DIR:?set REGRESS_DIR to a directory for the gate\'s data and runs}
 
 # The contig the gate calls on.
-CONTIG=${CONTIG:-chr20}
+export CONTIG=${CONTIG:-chr20}
 REF_PATH="CHM13#0#${CONTIG}"
 SAMPLE=HG002
 # Threads per vg call. The output does not depend on it, but run times do, so keep it
