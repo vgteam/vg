@@ -954,37 +954,57 @@ static int64_t closest_visits(const vector<int64_t>& a, const vector<int64_t>& b
 }
 
 // the furthest apart any reference handle on the left and any on the right are (given as their lists of
-// positions, which make_ref_index sorts), or -1 if a side has none. a handle the reference visits more than
-// once (it's collapsed) is taken at whichever visit is closest to the other handle, since nothing says which
-// copy a haplotype means
-static int64_t longest_span(const vector<const vector<int64_t>*>& left_positions,
-                            const vector<const vector<int64_t>*>& right_positions) {
+// positions, which make_ref_index sorts), or -1 if a side has none: counting every handle (longest_shared),
+// and counting only pairs where neither handle is shared (as flagged) with the other side (longest). a handle
+// the reference visits more than once (it's collapsed) is taken at whichever visit is closest to the other
+// handle, since nothing says which copy a haplotype means
+static void longest_spans(const vector<pair<const vector<int64_t>*, bool>>& left_positions,
+                          const vector<pair<const vector<int64_t>*, bool>>& right_positions,
+                          int64_t& longest, int64_t& longest_shared) {
+    longest = longest_shared = -1;
     if (left_positions.empty() || right_positions.empty()) {
-        return -1;
+        return;
     }
     bool revisited = false;
-    int64_t min_pos_left = numeric_limits<int64_t>::max(), max_pos_left = -1;
-    int64_t min_pos_right = numeric_limits<int64_t>::max(), max_pos_right = -1;
-    for (const vector<int64_t>* positions : left_positions) {
-        revisited = revisited || positions->size() > 1;
-        min_pos_left = min(min_pos_left, positions->front());
-        max_pos_left = max(max_pos_left, positions->front());
+    for (const auto& positions : left_positions) {
+        revisited = revisited || positions.first->size() > 1;
     }
-    for (const vector<int64_t>* positions : right_positions) {
-        revisited = revisited || positions->size() > 1;
-        min_pos_right = min(min_pos_right, positions->front());
-        max_pos_right = max(max_pos_right, positions->front());
+    for (const auto& positions : right_positions) {
+        revisited = revisited || positions.first->size() > 1;
     }
     if (!revisited) {
-        return max(abs(max_pos_left - min_pos_right), abs(max_pos_right - min_pos_left));
+        // just the furthest apart ends
+        for (bool count_shared : {true, false}) {
+            int64_t min_pos_left = numeric_limits<int64_t>::max(), max_pos_left = -1;
+            int64_t min_pos_right = numeric_limits<int64_t>::max(), max_pos_right = -1;
+            for (const auto& positions : left_positions) {
+                if (count_shared || !positions.second) {
+                    min_pos_left = min(min_pos_left, positions.first->front());
+                    max_pos_left = max(max_pos_left, positions.first->front());
+                }
+            }
+            for (const auto& positions : right_positions) {
+                if (count_shared || !positions.second) {
+                    min_pos_right = min(min_pos_right, positions.first->front());
+                    max_pos_right = max(max_pos_right, positions.first->front());
+                }
+            }
+            if (max_pos_left >= 0 && max_pos_right >= 0) {
+                (count_shared ? longest_shared : longest) = max(abs(max_pos_left - min_pos_right),
+                                                                 abs(max_pos_right - min_pos_left));
+            }
+        }
+        return;
     }
-    int64_t delta = 0;
-    for (const vector<int64_t>* left_pos : left_positions) {
-        for (const vector<int64_t>* right_pos : right_positions) {
-            delta = max(delta, closest_visits(*left_pos, *right_pos));
+    for (const auto& left_pos : left_positions) {
+        for (const auto& right_pos : right_positions) {
+            int64_t delta = closest_visits(*left_pos.first, *right_pos.first);
+            longest_shared = max(longest_shared, delta);
+            if (!left_pos.second && !right_pos.second) {
+                longest = max(longest, delta);
+            }
         }
     }
-    return delta;
 }
 
 // how far apart an edge's two sides are on the reference (all -1 if a side reaches none of it)
@@ -997,13 +1017,15 @@ struct DeletionSpan {
 };
 
 // walk from given edge back to reference path, measuring how far apart the reference positions reached on
-// its two sides are
+// its two sides are. the searches never cross the edge itself, but can come back into its nodes the other
+// way around, as where a haplotype turns around in a hairpin there
 static DeletionSpan get_deletion_span(const PathHandleGraph* graph,
                                       const unordered_map<handle_t, vector<int64_t>>& handle_to_position,
                                       int64_t context_steps,
                                       edge_t edge,
                                       const unordered_set<edge_t>& edge_blacklist) {
-    
+
+    edge = graph->edge_handle(edge.first, edge.second);
     function<unordered_set<handle_t>(handle_t)> get_ref_context = [&] (handle_t handle) {
         unordered_set<handle_t> context;
         unordered_set<handle_t> ref_context;
@@ -1013,23 +1035,21 @@ static DeletionSpan get_deletion_span(const PathHandleGraph* graph,
             for (auto& h : cur_handles) {
                 if (!context.count(h)) {
                     context.insert(h);
-                    if (i == 0) {
-                        // keep search directional from origin
-                        context.insert(graph->flip(h));
-                    }
                     // stop search once we hit reference path
                     if (handle_to_position.count(h)) {
                         ref_context.insert(h);
                     } else {
                         graph->follow_edges(h, false, [&](handle_t n) {
-                                if (!edge_blacklist.count(graph->edge_handle(h, n))) {
+                                edge_t next_edge = graph->edge_handle(h, n);
+                                if (next_edge != edge && !edge_blacklist.count(next_edge)) {
                                     next_handles.push_back(n);
                                 }
                             });
                         if (i > 0) {
                             // keep search directional from origin
                             graph->follow_edges(h, true, [&](handle_t p) {
-                                    if (!edge_blacklist.count(graph->edge_handle(p, h))) {
+                                    edge_t prev_edge = graph->edge_handle(p, h);
+                                    if (prev_edge != edge && !edge_blacklist.count(prev_edge)) {
                                         next_handles.push_back(p);
                                     }
                                 });
@@ -1056,26 +1076,24 @@ static DeletionSpan get_deletion_span(const PathHandleGraph* graph,
     for (handle_t handle : right_context) {
         right_ids.insert(graph->get_id(handle));
     }
-    vector<const vector<int64_t>*> left_positions, right_positions, left_unshared, right_unshared;
+    // each handle's positions, and whether the other side reaches its node too
+    vector<pair<const vector<int64_t>*, bool>> left_positions, right_positions;
     vector<int64_t> left_sorted, right_sorted;
     for (handle_t handle : left_context) {
-        left_positions.push_back(&handle_to_position.at(handle));
-        if (!right_ids.count(graph->get_id(handle))) {
-            left_unshared.push_back(left_positions.back());
-            left_sorted.insert(left_sorted.end(), left_positions.back()->begin(), left_positions.back()->end());
+        left_positions.emplace_back(&handle_to_position.at(handle), right_ids.count(graph->get_id(handle)));
+        if (!left_positions.back().second) {
+            left_sorted.insert(left_sorted.end(), left_positions.back().first->begin(), left_positions.back().first->end());
         }
     }
     for (handle_t handle : right_context) {
-        right_positions.push_back(&handle_to_position.at(handle));
-        if (!left_ids.count(graph->get_id(handle))) {
-            right_unshared.push_back(right_positions.back());
-            right_sorted.insert(right_sorted.end(), right_positions.back()->begin(), right_positions.back()->end());
+        right_positions.emplace_back(&handle_to_position.at(handle), left_ids.count(graph->get_id(handle)));
+        if (!right_positions.back().second) {
+            right_sorted.insert(right_sorted.end(), right_positions.back().first->begin(), right_positions.back().first->end());
         }
     }
 
     DeletionSpan span;
-    span.longest_shared = longest_span(left_positions, right_positions);
-    span.longest = longest_span(left_unshared, right_unshared);
+    longest_spans(left_positions, right_positions, span.longest, span.longest_shared);
     span.shortest = -1;
     if (span.longest >= 0) {
         sort(left_sorted.begin(), left_sorted.end());
@@ -1136,7 +1154,8 @@ void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_delet
     unordered_set<edge_t> deletion_edges;
 
     // the edges any reference path walks are never cut. (while searching from one path, the others count
-    // as off-reference sequence, so a jump through one of them can still be found)
+    // as off-reference sequence, so a jump through one of them can still be found. but it can't be removed:
+    // where two selected paths share a component, an edge beside such a jump can be cut to no effect)
     unordered_set<edge_t> ref_edges;
     for (path_handle_t ref_path : ref_paths) {
         handle_t prev_handle;
@@ -1211,20 +1230,32 @@ void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_delet
                 (graph->get_is_reverse(edge.second) ? "<" : ">") + to_string(graph->get_id(edge.second));
         };
 
+        // each candidate's span, kept until the cuts change (with the number of changes when it was measured)
+        size_t cut_changes = 0;
+        vector<pair<size_t, DeletionSpan>> spans(candidates.size(), make_pair(numeric_limits<size_t>::max(), DeletionSpan()));
+        auto measure = [&](size_t i) -> const DeletionSpan& {
+            if (spans[i].first != cut_changes) {
+                spans[i] = make_pair(cut_changes, get_deletion_span(graph, handle_to_position, context_steps,
+                                                                    get<2>(candidates[i]), edge_blacklist));
+            }
+            return spans[i].second;
+        };
+
         // for every deletion candidate, walk *back* to the reference path and add it if it forms a deletion
         // we do this one-at-a-time to make sure that the edges are still deletions after the preceding edges were deleted.
         // a sweep cuts the candidates whose span (as measured by the given function) is longer than max_deletion
-        vector<edge_t> cuts;
+        vector<size_t> cuts;
         auto sweep = [&](const function<int64_t(const DeletionSpan&)>& span_length) {
             for (size_t i = 0; i < candidates.size(); ++i) {
                 const edge_t& edge = get<2>(candidates[i]);
                 assert(graph->has_edge(edge));
                 if (!deletion_edges.count(edge)) {
-                    int64_t length = span_length(get_deletion_span(graph, handle_to_position, context_steps, edge, edge_blacklist));
+                    int64_t length = span_length(measure(i));
                     if (length > max_deletion) {
                         deletion_edges.insert(edge);
                         edge_blacklist.insert(edge);
-                        cuts.push_back(edge);
+                        ++cut_changes;
+                        cuts.push_back(i);
                         if (verbose) {
                             cerr << "[vg clip]: Found deletion edge for candidate " << i << " on " << graph->get_path_name(ref_path) << ": "
                                  << edge_string(edge) << " with reference length " << length << endl;
@@ -1244,21 +1275,61 @@ void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_delet
 
         // cuts made later can leave earlier ones unnecessary: put back each one, latest first, that no longer
         // forms a deletion with the others in place
-        for (auto it = cuts.rbegin(); it != cuts.rend(); ++it) {
-            edge_blacklist.erase(*it);
-            if (get_deletion_span(graph, handle_to_position, context_steps, *it, edge_blacklist).longest_shared <= max_deletion) {
-                deletion_edges.erase(*it);
+        vector<size_t> swept_cuts = std::move(cuts);
+        vector<size_t> put_back;
+        for (auto it = swept_cuts.rbegin(); it != swept_cuts.rend(); ++it) {
+            const edge_t& edge = get<2>(candidates[*it]);
+            edge_blacklist.erase(edge);
+            if (get_deletion_span(graph, handle_to_position, context_steps, edge, edge_blacklist).longest_shared <= max_deletion) {
+                deletion_edges.erase(edge);
+                ++cut_changes;
+                put_back.push_back(*it);
                 if (verbose) {
                     cerr << "[vg clip]: Putting back deletion edge on " << graph->get_path_name(ref_path) << ": "
-                         << edge_string(*it) << ", which later cuts made unnecessary" << endl;
+                         << edge_string(edge) << ", which later cuts made unnecessary" << endl;
                 }
             } else {
-                edge_blacklist.insert(*it);
+                edge_blacklist.insert(edge);
             }
         }
         // and since putting edges back can join a deletion up again, one last sweep
         cuts.clear();
         sweep([](const DeletionSpan& span) { return span.longest_shared; });
+
+        if (!cuts.empty()) {
+            // the search overestimates where it can go, so with edges put back it can find jumps that no
+            // haplotype makes, and cut more than was put back. the cuts from before putting any back left no
+            // deletion (cutting more only shortens spans), so go back to those if they break fewer haplotypes
+            auto cost = [&](const vector<size_t>& cut_set) {
+                int64_t depth = 0;
+                for (size_t i : cut_set) {
+                    depth += get<1>(candidates[i]);
+                }
+                return make_pair(depth, cut_set.size());
+            };
+            unordered_set<size_t> put_back_set(put_back.begin(), put_back.end());
+            vector<size_t> final_cuts = cuts;
+            for (size_t i : swept_cuts) {
+                if (!put_back_set.count(i)) {
+                    final_cuts.push_back(i);
+                }
+            }
+            if (cost(swept_cuts) < cost(final_cuts)) {
+                for (size_t i : cuts) {
+                    deletion_edges.erase(get<2>(candidates[i]));
+                    edge_blacklist.erase(get<2>(candidates[i]));
+                }
+                for (size_t i : put_back) {
+                    deletion_edges.insert(get<2>(candidates[i]));
+                    edge_blacklist.insert(get<2>(candidates[i]));
+                }
+                if (verbose) {
+                    cerr << "[vg clip]: Undoing " << put_back.size() << " put back and " << cuts.size()
+                         << " later deletion edges on " << graph->get_path_name(ref_path)
+                         << ", since the cuts from before putting any back break fewer paths" << endl;
+                }
+            }
+        }
     }
 
     // just for logging
