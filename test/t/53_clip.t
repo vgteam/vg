@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 48
+plan tests 50
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 
@@ -217,8 +217,24 @@ is "$(vg clip del-hairpin.gfa -D 50 -P REF | vg stats -E -)" "11" "deletion edge
 for i in $(seq 1 18); do printf "S\t$i\tAAAAAAAAAA\n"; done > del-twice.gfa
 for i in $(seq 1 17); do printf "L\t$i\t+\t$((i+1))\t+\t0M\n"; done >> del-twice.gfa
 printf "S\t100\tC\nS\t101\tG\nL\t16\t+\t100\t+\t0M\nL\t100\t+\t16\t+\t0M\nL\t100\t+\t2\t+\t0M\nL\t7\t+\t101\t+\t0M\n" >> del-twice.gfa
-printf "L\t101\t+\t2\t+\t0M\nL\t101\t+\t100\t+\t0M\nP\tREF\t$(seq -s, 1 18 | sed 's/,/+,/g')+\t*\n" >> del-twice.gfa
+printf "L\t101\t+\t2\t+\t0M\nL\t101\t+\t100\t+\t0M\nP\tREF\t$(printf '%s+,' $(seq 1 18) | sed 's/,$//')\t*\n" >> del-twice.gfa
 is "$(vg clip del-twice.gfa -D 60 -P REF | vg clip - -D 60 -P REF -v 2>&1 >/dev/null | grep -c 'Found deletion edge')" "0" "deletion edge clipping leaves nothing for a second run"
+
+# J jumps from 2 to 9, turning around in a hairpin at 30 that L1 and L2 use. C1 and C2 jump from 4 to 10 through 30
+cp del-ref.gfa del-hairpin-d.gfa
+printf "S\t30\tCCCCC\nL\t30\t+\t2\t+\t0M\nL\t30\t+\t9\t+\t0M\nL\t30\t-\t30\t+\t0M\nL\t30\t-\t4\t+\t0M\nL\t30\t+\t10\t+\t0M\n" >> del-hairpin-d.gfa
+printf "P\tJ\t2-,30-,30+,9+\t*\nP\tL1\t30-,30+\t*\nP\tL2\t30-,30+\t*\nP\tC1\t4-,30+,10+\t*\nP\tC2\t4-,30+,10+\t*\nP\tF\t30+,10+\t*\n" >> del-hairpin-d.gfa
+is "$(vg clip del-hairpin-d.gfa -D 50 -d 3 -P REF | vg paths -L -x - | grep -c '^J$')" "0" "deletion edge clipping cuts a jump that turns around in a hairpin too deep to cut"
+
+# 2 to 10 through 100 is the only jump. once its edge from 10 is cut, the one from 2 can go back, but then the
+# search from 102 can reach 2 through 100, which no haplotype does: keep the cuts from before putting any back
+for n in 1:5 2:12 3:10 4:8 5:7 6:12 7:5 8:15 9:11 10:14 11:8 12:7 13:10 14:7 15:8 16:11 17:12 18:9 100:4 101:10 102:8; do
+    printf "S\t${n%:*}\t$(printf "%${n#*:}s" | tr ' ' A)\n"
+done > del-putback.gfa
+for i in $(seq 1 17); do printf "L\t$i\t+\t$((i+1))\t+\t0M\n"; done >> del-putback.gfa
+printf "L\t2\t+\t100\t-\t0M\nL\t10\t+\t100\t+\t0M\nL\t100\t+\t102\t+\t0M\nL\t101\t+\t12\t+\t0M\nL\t102\t+\t17\t+\t0M\n" >> del-putback.gfa
+printf "L\t102\t+\t101\t+\t0M\nL\t102\t-\t101\t+\t0M\nP\tREF\t$(printf '%s+,' $(seq 1 18) | sed 's/,$//')\t*\n" >> del-putback.gfa
+is "$(vg clip del-putback.gfa -D 60 -c 1000 -P REF | vg stats -E -)" "22" "deletion edge clipping doesn't cut more after putting a cut back"
 
 # a collapsed reference visits 20 twice, 70 bp apart
 printf "S\t1\tAAAAAAAAAA\nS\t2\tCCCCCCCCCC\nS\t20\tGGGGGGGGGG\nS\t3\tTTTTTTTTTT\nS\t4\tAAAAAAAAAA\nS\t5\tCCCCCCCCCC\n" > del-collapse.gfa
@@ -227,7 +243,7 @@ for e in "1 2" "2 20" "20 3" "3 4" "4 5" "5 6" "6 7" "7 8" "8 20" "20 9" "1 30" 
 printf "P\tREF\t1+,2+,20+,3+,4+,5+,6+,7+,8+,20+,9+\t*\nP\tH1\t1+,30+,20+,3+,4+,5+,6+,7+,8+,20+,9+\t*\n" >> del-collapse.gfa
 is "$(vg clip del-collapse.gfa -D 50 -P REF | vg stats -E -)" "12" "deletion edge clipping leaves a collapsed reference alone"
 
-rm -f del-ref.gfa del-allele.gfa del-bubble.gfa del-collapse.gfa del-shared.gfa del-hairpin.gfa del-twice.gfa
+rm -f del-ref.gfa del-allele.gfa del-bubble.gfa del-collapse.gfa del-shared.gfa del-hairpin.gfa del-twice.gfa del-hairpin-d.gfa del-putback.gfa
 
 vg clip graphs/snarl-clip.gfa -A 2 -d 2 -P x > sc-A2d2.gfa
 is "$(vg find -x sc-A2d2.gfa -n 4 | wc -l)" "0" "Node 4 correctly clipped with snarl length and depth filter"

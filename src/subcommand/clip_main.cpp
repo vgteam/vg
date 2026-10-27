@@ -56,9 +56,10 @@ void help_clip(char** argv) {
          << "  -g, --net-edges            only clip net-edges inside snarls" << endl
          << "  -G, --top-net-edges        only clip net-edges inside top-level snarls" << endl
          << "big deletion edge clipping options:" << endl
-         << "  -D, --max-deletion-edge N  clip out all edges whose endpoints have" << endl
-         << "                             distance > N on a reference path. edges that" << endl
-         << "                             reference paths walk are never clipped" << endl
+         << "  -D, --max-deletion-edge N  clip out edges so that no jump found within the" << endl
+         << "                             -c context spans > N bp on a reference path" << endl
+         << "                             (one edge per jump, the one fewest paths cross;" << endl
+         << "                             edges that reference paths walk are never clipped)" << endl
          << "  -c, --context N            search up to at most N steps from reference paths" << endl
          << "                             for candidate deletion edges [the -D value]" << endl
          << "general options: " << endl
