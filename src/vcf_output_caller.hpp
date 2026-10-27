@@ -37,7 +37,7 @@ using vg::io::AlignmentEmitter;
 class VCFOutputCaller {
 public:
     /**
-     * The sort key of a buffered VCF record: contig, POS, ID, then block number.
+     * The sort key of a buffered VCF record.
      *
      * Several records can share a contig and POS, such as a nested site and its parent. The sort
      * is not stable, so the output order is the same on every run only if the records at one POS
@@ -51,10 +51,14 @@ public:
         /// The number of the difference block of its snarl that the record holds, or 0 for a
         /// record of a whole snarl. Two blocks of one snarl share an ID and can share a POS.
         size_t block = 0;
-    };
 
-    /// Order buffered record keys by contig, POS, ID, then block number.
-    static bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b);
+        /// Return true if this key sorts before `other`, comparing contig, then POS, then ID, then
+        /// block number.
+        bool operator<(const BufferedRecordKey& other) const {
+            return std::tie(contig, position, id, block)
+                   < std::tie(other.contig, other.position, other.id, other.block);
+        }
+    };
 
     explicit VCFOutputCaller(const string& sample_name);
 

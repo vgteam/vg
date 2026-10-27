@@ -67,19 +67,6 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     return ss.str();
 }
 
-bool VCFOutputCaller::buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b) {
-    if (a.contig != b.contig) {
-        return a.contig < b.contig;
-    }
-    if (a.position != b.position) {
-        return a.position < b.position;
-    }
-    if (a.id != b.id) {
-        return a.id < b.id;
-    }
-    return a.block < b.block;
-}
-
 bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block) const {
     var.setVariantCallFile(output_vcf);
     stringstream ss;
@@ -129,7 +116,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SiteTree* sites)
     std::sort(all_variants.begin(), all_variants.end(),
               [](const pair<BufferedRecordKey, string>& v1,
                  const pair<BufferedRecordKey, string>& v2) {
-                  return buffered_record_key_less(v1.first, v2.first);
+                  return v1.first < v2.first;
               });
 
     // Decompress the records in parallel, a batch at a time, and write each batch in order. Only
