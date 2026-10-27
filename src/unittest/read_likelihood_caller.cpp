@@ -4,10 +4,8 @@
 /// its quality fields.
 ///
 /// The matrix itself is tested under `[allele_likelihood]`. These tests check the quality
-/// fields. GQ is multiplied by two discounts, the explained share and the depth discount. The
-/// depth discount applies only where a called allele differs in length from the reference
-/// allele by at least a minimum length. The tests also check the keys of the genotype
-/// likelihoods.
+/// fields. GQ is multiplied by the explained share and by the depth discount. The tests also
+/// check the keys of the genotype likelihoods.
 
 #include <cmath>
 #include <string>
@@ -269,19 +267,25 @@ TEST_CASE("The depth discount applies only to calls that change length by at lea
     }
 
     // Every read is on the reference, so the call is 0/0 and no called allele changes length.
-    // The depth discount must then leave GQ alone, whatever the depth ratio. The discount is
-    // meant for ranking structural variants, and its length condition keeps it off small ones.
-    Called discount_on = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
+    // The discount is meant for ranking structural variants, and its length condition keeps it
+    // off small variants. With a minimum length of 50 bp, it must leave this call's GQ alone.
+    Called min_50 = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
         c.set_depth_quality(1.0, 50);
     });
-    REQUIRE(discount_on.info != nullptr);
-    REQUIRE(discount_on.genotype == vector<int>({0, 0}));
+    REQUIRE(min_50.info != nullptr);
+    REQUIRE(min_50.genotype == vector<int>({0, 0}));
 
     Called discount_off = call_site(site, reads);
     REQUIRE(discount_off.info != nullptr);
-    // The runs differ only in whether the depth discount is turned on. If the discount applied
-    // to this call, the two GQs would differ.
-    REQUIRE(discount_on.info->gq == Approx(discount_off.info->gq));
+    REQUIRE(min_50.info->gq == Approx(discount_off.info->gq));
+
+    // With a minimum length of 0, the discount applies to every call, and it lowers this call's
+    // GQ. So the length of the call is what kept the discount off it above.
+    Called min_0 = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
+        c.set_depth_quality(1.0, 0);
+    });
+    REQUIRE(min_0.info != nullptr);
+    REQUIRE(min_0.info->gq < discount_off.info->gq);
 }
 
 TEST_CASE("A depth discount with an exponent of 0 leaves GQ unchanged",
@@ -292,13 +296,19 @@ TEST_CASE("A depth discount with an exponent of 0 leaves GQ unchanged",
         reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 4}));
     }
 
-    Called off = call_site(site, reads);
+    // Every read carries the deletion, a length change of 60 bp, which is at least the 50 bp
+    // minimum. With an exponent of 1 the discount lowers this call's GQ. With an exponent of 0
+    // the discount is 1, so GQ is GQI times the explained share alone.
+    Called one = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
+        c.set_depth_quality(1.0, 50);
+    });
     Called zero = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
         c.set_depth_quality(0.0, 50);
     });
-    REQUIRE(off.info != nullptr);
+    REQUIRE(one.info != nullptr);
     REQUIRE(zero.info != nullptr);
-    REQUIRE(zero.info->gq == Approx(off.info->gq));
+    REQUIRE(one.info->gq < zero.info->gq);
+    REQUIRE(zero.info->gq == Approx(zero.info->gq_undiscounted * zero.info->explained_share));
 }
 
 TEST_CASE("Genotype likelihoods are keyed by the genotype that was scored",
