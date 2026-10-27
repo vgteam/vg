@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Check prose in doc/*.md and in source comments for phrasings the project does not accept,
-and that library comments do not name command-line options.
+"""Check prose in doc/*.md, in source comments and in unit test names for phrasings the project
+does not accept, and check that only src/subcommand/ names command-line options.
 
 Run with scripts/lint_prose.py from the repository root; `make lint` runs it.
 
-Each rule is a regular expression matched against one paragraph of a Markdown file, or one run of
-consecutive comment lines in a .cpp or .hpp file, joined with spaces so that a phrase broken
-across lines is still found. A match prints `path:line: message` and fails the check.
+Each rule is a regular expression matched against one paragraph of a Markdown file, one run of
+consecutive comment lines in a .cpp or .hpp file, or the name of one test case, scenario or
+section in src/unittest/. Lines are joined with spaces, so a phrase broken across lines is still
+found. A match prints `path:line: message` and fails the check.
+
+Unit tests exercise library code, so their comments and names follow the library's rule: they
+describe a setting, and do not name the option that sets it.
 """
 
 import os
@@ -34,14 +38,19 @@ RULES = [
 # A line that is only a comment: //, ///, //!, /*, /**, or a * continuation line.
 COMMENT = re.compile(r'^\s*(?://+!?<?|/\*+|\*+/?)\s?(.*)$')
 
-# A command-line option, such as --read-likelihood. Library code describes a setting by what it
-# means; only the subcommands in src/subcommand/ name options. Comments in src/subcommand/ and
-# src/unittest/ may name them.
+# A command-line option, such as --read-likelihood. Only the subcommands in src/subcommand/ have
+# options, so only their comments name them. Library code and its unit tests describe a setting
+# by what it means.
 OPTION = re.compile(r'(?<![\w-])--[a-z][a-z0-9]*(?:-[a-z0-9]+)*')
-OPTION_MESSAGE = "names a command-line option in a library comment; describe the setting instead"
-# Library comments that named an option before this check existed, by their text after the
-# comment marker.
+OPTION_MESSAGE = "names a command-line option outside src/subcommand/; describe the setting instead"
+TEST_OPTION_MESSAGE = ("names a command-line option in a unit test name; "
+                       "name the library setting or describe the behaviour")
+SUBCOMMAND = os.path.join('src', 'subcommand') + os.sep
+UNITTEST = os.path.join('src', 'unittest') + os.sep
+# Comments outside src/subcommand/ that named an option before this check covered their file, each
+# by its text after the comment marker.
 OPTION_COMMENTS_ALLOWED = {
+    'Respects catch.hpp --rng-seed option to `vg test`.',
     '--progress output rather than emitted as a zero-length path.',
     '--progress output.',
     'Load a translation file (created with vg gbwt --translation) and return a backwards mapping',
@@ -52,10 +61,15 @@ OPTION_COMMENTS_ALLOWED = {
     'sampled graph. The same floor as `vg paths --min-gref-len`.',
     'similarity metric and the same core-length gate as "vg deconstruct -L/--cluster-min-len" (a',
     'uncomment to make vg map --debug very interesting',
+    'Unit tests for traversal similarity, the metric behind -L/--cluster in vg deconstruct,',
 }
 # A string literal, so that a // inside one does not start a comment.
 STRING = re.compile(r'"(?:\\.|[^"\\])*"')
 MARKER = re.compile(r'^\s*(?://+!?<?|/\*+|\*+/?)\s?')
+# The opening of a Catch TEST_CASE, SCENARIO or SECTION, up to the end of its name: one string
+# literal, or several that the compiler concatenates.
+TEST_NAME = re.compile(r'\b(?:TEST_CASE|SCENARIO|SECTION)\s*\(\s*((?:"(?:\\.|[^"\\])*"\s*)+)')
+LITERAL_BODY = re.compile(r'"((?:\\.|[^"\\])*)"')
 
 
 def comment_lines(text):
@@ -100,6 +114,36 @@ def units(path, text):
         yield lines, ' '.join(buf), offsets
 
 
+def test_names(text):
+    """Yield (line number, name) for each test case, scenario and section in a unit test file."""
+    for match in TEST_NAME.finditer(text):
+        name = ''.join(LITERAL_BODY.findall(match.group(1)))
+        yield text.count('\n', 0, match.start(1)) + 1, ' '.join(name.split())
+
+
+def problems(path, text):
+    """Yield (line number, message) for each problem in one file."""
+    for lines, para, offsets in units(path, text):
+        for pattern, message in RULES:
+            for match in re.finditer(pattern, para, re.IGNORECASE):
+                yield max(n for n, o in zip(lines, offsets) if o <= match.start()), message
+    if not path.endswith(('.cpp', '.hpp')) or path.startswith(SUBCOMMAND):
+        return
+    for line, comment in comment_lines(text):
+        option = OPTION.search(comment)
+        if option and comment not in OPTION_COMMENTS_ALLOWED:
+            yield line, f"{OPTION_MESSAGE}: {option.group()}"
+    if not path.startswith(UNITTEST):
+        return
+    for line, name in test_names(text):
+        for pattern, message in RULES:
+            if re.search(pattern, name, re.IGNORECASE):
+                yield line, message
+        option = OPTION.search(name)
+        if option:
+            yield line, f"{TEST_OPTION_MESSAGE}: {option.group()}"
+
+
 def main():
     paths = []
     for top, exts in (('doc', ('.md',)), ('src', ('.cpp', '.hpp'))):
@@ -109,21 +153,10 @@ def main():
     for path in sorted(paths):
         with open(path, encoding='utf-8', errors='replace') as f:
             text = f.read()
-        for lines, para, offsets in units(path, text):
-            for pattern, message in RULES:
-                for match in re.finditer(pattern, para, re.IGNORECASE):
-                    line = max(n for n, o in zip(lines, offsets) if o <= match.start())
-                    print(f"{path}:{line}: {message}")
-                    ok = False
-        library = path.endswith(('.cpp', '.hpp')) and not path.startswith(
-            (os.path.join('src', 'subcommand') + os.sep, os.path.join('src', 'unittest') + os.sep))
-        if library:
-            for line, comment in comment_lines(text):
-                if OPTION.search(comment) and comment not in OPTION_COMMENTS_ALLOWED:
-                    print(f"{path}:{line}: {OPTION_MESSAGE}: {OPTION.search(comment).group()}")
-                    ok = False
+        for line, message in sorted(problems(path, text), key=lambda problem: problem[0]):
+            print(f"{path}:{line}: {message}")
+            ok = False
     return 0 if ok else 1
-
 
 if __name__ == '__main__':
     sys.exit(main())
