@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 499
+plan tests 501
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -2488,20 +2488,24 @@ is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed 
 is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --bottom-up 2>/dev/null | grep -vc '^#' | awk '{print ($1>0)?1:0}') "1" "--bottom-up makes calls on the support-based contig"
 is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --bottom-up --ploidy-bed zero_x_ploidy.bed 2>/dev/null | grep -vc '^#') "0" "ploidy 0 makes no --bottom-up calls"
 
-# The ploidy files vg ships parse, and leave a contig they do not name diploid and unchanged.
-SHIPPED=0
-SHIPPED_OK=0
-for PF in ../data/ploidy/*.ploidy.bed; do
-    SHIPPED=$((SHIPPED + 1))
-    vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed "${PF}" 2>/dev/null | grep -v '^#' > shipped.txt
-    [ "${PIPESTATUS[0]}" = 0 ] && cmp -s shipped.txt <(grep -v '^#' ploidy_bed_none.vcf) && SHIPPED_OK=$((SHIPPED_OK + 1))
+# The ploidy presets built into vg parse, and leave a contig they do not name diploid and unchanged.
+PRESETS="chm13v2.XY chm13v2.XX grch38.XY grch38.XX grch37.ucsc.XY grch37.ucsc.XX grch37.b37.XY grch37.b37.XX"
+PRESETS_OK=0
+for PRESET in ${PRESETS}; do
+    vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset "${PRESET}" 2>/dev/null | grep -v '^#' > preset.txt
+    [ "${PIPESTATUS[0]}" = 0 ] && cmp -s preset.txt <(grep -v '^#' ploidy_bed_none.vcf) && PRESETS_OK=$((PRESETS_OK + 1))
 done
-is "${SHIPPED}" "8" "vg ships XY and XX ploidy files for four assemblies"
-is "${SHIPPED_OK}" "${SHIPPED}" "every shipped ploidy file parses and leaves an unnamed contig as it was"
+# An unknown name fails with a message that lists the presets, which are the eight above.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset nosuch >/dev/null 2> preset_err.txt
+is "$?" 1 "--ploidy-preset rejects an unknown name"
+is "$(grep -o '[a-z0-9.]*\.X[XY]' preset_err.txt | sort | tr '\n' ' ')" "$(printf '%s\n' ${PRESETS} | sort | tr '\n' ' ')" "vg has XY and XX ploidy presets for four assemblies"
+is "${PRESETS_OK}" "8" "every ploidy preset parses and leaves an unnamed contig as it was"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed elsewhere_ploidy.bed --ploidy-preset chm13v2.XY >/dev/null 2>&1
+is "$?" 1 "--ploidy-bed cannot be used with --ploidy-preset"
 
 rm -f bad_ploidy.bed overlap_ploidy.bed reversed_ploidy.bed elsewhere_ploidy.bed
 rm -f ploidy_bed_elsewhere.vcf ploidy_bed_none.vcf whole_x_ploidy.bed zero_x_ploidy.bed
-rm -f sb_hap_d.txt sb_hap_bed.txt shipped.txt
+rm -f sb_hap_d.txt sb_hap_bed.txt preset.txt preset_err.txt
 # -G built a re-indexed traversal vector but kept the original reference index, then indexed the
 # small vector with it.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -G > call_gaf.gaf 2>/dev/null

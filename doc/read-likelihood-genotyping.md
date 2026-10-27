@@ -96,7 +96,7 @@ sites is described under [Passes and rounds](#passes-and-rounds), after the voca
   site. Options set the ploidy of each contig or region, and a nested site's ploidy follows from its
   parent's genotype (see [Ploidy](#ploidy)). The ploidy options accept only 1 or 2, because the
   linkage model, phasing and nested calling are built for at most two haplotypes, and
-  `--ploidy-bed` also accepts 0 for a region the sample has no copy of. A nested site that
+  the ploidy BED also accepts 0 for a region the sample has no copy of. A nested site that
   none of its parent's alleles passes through has ploidy 0 (see
   [Which child chains are genotyped](#which-child-chains-are-genotyped)).
 - **Panel.** The haplotypes stored in the GBZ file's
@@ -295,21 +295,24 @@ haplotype enumeration, which does not use Yen's search, there is no limit by def
 
 ## Ploidy
 
-A site's ploidy comes from `--ploidy-bed`, a BED file of `CHROM START END PLOIDY` lines. `CHROM`
-is spelled as in the output VCF. Intervals are 0-based and half-open, and must not overlap. A site
-takes the ploidy of the interval that contains its position. A site outside every interval takes
-the ploidy from `--ploidy`, 2 by default, or from `--ploidy-regex`, a comma-separated list of
-`REGEX:PLOIDY` rules of which the first whose regular expression matches the reference path's name
-applies. Every ploidy must be 1 or 2, except that a `--ploidy-bed` interval may have ploidy 0: the
-sample has no copy of that region, so a site there is not genotyped and gets no record. A site at
-ploidy 1 has a single allele as its `GT`.
+A site's ploidy comes from a ploidy BED of `CHROM START END PLOIDY` lines, given as a file with
+`--ploidy-bed` or by name with `--ploidy-preset`. `CHROM` is spelled as in the output VCF.
+Intervals are 0-based and half-open, and must not overlap. A site takes the ploidy of the interval
+that contains its position. A site outside every interval takes the ploidy from `--ploidy`, 2 by
+default, or from `--ploidy-regex`, a comma-separated list of `REGEX:PLOIDY` rules of which the
+first whose regular expression matches the reference path's name applies. Every ploidy must be 1
+or 2, except that an interval of the ploidy BED may have ploidy 0: the sample has no copy of that
+region, so a site there is not genotyped and gets no record. A site at ploidy 1 has a single allele
+as its `GT`.
 
-vg ships one such file per reference assembly and sample sex, in `data/ploidy/` of the vg
-repository: `chm13v2`, `grch38`, `grch37.ucsc` and `grch37.b37`, each as `XY` and `XX`, for
-example `chm13v2.XY.ploidy.bed`. An `XY` file makes chrX haploid outside its pseudoautosomal
-regions and chrY and the mitochondrion haploid, and an `XX` file gives chrY ploidy 0 and makes the
-mitochondrion haploid. A contig with no line is diploid, so one file serves a whole-genome run and
-a run on any one contig alike, with no `--ploidy`.
+`--ploidy-preset` names a ploidy BED built into vg, one per reference assembly and sample sex:
+`chm13v2`, `grch38`, `grch37.ucsc` and `grch37.b37`, each as `XY` and `XX`, for example
+`chm13v2.XY`. An `XY` preset makes chrX haploid outside its pseudoautosomal regions and chrY and
+the mitochondrion haploid, and an `XX` preset gives chrY ploidy 0 and makes the mitochondrion
+haploid. The `grch37.b37` presets name the contigs `X`, `Y` and `MT`, and the others `chrX`, `chrY`
+and `chrM`. A preset has no lines for the autosomes, so one preset serves a whole-genome run and a
+run on any one contig alike, with no `--ploidy`. `--ploidy-bed` and `--ploidy-preset` cannot be
+given together.
 
 A nested site takes its ploidy from its parent's genotype instead (see
 [Which child chains are genotyped](#which-child-chains-are-genotyped)). The exception is a child of
@@ -838,7 +841,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
 | [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
-| [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed` |
+| [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
 | [Phasing](#phasing) | `--phased`, `--no-phased`, `--read-phasing`, `--no-read-phasing`, `--phase-min-q`, `--phase-coherence`, `--phase-coh-rounds`, `--phase-break`, `--phase-relink`, `--phase-hang`, `--phase-prior`, `--phase-cap` |
 | [Re-genotyping](#re-genotyping-from-the-phase) | `--regenotype`, `--no-regenotype`, `--regeno-temper`, `--regeno-ceiling`, `--regeno-passes`, `--regeno-haploid`, `--no-regeno-haploid`, `--regeno-ledger` |
 | [Quality fields](#options-that-change-the-fields) | `--no-share-quality`, `--depth-quality`, `--min-confidence` |
