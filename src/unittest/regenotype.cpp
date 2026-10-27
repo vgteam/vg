@@ -62,9 +62,9 @@ static map<vector<int>, double> flat_gl() {
 
 TEST_CASE("a temper of zero leaves every genotype likelihood bit-identical",
           "[regenotype]") {
-    // The gate the whole arm rests on, and it holds by construction rather than by tolerance:
-    // at tau = 0 the tilted weights ARE the slot weights, so the corrected and uncorrected
-    // mixtures are the same arithmetic on the same values.
+    // At tau = 0 the tilted weights equal the slot weights, so the corrected and uncorrected
+    // mixtures are the same arithmetic on the same values. The likelihoods must therefore be
+    // equal, not merely close.
     RegenotypeParams params;
     RegenotypeCounters counters;
     for (uint32_t len1 : {10u, 400u, 12000u}) {
@@ -78,9 +78,9 @@ TEST_CASE("a temper of zero leaves every genotype likelihood bit-identical",
             REQUIRE(gl.at(kv.first) == kv.second);
         }
     }
-    // And the two orders scored EQUAL, not merely close. If they can differ by a last bit at
-    // temper 0 then the correction is not exactly zero, it is zero-ish -- which is a different
-    // and much weaker claim than the one the byte-identity gate is asked to carry.
+    // The two orders of the alleles on the strands must also score equal, so that no site
+    // counts as preferring the reversed order. A difference in the last bit would make the
+    // correction at temper 0 near zero rather than zero, and a temper of 0 must change nothing.
     REQUIRE(counters.order_reversed == 0);
 }
 
@@ -270,9 +270,9 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
 
 TEST_CASE("the per-read escape is exactly nothing at temper 0, whatever the ceiling",
           "[regenotype]") {
-    // The escape has to leave the byte-identity gate alone, and it does so for a reason that does
-    // not depend on the fitted value: at tau = 0 the sigmoid is 1/2 for any ceiling, so the
-    // probability is 1/2 and its logit is 0.
+    // At temper 0 the ceiling must leave every read's log-odds at 0, so that a temper of 0 still
+    // changes nothing. It does so for any ceiling c. At tau = 0 the sigmoid is 1/2, so the
+    // probability is c / 2 + (1 - c) / 2 = 1/2, and its logit is 0.
     for (double c : {1.0, 0.99, 0.95, 0.5, 0.01}) {
         for (double lam : {0.0, 17.3, -1215.0, 1e9, -1e-9}) {
             REQUIRE(StrandCalibration{0.0, c}.log_odds(lam) == 0.0);

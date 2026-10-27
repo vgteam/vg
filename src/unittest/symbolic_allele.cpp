@@ -429,11 +429,11 @@ TEST_CASE("A snarl sharing neither boundary is still refused", "[symbolic_allele
 }
 
 TEST_CASE("A resolvable lookup with mismatched boundaries is still refused", "[symbolic_allele]") {
-    // The negative case that actually exercises the widened comparison. Node 1 IS a boundary, so
-    // into_which_snarl succeeds and returns (1,5) -- and the site claims to be (1,4), which matches
-    // neither forward (end 5 != 4) nor reversed (start 1 != 4). Without this the suite only ever
-    // asserted that reversals are accepted, never that impostors are still rejected, because the
-    // other negative case exits at the null-lookup gate and never reaches the predicate at all.
+    // Node 1 is the start of the snarl (1,5), so the manager's lookup finds that snarl, and the
+    // comparison of bounds must refuse the site. The site claims to be (1,4), which matches the
+    // snarl neither forward (its end 5 is not 4) nor reversed (its start 1 is not 4). The test
+    // case above refuses its site earlier, when the lookup finds no snarl, so only this case
+    // checks that the comparison refuses a site.
     Snarl top = make_snarl(1, 5);
     Snarl child = make_snarl(2, 4);
     auto mgr = make_manager(top, {child});

@@ -3,9 +3,11 @@
 /// Unit tests for the layer that turns a reads x alleles matrix into a genotype and
 /// its quality fields.
 ///
-/// The matrix itself is tested under `[allele_likelihood]`. These tests check what the
-/// quality fields contain: the two multiplicative discounts on GQ, one of them gated on
-/// allele size, and the keys of the genotype likelihoods.
+/// The matrix itself is tested under `[allele_likelihood]`. These tests check the quality
+/// fields. GQ is multiplied by two discounts, the explained share and the depth discount. The
+/// depth discount applies only where a called allele differs in length from the reference
+/// allele by at least a minimum length. The tests also check the keys of the genotype
+/// likelihoods.
 
 #include <cmath>
 #include <string>
@@ -258,7 +260,7 @@ TEST_CASE("GQ and GQN can be recomputed from gq_factor and achievable_gap",
     REQUIRE(deep_raw.gq_factor == Approx(deep_raw.info->depth_discount));
 }
 
-TEST_CASE("The depth discount is gated on the called allele's length change",
+TEST_CASE("The depth discount applies only to calls that change length by at least the minimum",
           "[read_likelihood_caller]") {
     CallerSite site;
     vector<Alignment> reads;
@@ -266,20 +268,20 @@ TEST_CASE("The depth discount is gated on the called allele's length change",
         reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 2, 4}));
     }
 
-    // Reference against SNP is a 0 bp change, so however implausible the depth, the
-    // discount must not fire. This is the gate that keeps a ranking signal aimed at
-    // structural variants from touching the SNVs, which are the bulk of every call set.
-    Called snp_site = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
+    // Every read is on the reference, so the call is 0/0 and no called allele changes length.
+    // The depth discount must then leave GQ alone, whatever the depth ratio. The discount is
+    // meant for ranking structural variants, and its length condition keeps it off small ones.
+    Called discount_on = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
         c.set_depth_quality(1.0, 50);
     });
-    REQUIRE(snp_site.info != nullptr);
-    REQUIRE(snp_site.genotype == vector<int>({0, 0}));
+    REQUIRE(discount_on.info != nullptr);
+    REQUIRE(discount_on.genotype == vector<int>({0, 0}));
 
-    Called undiscounted = call_site(site, reads);
-    REQUIRE(undiscounted.info != nullptr);
-    // Identical GQ: the only difference between the runs is a discount that is gated
-    // off. If the gate were removed or its comparison inverted, these would diverge.
-    REQUIRE(snp_site.info->gq == Approx(undiscounted.info->gq));
+    Called discount_off = call_site(site, reads);
+    REQUIRE(discount_off.info != nullptr);
+    // The runs differ only in whether the depth discount is turned on. If the discount applied
+    // to this call, the two GQs would differ.
+    REQUIRE(discount_on.info->gq == Approx(discount_off.info->gq));
 }
 
 TEST_CASE("A depth discount with an exponent of 0 leaves GQ unchanged",
