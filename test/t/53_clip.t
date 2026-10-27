@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 41
+plan tests 44
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 
@@ -175,13 +175,32 @@ printf "P\tREF\t1+,2+,3+,4+,5+,6+,7+,8+,9+,10+\t*\n" >> del-ref.gfa
 cp del-ref.gfa del-allele.gfa
 printf "S\t20\tCCCCCCCCCC\nL\t1\t+\t20\t+\t0M\nL\t20\t+\t3\t+\t0M\nL\t20\t+\t9\t+\t0M\n" >> del-allele.gfa
 printf "P\tH1\t1+,20+,3+,4+,5+,6+,7+,8+,9+,10+\t*\nP\tH2\t1+,20+,3+,4+,5+,6+,7+,8+,9+,10+\t*\nP\tBAD\t1+,20+,9+,10+\t*\n" >> del-allele.gfa
-is "$(vg clip del-allele.gfa -D 50 -P REF | vg view - | grep -P '^L.*\t20\t' | cut -f 2-5 | LC_ALL=C sort | tr '\t\n' ': ')" "1:+:20:+ 20:+:3:+ " "deletion edge clipping cuts the jump, not the allele it leaves from"
+is "$(vg clip del-allele.gfa -D 50 -P REF | vg view - | grep $'^L.*\t20\t' | cut -f 2-5 | LC_ALL=C sort | tr '\t\n' ': ')" "1:+:20:+ 20:+:3:+ " "deletion edge clipping cuts the jump, not the allele it leaves from"
 
-# BAD1 and BAD2 jump from 1 to 10 through a bubble: one cut is enough
-cp del-ref.gfa del-bubble.gfa
-printf "S\t11\tA\nS\t12\tC\nS\t13\tG\nS\t14\tT\nL\t1\t+\t11\t+\t0M\nL\t11\t+\t12\t+\t0M\nL\t11\t+\t13\t+\t0M\n" >> del-bubble.gfa
-printf "L\t12\t+\t14\t+\t0M\nL\t13\t+\t14\t+\t0M\nL\t14\t+\t10\t+\t0M\nP\tBAD1\t1+,11+,12+,14+,10+\t*\nP\tBAD2\t1+,11+,13+,14+,10+\t*\n" >> del-bubble.gfa
-is "$(vg clip del-bubble.gfa -D 50 -P REF | vg stats -E -)" "14" "deletion edge clipping makes one cut across a bubble"
+# three haplotypes leave REF (15 4 9 8 13 6 7 5) at 4 and run through two bubbles to 5: one cut is enough
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do printf "S\t$i\tACGTTGCAAC\n"; done > del-bubble.gfa
+for e in "15 4" "4 9" "9 8" "8 13" "13 6" "6 7" "7 5" "4 3" "4 2" "3 10" "3 1" "2 10" "2 1" "10 11" "10 12" "1 11" "1 12" "11 14" "12 14" "14 5"; do set -- $e; printf "L\t$1\t+\t$2\t+\t0M\n"; done >> del-bubble.gfa
+printf "P\tREF\t15+,4+,9+,8+,13+,6+,7+,5+\t*\nP\tH1\t15+,4+,3+,10+,11+,14+,5+\t*\nP\tH2\t15+,4+,2+,1+,12+,14+,5+\t*\nP\tH3\t15+,4+,2+,1+,12+,14+,5+\t*\n" >> del-bubble.gfa
+is "$(vg clip del-bubble.gfa -D 20 -c 10 -P REF | vg stats -E -)" "19" "deletion edge clipping makes one cut across a run of bubbles"
+
+# 20-21 is an insertion H1-H10 share between 1 and 2, and X1 jumps through it from 9 to 10: cut X1's own edges
+cp del-ref.gfa del-shared.gfa
+printf "S\t20\tCCCCC\nS\t21\tGGGGG\nL\t1\t+\t20\t+\t0M\nL\t20\t+\t21\t+\t0M\nL\t21\t+\t2\t+\t0M\nL\t9\t+\t20\t+\t0M\nL\t21\t+\t10\t+\t0M\n" >> del-shared.gfa
+for i in 1 2 3 4 5 6 7 8 9 10; do printf "P\tH$i\t1+,20+,21+,2+\t*\n"; done >> del-shared.gfa
+printf "P\tX1\t9+,20+,21+,10+\t*\n" >> del-shared.gfa
+is "$(vg clip del-shared.gfa -D 50 -P REF | vg paths -L -x - | grep -c '^H.*\[')" "0" "deletion edge clipping leaves an insertion shared with a jump to the haplotypes that stay local"
+
+# BAD jumps from 1 to 10 through a hairpin at 20, whose two sides reach the same reference nodes
+cp del-ref.gfa del-hairpin.gfa
+printf "S\t20\tCCCCC\nL\t1\t+\t20\t+\t0M\nL\t10\t+\t20\t+\t0M\nL\t20\t+\t20\t-\t0M\nP\tBAD\t1+,20+,20-,10-\t*\n" >> del-hairpin.gfa
+is "$(vg clip del-hairpin.gfa -D 50 -P REF | vg stats -E -)" "11" "deletion edge clipping cuts a jump through a hairpin"
+
+# 16 to 2 through 100 is only a deletion once 101's edge into 100 is cut: one run has to find both
+for i in $(seq 1 18); do printf "S\t$i\tAAAAAAAAAA\n"; done > del-twice.gfa
+for i in $(seq 1 17); do printf "L\t$i\t+\t$((i+1))\t+\t0M\n"; done >> del-twice.gfa
+printf "S\t100\tC\nS\t101\tG\nL\t16\t+\t100\t+\t0M\nL\t100\t+\t16\t+\t0M\nL\t100\t+\t2\t+\t0M\nL\t7\t+\t101\t+\t0M\n" >> del-twice.gfa
+printf "L\t101\t+\t2\t+\t0M\nL\t101\t+\t100\t+\t0M\nP\tREF\t$(seq -s, 1 18 | sed 's/,/+,/g')+\t*\n" >> del-twice.gfa
+is "$(vg clip del-twice.gfa -D 60 -P REF | vg clip - -D 60 -P REF -v 2>&1 >/dev/null | grep -c 'Found deletion edge')" "0" "deletion edge clipping leaves nothing for a second run"
 
 # a collapsed reference visits 20 twice, 70 bp apart
 printf "S\t1\tAAAAAAAAAA\nS\t2\tCCCCCCCCCC\nS\t20\tGGGGGGGGGG\nS\t3\tTTTTTTTTTT\nS\t4\tAAAAAAAAAA\nS\t5\tCCCCCCCCCC\n" > del-collapse.gfa
@@ -190,7 +209,7 @@ for e in "1 2" "2 20" "20 3" "3 4" "4 5" "5 6" "6 7" "7 8" "8 20" "20 9" "1 30" 
 printf "P\tREF\t1+,2+,20+,3+,4+,5+,6+,7+,8+,20+,9+\t*\nP\tH1\t1+,30+,20+,3+,4+,5+,6+,7+,8+,20+,9+\t*\n" >> del-collapse.gfa
 is "$(vg clip del-collapse.gfa -D 50 -P REF | vg stats -E -)" "12" "deletion edge clipping leaves a collapsed reference alone"
 
-rm -f del-ref.gfa del-allele.gfa del-bubble.gfa del-collapse.gfa
+rm -f del-ref.gfa del-allele.gfa del-bubble.gfa del-collapse.gfa del-shared.gfa del-hairpin.gfa del-twice.gfa
 
 vg clip graphs/snarl-clip.gfa -A 2 -d 2 -P x > sc-A2d2.gfa
 is "$(vg find -x sc-A2d2.gfa -n 4 | wc -l)" "0" "Node 4 correctly clipped with snarl length and depth filter"
