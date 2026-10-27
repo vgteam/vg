@@ -114,7 +114,8 @@ the code.
 7. **Say directly what a thing is.** Don't first describe it by its likeness
    to another type or convention and then explain it. The reader works out
    the likeness, only to find the explanation in the next sentence. Drop the
-   likeness and keep the explanation.
+   likeness and keep the explanation. If no explanation follows, replace the
+   likeness with one.
    - Not: "The two bounds of a site, oriented like the start and end of a
      Snarl. `start` reads into the site and `end` reads out of it."
    - But: "The two bounds of a site. `start` reads into the site and `end`
