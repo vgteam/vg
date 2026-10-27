@@ -102,7 +102,7 @@ int main_deconstruct(int argc, char** argv) {
     double cluster_threshold = 1.0;
     // -L is for collapsing near-identical structural alleles.  At 0 the similarity is dominated by
     // sequence every allele shares, so a het SNP scores ~1 against its own alternative and is
-    // merged away; 50 is the standard SV size cutoff.  Pass 0 explicitly to gate nothing.
+    // merged away; 50 is the standard SV size cutoff.  Pass 0 explicitly to cluster at every site.
     int64_t cluster_min_allele_len = 50;
     bool cluster_min_len_set = false;
     bool star_allele = false;

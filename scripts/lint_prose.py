@@ -33,6 +33,11 @@ RULES = [
      "names data by what would be done with it; name the data or its type"),
     (r"\bkept\s+for\s+later\b",
      "defines a thing by its later use; say what it holds"),
+    # A condition called a gate ("the discount is gated on the length change"). The word names no
+    # condition, so say what must be true for the behaviour to happen ("the discount applies when
+    # the length change is at least 50 bp").
+    (r"\bgat(?:e|ed|es|ing)\b",
+     "says something is gated; say what must be true for it to happen"),
 ]
 
 # A line that is only a comment: //, ///, //!, /*, /**, or a * continuation line.
@@ -59,7 +64,7 @@ OPTION_COMMENTS_ALLOWED = {
     'is this variant" behind --cluster-min-len in BOTH vg call and vg deconstruct.  It is',
     'post-genotyping ALT merging (vg call -L / --cluster-min-len).  Deliberately NOT named',
     'sampled graph. The same floor as `vg paths --min-gref-len`.',
-    'similarity metric and the same core-length gate as "vg deconstruct -L/--cluster-min-len" (a',
+    'The metric and the core-length threshold are those of "vg deconstruct -L/--cluster-min-len".',
     'uncomment to make vg map --debug very interesting',
     'Unit tests for traversal similarity, the metric behind -L/--cluster in vg deconstruct,',
 }

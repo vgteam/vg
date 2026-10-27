@@ -859,14 +859,15 @@ rm -f hs_lw0.txt
 
 # --phase-min-q's default follows the WALK, not the preset: 9.5 fits the greedy distribution
 # (chr20 median 10.06) and 8.5 the exact walk's (median 8.98), and keying it on neither is how the
-# 9.5 came to sit above 94% of the sites it was meant to admit.  The behavioural gate for this is
-# the chr20 sweep and the chr6 hold-out, which no fixture here can stand in for -- this only holds
-# the documented pair together, so the default cannot move without the help text moving with it.
+# 9.5 came to sit above 94% of the sites it was meant to admit.  The defaults themselves are
+# checked by the chr20 sweep and the chr6 hold-out, which no fixture here can stand in for -- this
+# only holds the documented pair together, so the default cannot move without the help text moving
+# with it.
 is $(vg call --help 2>&1 | grep -c -- "\[9.5, or 8.5 under --optimal-pairing\]") "1" \
    "--phase-min-q documents both of its defaults"
 
-# --phase-min-q gates on a HETEROZYGOUS site's mean read score, and that score cannot reach
-# phred(--mismap-min): a balanced het splits the slot weight in half, so the ceiling is
+# A heterozygous site is reliable only if its mean read score reaches --phase-min-q, and that score
+# cannot reach phred(--mismap-min): a balanced het splits the slot weight in half, so the ceiling is
 # phred(e/(e+(1-e)/2)) -- 10.21 at the ONT preset's 0.05 against the 13.01 that applies to
 # homozygous sites.  Above it NO site is reliable and all three phasing stages are skipped in
 # silence, so a sweep past the ceiling reports "0 reliable" and reads as the parameter not
@@ -893,20 +894,20 @@ rm -f pq_hi.txt pq_ok.txt pq_off.txt pq_op.txt
 
 # --split-min-q and --split-min-side expose the two thresholds that decide whether
 # --anchors-hom-split may split a site.  They were hardcoded, so the decision could not be swept at
-# all.  The gate that matters is that naming them explicitly changes NOTHING -- an additive option
-# that silently moved output would be worse than no option.
+# all.  The test that matters is that naming them at their defaults changes nothing -- an additive
+# option that silently moved output would be worse than no option.
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_default.tsv \
     --anchors-hom-split --read-phasing -t 1 2>/dev/null >/dev/null
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_explicit.tsv \
     --anchors-hom-split --read-phasing --split-min-q 0.5 --split-min-side 10 -t 1 2>/dev/null >/dev/null
 is $(if cmp -s sq_default.tsv sq_explicit.tsv; then echo 1; else echo 0; fi) "1" \
    "naming the split thresholds at their defaults changes nothing"
-# The gate above proves nothing unless this fixture exercises the threshold at all, and it once
+# The test above proves nothing unless this fixture exercises the threshold at all, and it once
 # named side 2 against a default of 10 and still passed. A non-default side must move the output.
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_side2.tsv \
     --anchors-hom-split --read-phasing --split-min-side 2 -t 1 2>/dev/null >/dev/null
 is $(if cmp -s sq_default.tsv sq_side2.tsv; then echo 1; else echo 0; fi) "0" \
-   "and a non-default --split-min-side does change it, so that gate can fire"
+   "and a non-default --split-min-side does change it, so that test can fail"
 
 # --split-min-q is FITTED, on chr20's phased-run length and confirmed on chr6, and it saturates
 # exactly at 0.5: the read-walkable run N50 is identical at 0.5, 0.25, 0.1 and 0.0 while the run's
@@ -958,8 +959,9 @@ rm -f sq_default.tsv sq_explicit.tsv sq_side2.tsv sq_noout.txt sq_bad.txt sq_lo.
 rm -f hs_norp.tsv hs_norp.txt hs_rp.tsv hs_rp.txt
 
 # The owner column generalises past --read-likelihood: --anchors-*, --mosaic-* and --regeno-* each
-# need their own subsystem switched on, and each was silently dropped without it.  The outer gate
-# still wins when BOTH switches are missing, because that is the one the user has to fix first.
+# need their own subsystem switched on, and each was silently dropped without it.  When both
+# switches are missing, the refusal names the outer one, because that is the one the user has to
+# fix first.
 vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --anchors-min-q 30 -t 1 >/dev/null 2>sub_anch.txt
 is $(grep -c -- "--anchors-min-q only applies with --anchors-out" sub_anch.txt) "1" "an --anchors-* option without --anchors-out is refused"
 
@@ -1178,8 +1180,8 @@ is $(grep -v "^#" nest_hap.vcf | cut -f10 | cut -d: -f1 | grep -cE '^[0-9]+$') "
    "no record carries a bare haploid genotype: every called allele names the strand it sits on"
 # And the mechanism that makes that possible on a collapsed parent: a site that writes no VCF line
 # is still entered into the linkage layer and phased, because its two alleles differ only inside its
-# children and those children need to know which is which. Gating entry on the line is what left
-# 289 of chr20's 292 strandless records with an unphased parent.
+# children and those children need to know which is which. If only sites with a line were entered,
+# the children of a collapsed parent would have no strand to inherit.
 is $(grep -c "collapsed sites phased with no line of their own" nest_hap_err.txt) "1" \
    "a site that emits no line is still phased, so its children can inherit a strand"
 # The invariant the whole nested effort is for, asserted on the progress output because it covers
@@ -1719,9 +1721,10 @@ vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --phase-mi
     --regenotype --regeno-temper 0 -t 1 2>rl_rg_t0.err > rl_rg_t0.vcf
 is "$?" "0" "--regenotype runs"
 
-# THE gate, and it holds by construction rather than by tolerance: at temper 0 the tilted weights
-# ARE the site's own slot weights, so the corrected and uncorrected mixtures are the same
-# arithmetic on the same values and cancel bit for bit. One differing byte is a bug, not rounding.
+# At temper 0, re-genotyping must leave the VCF byte-identical, and this holds by construction
+# rather than by tolerance: the tilted weights are the site's own slot weights, so the corrected
+# and uncorrected mixtures are the same arithmetic on the same values and cancel bit for bit. One
+# differing byte is a bug, not rounding.
 is $(if cmp -s rl_rg_off.vcf rl_rg_t0.vcf; then echo 1; else echo 0; fi) "1" \
    "--regeno-temper 0 reproduces --no-regenotype byte for byte"
 
@@ -1733,7 +1736,7 @@ is $(grep "re-genotyping: temper" rl_rg_t0.err | sed 's/.*, \([0-9]*\) would mov
    "and moves nothing at temper 0"
 # The correction rewrites every site's likelihoods in place even when it moves no direct call, and
 # GL is written from them, so the linkage pass chooses them before the rounds stop. The byte-identity
-# gate above is then also the proof that choosing an identity correction again is inert.
+# test above is then also the proof that choosing an identity correction again is inert.
 is $(grep -c "re-genotyping round 2:" rl_rg_t0.err) "1" \
    "a correction that moves no direct call is still followed by a linkage pass"
 
@@ -2164,26 +2167,28 @@ vg deconstruct small_cluster_call.gfa -p x -L 0.7142 --cluster-min-len 0 2>/dev/
 is "$(n_alts decon_hi.vcf)" "$(n_alts call_cluster_hi.vcf)" "vg call and vg deconstruct agree above the threshold"
 is "$(n_alts decon_lo.vcf)" "$(n_alts call_cluster_lo.vcf)" "vg call and vg deconstruct agree below the threshold"
 
-# --cluster-min-len gates per site, exactly as in vg deconstruct.  This site's core length is 6 bp.
+# Alleles merge only at a site whose core length is at least --cluster-min-len, exactly as in
+# vg deconstruct.  This site's core length is 6 bp.
 for N in 0 6 7 50 ; do
     vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --cluster-min-len $N > call_minlen_$N.vcf 2>/dev/null
 done
 is "$(call_site call_minlen_0.vcf 5)"  "ATTTGA"        "--cluster-min-len 0 merges everywhere"
 is "$(call_site call_minlen_6.vcf 5)"  "ATTTGA"        "--cluster-min-len at the site length still merges"
-is "$(call_site call_minlen_7.vcf 5)"  "ATTTGA,ATTTGG" "--cluster-min-len above the site length gates merging"
+is "$(call_site call_minlen_7.vcf 5)"  "ATTTGA,ATTTGG" "--cluster-min-len above the site length prevents merging"
 is "$(call_site call_minlen_50.vcf 5)" "ATTTGA,ATTTGG" "--cluster-min-len 50 restricts merging to SVs"
 # 50 is the DEFAULT, so -L on its own must behave like --cluster-min-len 50 and leave this 6bp site
 # alone.  Every merge assertion above has to pass --cluster-min-len 0 for exactly this reason.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 > call_minlen_default.vcf 2>/dev/null
 diff call_minlen_50.vcf call_minlen_default.vcf
-is "$?" 0 "-L alone gates like --cluster-min-len 50, the default"
+is "$?" 0 "-L alone behaves like --cluster-min-len 50, the default"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len 50 > call_minlen_only.vcf 2>/dev/null
 diff call_no_cluster.vcf call_minlen_only.vcf
 is "$?" 0 "--cluster-min-len without -L is a no-op"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len 50 2>&1 >/dev/null | grep -q "no effect without -L"
 is "$?" 0 "--cluster-min-len without -L warns"
 
-# The gate must read the alleles the record emits, not the traversal finder's candidate list.
+# The core length must be measured on the alleles the record emits, not on the traversal finder's
+# candidate list.
 # Adding a long branch with no reads -- absent from the genotype and from every AT entry -- must not
 # change whether merging happens.
 cp small_cluster_call.gfa minlen_ghost.gfa
@@ -2253,7 +2258,7 @@ is "$?" 1 "-L is rejected with -Y/--star-allele"
 
 # The gref workflow, which is what nested -L is for: the reference bypasses a 121bp insertion, so
 # the insertion's interior is only reachable as a gref fragment contig.  The insertion is an SV by
-# the --cluster-min-len 50 default, so it merges without the gate having to be turned off.
+# the --cluster-min-len 50 default, so it merges without --cluster-min-len 0.
 A20=$(printf 'A%.0s' $(seq 20)); C60=$(printf 'C%.0s' $(seq 60))
 A60=$(printf 'A%.0s' $(seq 60)); T20=$(printf 'T%.0s' $(seq 20))
 { printf "H\tVN:Z:1.0\n"
@@ -2395,9 +2400,10 @@ vg call bu.vg -k bu.pack -p x --bottom-up -G >/dev/null 2>&1
 is "$?" 1 "--bottom-up is rejected with -G"
 rm -f bu.vg bu.gam bu.pack bu.vcf
 
-# --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
-# every allele are stripped -- not on the raw snarl interior.  Same rule, same helper, as
-# vg deconstruct: without it a 1bp SNP gets gated on the size of whatever snarl contains it.
+# --cluster-min-len is compared with the core length: the length of the longest allele once the
+# prefix and suffix shared by every allele are stripped.  vg deconstruct uses the same rule and the
+# same helper.  Comparing it with the raw snarl interior instead would decide whether a 1bp SNP
+# merges by the size of whatever snarl contains it.
 core_pack() {
     vg view -Fv nesting/$1.gfa > core_$1.vg
     vg sim -x core_$1.vg -P hapA -n 40 -l 60 -a -s 5 > core_a.gam

@@ -958,7 +958,7 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
     // chrUn_KI270442v1 is nested in chr16_KI270728v1_random, and deconstruct reports it at
     // CH=1 accordingly.  Treating every reference contig as level 0 made the column disagree
     // with CH on 8 of 25 chrOther contigs while agreeing perfectly on every single-contig
-    // chromosome, which is why the chr22/chr14/chrY gates could not see it.
+    // chromosome, which is why checks on chr22, chr14 and chrY could not see it.
     for (int64_t i = 0; i < n; ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
         path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
@@ -991,8 +991,8 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
             // chr5_2201_alt, which get level 1 where the VCF chain says 2 through
             // chr5_113_alt, all three off HG04160#1#CM088426.1).  Not proven to be this guard
             // rather than the depth or both-bounds tests; settling that needs instrumentation.
-            // Do not relax it without gating on those two contigs AND on chr22 and
-            // chrOther-v2.1 staying byte-identical.
+            // Before relaxing it, check the levels of those two contigs, and check that chr22 and
+            // chrOther-v2.1 stay byte-identical.
             if (graph->get_path_handle_of_step(this->gref_intervals[owner].first) == my_source) {
                 return false;
             }

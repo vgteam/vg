@@ -923,13 +923,13 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         vector<int> unused_child_snarl_mapping;
         vector<vector<int>> trav_clusters;
 
-        // If a minimum-allele-length gate is set, skip clustering at sites whose CORE LENGTH -- the
-        // longest allele once the prefix and suffix common to every allele are stripped -- is below
-        // the threshold.  This lets the clustering be SV-only (50bp matches the standard SV size
-        // cutoff) while leaving small variants represented exactly as they are.  Measuring the raw
-        // snarl interior instead would gate a 1bp SNP on the size of the snarl that happens to
-        // contain it, and would disagree with vg call, whose records are flattened.  See
-        // VCFOutputCaller::allele_core_length.
+        // If cluster_min_allele_len is above 0, skip clustering at sites whose core length is below
+        // it.  The core length is the length of the longest allele once the prefix and suffix
+        // common to every allele are stripped.  This lets the clustering be SV-only (50bp matches
+        // the standard SV size cutoff) while leaving small variants represented exactly as they
+        // are.  Measuring the raw snarl interior instead would decide whether to cluster a 1bp SNP
+        // by the size of the snarl that happens to contain it, and would disagree with vg call,
+        // whose records are flattened.  See VCFOutputCaller::allele_core_length.
         bool do_clustering = true;
         if (cluster_min_allele_len > 0 && cluster_threshold < 1.0) {
             // The traversals that become alleles: everything get_traversal_order kept, plus the
@@ -965,10 +965,11 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             do_clustering = false;
             if (interior_reaches) {
                 // The allele strings do not exist yet -- get_alleles() runs after clustering -- so
-                // rebuild the set this record would emit if we did NOT cluster, which is exactly
-                // what the gate is asking about.  This is exact rather than approximate: the only
-                // transforms get_alleles applies afterwards are reverse-complementing every allele
-                // and prepending a common anchor base, and core length is invariant to both.
+                // rebuild the set this record would emit without clustering, because the threshold
+                // applies to the core length of that set.  This is exact rather than approximate:
+                // the only transforms get_alleles applies afterwards are reverse-complementing
+                // every allele and prepending a common anchor base, and core length is invariant
+                // to both.
                 vector<string> unclustered_alleles;
                 unclustered_alleles.reserve(sorted_travs.size() + 1);
                 for_each_measured([&](const Traversal& t) {

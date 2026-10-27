@@ -106,14 +106,17 @@ public:
     void set_gref_levels(map<string, int> levels);
 
     /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
-    /// two effectively-identical alleles collapses to 1/1 with a single ALT.  Uses the same
-    /// similarity metric and the same core-length gate as "vg deconstruct -L/--cluster-min-len" (a
-    /// length-weighted Jaccard, except that a pure deletion is scored against the site -- see
-    /// weighted_traversal_similarity).  The gate is applied to the alleles each tool emits, and
-    /// those sets differ, so the two can disagree at a given site:
-    /// similarity is >= threshold to merge, and min_len > 0 restricts merging to sites whose
-    /// core length reaches min_len bp (see allele_core_length).
-    /// A threshold of 1.0 (the default) disables merging entirely.
+    /// two effectively-identical alleles collapses to 1/1 with a single ALT.
+    ///
+    /// Two alleles merge when their similarity is at least threshold. The similarity is a
+    /// length-weighted Jaccard that scores a pure deletion against the site (see
+    /// weighted_traversal_similarity). When min_len is above 0, alleles merge only at a site
+    /// whose core length (see allele_core_length) is at least min_len bp. A threshold of 1.0,
+    /// the default, turns merging off.
+    ///
+    /// The metric and the core-length threshold are those of "vg deconstruct -L/--cluster-min-len".
+    /// Each tool measures core length on the alleles it emits, and the two tools can emit
+    /// different alleles for one site, so they can disagree about whether its alleles merge.
     void set_allele_merge(double threshold, int64_t min_len);
 
     /// The set of reference contigs that actually have a record.  Reads the sort keys of the
