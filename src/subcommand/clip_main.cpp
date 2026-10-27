@@ -65,6 +65,7 @@ void help_clip(char** argv) {
          << "  -P, --path-prefix STR      do not clip out alleles on paths beginning with STR" << endl
          << "                             (specify such references with -P or -b; may repeat)" << endl
          << "  -m, --min-fragment-len N   don't write novel path fragment if < N bp long" << endl
+         << "                             (which can leave nodes no path covers)" << endl
          << "  -B, --output-bed           write BED-style file of intervals," << endl
          << "                             instead of clipped grap. columns 4-9 are:" << endl
          << "                             snarl node-count edge-count shallow-node-count" << endl
