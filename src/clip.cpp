@@ -188,7 +188,7 @@ static path_handle_t create_path_fragment(MutablePathMutableHandleGraph* graph, 
 // note: clip-vg.cpp has a more general version (if ever needed) that can chop nodes on path positions
 void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const unordered_set<nid_t>& nodes_to_delete,
                                  const unordered_set<edge_t>& edges_to_delete, int64_t min_fragment_len,
-                                 unordered_map<string, size_t>* fragments_per_path) {
+                                 unordered_map<string, size_t>* fragments_per_path, bool keep_short_at_deleted_nodes) {
       // chop the paths    
     vector<path_handle_t> path_handles;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
@@ -226,7 +226,7 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
                 }
                 if (step_deleted || edge_deleted) {
                     // we hit a deleted node (or edge): make a path fragment for eveything to it
-                    if (step_deleted || cur_step_offset - start_step_offset >= min_fragment_len) {
+                    if ((step_deleted && keep_short_at_deleted_nodes) || cur_step_offset - start_step_offset >= min_fragment_len) {
                         create_path_fragment(graph, path_name, start_step, cur_step, start_step_offset, cur_step_offset);
                         if (fragments_per_path) {
                             ++(*fragments_per_path)[path_name];
