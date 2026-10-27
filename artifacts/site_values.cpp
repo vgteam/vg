@@ -4,58 +4,6 @@
 #include <algorithm>
 
 namespace vg {
-SiteBounds bounds_of(const HandleGraph& graph, const Snarl& snarl) {
-    return SiteBounds{graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
-                      graph.get_handle(snarl.end().node_id(), snarl.end().backward())};
-}
-
-Snarl snarl_of(const HandleGraph& graph, const SiteBounds& site) {
-    Snarl snarl;
-    snarl.mutable_start()->set_node_id(graph.get_id(site.start));
-    snarl.mutable_start()->set_backward(graph.get_is_reverse(site.start));
-    snarl.mutable_end()->set_node_id(graph.get_id(site.end));
-    snarl.mutable_end()->set_backward(graph.get_is_reverse(site.end));
-    return snarl;
-}
-
-Traversal walk_of(const HandleGraph& graph, const SnarlTraversal& trav) {
-    Traversal walk;
-    walk.reserve(trav.visit_size());
-    for (const Visit& visit : trav.visit()) {
-        walk.push_back(graph.get_handle(visit.node_id(), visit.backward()));
-    }
-    return walk;
-}
-
-vector<Traversal> walks_of(const HandleGraph& graph, const vector<SnarlTraversal>& travs) {
-    vector<Traversal> walks;
-    walks.reserve(travs.size());
-    for (const SnarlTraversal& trav : travs) {
-        walks.push_back(walk_of(graph, trav));
-    }
-    return walks;
-}
-
-SnarlTraversal snarl_traversal_of(const HandleGraph& graph, const Traversal& walk) {
-    SnarlTraversal trav;
-    for (const handle_t& handle : walk) {
-        Visit* visit = trav.add_visit();
-        visit->set_node_id(graph.get_id(handle));
-        visit->set_backward(graph.get_is_reverse(handle));
-    }
-    return trav;
-}
-
-vector<SnarlTraversal> snarl_traversals_of(const HandleGraph& graph,
-                                           const vector<Traversal>& walks) {
-    vector<SnarlTraversal> travs;
-    travs.reserve(walks.size());
-    for (const Traversal& walk : walks) {
-        travs.push_back(snarl_traversal_of(graph, walk));
-    }
-    return travs;
-}
-
 bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Traversal& walk) {
     if ((size_t)trav.visit_size() != walk.size()) {
         return false;

@@ -20,6 +20,7 @@
 #include "allele_likelihood.hpp"
 #include "alignment_scorer.hpp"
 #include "catch.hpp"
+#include "snarl_fixtures.hpp"
 #include "site_read_source.hpp"
 #include "site_values.hpp"
 #include "snarls.hpp"

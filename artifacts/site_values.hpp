@@ -9,9 +9,8 @@
  * the site to its end bound. A star allele, for a strand that does not cross the site, is an empty
  * walk. `SiteChildren` holds what the records of a site need to know about the sites nested in it.
  *
- * Namespace vg holds the conversions between these values and `Snarl` and `SnarlTraversal`.
- * Namespace vg::multipass holds the caller's own types, and the functions that read them from a
- * decomposition.
+ * Namespace vg holds how alleles are spelled and how edit sites are made. Namespace vg::multipass
+ * holds the caller's own types, and the functions that read them from a decomposition.
  */
 
 #include <utility>
@@ -26,27 +25,11 @@
 namespace vg {
 using namespace std;
 
-/// Get the bounds of `snarl` in `graph`.
-SiteBounds bounds_of(const HandleGraph& graph, const Snarl& snarl);
-
-/// Convert `site` to a Snarl, for the code that still takes one.
-Snarl snarl_of(const HandleGraph& graph, const SiteBounds& site);
-
-/// Convert a SnarlTraversal of node visits to a walk.
-Traversal walk_of(const HandleGraph& graph, const SnarlTraversal& trav);
-
-/// Convert each SnarlTraversal of node visits to a walk.
-vector<Traversal> walks_of(const HandleGraph& graph, const vector<SnarlTraversal>& travs);
-
-/// Convert a walk to a SnarlTraversal of node visits, for the code that still takes one.
-SnarlTraversal snarl_traversal_of(const HandleGraph& graph, const Traversal& walk);
-
-/// Convert each walk to a SnarlTraversal of node visits.
-vector<SnarlTraversal> snarl_traversals_of(const HandleGraph& graph,
-                                           const vector<Traversal>& walks);
-
 /// Return true if a SnarlTraversal of node visits and a walk visit the same nodes in the same
 /// orientations.
+///
+/// TODO: Remove this with `ReadLikelihoodSnarlCaller::update_vcf_info`, its one user, which the
+/// read-likelihood caller never calls.
 bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Traversal& walk);
 
 /// The sequence of each visit of an allele's walk, read the way the walk reads the node.
