@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <IntervalTree.h>
 #include <structures/rank_pairing_heap.hpp>
+#include <structures/union_find.hpp>
 #include <BooPHF.h>
 #include "bdsg/internal/hash_map.hpp"
 #include "bdsg/internal/packed_structs.hpp"
@@ -1309,44 +1310,303 @@ void clip_contained_stubs(MutablePathMutableHandleGraph* graph, PathPositionHand
     
 }
 
-void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose) {
-    unordered_set<edge_t> edges_to_delete;
-    int64_t stubbified_path_count = 0; // just for logging
+void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len,
+                        bool keep_connected, bool verbose) {
+    // the selected reference paths, and the edges they walk. those are never cut, even where a path
+    // comes back through one of its own ends, so a reference is never chopped
+    vector<path_handle_t> ref_paths;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
         string path_name = graph->get_path_name(path_handle);
         for (const string& ref_prefix : ref_prefixes) {
-            bool was_stubbified = false;
             if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
-                step_handle_t first_step = graph->path_begin(path_handle);
-                handle_t first_handle = graph->get_handle_of_step(first_step);
-                graph->follow_edges(first_handle, !graph->get_is_reverse(first_handle), [&](handle_t next_handle) {
-                    edge_t edge = graph->get_is_reverse(first_handle) ? graph->edge_handle(first_handle, next_handle) :
-                        graph->edge_handle(next_handle, first_handle);
-                    edges_to_delete.insert(edge);
-                    was_stubbified = true;
-                });
-
-                step_handle_t last_step = graph->path_back(path_handle);
-                handle_t last_handle = graph->get_handle_of_step(last_step);
-                graph->follow_edges(last_handle, graph->get_is_reverse(last_handle), [&](handle_t next_handle) {
-                    edge_t edge = graph->get_is_reverse(last_handle) ? graph->edge_handle(next_handle, last_handle) :
-                        graph->edge_handle(last_handle, next_handle);
-                    edges_to_delete.insert(edge);
-                    was_stubbified = true;
-                });
-            }
-            if (was_stubbified) {
-                ++stubbified_path_count;
+                if (!graph->is_empty(path_handle)) {
+                    ref_paths.push_back(path_handle);
+                }
+                break;
             }
         }
     });
+    unordered_set<edge_t> ref_edges;
+    for (path_handle_t path_handle : ref_paths) {
+        handle_t prev_handle;
+        bool has_prev = false;
+        graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+            handle_t handle = graph->get_handle_of_step(step_handle);
+            if (has_prev) {
+                ref_edges.insert(graph->edge_handle(prev_handle, handle));
+            }
+            prev_handle = handle;
+            has_prev = true;
+        });
+    }
+
+    // every other edge on the outer side of a reference path end, once, as (end, next): end is the end
+    // node's handle reading out of the path (the flipped first handle, or the last handle), and next is
+    // the neighbour that follows it reading outward
+    vector<pair<handle_t, handle_t>> outer_edges;
+    vector<size_t> outer_edge_paths; // the index in ref_paths of the path each one was found on (just for logging)
+    unordered_set<edge_t> outer_edge_set;
+    unordered_set<nid_t> end_ids;
+    for (size_t p = 0; p < ref_paths.size(); ++p) {
+        handle_t first_out = graph->flip(graph->get_handle_of_step(graph->path_begin(ref_paths[p])));
+        handle_t last_out = graph->get_handle_of_step(graph->path_back(ref_paths[p]));
+        for (handle_t end : {first_out, last_out}) {
+            end_ids.insert(graph->get_id(end));
+            graph->follow_edges(end, false, [&](handle_t next) {
+                edge_t edge = graph->edge_handle(end, next);
+                if (!ref_edges.count(edge) && outer_edge_set.insert(edge).second) {
+                    outer_edges.emplace_back(end, next);
+                    outer_edge_paths.push_back(p);
+                }
+            });
+        }
+    }
+
+    unordered_set<edge_t> edges_to_delete;
+    // just for logging
+    vector<bool> path_clipped(ref_paths.size(), false);
+    size_t kept_piece_count = 0, kept_node_count = 0, kept_edge_count = 0, tipless_piece_count = 0;
+    int64_t kept_bp = 0;
+
+    if (!keep_connected) {
+        edges_to_delete = outer_edge_set;
+        for (size_t p : outer_edge_paths) {
+            path_clipped[p] = true;
+        }
+    } else if (!outer_edges.empty()) {
+        // an end can only be cut away from the reference by its own outer edges if those edges are all
+        // that attach some piece of the graph. cutting the rest is enough to take the end off any cycle,
+        // so find the pieces: flood from the reference paths without crossing outer edges
+        auto is_outer = [&](const handle_t& from, const handle_t& to) {
+            return (end_ids.count(graph->get_id(from)) || end_ids.count(graph->get_id(to))) &&
+                outer_edge_set.count(graph->edge_handle(from, to));
+        };
+        // flood from the handles on the stack, pushing each node that visit() reports as new
+        function<void(vector<handle_t>&, const function<bool(nid_t)>&)> flood = [&](vector<handle_t>& stack,
+                                                                                   const function<bool(nid_t)>& visit) {
+            while (!stack.empty()) {
+                handle_t handle = stack.back();
+                stack.pop_back();
+                for (bool go_left : {false, true}) {
+                    graph->follow_edges(handle, go_left, [&](handle_t next) {
+                        if (!(go_left ? is_outer(next, handle) : is_outer(handle, next)) && visit(graph->get_id(next))) {
+                            stack.push_back(graph->forward(next));
+                        }
+                    });
+                }
+            }
+        };
+
+        nid_t min_id = graph->min_node_id();
+        vector<bool> anchored(graph->max_node_id() - min_id + 1, false);
+        function<bool(nid_t)> visit_anchored = [&](nid_t node_id) {
+            if (anchored[node_id - min_id]) {
+                return false;
+            }
+            anchored[node_id - min_id] = true;
+            return true;
+        };
+        vector<handle_t> stack;
+        for (path_handle_t path_handle : ref_paths) {
+            graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                handle_t handle = graph->forward(graph->get_handle_of_step(step_handle));
+                if (visit_anchored(graph->get_id(handle))) {
+                    stack.push_back(handle);
+                }
+            });
+        }
+        flood(stack, visit_anchored);
+
+        // the pieces that only outer edges attach, with the outer edges (as indexes) that attach them
+        unordered_map<nid_t, size_t> piece_of;
+        vector<vector<nid_t>> pieces;
+        vector<vector<size_t>> piece_outer_edges;
+        for (size_t i = 0; i < outer_edges.size(); ++i) {
+            nid_t next_id = graph->get_id(outer_edges[i].second);
+            if (anchored[next_id - min_id]) {
+                // still attached to the reference without this edge, so it only closes a cycle
+                edges_to_delete.insert(graph->edge_handle(outer_edges[i].first, outer_edges[i].second));
+                path_clipped[outer_edge_paths[i]] = true;
+                continue;
+            }
+            if (!piece_of.count(next_id)) {
+                size_t piece = pieces.size();
+                pieces.emplace_back();
+                piece_outer_edges.emplace_back();
+                function<bool(nid_t)> visit_piece = [&](nid_t node_id) {
+                    if (piece_of.count(node_id)) {
+                        return false;
+                    }
+                    piece_of[node_id] = piece;
+                    pieces[piece].push_back(node_id);
+                    return true;
+                };
+                visit_piece(next_id);
+                stack.push_back(graph->get_handle(next_id));
+                flood(stack, visit_piece);
+            }
+            piece_outer_edges[piece_of[next_id]].push_back(i);
+        }
+
+        // the path steps that cross an edge
+        unordered_map<edge_t, int64_t> coverage_memo;
+        auto coverage = [&](const edge_t& edge) {
+            auto it = coverage_memo.find(edge);
+            if (it == coverage_memo.end()) {
+                it = coverage_memo.emplace(edge, edge_depth(graph, edge, numeric_limits<int64_t>::max())).first;
+            }
+            return it->second;
+        };
+        // the edges on one side of a node that aren't being cut
+        auto live_edges = [&](const handle_t& handle, bool go_left) {
+            vector<edge_t> edges;
+            graph->follow_edges(handle, go_left, [&](handle_t other) {
+                edge_t edge = go_left ? graph->edge_handle(other, handle) : graph->edge_handle(handle, other);
+                if (!edges_to_delete.count(edge) && find(edges.begin(), edges.end(), edge) == edges.end()) {
+                    edges.push_back(edge);
+                }
+            });
+            return edges;
+        };
+        // order edges by node ids, so that ties don't depend on hashing or graph implementation
+        auto edge_key = [&](const edge_t& edge) {
+            return make_tuple(graph->get_id(edge.first), graph->get_is_reverse(edge.first),
+                              graph->get_id(edge.second), graph->get_is_reverse(edge.second));
+        };
+
+        for (size_t piece = 0; piece < pieces.size(); ++piece) {
+            // keep the piece on the end whose outer edges the paths cross most (the first such end on
+            // ties). keeping its edges to two ends would close a cycle through both of them
+            vector<pair<handle_t, int64_t>> end_coverage;
+            for (size_t i : piece_outer_edges[piece]) {
+                int64_t cov = coverage(graph->edge_handle(outer_edges[i].first, outer_edges[i].second));
+                auto it = find_if(end_coverage.begin(), end_coverage.end(), [&](const pair<handle_t, int64_t>& end_cov) {
+                    return end_cov.first == outer_edges[i].first;
+                });
+                if (it == end_coverage.end()) {
+                    end_coverage.emplace_back(outer_edges[i].first, cov);
+                } else {
+                    it->second += cov;
+                }
+            }
+            handle_t kept_end = max_element(end_coverage.begin(), end_coverage.end(),
+                                            [](const pair<handle_t, int64_t>& a, const pair<handle_t, int64_t>& b) {
+                                                return a.second < b.second;
+                                            })->first;
+            vector<size_t> kept;
+            for (size_t i : piece_outer_edges[piece]) {
+                if (outer_edges[i].first == kept_end) {
+                    kept.push_back(i);
+                } else {
+                    edges_to_delete.insert(graph->edge_handle(outer_edges[i].first, outer_edges[i].second));
+                    path_clipped[outer_edge_paths[i]] = true;
+                }
+            }
+
+            bool has_tip = false;
+            for (nid_t node_id : pieces[piece]) {
+                handle_t handle = graph->get_handle(node_id);
+                if (live_edges(handle, false).empty() || live_edges(handle, true).empty()) {
+                    has_tip = true;
+                    break;
+                }
+            }
+            if (!has_tip) {
+                // a piece with no tip of its own is all cycles, and hanging it off a reference end leaves the
+                // snarl tree's root chain nowhere to end but a loop (vg haplotypes then rejects the graph).
+                // one tip is enough, so cut every edge on one side of one node. to cut nothing off, take a
+                // side that no edge of a spanning tree of the piece and its end uses (the tree prefers the
+                // edges paths cross most), and of those the side whose edges paths cross least
+                ++tipless_piece_count;
+                unordered_map<nid_t, size_t> piece_index;
+                for (size_t k = 0; k < pieces[piece].size(); ++k) {
+                    piece_index[pieces[piece][k]] = k;
+                }
+                // vertex k is the piece's kth node, and the last one stands for the kept end, which is
+                // all a live edge can leave the piece to
+                size_t end_vertex = pieces[piece].size();
+                vector<tuple<int64_t, edge_t, size_t, size_t>> piece_edges;
+                unordered_set<edge_t> seen;
+                for (nid_t node_id : pieces[piece]) {
+                    handle_t handle = graph->get_handle(node_id);
+                    for (bool go_left : {false, true}) {
+                        graph->follow_edges(handle, go_left, [&](handle_t other) {
+                            edge_t edge = go_left ? graph->edge_handle(other, handle) : graph->edge_handle(handle, other);
+                            if (!edges_to_delete.count(edge) && seen.insert(edge).second) {
+                                auto it = piece_index.find(graph->get_id(other));
+                                piece_edges.emplace_back(coverage(edge), edge, piece_index.at(node_id),
+                                                         it == piece_index.end() ? end_vertex : it->second);
+                            }
+                        });
+                    }
+                }
+                sort(piece_edges.begin(), piece_edges.end(), [&](const tuple<int64_t, edge_t, size_t, size_t>& a,
+                                                                 const tuple<int64_t, edge_t, size_t, size_t>& b) {
+                    if (get<0>(a) != get<0>(b)) {
+                        return get<0>(a) > get<0>(b);
+                    }
+                    return edge_key(get<1>(a)) < edge_key(get<1>(b));
+                });
+                structures::UnionFind components(end_vertex + 1, false);
+                unordered_set<edge_t> tree;
+                for (const auto& piece_edge : piece_edges) {
+                    if (components.find_group(get<2>(piece_edge)) != components.find_group(get<3>(piece_edge))) {
+                        components.union_groups(get<2>(piece_edge), get<3>(piece_edge));
+                        tree.insert(get<1>(piece_edge));
+                    }
+                }
+                // a leaf of the tree always has a side with no tree edge, so there is a side to cut
+                vector<edge_t> best_side;
+                int64_t best_cost = numeric_limits<int64_t>::max();
+                nid_t best_id = 0;
+                for (nid_t node_id : pieces[piece]) {
+                    handle_t handle = graph->get_handle(node_id);
+                    for (bool go_left : {true, false}) {
+                        vector<edge_t> side = live_edges(handle, go_left);
+                        int64_t cost = 0;
+                        bool in_tree = false;
+                        for (const edge_t& edge : side) {
+                            cost += coverage(edge);
+                            in_tree = in_tree || tree.count(edge);
+                        }
+                        if (!in_tree && (cost < best_cost || (cost == best_cost && node_id < best_id))) {
+                            best_side = std::move(side);
+                            best_cost = cost;
+                            best_id = node_id;
+                        }
+                    }
+                }
+                assert(!best_side.empty());
+                for (const edge_t& edge : best_side) {
+                    edges_to_delete.insert(edge);
+                }
+                path_clipped[outer_edge_paths[kept.front()]] = true;
+            }
+
+            ++kept_piece_count;
+            for (size_t i : kept) {
+                if (!edges_to_delete.count(graph->edge_handle(outer_edges[i].first, outer_edges[i].second))) {
+                    ++kept_edge_count;
+                }
+            }
+            kept_node_count += pieces[piece].size();
+            for (nid_t node_id : pieces[piece]) {
+                kept_bp += graph->get_length(graph->get_handle(node_id));
+            }
+        }
+    }
 
     // just for logging
     unordered_map<string, size_t> clip_counts;
 
     if (verbose) {
-        cerr << "[vg-clip]: Clipping " << edges_to_delete.size() << " edges to stubbify " << stubbified_path_count
-             << " reference paths" << endl;
+        if (keep_connected) {
+            cerr << "[vg-clip]: Keeping " << kept_edge_count << " edges that attach " << kept_piece_count << " pieces ("
+                 << kept_node_count << " nodes, " << kept_bp << " bp) to reference path ends, " << tipless_piece_count
+                 << " of which had no tips and had one node side cut to make one" << endl;
+        }
+        cerr << "[vg-clip]: Clipping " << edges_to_delete.size() << " edges to stubbify "
+             << count(path_clipped.begin(), path_clipped.end(), true) << " reference paths" << endl;
     }
 
     // delete the edges
@@ -1357,7 +1617,7 @@ void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<strin
             cerr << "[vg-clip]: Ref path stubbification creating " << kv.second << " fragments from path " << kv.first << endl;
         }
         clip_counts.clear();
-    }    
+    }
 }
 
 }
