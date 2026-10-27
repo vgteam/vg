@@ -660,7 +660,7 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
         
     if (verbose) {
         for (const auto& kv : clip_counts) {
-            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path" << kv.first << endl;
+            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path " << kv.first << endl;
         }
         clip_counts.clear();
     }
@@ -851,7 +851,7 @@ static multimap<int64_t, edge_t> find_deletion_candidate_edges(PathHandleGraph* 
         // todo: can do better job of constraining with more step_on_path lookups
         unordered_set<nid_t> context;
         vector<handle_t> cur_handles = {handle};
-        for (int64_t i = 0; i < context_steps; ++i) {
+        for (int64_t i = 0; i < context_steps && !cur_handles.empty(); ++i) {
             vector<handle_t> next_handles;
             for (auto& h : cur_handles) {
                 nid_t cur_id = graph->get_id(h);
@@ -939,8 +939,9 @@ static multimap<int64_t, edge_t> find_deletion_candidate_edges(PathHandleGraph* 
     return length_to_edge;
 }
 
-// walk from given edge back to reference path, returning the maximum distance found
-static int64_t get_max_deletion(const PathHandleGraph* graph, 
+// walk from given edge back to reference path, returning the maximum and minimum distances found between
+// the reference positions reached on its two sides (or -1s if a side reaches none)
+static pair<int64_t, int64_t> get_deletion_span(const PathHandleGraph* graph, 
                                 const unordered_map<handle_t, vector<int64_t>>& handle_to_position,
                                 int64_t context_steps,
                                 edge_t edge,
@@ -950,7 +951,7 @@ static int64_t get_max_deletion(const PathHandleGraph* graph,
         unordered_set<handle_t> context;
         unordered_set<handle_t> ref_context;
         vector<handle_t> cur_handles = {handle};
-        for (int64_t i = 0; i < context_steps; ++i) {
+        for (int64_t i = 0; i < context_steps && !cur_handles.empty(); ++i) {
             vector<handle_t> next_handles;
             for (auto& h : cur_handles) {
                 if (!context.count(h)) {
@@ -984,46 +985,89 @@ static int64_t get_max_deletion(const PathHandleGraph* graph,
         return ref_context;
     };
 
-    // search away from the start of the edge, finding the leftmost and rightmost reference
-    // path positions
+    // search away from either end of the edge for the reference handles it reaches
     unordered_set<handle_t> left_context = get_ref_context(graph->flip(edge.first));
-    if (left_context.empty()) {
-        return -1;
-    }
-    int64_t min_pos_left = numeric_limits<int64_t>::max();
-    int64_t max_pos_left = -1;
-    for (handle_t handle : left_context) {
-        auto it = handle_to_position.find(handle);
-        assert(it != handle_to_position.end());
-        const vector<int64_t>& positions = it->second;
-        for (int64_t pos : positions) {
-            min_pos_left = min(min_pos_left, pos);
-            max_pos_left = max(max_pos_left, pos);
-        }
-    }
-
-    // search away from the end of the edge, finding the leftmost and rightmost reference
-    // path positions
     unordered_set<handle_t> right_context = get_ref_context(edge.second);
-    if (right_context.empty()) {
-        return -1;
+
+    // a reference node that both searches reach is still connected to both sides without this edge, so
+    // cutting the edge can't separate it from anything: leave it out. (otherwise every bubble along a long
+    // deletion has an allele cut, though the other allele keeps the deletion connected)
+    unordered_set<nid_t> left_ids, right_ids;
+    for (handle_t handle : left_context) {
+        left_ids.insert(graph->get_id(handle));
     }
-    int64_t min_pos_right = numeric_limits<int64_t>::max();
-    int64_t max_pos_right = -1;
     for (handle_t handle : right_context) {
-        auto it = handle_to_position.find(handle);
-        assert(it != handle_to_position.end());
-        const vector<int64_t>& positions = it->second;
-        for (int64_t pos : positions) {
-            min_pos_right = min(min_pos_right, pos);
-            max_pos_right = max(max_pos_right, pos);
+        right_ids.insert(graph->get_id(handle));
+    }
+    vector<const vector<int64_t>*> left_positions, right_positions;
+    bool revisited = false;
+    for (handle_t handle : left_context) {
+        if (!right_ids.count(graph->get_id(handle))) {
+            left_positions.push_back(&handle_to_position.at(handle));
+            revisited = revisited || left_positions.back()->size() > 1;
+        }
+    }
+    for (handle_t handle : right_context) {
+        if (!left_ids.count(graph->get_id(handle))) {
+            right_positions.push_back(&handle_to_position.at(handle));
+            revisited = revisited || right_positions.back()->size() > 1;
+        }
+    }
+    if (left_positions.empty() || right_positions.empty()) {
+        return make_pair(-1, -1);
+    }
+
+    // the minimum: the closest any visits on the two sides are
+    vector<int64_t> left_sorted, right_sorted;
+    for (const vector<int64_t>* positions : left_positions) {
+        left_sorted.insert(left_sorted.end(), positions->begin(), positions->end());
+    }
+    for (const vector<int64_t>* positions : right_positions) {
+        right_sorted.insert(right_sorted.end(), positions->begin(), positions->end());
+    }
+    sort(left_sorted.begin(), left_sorted.end());
+    sort(right_sorted.begin(), right_sorted.end());
+    int64_t min_delta = numeric_limits<int64_t>::max();
+    for (size_t i = 0, j = 0; i < left_sorted.size() && j < right_sorted.size();) {
+        min_delta = min(min_delta, abs(left_sorted[i] - right_sorted[j]));
+        if (left_sorted[i] < right_sorted[j]) {
+            ++i;
+        } else {
+            ++j;
         }
     }
 
-    // compute the maximum deletion
-    int64_t delta = max(abs(max_pos_left - min_pos_right), abs(max_pos_right - min_pos_left));
+    // compute the maximum deletion: the furthest apart any left and right reference handles are
+    int64_t delta = 0;
+    if (!revisited) {
+        int64_t min_pos_left = numeric_limits<int64_t>::max(), max_pos_left = -1;
+        int64_t min_pos_right = numeric_limits<int64_t>::max(), max_pos_right = -1;
+        for (const vector<int64_t>* positions : left_positions) {
+            min_pos_left = min(min_pos_left, positions->front());
+            max_pos_left = max(max_pos_left, positions->front());
+        }
+        for (const vector<int64_t>* positions : right_positions) {
+            min_pos_right = min(min_pos_right, positions->front());
+            max_pos_right = max(max_pos_right, positions->front());
+        }
+        delta = max(abs(max_pos_left - min_pos_right), abs(max_pos_right - min_pos_left));
+    } else {
+        // a handle the reference visits more than once (it's collapsed) is taken at whichever visit is
+        // closest to the other handle, since nothing says which copy a haplotype means
+        for (const vector<int64_t>* left_pos : left_positions) {
+            for (const vector<int64_t>* right_pos : right_positions) {
+                int64_t closest = numeric_limits<int64_t>::max();
+                for (int64_t l : *left_pos) {
+                    for (int64_t r : *right_pos) {
+                        closest = min(closest, abs(l - r));
+                    }
+                }
+                delta = max(delta, closest);
+            }
+        }
+    }
     
-    return delta;
+    return make_pair(delta, min_delta);
 }
 
 static int64_t edge_depth(PathHandleGraph* graph, edge_t edge, int64_t max_val) {
@@ -1068,6 +1112,21 @@ void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_delet
     unordered_set<edge_t> deletion_edges;
     // all reference edges + deletion edges
     unordered_set<edge_t> edge_blacklist;
+
+    // the edges every reference path walks are never cut, and no search crosses them, so add them all
+    // before searching from any one path (a path searched first would otherwise treat a later one as
+    // off-reference sequence)
+    unordered_set<edge_t> ref_edges;
+    for (path_handle_t ref_path : ref_paths) {
+        make_ref_index(graph, ref_path, ref_edges);
+    }
+    edge_blacklist = ref_edges;
+
+    // order edges by node ids, so that ties don't depend on hashing, threads or graph implementation
+    auto edge_key = [&](const edge_t& edge) {
+        return make_tuple(graph->get_id(edge.first), graph->get_is_reverse(edge.first),
+                          graph->get_id(edge.second), graph->get_is_reverse(edge.second));
+    };
     
     for (path_handle_t ref_path : ref_paths) {
 
@@ -1081,49 +1140,68 @@ void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_delet
         }
         multimap<int64_t, edge_t> length_to_edge = find_deletion_candidate_edges(graph, ref_path, handle_to_position,
                                                                                  max_deletion, context_steps, edge_blacklist);
-        if (min_depth > 0) {
-            multimap<int64_t, edge_t> length_to_edge_filtered;
-            for (const auto& len_edge : length_to_edge) {
-                if (edge_depth(graph, len_edge.second, min_depth) < min_depth) {
-                    length_to_edge_filtered.insert(len_edge);
+        // the candidates as (length, path depth, edge), leaving out reference edges, and edges with
+        // depth >= min_depth if given
+        vector<tuple<int64_t, int64_t, edge_t>> candidates;
+        for (const auto& len_edge : length_to_edge) {
+            if (!ref_edges.count(len_edge.second)) {
+                int64_t depth = edge_depth(graph, len_edge.second, numeric_limits<int64_t>::max());
+                if (min_depth <= 0 || depth < min_depth) {
+                    candidates.emplace_back(len_edge.first, depth, len_edge.second);
                 }
             }
-#ifdef debug
-            cerr << "candidate edge count: " << length_to_edge.size() << " --> filtered count " << length_to_edge_filtered.size()
-                 << endl;
-#endif
-            swap(length_to_edge_filtered, length_to_edge);
         }
+#ifdef debug
+        cerr << "candidate edge count: " << length_to_edge.size() << " --> filtered count " << candidates.size() << endl;
+#endif
+        // longest first. the edges along one deletion tend to tie, and only one of them needs cutting, so
+        // take the one the fewest paths cross: it's the deletion's own edge rather than an edge it shares
+        // with haplotypes that stay local
+        sort(candidates.begin(), candidates.end(), [&](const tuple<int64_t, int64_t, edge_t>& a,
+                                                       const tuple<int64_t, int64_t, edge_t>& b) {
+            if (get<0>(a) != get<0>(b)) {
+                return get<0>(a) > get<0>(b);
+            }
+            if (get<1>(a) != get<1>(b)) {
+                return get<1>(a) < get<1>(b);
+            }
+            return edge_key(get<2>(a)) < edge_key(get<2>(b));
+        });
 
         if (verbose) {
-            cerr << "[vg clip]: Found " << length_to_edge.size() << " candidate deletion edges for " << graph->get_path_name(ref_path);
-            if (!length_to_edge.empty()) {
-                cerr << " with sizes ranging from " << length_to_edge.begin()->first << " to " << length_to_edge.rbegin()->first;
+            cerr << "[vg clip]: Found " << candidates.size() << " candidate deletion edges for " << graph->get_path_name(ref_path);
+            if (!candidates.empty()) {
+                cerr << " with sizes ranging from " << get<0>(candidates.back()) << " to " << get<0>(candidates.front());
             }
             cerr << endl;
         }
 
         // for every deletion candidate, walk *back* to the reference path and add it if it forms a deletion
-        // we do this one-at-a-time to make sure that the edges are still deletions after the preceding edges were deleted
-        int64_t candidate_i = 0;
-        for (auto it = length_to_edge.rbegin(); it != length_to_edge.rend(); ++it) {
-            const edge_t& edge = it->second;
-            assert(graph->has_edge(edge));                                    
-            int64_t deletion_size = get_max_deletion(graph, handle_to_position, context_steps, edge, edge_blacklist);
+        // we do this one-at-a-time to make sure that the edges are still deletions after the preceding edges were deleted.
+        // and we do it twice: first only cutting edges that are nothing but a deletion (everything on one side
+        // is far from everything on the other), then any edge that still forms one. so where a deletion runs
+        // through an edge that local haplotypes also use, it's the deletion's own edge that goes
+        for (bool clean_only : {true, false}) {
+            int64_t candidate_i = 0;
+            for (const auto& candidate : candidates) {
+                const edge_t& edge = get<2>(candidate);
+                assert(graph->has_edge(edge));
+                if (!deletion_edges.count(edge)) {
+                    pair<int64_t, int64_t> span = get_deletion_span(graph, handle_to_position, context_steps, edge, edge_blacklist);
 
-            if (deletion_size > max_deletion) {
-                deletion_edges.insert(edge);
-                edge_blacklist.insert(edge);
-                if (verbose) {
-                    if (verbose) {
-                        cerr << "[vg clip]: Found deletion edge for candidate " << candidate_i << " on " << graph->get_path_name(ref_path) << ": "
-                             << (graph->get_is_reverse(edge.first) ? "<" : ">") << graph->get_id(edge.first)
-                             << (graph->get_is_reverse(edge.second) ? "<" : ">") << graph->get_id(edge.second)
-                             << " with reference length " << deletion_size << endl;
+                    if ((clean_only ? span.second : span.first) > max_deletion) {
+                        deletion_edges.insert(edge);
+                        edge_blacklist.insert(edge);
+                        if (verbose) {
+                            cerr << "[vg clip]: Found deletion edge for candidate " << candidate_i << " on " << graph->get_path_name(ref_path) << ": "
+                                 << (graph->get_is_reverse(edge.first) ? "<" : ">") << graph->get_id(edge.first)
+                                 << (graph->get_is_reverse(edge.second) ? "<" : ">") << graph->get_id(edge.second)
+                                 << " with reference length " << span.first << endl;
+                        }
                     }
                 }
+                ++candidate_i;
             }
-            ++candidate_i;
         }
     }
 
@@ -1254,7 +1332,7 @@ void clip_stubs_generic(MutablePathMutableHandleGraph* graph,
         
     if (verbose) {
         for (const auto& kv : clip_counts) {
-            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path" << kv.first << endl;
+            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path " << kv.first << endl;
         }
         clip_counts.clear();
     }
