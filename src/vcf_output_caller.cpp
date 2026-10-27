@@ -325,10 +325,13 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
 
 namespace {
 
-/// Build the callbacks that build_site_record makes for a site, from a caller's record steps.
+/// Make the hooks that build_site_record calls for a site, from a caller's record steps.
 ///
-/// Without a `fill_info` step, the snarl caller's `update_vcf_info` fills the INFO and FORMAT
-/// fields. The callbacks refer to the arguments, so the arguments must outlive them.
+/// The `same_as_reference` and `phase` steps take the Snarl, and `same_as_reference` also takes the
+/// called traversals. build_site_record has neither, so their hooks hold these and pass them on. A
+/// `fill_info` step becomes the `fill_info` hook as it is. Without one, the `fill_info` hook calls
+/// the snarl caller's `update_vcf_info` to fill the INFO and FORMAT fields. The hooks refer to the
+/// arguments, so the arguments must outlive them.
 SiteHooks site_hooks_from_steps(const VCFOutputCaller::SiteRecordSteps& record_steps,
                                 const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                 int ref_trav_idx, SnarlCaller& snarl_caller,
@@ -464,7 +467,8 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     }
 
     // Whether the site gets a line. A site whose called traversals differ from the reference only
-    // inside child chains has no ALT, and gets no line unless it is genotyped with -a.
+    // inside child chains has no ALT, and gets a line only if `genotype_snarls` asks for reference
+    // calls to be written too.
     const bool wants_line = genotype_snarls || !out_variant.alt.empty();
     bool added = false;
     if (wants_line) {

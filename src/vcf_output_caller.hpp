@@ -134,8 +134,14 @@ public:
     /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
-    /// Callbacks that a caller adds to the writing of a site's record. Each is empty unless the
-    /// caller needs it.
+    /// The callbacks and record ID with which a variant caller changes how `emit_variant` writes a
+    /// site's record.
+    ///
+    /// `emit_variant` calls `count_site`, `write_blocks`, `finish_record` and `site_filed` itself.
+    /// It binds the site to `same_as_reference` and `phase`, to make `SiteHooks` callbacks that
+    /// build_site_record calls, and passes `fill_info` to build_site_record as it is. It calls
+    /// `gl_layout` to get the order of the GL values, which it gives to build_site_record and
+    /// `write_blocks`. Each callback is empty unless the caller needs it.
     struct SiteRecordSteps {
         /// The ID of the site's records, or null to print the ID from the snarl's bounds.
         const string* id = nullptr;
@@ -147,7 +153,11 @@ public:
         function<void(const PathPositionHandleGraph& graph, const Snarl& site,
                       const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                       int ref_trav_idx)> count_site;
-        /// Phase the record's genotype, as `SiteHooks::phase` does.
+        /// Phase the genotype of the record of `site`, and return the phase set to write as PS, or
+        /// -1 for none.
+        ///
+        /// `site_genotype` is in VCF allele numbers, and `trav_to_allele` gives the VCF allele of
+        /// each traversal in the genotype. The step may replace the GT string `gt`.
         function<int64_t(const Snarl& site, const vector<int>& site_genotype,
                          const map<int, int>& trav_to_allele, string& gt)> phase;
         /// Return the order in which the snarl caller wrote the GL of a call.
@@ -160,8 +170,11 @@ public:
                      bool genotype_snarls)> write_blocks;
         /// Change the finished site record just before it is added to the output.
         function<void(vcflib::Variant& record)> finish_record;
-        /// Add the caller's INFO and FORMAT fields, as `SiteHooks::fill_info` does, in place of
-        /// the snarl caller's `update_vcf_info`.
+        /// Add the caller's INFO and FORMAT fields to `variant`, in place of the snarl caller's
+        /// `update_vcf_info`.
+        ///
+        /// `site_trav` gives the traversal of each VCF allele, or -1 for "*". The record has its GT
+        /// and not yet its PS.
         function<void(const vector<int>& site_trav, const vector<int>& site_genotype,
                       vcflib::Variant& variant)> fill_info;
         /// Take note of a site whose records are done. `trav_to_allele` gives the VCF allele of
