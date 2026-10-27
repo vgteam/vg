@@ -67,18 +67,6 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     return ss.str();
 }
 
-bool VCFOutputCaller::buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b) {
-    if (a.contig != b.contig) {
-        return a.contig < b.contig;
-    }
-    if (a.position != b.position) {
-        return a.position < b.position;
-    }
-    if (a.id != b.id) {
-        return a.id < b.id;
-    }
-    return a.block < b.block;
-}
 
 bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block) const {
     var.setVariantCallFile(output_vcf);
@@ -129,7 +117,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SiteTree* sites)
     std::sort(all_variants.begin(), all_variants.end(),
               [](const pair<BufferedRecordKey, string>& v1,
                  const pair<BufferedRecordKey, string>& v2) {
-                  return buffered_record_key_less(v1.first, v2.first);
+                  return v1.first < v2.first;
               });
 
     // Decompress the records in parallel, a batch at a time, and write each batch in order. Only
@@ -338,10 +326,11 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
 
 namespace {
 
-/// Build the callbacks that build_site_record makes for a site, from a caller's record steps.
+/// Make the hooks that build_site_record calls while it builds the record of one site.
 ///
+/// Each hook calls the matching step of `record_steps` with this site's snarl and traversals.
 /// Without a `fill_info` step, the snarl caller's `update_vcf_info` fills the INFO and FORMAT
-/// fields. The callbacks refer to the arguments, so the arguments must outlive them.
+/// fields. The hooks refer to the arguments, so the arguments must outlive them.
 SiteHooks site_hooks_from_steps(const VCFOutputCaller::SiteRecordSteps& record_steps,
                                 const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                 int ref_trav_idx, SnarlCaller& snarl_caller,

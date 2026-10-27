@@ -31,7 +31,9 @@ using namespace std;
 
 TEST_CASE("The buffered record order is total, so two runs cannot disagree", "[graph_caller]") {
     using BufferedRecordKey = VCFOutputCaller::BufferedRecordKey;
-    const auto buffered_record_key_less = &VCFOutputCaller::buffered_record_key_less;
+    const auto buffered_record_key_less = [](const BufferedRecordKey& a, const BufferedRecordKey& b) {
+        return a < b;
+    };
 
     // Two records at the same position, distinguished only by the snarl they came from. This is the
     // case (contig, POS) cannot order, and it is not rare: a nested site sits at or near its
@@ -291,7 +293,7 @@ TEST_CASE("The staged-site tree places each site under the sites enclosing it, o
 
 TEST_CASE("A strand from another phase set is NaN in the anchor path, and no strand is 0",
           "[graph_caller]") {
-    // --anchors-hom-split drops a NaN read from a split site and places a 0 read by a coin, so the
+    // `AnchorParams::hom_split` drops a NaN read from a split site and places a 0 read by a coin, so the
     // two must stay distinct here; re-genotyping, which does not use this lookup, gives both 0.
     auto key = [](const string& name) { return (uint64_t)std::hash<std::string_view>{}(name); };
     // Each read carries the allele in slot 0, so each site it is on points it to strand 0.

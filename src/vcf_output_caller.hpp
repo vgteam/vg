@@ -51,10 +51,13 @@ public:
         /// The number of the difference block of its snarl that the record holds, or 0 for a
         /// record of a whole snarl. Two blocks of one snarl share an ID and can share a POS.
         size_t block = 0;
-    };
 
-    /// Order buffered record keys by contig, POS, ID, then block number.
-    static bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b);
+        /// Order keys by contig, POS, ID, then block number.
+        bool operator<(const BufferedRecordKey& other) const {
+            return std::tie(contig, position, id, block)
+                   < std::tie(other.contig, other.position, other.id, other.block);
+        }
+    };
 
     explicit VCFOutputCaller(const string& sample_name);
 
