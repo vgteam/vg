@@ -1834,9 +1834,9 @@ size_t TabixGafSiteReadSource::fetch_span_keyed(
 
 namespace {
 
-/// The tag `gaf-base batch --ids` puts on each line for the database row of the alignment's block.
+/// The tag in which gaf-base batch gives the database row of each alignment's block.
 constexpr char GAF_BASE_ROW_TAG[] = "ri";
-/// The tag `gaf-base batch --ids` puts on each line for the alignment's offset in its block.
+/// The tag in which gaf-base batch gives each alignment's offset in its block.
 constexpr char GAF_BASE_OFFSET_TAG[] = "ro";
 
 /// Return the value of the integer tag `tag` on a GAF line, or -1 if the line has none.
@@ -1861,8 +1861,8 @@ int64_t find_int_tag(const char* line, size_t length, const char* tag) {
     return -1;
 }
 
-/// Return the key of a line from `gaf-base batch --ids`: the row of the alignment's block in the
-/// high 32 bits and its offset in the block in the low 32 bits.
+/// Return the key of a line from gaf-base batch, made from its position tags: the row of the
+/// alignment's block in the high 32 bits and its offset in the block in the low 32 bits.
 ///
 /// Keys order lines as the database holds them, which is the order of the GAF it was built from.
 /// Throws if the line has no position.
@@ -2031,7 +2031,7 @@ unique_ptr<GafBaseSiteReadSource::Process> GafBaseSiteReadSource::start_process(
         process->err_path = temp_file::create("vg-gafbase-err-");
     }
 
-    // --ids tags each line with its position in the database, which keys the reads.
+    // Ask for each line's position in the database, which keys the reads.
     vector<string> args{binary, "batch", "--ids"};
     if (!progress_dir.empty()) {
         args.emplace_back("--progress");
@@ -2414,8 +2414,8 @@ size_t GafBaseSiteReadSource::fetch_span_keyed(
 }
 
 void GafBaseSiteReadSource::check_setup() const {
-    // Query the first node in the graph. A missing binary, a gaf-base too old for `batch --ids` or
-    // an unreadable database fails here.
+    // Query the first node in the graph. A missing binary, a gaf-base whose batch cannot tag lines
+    // with their positions, or an unreadable database fails here.
     nid_t probe = 0;
     graph.for_each_handle((function<bool(const handle_t&)>)[&](const handle_t& handle) {
         probe = graph.get_id(handle);

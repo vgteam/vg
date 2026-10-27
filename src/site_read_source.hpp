@@ -766,10 +766,10 @@ private:
  * a process at its first fetch and keeps it, so a fetch costs a query rather than a process start.
  * The GAF is parsed, filtered, windowed and cached like that of the other sources.
  *
- * With `--ids`, gaf-base tags each line with the database row of its block (`ri`) and its offset in
- * the block (`ro`). The database keeps the order of the GAF it was built from, so this position
- * keys the reads as the file offset does in TabixGafSiteReadSource: reads from several fetches can
- * be put back in file order, once each.
+ * vg asks gaf-base to tag each line with its position: the database row of its block (`ri`) and its
+ * offset in the block (`ro`). The database keeps the order of the GAF it was built from, so this
+ * position keys the reads as the file offset does in TabixGafSiteReadSource: reads from several
+ * fetches can be put back in file order, once each.
  */
 class GafBaseSiteReadSource : public WindowedSiteReadSource {
 public:
