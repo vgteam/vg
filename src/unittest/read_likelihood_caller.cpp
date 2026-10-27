@@ -209,10 +209,12 @@ TEST_CASE("--no-share-quality makes GQ the raw ratio, and the share still report
     REQUIRE(discounted.info->gq == Approx(raw.info->gq * discounted.info->explained_share));
 }
 
-TEST_CASE("gq_factor and achievable_gap are what GQ and GQN were computed with",
+TEST_CASE("GQ and GQN can be recomputed from gq_factor and achievable_gap",
           "[read_likelihood_caller]") {
-    // A moved record's quality fields are rewritten from these two, so each must reproduce the
-    // per-site value it stands for, under every setting that changes GQ.
+    // Where the linkage model writes a genotype other than the direct call, the record's GQ and
+    // GQN are rewritten from `gq_factor` and `achievable_gap`. So GQ must be GQI times
+    // `gq_factor`, and GQN must follow from GQI, `achievable_gap` and the explained share. Both
+    // must hold under every setting that changes GQ.
     CallerSite site;
     vector<Alignment> mixed;
     for (int i = 0; i < 10; ++i) {
