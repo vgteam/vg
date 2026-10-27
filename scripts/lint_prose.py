@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """Check prose in doc/*.md, in source comments and in unit test names for phrasings the project
-does not accept, and check that only src/subcommand/ names command-line options.
+does not accept, and check that source comments and unit test names outside src/subcommand/ name
+no long command-line option.
 
 Run with scripts/lint_prose.py from the repository root; `make lint` runs it.
 
-Each rule is a regular expression matched against one paragraph of a Markdown file, one run of
-consecutive comment lines in a .cpp or .hpp file, or the name of one test case, scenario or
+Each rule is a regular expression matched against one paragraph of a Markdown file, the comments
+on one run of consecutive lines of a .cpp or .hpp file, or the name of one test case, scenario or
 section in src/unittest/. Lines are joined with spaces, so a phrase broken across lines is still
 found. A match prints `path:line: message` and fails the check.
 
 Unit tests exercise library code, so their comments and names follow the library's rule: they
 describe a setting, and do not name the option that sets it.
+
+The option check finds long options such as --min-mapq only. In a comment, a short option such
+as -L looks like a minus sign, another program's flag (grep -v) or part of a diagram, so the
+writer and the reviewer check for short options themselves.
 """
 
 import os
@@ -40,9 +45,6 @@ RULES = [
      "says something is gated; say what must be true for it to happen"),
 ]
 
-# A line that is only a comment: //, ///, //!, /*, /**, or a * continuation line.
-COMMENT = re.compile(r'^\s*(?://+!?<?|/\*+|\*+/?)\s?(.*)$')
-
 # A command-line option, such as --read-likelihood. Only the subcommands in src/subcommand/ have
 # options, so only their comments name them. Library code and its unit tests describe a setting
 # by what it means.
@@ -52,8 +54,8 @@ TEST_OPTION_MESSAGE = ("names a command-line option in a unit test name; "
                        "name the library setting or describe the behaviour")
 SUBCOMMAND = os.path.join('src', 'subcommand') + os.sep
 UNITTEST = os.path.join('src', 'unittest') + os.sep
-# Comments outside src/subcommand/ that named an option before this check covered their file, each
-# by its text after the comment marker.
+# Comments outside src/subcommand/ that may name an option, each by its text after the comment
+# marker.
 OPTION_COMMENTS_ALLOWED = {
     'Respects catch.hpp --rng-seed option to `vg test`.',
     '--progress output rather than emitted as a zero-length path.',
@@ -64,12 +66,12 @@ OPTION_COMMENTS_ALLOWED = {
     'is this variant" behind --cluster-min-len in BOTH vg call and vg deconstruct.  It is',
     'post-genotyping ALT merging (vg call -L / --cluster-min-len).  Deliberately NOT named',
     'sampled graph. The same floor as `vg paths --min-gref-len`.',
-    'The metric and the core-length threshold are those of "vg deconstruct -L/--cluster-min-len".',
     'uncomment to make vg map --debug very interesting',
-    'Unit tests for traversal similarity, the metric behind -L/--cluster in vg deconstruct,',
 }
 # A string literal, so that a // inside one does not start a comment.
 STRING = re.compile(r'"(?:\\.|[^"\\])*"')
+# The marker that opens or continues a comment: //, ///, //!, //<, /*, /**, or the * at the start
+# of a block comment's continuation line.
 MARKER = re.compile(r'^\s*(?://+!?<?|/\*+|\*+/?)\s?')
 # The opening of a Catch TEST_CASE, SCENARIO or SECTION, up to the end of its name: one string
 # literal, or several that the compiler concatenates.
@@ -99,22 +101,23 @@ def comment_lines(text):
 
 
 def units(path, text):
-    """Yield (line numbers, joined text, offsets) for each paragraph or comment run."""
+    """Yield (line numbers, joined text, offsets) for each paragraph of a Markdown file, or for the
+    comments on each run of consecutive lines of C++ source. An empty line, or an empty comment,
+    ends a run."""
+    if path.endswith('.md'):
+        bodies = ((number, line.strip()) for number, line in enumerate(text.split('\n'), 1))
+    else:
+        bodies = comment_lines(text)
     buf, lines, offsets, length = [], [], [], 0
-    for number, line in enumerate(text.split('\n'), 1):
-        if path.endswith('.md'):
-            body = line.strip() or None
-        else:
-            match = COMMENT.match(line)
-            body = match.group(1).strip() if match else None
+    for number, body in bodies:
+        if buf and (not body or number != lines[-1] + 1):
+            yield lines, ' '.join(buf), offsets
+            buf, lines, offsets, length = [], [], [], 0
         if body:
             offsets.append(length)
             lines.append(number)
             buf.append(body)
             length += len(body) + 1
-        elif buf:
-            yield lines, ' '.join(buf), offsets
-            buf, lines, offsets, length = [], [], [], 0
     if buf:
         yield lines, ' '.join(buf), offsets
 
@@ -162,6 +165,7 @@ def main():
             print(f"{path}:{line}: {message}")
             ok = False
     return 0 if ok else 1
+
 
 if __name__ == '__main__':
     sys.exit(main())

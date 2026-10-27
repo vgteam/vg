@@ -114,9 +114,10 @@ public:
     /// whose core length (see allele_core_length) is at least min_len bp. A threshold of 1.0,
     /// the default, turns merging off.
     ///
-    /// The metric and the core-length threshold are those of "vg deconstruct -L/--cluster-min-len".
-    /// Each tool measures core length on the alleles it emits, and the two tools can emit
-    /// different alleles for one site, so they can disagree about whether its alleles merge.
+    /// vg deconstruct clusters traversals by the same similarity and core length (see
+    /// Deconstructor's cluster_threshold and cluster_min_allele_len). Each tool measures core
+    /// length on the alleles it emits, and the two tools can emit different alleles for one site,
+    /// so they can disagree about whether its alleles merge.
     void set_allele_merge(double threshold, int64_t min_len);
 
     /// The set of reference contigs that actually have a record.  Reads the sort keys of the

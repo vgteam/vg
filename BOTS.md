@@ -159,7 +159,7 @@ Some words mean something narrower, or something else, inside one module. In tha
 - Before finishing a task in which you wrote or changed code comments, use the `intelligible-comments` skill to rewrite them so that a programmer new to the code understands each one on one reading.
 - Library comments describe a setting, never a command-line option. Only `src/subcommand/` names options.
 - Do not call a condition a gate, or say that something is gated. Say what must be true for the behaviour to happen: "the depth discount applies when the called alleles change length by at least `min_length` bp", not "the depth discount is gated on the length change".
-- `scripts/lint_prose.py`, which `make lint` runs, enforces both.
+- `scripts/lint_prose.py`, which `make lint` runs, enforces both. It finds long options such as `--min-mapq` only, so check for short ones such as `-L` yourself.
 
 ## Documentation
 - When writing or reviewing doc comments or design docs, follow `.claude/skills/explanatory-comments/SKILL.md`. (Yes, there are two different skills for working on comments. This one is more about what ought to be explained, and how to organize ideas, rather than how to write them out in words.) 
