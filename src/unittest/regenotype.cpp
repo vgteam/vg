@@ -2,8 +2,9 @@
 ///
 /// Unit tests for the phase-aware genotype correction.
 ///
-/// Neither `--regeno-temper 0` nor `--regeno-passes 1` exercises `Lambda`: at tau = 0 the
-/// weighting is the identity whatever `Lambda` holds, and with one pass nothing is recorded again.
+/// A run with a temper of 0 does not exercise `Lambda`, since at tau = 0 the weighting is the
+/// identity whatever `Lambda` holds. A run with one re-genotyping pass does not either, since it
+/// records nothing again.
 /// Taking the larger correction over the two orders also hides a `Lambda` whose sign is wrong at
 /// every site. So `Lambda` wired backwards at some sites would look like the shuffled control, and
 /// these tests are what check its sign.

@@ -177,7 +177,7 @@ TEST_CASE("GQ rises with the evidence and never exceeds the undiscounted value",
     REQUIRE(strong.info->explained_share <= 1.0);
 }
 
-TEST_CASE("--no-share-quality makes GQ the raw ratio, and the share still reports",
+TEST_CASE("GQ is GQI times the explained share, or GQI with the share discount off",
           "[read_likelihood_caller]") {
     CallerSite site;
     vector<Alignment> reads;
@@ -282,7 +282,8 @@ TEST_CASE("The depth discount is gated on the called allele's length change",
     REQUIRE(snp_site.info->gq == Approx(undiscounted.info->gq));
 }
 
-TEST_CASE("A zero depth-quality exponent is inert", "[read_likelihood_caller]") {
+TEST_CASE("A depth discount with an exponent of 0 leaves GQ unchanged",
+          "[read_likelihood_caller]") {
     CallerSite site;
     vector<Alignment> reads;
     for (int i = 0; i < 12; ++i) {
@@ -436,7 +437,7 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
         REQUIRE(info.gq == Approx(gap * share));
         REQUIRE(info.gq < gap);
     }
-    SECTION("with --no-share-quality") {
+    SECTION("without the share discount") {
         caller.set_share_discount(false);
         caller.recompute_gq(info);
         REQUIRE(info.gq == Approx(gap));
@@ -509,7 +510,7 @@ TEST_CASE("A moved record's quality fields come from the stored direct call",
         moved.direct.gq_factor = 0.5;   // the share, as by default
         REQUIRE(rewrite(shared, "s", moved, 0.0));
         REQUIRE(field(shared, "GQ") == "11");
-        moved.direct.gq_factor = 1.0;   // --no-share-quality, no depth discount
+        moved.direct.gq_factor = 1.0;   // no share discount and no depth discount
         REQUIRE(rewrite(unshared, "s", moved, 0.0));
         REQUIRE(field(unshared, "GQ") == "23");
     }

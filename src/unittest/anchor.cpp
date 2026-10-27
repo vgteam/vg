@@ -487,10 +487,11 @@ TEST_CASE("A homozygous site is emitted unless excluded", "[anchor]") {
 
 TEST_CASE("A homozygous site splits by read phase only when both strands are supported",
           "[anchor]") {
-    // A homozygous site has no allele signal of its own -- both haplotypes spell the same thing --
-    // so --anchors-hom-split partitions its reads by the strand log-odds they carry from OTHER
-    // sites. The layout decision is a site-level one on purpose: a site whose reads all lean the
-    // same way has not been partitioned, it has been relabelled.
+    // Both haplotypes at a homozygous site spell the same allele, so the site's alleles say
+    // nothing about which strand a read is on. With `hom_split` on, the site's reads are divided
+    // between two slots by the strand log-odds they carry from other sites. The site is split
+    // only when its reads lean both ways. If every read leaned one way, they would all land in
+    // one slot, which relabels the site without dividing its reads.
     vector<AnchorPlacement> starts, ends;
     for (int i = 0; i < 4; ++i) {
         AnchorPlacement s;
@@ -534,7 +535,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
     SECTION("reads that all lean one way leave the site collapsed") {
         vector<double> strand{+5.0, +5.0, +5.0, +5.0};
         build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
-        REQUIRE(out.size() == 2);       // one anchor per pin, as without the flag
+        REQUIRE(out.size() == 2);       // one anchor per pin, as with `hom_split` off
         REQUIRE(out[0].slot == 0);
         REQUIRE(out[0].reads.size() == 4);
     }
@@ -618,7 +619,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         REQUIRE(out[0].reads.size() == 4);
     }
 
-    SECTION("without the flag the same evidence stays collapsed") {
+    SECTION("with hom_split off the same evidence stays collapsed") {
         vector<double> strand{+5.0, +5.0, -5.0, -5.0};
         params.hom_split = false;
         build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
@@ -627,9 +628,9 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
     }
 
     SECTION("a split read keeps the score it would have had unsplit") {
-        // Both slots spell one allele, so the share must be taken over that ONE allele. Halving the
-        // mixture would drop a clean read from ~13 phred to ~3 and silently change what
-        // --anchors-min-q and the reliability column mean on exactly the sites this feature adds.
+        // Both slots spell one allele, so the share must be taken over that one allele. Halving
+        // the mixture would drop a clean read from about 13 phred to about 3. That would change
+        // what `min_read_score` and the reliability column mean at the sites that splitting adds.
         vector<AnchorWriter::Anchor> unsplit;
         params.hom_split = false;
         build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, unsplit);
@@ -745,8 +746,8 @@ TEST_CASE("A nested haploid site takes the slot its strand names", "[anchor]") {
     REQUIRE(seen0 == 2);
     REQUIRE(seen1 == 2);
 
-    // --anchors-het-only still drops it, strand or no strand: its one slot holds every read, so it
-    // partitions nothing, which is the property that switch selects on. Only the slot changed.
+    // With `het_only` on, the haploid site is dropped whatever its strand, since `het_only` keeps
+    // only heterozygous sites. The strand changes only which slot holds the reads.
     out.clear();
     params.het_only = true;
     build_site_anchors(ev, AnchorCall{{0}, 1, 0.9, 1.0}, ">1>4", params, out);

@@ -475,9 +475,9 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
 }
 
 TEST_CASE("moved_quality describes the latest resolution alone", "[linkage_model]") {
-    // Under --regenotype the linkage pass resolves again each round. A record the model moved in an
-    // earlier round and not in the latest one must not keep the earlier posterior, or its line is
-    // rewritten from a genotype it no longer has.
+    // When the caller re-genotypes from the read phase, the linkage pass resolves again each
+    // round. A record the model moved in an earlier round and not in the latest one must not keep
+    // the earlier posterior, or its line is rewritten from a genotype it no longer has.
     LinkageModel::Params p;
     p.freq_prior = 0.0;
     p.weight = 1.0;
@@ -928,9 +928,11 @@ TEST_CASE("A constraint no panel pair can follow is explained by mutations", "[l
 }
 
 TEST_CASE("Phasing stays feasible where the panel cannot spell the call", "[linkage_model]") {
-    // Panel enumeration makes this unreachable, but --enumerate-support does not, and returning
-    // nothing there would drop a whole chain over one site. Mutation is what keeps the constrained
-    // problem solvable, and each strand still names the haplotype it copies.
+    // When the candidate alleles come from the panel's haplotypes, some panel haplotype carries
+    // every called allele. When they come from the read support, a called allele can be one that
+    // no panel haplotype carries, and returning nothing there would drop a whole chain over one
+    // site. Mutation keeps the constrained problem solvable, and each strand still names the
+    // haplotype it copies.
     LinkageModel::Params p;
     p.freq_prior = 0.0;
     p.weight = 2.0;

@@ -291,8 +291,9 @@ TEST_CASE("The staged-site tree places each site under the sites enclosing it, o
 
 TEST_CASE("A strand from another phase set is NaN in the anchor path, and no strand is 0",
           "[graph_caller]") {
-    // --anchors-hom-split drops a NaN read from a split site and places a 0 read by a coin, so the
-    // two must stay distinct here; re-genotyping, which does not use this lookup, gives both 0.
+    // When homozygous sites are split for the anchors, a NaN read is dropped from a split site and
+    // a 0 read is placed by a coin, so the two must stay distinct here. Re-genotyping does not use
+    // this lookup, and gives both 0.
     auto key = [](const string& name) { return (uint64_t)std::hash<std::string_view>{}(name); };
     // Each read carries the allele in slot 0, so each site it is on points it to strand 0.
     auto site = [&](size_t record_key, size_t phase_set, const vector<string>& reads) {
