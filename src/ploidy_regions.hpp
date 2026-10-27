@@ -2,6 +2,7 @@
 #define VG_PLOIDY_REGIONS_HPP_INCLUDED
 
 #include <cstdint>
+#include <istream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -23,6 +24,9 @@ using namespace std;
  * A ploidy is 0, 1 or 2. Ploidy 0 means the sample has no copy of the region, such as chrY in a
  * female sample, so a site there is not genotyped and gets no record.
  *
+ * The BED comes from a file, or from a preset. A preset is a BED built into vg that gives the
+ * ploidy of one sample sex on one reference assembly.
+ *
  * No two intervals overlap.
  */
 class PloidyRegions {
@@ -35,6 +39,21 @@ public:
     /// An unreadable file, a malformed line, a ploidy other than 0, 1 or 2, or two overlapping
     /// intervals end the run with an error.
     explicit PloidyRegions(const string& bed_path);
+
+    /// Read a BED from a stream.
+    ///
+    /// `source` names the BED at the start of each error message. A malformed line, a ploidy other
+    /// than 0, 1 or 2, or two overlapping intervals end the run with an error.
+    PloidyRegions(istream& bed, const string& source);
+
+    /// Read the preset named `name`, such as `chm13v2.XY`.
+    ///
+    /// A name is an assembly, a dot, and `XY` for a male sample or `XX` for a female one. A name
+    /// that is not a preset ends the run with an error that lists the presets.
+    static PloidyRegions preset(const string& name);
+
+    /// Return the names of the presets, sorted.
+    static vector<string> preset_names();
 
     /// Return the ploidy at a position on a reference path, or `fallback` where no interval covers
     /// it.
