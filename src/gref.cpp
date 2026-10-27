@@ -956,9 +956,7 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
     // Reference intervals are included, not assumed to be at the top.  A reference contig can
     // itself sit inside a top-level snarl of another one: on chrOther-v2.1,
     // chrUn_KI270442v1 is nested in chr16_KI270728v1_random, and deconstruct reports it at
-    // CH=1 accordingly.  Treating every reference contig as level 0 made the column disagree
-    // with CH on 8 of 25 chrOther contigs while agreeing perfectly on every single-contig
-    // chromosome, which is why checks on chr22, chr14 and chrY could not see it.
+    // CH=1 accordingly.
     for (int64_t i = 0; i < n; ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
         path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);

@@ -902,8 +902,8 @@ vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_explicit.tsv \
     --anchors-hom-split --read-phasing --split-min-q 0.5 --split-min-side 10 -t 1 2>/dev/null >/dev/null
 is $(if cmp -s sq_default.tsv sq_explicit.tsv; then echo 1; else echo 0; fi) "1" \
    "naming the split thresholds at their defaults changes nothing"
-# The test above proves nothing unless this fixture exercises the threshold at all, and it once
-# named side 2 against a default of 10 and still passed. A non-default side must move the output.
+# The test above proves nothing unless this fixture exercises the threshold at all. A non-default
+# side must move the output.
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_side2.tsv \
     --anchors-hom-split --read-phasing --split-min-side 2 -t 1 2>/dev/null >/dev/null
 is $(if cmp -s sq_default.tsv sq_side2.tsv; then echo 1; else echo 0; fi) "0" \
@@ -2402,8 +2402,8 @@ rm -f bu.vg bu.gam bu.pack bu.vcf
 
 # --cluster-min-len is compared with the core length: the length of the longest allele once the
 # prefix and suffix shared by every allele are stripped.  vg deconstruct uses the same rule and the
-# same helper.  Comparing it with the raw snarl interior instead would decide whether a 1bp SNP
-# merges by the size of whatever snarl contains it.
+# same helper.  With the raw snarl interior instead, whether a 1bp SNP merges would depend on the
+# size of the snarl that contains it.
 core_pack() {
     vg view -Fv nesting/$1.gfa > core_$1.vg
     vg sim -x core_$1.vg -P hapA -n 40 -l 60 -a -s 5 > core_a.gam
