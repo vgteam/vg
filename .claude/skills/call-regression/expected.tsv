@@ -1,13 +1,13 @@
-# contig	arm	file	md5 (anchors.tsv without its #vg-version line), from vg 202fc35d3
+# contig	arm	file	md5 (mosaic.tsv and anchors.tsv without their #vg-version, #graph and #reads lines), from vg 202fc35d3
 chr20	short	calls.vcf	28d7ce959bb875d5e6830fe2b3b09e41
-chr20	short	mosaic.tsv	921d3dc80f660fa28333c1f7028317e9
-chr20	short	anchors.tsv	3a9a868c13c02ea9e2e1345bffcfef22
+chr20	short	mosaic.tsv	6ad75227e7dfa6a56adda5e37adf6d38
+chr20	short	anchors.tsv	f27a6fcc5334e116dd3c72a0ac1101a2
 chr20	ont	calls.vcf	1e9dce357c2c42192685e80f17c03497
-chr20	ont	mosaic.tsv	f72d665575b71f6815d1614fe282e8ef
-chr20	ont	anchors.tsv	be2ed774a8c69f1889ff3b0c0502c53a
+chr20	ont	mosaic.tsv	8cb0405ab11fcb465caa3c860dc09af6
+chr20	ont	anchors.tsv	2f72b2671a1c823dc78732829c5e0de3
 chr6	short	calls.vcf	6d65871118d9499eca8bbd82b3183fbe
-chr6	short	mosaic.tsv	ab013d2242c052427e40c47574e1ad2f
-chr6	short	anchors.tsv	76c5853e0d4578c5117a6488e45a0f44
+chr6	short	mosaic.tsv	e4c05278623836422f252723e2c52e45
+chr6	short	anchors.tsv	4ce059ee0f723c6063af1a37d524f698
 chr6	ont	calls.vcf	e4cfaca67c353bedf0270563e17bee34
-chr6	ont	mosaic.tsv	2bf09f3445a51c6c9949738aa398075f
-chr6	ont	anchors.tsv	bd0537fe1c5943afc52e423b0bd5b32a
+chr6	ont	mosaic.tsv	51318e5d1e0e3a0f4c52e53087d7dd00
+chr6	ont	anchors.tsv	d83b5d69edb13f36bbe99a70b40b93c4

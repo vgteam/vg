@@ -128,14 +128,16 @@ Both write anchors, so that the gate covers the anchor code on both read types.
 ## What the baseline must hit
 
 The md5s are in `expected.tsv`. They were taken from `202fc35d3`, and `caa925e81` and
-`f5b4e6b5c` reproduce them:
+`f5b4e6b5c` reproduce them. The headers of the mosaic and anchors files name the vg version and
+the paths of the graph and reads, so their `#vg-version`, `#graph` and `#reads` lines are left out
+of the md5s:
 
-| contig | arm | `calls.vcf` | `mosaic.tsv` | `anchors.tsv` without its `#vg-version` line |
+| contig | arm | `calls.vcf` | `mosaic.tsv` | `anchors.tsv` |
 |---|---|---|---|---|
-| chr20 | short | `28d7ce959bb875d5e6830fe2b3b09e41` (110,945 records) | `921d3dc80f660fa28333c1f7028317e9` | `3a9a868c13c02ea9e2e1345bffcfef22` |
-| chr20 | ont | `1e9dce357c2c42192685e80f17c03497` (118,127 records) | `f72d665575b71f6815d1614fe282e8ef` | `be2ed774a8c69f1889ff3b0c0502c53a` |
-| chr6 | short | `6d65871118d9499eca8bbd82b3183fbe` (298,898 records) | `ab013d2242c052427e40c47574e1ad2f` | `76c5853e0d4578c5117a6488e45a0f44` |
-| chr6 | ont | `e4cfaca67c353bedf0270563e17bee34` (300,803 records) | `2bf09f3445a51c6c9949738aa398075f` | `bd0537fe1c5943afc52e423b0bd5b32a` |
+| chr20 | short | `28d7ce959bb875d5e6830fe2b3b09e41` (110,945 records) | `6ad75227e7dfa6a56adda5e37adf6d38` | `f27a6fcc5334e116dd3c72a0ac1101a2` |
+| chr20 | ont | `1e9dce357c2c42192685e80f17c03497` (118,127 records) | `8cb0405ab11fcb465caa3c860dc09af6` | `2f72b2671a1c823dc78732829c5e0de3` |
+| chr6 | short | `6d65871118d9499eca8bbd82b3183fbe` (298,898 records) | `e4c05278623836422f252723e2c52e45` | `4ce059ee0f723c6063af1a37d524f698` |
+| chr6 | ont | `e4cfaca67c353bedf0270563e17bee34` (300,803 records) | `51318e5d1e0e3a0f4c52e53087d7dd00` | `d83b5d69edb13f36bbe99a70b40b93c4` |
 
 The output does not depend on the run or on the build. On chr20, a second run, a run at
 `THREADS=16`, and Shlok's static build of `202fc35d3` (built with `-march=nehalem`, and
@@ -180,8 +182,9 @@ loss is a trade worth making, before it becomes the baseline. Then:
 for arm in short ont; do cp $REGRESS_DIR/runs/<label>/$arm/score/summary.json expected-score-$CONTIG-$arm.json; done
 ```
 
-Do this for each contig. Rewrite that contig's lines of `expected.tsv` from the run's files, hashing `anchors.tsv` without its
-`#vg-version` line as `compare.sh` does. Then update the tables above, naming the new
+Do this for each contig. Rewrite that contig's lines of `expected.tsv` from the run's files,
+hashing `mosaic.tsv` and `anchors.tsv` without their `#vg-version`, `#graph` and `#reads` lines,
+as `compare.sh` does. Then update the tables above, naming the new
 baseline commit and what moved.
 
 ## Benedict Paten's data

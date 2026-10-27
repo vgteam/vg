@@ -4,8 +4,8 @@
 #   compare.sh <run directory from call.sh> <arm: short|ont>
 #
 # The baseline is per contig, and CONTIG (default chr20) says which to compare with. The
-# anchors file names the vg version that wrote it, so its #vg-version line is left
-# out of its hash. Exits 1 if any file differs.
+# mosaic and anchors headers name the vg version that wrote them and the paths of the graph and
+# reads, so those header lines are left out of their hashes. Exits 1 if any file differs.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 RUN=${1:?run directory}
@@ -18,8 +18,8 @@ grep -q "^$CONTIG	$ARM	" "$HERE/expected.tsv" \
 status=0
 while read -r contig arm file want; do
     [ "$contig" = "$CONTIG" ] && [ "$arm" = "$ARM" ] || continue
-    if [ "$file" = anchors.tsv ]; then
-        got=$(grep -v '^#vg-version' "$RUN/$file" | md5sum | cut -d' ' -f1)
+    if [ "$file" = anchors.tsv ] || [ "$file" = mosaic.tsv ]; then
+        got=$(grep -v -E '^#(vg-version|graph|reads)'$'\t' "$RUN/$file" | md5sum | cut -d' ' -f1)
     else
         got=$(md5sum < "$RUN/$file" | cut -d' ' -f1)
     fi
