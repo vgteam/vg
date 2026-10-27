@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 50
+plan tests 52
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 
@@ -173,7 +173,19 @@ printf "L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t3\t+\t4\t+\t0M\nL\t4\t+\t17\t+\
 printf "L\t17\t+\t18\t-\t0M\nP\tx\t1+,2+,3+,4+\t*\nP\th1\t1+,2+,3+,4+,17+,18+\t*\nP\th2\t16+,17+,18-,17-,4-,3-\t*\n" >> side-loop.gfa
 is "$(vg clip side-loop.gfa -Sk -P x | vg stats -E -) $(vg clip side-loop.gfa -Sk -P x | vg stats -s - | wc -l)" "6 1" "connected path stubbification gives a dead end on one side of a node a tip"
 
-rm -f rev-stub.gfa rev-end.gfa ends.gfa loop-stub.gfa shared-end.gfa ref-ends.gfa two-ends.gfa ring.gfa bridge.gfa dead-end.gfa side-loop.gfa
+# loops chained off the end of x through shared nodes (10 11 12, 11 13 14, 13 15 16): cutting the last one is enough
+printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t4\tTTTT\n" > necklace.gfa
+for i in 10 11 12 13 14 15 16; do printf "S\t$i\tACGT\n"; done >> necklace.gfa
+for e in "1 2" "2 3" "3 4" "4 10" "10 11" "11 12" "12 10" "11 13" "13 14" "14 11" "13 15" "15 16" "16 13"; do set -- $e; printf "L\t$1\t+\t$2\t+\t0M\n"; done >> necklace.gfa
+printf "P\tx\t1+,2+,3+,4+\t*\nP\th\t4+,10+,11+,12+,10+,11+,13+,14+,11+,13+,15+,16+,13+,15+\t*\n" >> necklace.gfa
+is "$(vg clip necklace.gfa -Sk -P x | vg view - | grep -c $'^L\t15\t+\t16\t') $(vg clip necklace.gfa -Sk -P x | vg stats -E -)" "0 12" "connected path stubbification cuts a chain of loops once, at its far end"
+
+# two pieces on the end of x: 4 has a tip once 4-5 is cut, and 5 then only loops through the end
+printf "H\tVN:Z:1.0\nS\t1\tACGTAC\nS\t2\tCCTTGA\nS\t3\tTTGACA\nS\t4\tGATTACA\nS\t5\tCATCAT\n" > two-pieces.gfa
+printf "L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t3\t+\t4\t-\t0M\nL\t3\t+\t5\t+\t0M\nL\t3\t+\t5\t-\t0M\nL\t4\t-\t5\t+\t0M\nP\tx\t1+,2+,3+\t*\n" >> two-pieces.gfa
+is "$(vg clip two-pieces.gfa -Sk -P x | vg stats -E -) $(vg clip two-pieces.gfa -Sk -P x | vg clip - -Sk -P x | vg stats -E -)" "5 5" "connected path stubbification leaves nothing for a second run"
+
+rm -f rev-stub.gfa rev-end.gfa ends.gfa loop-stub.gfa shared-end.gfa ref-ends.gfa two-ends.gfa ring.gfa bridge.gfa dead-end.gfa side-loop.gfa necklace.gfa two-pieces.gfa
 
 # clipping A's private node 3 leaves two 8 bp pieces of A
 printf "H\tVN:Z:1.0\nS\t1\tAAAA\nS\t2\tCCCC\nS\t3\tGGGG\nS\t4\tTTTT\nS\t5\tACGT\n" > frag.gfa
