@@ -113,8 +113,7 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
 /// true is optimal pairing. The invariants below must hold for both, since they are properties of
 /// the scoring model, not of how the pairing is searched for.
 ///
-/// `insertion_nats` sets `insertion_gap_nats`, the nats added to a read's log-likelihood for each
-/// gap in which the read has bases the allele lacks.
+/// `insertion_nats` sets `AlleleLikelihoodParams::insertion_gap_nats`.
 template<typename Site>
 static AlleleReadLikelihoods score_site(Site& site, const vector<Alignment>& reads,
                                         int ploidy = 2, bool optimal_pairing = false,

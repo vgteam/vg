@@ -9,11 +9,10 @@
 /// a deletion is aligned up to that end, and its remaining bases are left unaligned as a clip. The
 /// clip's bases match the graph past the other end of the deletion.
 ///
-/// The first test checks that the slightly different insertions of long reads are counted as one
-/// candidate. The second checks that clips at both ends of a deletion find it, and that clips at
-/// one end alone do not. The third checks how a single read is classed against a known large
-/// deletion: as carrying it, as carrying the reference, as carrying another indel, or as saying
-/// nothing about it.
+/// The tests check three things. Long reads' slightly different insertions are counted as one
+/// candidate. A deletion is found from short reads' clips at both its ends, and not from clips at
+/// one end alone. A single read is classed against a known large deletion as carrying it, as
+/// carrying the reference, as carrying another indel, or as saying nothing about it.
 
 #include <string>
 #include <tuple>
@@ -120,7 +119,7 @@ TEST_CASE("Long reads' loosely matching large insertions are one candidate", "[o
     REQUIRE(c.walk == vector<nid_t>{1});
 }
 
-TEST_CASE("Short reads' clips at both ends of a deletion find it", "[off_panel]") {
+TEST_CASE("A deletion is found from short reads' clips at both its ends", "[off_panel]") {
     const string node = sv_sequence(400, 11);
     bdsg::HashGraph graph;
     graph.create_handle(node, 1);

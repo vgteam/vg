@@ -630,7 +630,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
     SECTION("a split read keeps the score it would have had unsplit") {
         // Both slots spell one allele, so the share must be taken over that one allele. Halving
         // the mixture would drop a clean read from about 13 phred to about 3. That would change
-        // what `min_read_score` and the reliability column mean at the sites that splitting adds.
+        // what `min_read_score` and the reliability column mean at split sites.
         vector<AnchorWriter::Anchor> unsplit;
         params.hom_split = false;
         build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, unsplit);

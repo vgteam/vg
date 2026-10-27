@@ -420,9 +420,8 @@ TEST_CASE("A reversed snarl resolves to the same snarl and still symbolises its 
 }
 
 TEST_CASE("A snarl sharing neither boundary is still refused", "[symbolic_allele]") {
-    // Nothing in the manager has boundaries {7, 8}, so the LOOKUP fails and resolution stops before
-    // the boundary comparison is reached. Kept for what it is -- a check on the null path -- and
-    // explicitly not a test of the widened comparison, which the next case covers.
+    // No snarl in the manager has node 7 or node 8 as a boundary, so the manager's lookup finds no
+    // snarl. The site is refused before the comparison of bounds.
     Snarl top = make_snarl(1, 5);
     auto mgr = make_manager(top, {});
     REQUIRE_FALSE(symbolic_site_resolvable(make_snarl(7, 8), *mgr));
@@ -431,9 +430,9 @@ TEST_CASE("A snarl sharing neither boundary is still refused", "[symbolic_allele
 TEST_CASE("A resolvable lookup with mismatched boundaries is still refused", "[symbolic_allele]") {
     // Node 1 is the start of the snarl (1,5), so the manager's lookup finds that snarl, and the
     // comparison of bounds must refuse the site. The site claims to be (1,4), which matches the
-    // snarl neither forward (its end 5 is not 4) nor reversed (its start 1 is not 4). The test
-    // case above refuses its site earlier, when the lookup finds no snarl, so only this case
-    // checks that the comparison refuses a site.
+    // snarl neither forward (its end 5 is not 4) nor reversed (its start 1 is not 4). In "A snarl
+    // sharing neither boundary is still refused" the lookup finds no snarl, so only this case
+    // checks that the comparison of bounds refuses a site.
     Snarl top = make_snarl(1, 5);
     Snarl child = make_snarl(2, 4);
     auto mgr = make_manager(top, {child});
@@ -441,8 +440,9 @@ TEST_CASE("A resolvable lookup with mismatched boundaries is still refused", "[s
     REQUIRE(symbolic_site_resolvable(top, *mgr));
     REQUIRE_FALSE(symbolic_site_resolvable(make_snarl(1, 4), *mgr));
 
-    // And a half-reversed site -- right nodes, wrong orientation on one boundary -- must also be
-    // refused now that the reversed branch compares whole visits rather than node ids.
+    // A half-reversed site has the right nodes, but one boundary in the wrong orientation. The
+    // comparison of bounds compares whole handles when it checks for a reversed site, so it must
+    // refuse this site too.
     Snarl half;
     half.mutable_start()->set_node_id(5);
     half.mutable_start()->set_backward(true);
