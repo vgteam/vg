@@ -569,7 +569,7 @@ $(LIB_DIR)/libvg.$(SHARED_SUFFIX): $(LIBVG_SHARED_DEPS)
 
 # Each test set can have its own binary, and not link everything static
 $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX)
-	$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $@ $< $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $@ $< $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX) $(LD_LIB_DIR_FLAGS) $(LDFLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) $(LD_EXE_LIB_FLAGS) $(LD_CAIRO_LIB_FLAGS)
 
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
@@ -869,7 +869,8 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # because there's no way to turn off vcflib's pybind11 build and pybind11 will
 # try and use the latest installed Python over the default one that probably
 # has headers.
-# We now need to tell it to build in static mode so we get a static library.
+# We now need to tell it to build static libraries, and to make them position-independent so that
+# libvg.so can contain them.
 # And we also now need to tell it to actually build its bundled WFA.
 #
 # Note that on MacOS we rely on the Makefile putting GNU coreutils on the PATH
@@ -877,7 +878,7 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 $(LIB_DIR)/libvcflib%a $(LIB_DIR)/libwfa2%a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h $(LIB_DIR)/cleaned_old_catch
 	rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
 	env
-	cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS)" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" -DBUILD_STATIC=ON -DWFA_GITMODULE=ON .. && cmake --build . --target vcflib wfa2_static
+	cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS)" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DPYTHON_EXECUTABLE="$(shell which python3)" -DBUILD_STATIC_LIBS=ON -DBUILD_POSITION_INDEPENDENT_CODE=ON -DWFA_GITMODULE=ON .. && cmake --build . --target vcflib wfa2_static
 	cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
