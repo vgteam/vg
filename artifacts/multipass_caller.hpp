@@ -18,6 +18,7 @@
 #include "block_records.hpp"
 #include "candidate_finder.hpp"
 #include "child_placer.hpp"
+#include "edit_snarl_decomposition_overlay.hpp"
 #include "genotype_linker.hpp"
 #include "genotype_rescorer.hpp"
 #include "graph_caller.hpp"
@@ -523,8 +524,9 @@ private:
     /// The read-likelihood genotyper, which also writes its fields into each record.
     ReadLikelihoodSnarlCaller& snarl_caller;
 
-    /// The sites, as a snarl decomposition gives them.
-    const SnarlDecomposition& decomposition;
+    /// The sites: those of the snarl decomposition the caller was given, and the edit sites laid
+    /// over it.
+    EditSnarlDecompositionOverlay sites;
 
     /// Walks the sites for the direct pass.
     SiteWalker walker;

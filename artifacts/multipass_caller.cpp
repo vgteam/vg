@@ -179,8 +179,8 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
                                  bool star_allele) :
     graph(graph),
     snarl_caller(genotyper),
-    decomposition(decomposition),
-    walker(decomposition, graph),
+    sites(decomposition, graph),
+    walker(sites, graph),
     output(output),
     sample_name(sample_name),
     ref_paths(std::move(ref_paths)),
@@ -464,7 +464,7 @@ void MultiPassCaller::install_widgets() {
     };
     linker.set_site_reader(reader);
     rescorer.set_site_reader(reader);
-    child_placer.configure(&graph, &decomposition, &block_records, &descent_counters);
+    child_placer.configure(&graph, &sites, &block_records, &descent_counters);
 }
 
 void MultiPassCaller::rerun_linkage_pass() {
