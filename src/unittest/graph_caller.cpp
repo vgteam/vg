@@ -1,7 +1,6 @@
 /// \file graph_caller.cpp
-/// Tests for the VCF output buffer's record ordering.
-///
-/// Records sharing a position are rare in real output, so the order of ties is checked here.
+/// Tests for the parts of the graph callers that sort buffered VCF records, find where walks cross
+/// child sites, nest staged sites, and phase reads and nested sites.
 
 #include <algorithm>
 #include <cmath>
