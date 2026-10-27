@@ -1,8 +1,19 @@
 /// \file off_panel_svs.cpp
 ///
-/// Unit tests for off-panel indels of 50 bases or more: long reads' own indels, which each read
-/// places and sizes a little differently, are counted as one candidate with the medoid read's
-/// insertion as its ALT; and short reads' clips at a deletion's two ends find the deletion.
+/// Unit tests for finding large off-panel indels. An off-panel indel is an insertion or deletion
+/// that recurs in the reads but that no walk of the graph spells. A large one is 50 bases or more
+/// long.
+///
+/// Reads show a large indel in two ways. A long read holds the whole indel, but sequencing errors
+/// shift its position and length a little from read to read. A short read that crosses one end of
+/// a deletion is aligned up to that end, and its remaining bases are left unaligned as a clip. The
+/// clip's bases match the graph past the other end of the deletion.
+///
+/// The first test checks that the slightly different insertions of long reads are counted as one
+/// candidate. The second checks that clips at both ends of a deletion find it, and that clips at
+/// one end alone do not. The third checks how a single read is classed against a known large
+/// deletion: as carrying it, as carrying the reference, as carrying another indel, or as saying
+/// nothing about it.
 
 #include <string>
 #include <tuple>
