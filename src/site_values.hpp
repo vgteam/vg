@@ -49,20 +49,33 @@ vector<SnarlTraversal> snarl_traversals_of(const HandleGraph& graph,
 /// orientations.
 bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Traversal& walk);
 
-/// The sequence of each visit of an allele's walk, read the way the walk reads the node.
+/// The step sequences of an allele, in the order of its walk.
 ///
-/// It spells an allele that its walk does not spell, such as the walk with a base changed inside
-/// one of its nodes. It is empty for an allele that its walk spells.
+/// The step sequence of a visit of the walk holds the bases that the allele has at the visited
+/// node, read the way the walk reads the node.
+///
+/// A walk spells an allele by reading the sequence of each node it visits. An edit found in the
+/// reads, such as a substitution or a short indel, changes bases inside a node. An allele that
+/// carries the edit visits the same nodes as an allele that does not, so its walk does not spell
+/// it, and its step sequences do. A step sequence can be longer or shorter than the sequence of its
+/// node, or empty, where the allele inserts or deletes bases.
+///
+/// The vector has one string for each visit of the walk, or is empty. An empty vector means that
+/// the walk of the allele spells it.
 using StepSequences = vector<string>;
 
-/// The `StepSequences` of each allele of a site, by allele.
+/// The step sequences of each allele of a site, indexed by allele and then by visit of its walk.
 ///
-/// It is empty when every allele is spelled by its walk, as for every site the decomposition
-/// holds. An allele with step sequences is spelled, scored and written as them. No panel haplotype
-/// carries such an allele.
+/// An allele is numbered by the index of its walk among the walks of the site, not by its VCF
+/// allele number. `sequences[a][i]` is the step sequence of visit `i` of the walk of allele `a`. An
+/// allele whose entry is empty, or lies past the end of the vector, has no step sequences, and its
+/// walk spells it. An empty vector means that the walks spell every allele.
+///
+/// An allele with step sequences is spelled and written as them, and reads are scored against
+/// them. No panel haplotype is taken to carry it.
 using AlleleSequences = vector<StepSequences>;
 
-/// Get the step sequences of allele `allele` in `sequences`, or null when its walk spells it or
+/// Get the step sequences of allele `allele` in `sequences`, or null if the allele has none or
 /// `sequences` is null.
 const StepSequences* own_sequences(const AlleleSequences* sequences, size_t allele);
 
@@ -85,7 +98,7 @@ struct EditSite {
     SiteBounds bounds;
     /// The walk of each allele, REF first.
     vector<Traversal> travs;
-    /// The spelling of each allele. REF has none, because its walk spells it.
+    /// The step sequences of each allele. REF has none, because its walk spells it.
     AlleleSequences sequences;
 };
 
