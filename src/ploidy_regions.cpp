@@ -11,9 +11,13 @@ namespace vg {
 PloidyRegions::PloidyRegions(const string& bed_path) {
     ifstream in(bed_path);
     if (!in) {
-        cerr << "error [vg call]: could not open --ploidy-bed file " << bed_path << endl;
+        cerr << "error [vg call]: could not open ploidy BED " << bed_path << endl;
         exit(1);
     }
+    *this = PloidyRegions(in, bed_path);
+}
+
+PloidyRegions::PloidyRegions(istream& in, const string& source) {
     string line;
     size_t line_number = 0;
     while (getline(in, line)) {
@@ -28,19 +32,19 @@ PloidyRegions::PloidyRegions(const string& bed_path) {
         long long end = -1;
         int ploidy = -1;
         if (!(ss >> chrom >> start >> end >> ploidy)) {
-            cerr << "error [vg call]: --ploidy-bed " << bed_path << " line " << line_number
+            cerr << "error [vg call]: ploidy BED " << source << " line " << line_number
                  << " is not CHROM START END PLOIDY: " << line << endl;
             exit(1);
         }
         if (start < 0 || end < start) {
-            cerr << "error [vg call]: --ploidy-bed " << bed_path << " line " << line_number
+            cerr << "error [vg call]: ploidy BED " << source << " line " << line_number
                  << " has a negative or reversed interval: " << line << endl;
             exit(1);
         }
         // The callers genotype at ploidy 1 and 2 only, and skip a site at ploidy 0, so reject
         // anything else here.
         if (ploidy < 0 || ploidy > 2) {
-            cerr << "error [vg call]: --ploidy-bed " << bed_path << " line " << line_number
+            cerr << "error [vg call]: ploidy BED " << source << " line " << line_number
                  << " has ploidy " << ploidy << ", which must be 0, 1 or 2" << endl;
             exit(1);
         }
@@ -57,7 +61,7 @@ PloidyRegions::PloidyRegions(const string& bed_path) {
                           [](const Region& a, const Region& b) { return a.start < b.start; });
         for (size_t i = 1; i < regions.size(); ++i) {
             if (regions[i].start < regions[i - 1].end) {
-                cerr << "error [vg call]: --ploidy-bed " << bed_path << " has overlapping "
+                cerr << "error [vg call]: ploidy BED " << source << " has overlapping "
                      << "intervals on " << contig << ": [" << regions[i - 1].start << ","
                      << regions[i - 1].end << ") and [" << regions[i].start << ","
                      << regions[i].end << "). Two ploidies for one base has no correct reading, "

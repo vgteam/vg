@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 499
+plan tests 500
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -2482,16 +2482,19 @@ is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed 
 is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --bottom-up 2>/dev/null | grep -vc '^#' | awk '{print ($1>0)?1:0}') "1" "--bottom-up makes calls on the support-based contig"
 is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --bottom-up --ploidy-bed zero_x_ploidy.bed 2>/dev/null | grep -vc '^#') "0" "ploidy 0 makes no --bottom-up calls"
 
-# The ploidy files vg ships parse, and leave a contig they do not name diploid and unchanged.
+# The ploidy presets built into vg parse, and leave a contig they do not name diploid and unchanged.
 SHIPPED=0
 SHIPPED_OK=0
-for PF in ../data/ploidy/*.ploidy.bed; do
+for PRESET in chm13v2.XY chm13v2.XX grch38.XY grch38.XX grch37.ucsc.XY grch37.ucsc.XX grch37.b37.XY grch37.b37.XX; do
     SHIPPED=$((SHIPPED + 1))
-    vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed "${PF}" 2>/dev/null | grep -v '^#' > shipped.txt
+    vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset "${PRESET}" 2>/dev/null | grep -v '^#' > shipped.txt
     [ "${PIPESTATUS[0]}" = 0 ] && cmp -s shipped.txt <(grep -v '^#' ploidy_bed_none.vcf) && SHIPPED_OK=$((SHIPPED_OK + 1))
 done
-is "${SHIPPED}" "8" "vg ships XY and XX ploidy files for four assemblies"
-is "${SHIPPED_OK}" "${SHIPPED}" "every shipped ploidy file parses and leaves an unnamed contig as it was"
+is "${SHIPPED_OK}" "${SHIPPED}" "every built-in ploidy preset parses and leaves an unnamed contig as it was"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset nonesuch >/dev/null 2>&1
+isnt "$?" "0" "an unknown ploidy preset is refused"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset chm13v2.XY --ploidy-bed zero_x_ploidy.bed >/dev/null 2>&1
+isnt "$?" "0" "a ploidy preset and a ploidy BED together are refused"
 
 rm -f bad_ploidy.bed overlap_ploidy.bed reversed_ploidy.bed elsewhere_ploidy.bed
 rm -f ploidy_bed_elsewhere.vcf ploidy_bed_none.vcf whole_x_ploidy.bed zero_x_ploidy.bed

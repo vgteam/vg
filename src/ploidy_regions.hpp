@@ -2,6 +2,7 @@
 #define VG_PLOIDY_REGIONS_HPP_INCLUDED
 
 #include <cstdint>
+#include <istream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -35,6 +36,12 @@ public:
     /// An unreadable file, a malformed line, a ploidy other than 0, 1 or 2, or two overlapping
     /// intervals end the run with an error.
     explicit PloidyRegions(const string& bed_path);
+
+    /// Read a BED from `bed`, named `source` in error messages.
+    ///
+    /// A malformed line, a ploidy other than 0, 1 or 2, or two overlapping intervals end the run
+    /// with an error.
+    PloidyRegions(istream& bed, const string& source);
 
     /// Return the ploidy at a position on a reference path, or `fallback` where no interval covers
     /// it.

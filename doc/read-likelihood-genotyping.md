@@ -304,12 +304,14 @@ applies. Every ploidy must be 1 or 2, except that a `--ploidy-bed` interval may 
 sample has no copy of that region, so a site there is not genotyped and gets no record. A site at
 ploidy 1 has a single allele as its `GT`.
 
-vg ships one such file per reference assembly and sample sex, in `data/ploidy/` of the vg
-repository: `chm13v2`, `grch38`, `grch37.ucsc` and `grch37.b37`, each as `XY` and `XX`, for
-example `chm13v2.XY.ploidy.bed`. An `XY` file makes chrX haploid outside its pseudoautosomal
-regions and chrY and the mitochondrion haploid, and an `XX` file gives chrY ploidy 0 and makes the
-mitochondrion haploid. A contig with no line is diploid, so one file serves a whole-genome run and
-a run on any one contig alike, with no `--ploidy`.
+vg has such a table built in for each common reference assembly and sample sex, which
+`--ploidy-preset NAME` selects in place of `--ploidy-bed`. The assemblies are `chm13v2`, `grch38`,
+`grch37.ucsc` and `grch37.b37`, each as `XY` and `XX`, for example `--ploidy-preset chm13v2.XY`.
+An `XY` table makes chrX haploid outside its pseudoautosomal regions and chrY and the
+mitochondrion haploid, and an `XX` table gives chrY ploidy 0 and makes the mitochondrion haploid.
+A contig with no line is diploid, so one table serves a whole-genome run and a run on any one
+contig alike, with no `--ploidy`. The tables are in `src/ploidy_presets.cpp`; for another assembly
+or karyotype, copy the nearest one into a BED file, edit it, and pass it with `--ploidy-bed`.
 
 A nested site takes its ploidy from its parent's genotype instead (see
 [Which child chains are genotyped](#which-child-chains-are-genotyped)). The exception is a child of

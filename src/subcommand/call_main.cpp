@@ -29,6 +29,7 @@
 #include "../gref.hpp"
 #include "../traversal_clusters.hpp"
 #include "../read_likelihood_caller.hpp"
+#include "../ploidy_presets.hpp"
 #include "../site_read_source.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -799,9 +800,12 @@ void help_call(char** argv) {
          << "      --ploidy-bed FILE     the way to give the sample's ploidy: a BED of" << endl
          << "                            CHROM START END PLOIDY, overriding -d and -R." << endl
          << "                            CHROM is the VCF contig name, intervals must not" << endl
-         << "                            overlap, and ploidy 0 makes no calls. vg ships one" << endl
-         << "                            per assembly and sex in data/ploidy/, e.g." << endl
-         << "                            chm13v2.XY.ploidy.bed; pass it to every run" << endl
+         << "                            overlap, and ploidy 0 makes no calls" << endl
+         << "      --ploidy-preset NAME  use vg's built-in --ploidy-bed for an assembly and" << endl
+         << "                            sex: chm13v2.XY, chm13v2.XX, grch38.XY," << endl
+         << "                            grch38.XX, grch37.ucsc.XY, grch37.ucsc.XX," << endl
+         << "                            grch37.b37.XY or grch37.b37.XX. Give the same" << endl
+         << "                            one to every run, whole-genome or by contig" << endl
          << "  -R, --ploidy-regex RULES  comma-separated REGEX:PLOIDY rules, each giving" << endl
          << "                            the ploidy of every reference path whose whole" << endl
          << "                            name REGEX matches. The first matching rule wins," << endl
@@ -873,6 +877,7 @@ int main_call(int argc, char** argv) {
     // copied over from vg sim
     std::vector<std::pair<std::regex, size_t>> ploidy_rules;
     string ploidy_bed_filename;
+    string ploidy_preset_name;
 
     bool traversals_only = false;
     bool gaf_output = false;
@@ -1043,6 +1048,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_REGENO_LEDGER = 1086;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
     constexpr int OPT_PLOIDY_BED = 1043;
+    constexpr int OPT_PLOIDY_PRESET = 1120;
     constexpr int OPT_NESTED = 1044;
     constexpr int OPT_NO_NESTED = 1045;
     constexpr int OPT_NO_OFF_REF_NESTING = 1101;
@@ -1098,6 +1104,7 @@ int main_call(int argc, char** argv) {
             {"ploidy", required_argument, nullptr, 'd'},
             {"ploidy-regex", required_argument, nullptr, 'R'},
             {"ploidy-bed", required_argument, nullptr, OPT_PLOIDY_BED},
+            {"ploidy-preset", required_argument, nullptr, OPT_PLOIDY_PRESET},
             {"gaf", no_argument, nullptr, 'G'},
             {"traversals", no_argument, nullptr, 'T'},
             {"trav-padding", required_argument, nullptr, 'M'},
@@ -1587,6 +1594,18 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_PLOIDY_BED:
             ploidy_bed_filename = require_exists(logger, optarg);
+            break;
+        case OPT_PLOIDY_PRESET:
+            ploidy_preset_name = optarg;
+            if (!ploidy_presets().count(ploidy_preset_name)) {
+                cerr << "error [vg call]: no --ploidy-preset named " << ploidy_preset_name
+                     << "; the presets are";
+                for (const auto& preset : ploidy_presets()) {
+                    cerr << " " << preset.first;
+                }
+                cerr << endl;
+                return 1;
+            }
             break;
         case OPT_NESTED:
             nested_calling = true;
@@ -2837,13 +2856,25 @@ int main_call(int argc, char** argv) {
                                     : dynamic_cast<VCFOutputCaller*>(graph_caller.get());
 
     // Per-region ploidy, if given.
-    if (!ploidy_bed_filename.empty()) {
-        if (multipass_caller != nullptr) {
-            multipass_caller->set_ploidy_regions(PloidyRegions(ploidy_bed_filename));
-        } else if (vcf_out != nullptr) {
-            vcf_out->set_ploidy_regions(PloidyRegions(ploidy_bed_filename));
+    if (!ploidy_bed_filename.empty() || !ploidy_preset_name.empty()) {
+        if (!ploidy_bed_filename.empty() && !ploidy_preset_name.empty()) {
+            cerr << "error [vg call]: give --ploidy-bed or --ploidy-preset, not both" << endl;
+            return 1;
+        }
+        PloidyRegions regions;
+        if (!ploidy_bed_filename.empty()) {
+            regions = PloidyRegions(ploidy_bed_filename);
         } else {
-            cerr << "error [vg call]: --ploidy-bed needs a caller that emits VCF" << endl;
+            istringstream preset(ploidy_presets().at(ploidy_preset_name));
+            regions = PloidyRegions(preset, "preset " + ploidy_preset_name);
+        }
+        if (multipass_caller != nullptr) {
+            multipass_caller->set_ploidy_regions(std::move(regions));
+        } else if (vcf_out != nullptr) {
+            vcf_out->set_ploidy_regions(std::move(regions));
+        } else {
+            cerr << "error [vg call]: --ploidy-bed and --ploidy-preset need a caller that "
+                 << "emits VCF" << endl;
             return 1;
         }
     }
