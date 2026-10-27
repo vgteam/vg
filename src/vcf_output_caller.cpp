@@ -324,52 +324,6 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
 }
 
 
-namespace {
-
-/// Make the hooks that build_site_record calls while it builds the record of one site.
-///
-/// Each hook calls the matching step of `record_steps` with this site's snarl and traversals.
-/// Without a `fill_info` step, the snarl caller's `update_vcf_info` fills the INFO and FORMAT
-/// fields. The hooks refer to the arguments, so the arguments must outlive them.
-SiteHooks site_hooks_from_steps(const VCFOutputCaller::SiteRecordSteps& record_steps,
-                                const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
-                                int ref_trav_idx, SnarlCaller& snarl_caller,
-                                const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                const string& sample_name) {
-    SiteHooks hooks;
-    if (record_steps.same_as_reference) {
-        hooks.same_as_reference = [&record_steps, &snarl, &called_traversals, ref_trav_idx](int trav) {
-            return record_steps.same_as_reference(snarl, called_traversals, trav, ref_trav_idx);
-        };
-    }
-    if (record_steps.phase) {
-        hooks.phase = [&record_steps, &snarl](const vector<int>& site_genotype,
-                                              const map<int, int>& trav_to_allele, string& gt) {
-            return record_steps.phase(snarl, site_genotype, trav_to_allele, gt);
-        };
-    }
-    if (record_steps.fill_info) {
-        hooks.fill_info = record_steps.fill_info;
-    } else {
-        hooks.fill_info = [&snarl_caller, &snarl, &called_traversals, &call_info, &sample_name](
-                              const vector<int>& site_trav, const vector<int>& site_genotype,
-                              vcflib::Variant& variant) {
-            // A negative traversal number is the "*" allele, which gets an empty traversal.
-            vector<SnarlTraversal> site_traversals;
-            site_traversals.reserve(site_trav.size());
-            for (int trav : site_trav) {
-                site_traversals.push_back(trav >= 0 ? called_traversals[trav] : SnarlTraversal());
-            }
-            snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info,
-                                         sample_name, variant);
-        };
-    }
-    hooks.gl_layout = record_steps.gl_layout ? record_steps.gl_layout(call_info.get())
-                                             : GLLayout::IMajor;
-    return hooks;
-}
-
-}
 
 RecordOptions VCFOutputCaller::record_options() const {
     return RecordOptions{
@@ -386,52 +340,30 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                    const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
                                    const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy,
                                    const function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)>& trav_to_string) {
-    return emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, ref_trav_idx,
-                        call_info, ref_path_name, ref_offset, genotype_snarls, ploidy,
-                        SiteRecordSteps(), trav_to_string);
-}
-
-bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
-                                   const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
-                                   const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                   const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy,
-                                   const SiteRecordSteps& record_steps,
-                                   function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string) {
-    
-#ifdef debug
-    cerr << "emitting variant for " << pb2json(snarl) << endl;
-    for (int i = 0; i < called_traversals.size(); ++i) {
-        if (i == ref_trav_idx) {
-            cerr << "*";
-        }
-        cerr << "ct[" << i << "]=" << pb2json(called_traversals[i]) << endl;
-    }
-    for (int i = 0; i < genotype.size(); ++i) {
-        cerr << "gt[" << i << "]=" << genotype[i] << endl;
-    }
-#endif
-
-    if (trav_to_string == nullptr) {
-        trav_to_string = [&](const vector<SnarlTraversal>& travs, const vector<int>& travs_genotype, int trav_allele, int genotype_allele, int ref_trav_idx) {
-            return trav_string(graph, travs[trav_allele]);    
-        };
-    }
-
-    if (record_steps.count_site) {
-        record_steps.count_site(graph, snarl, called_traversals, genotype, ref_trav_idx);
-    }
-
     SiteAlleles alleles;
     alleles.spell = [&](int trav, int genotype_index) {
+        if (trav_to_string == nullptr) {
+            return trav_string(graph, called_traversals[trav]);
+        }
         return trav_to_string(called_traversals, genotype, trav, genotype_index, ref_trav_idx);
     };
     alleles.visits = [&](int trav) {
         return visits_of(called_traversals[trav]);
     };
 
-    const SiteHooks hooks = site_hooks_from_steps(record_steps, snarl, called_traversals,
-                                                  ref_trav_idx, snarl_caller, call_info,
-                                                  sample_name);
+    SiteHooks hooks;
+    hooks.fill_info = [&](const vector<int>& site_trav, const vector<int>& site_genotype,
+                          vcflib::Variant& variant) {
+        // A negative traversal number is the "*" allele, which gets an empty traversal.
+        vector<SnarlTraversal> site_traversals;
+        site_traversals.reserve(site_trav.size());
+        for (int trav : site_trav) {
+            site_traversals.push_back(trav >= 0 ? called_traversals[trav] : SnarlTraversal());
+        }
+        snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name,
+                                     variant);
+    };
+    hooks.gl_layout = GLLayout::IMajor;
 
     const SiteToWrite site{
         .start = graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
@@ -443,23 +375,73 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         .traversal_count = called_traversals.size(),
         .ploidy = ploidy,
         .genotype_snarls = genotype_snarls,
-        .id = record_steps.id,
     };
     SiteRecord record = build_site_record(graph, site, alleles, hooks, record_options());
+    return file_record(graph, record, genotype, ref_trav_idx, called_traversals.size(),
+                       hooks.gl_layout, genotype_snarls, SiteRecordSteps());
+}
+
+bool VCFOutputCaller::emit_site(const PathPositionHandleGraph& graph, const handle_t& start,
+                                const handle_t& end, const vector<Traversal>& walks,
+                                const vector<int>& genotype, int ref_trav_idx,
+                                const SnarlCaller::CallInfo* call_info, const string& ref_path_name,
+                                int64_t ref_offset, bool genotype_snarls, int ploidy,
+                                const SiteRecordSteps& steps,
+                                const function<string(int trav, int genotype_index)>& spell) {
+    if (steps.count_site) {
+        steps.count_site(genotype, ref_trav_idx);
+    }
+
+    SiteAlleles alleles;
+    alleles.spell = spell;
+    alleles.visits = [&](int trav) {
+        return visits_of(graph, walks[trav]);
+    };
+
+    SiteHooks hooks;
+    if (steps.same_as_reference) {
+        hooks.same_as_reference = [&](int trav) {
+            return steps.same_as_reference(trav, ref_trav_idx);
+        };
+    }
+    hooks.phase = steps.phase;
+    hooks.fill_info = steps.fill_info;
+    hooks.gl_layout = steps.gl_layout ? steps.gl_layout(call_info) : GLLayout::IMajor;
+
+    const SiteToWrite site{
+        .start = start,
+        .end = end,
+        .ref_path_name = ref_path_name,
+        .ref_offset = ref_offset,
+        .genotype = genotype,
+        .ref_trav_idx = ref_trav_idx,
+        .traversal_count = walks.size(),
+        .ploidy = ploidy,
+        .genotype_snarls = genotype_snarls,
+        .id = steps.id,
+    };
+    SiteRecord record = build_site_record(graph, site, alleles, hooks, record_options());
+    return file_record(graph, record, genotype, ref_trav_idx, walks.size(), hooks.gl_layout,
+                       genotype_snarls, steps);
+}
+
+bool VCFOutputCaller::file_record(const PathPositionHandleGraph& graph, SiteRecord& record,
+                                  const vector<int>& genotype, int ref_trav_idx,
+                                  size_t traversal_count, GLLayout gl_layout, bool genotype_snarls,
+                                  const SiteRecordSteps& steps) {
     vcflib::Variant& out_variant = record.variant;
 
     // Let the caller write the site as difference blocks. The blocks take every field they do not
     // redefine from the finished site record. A result of -1 means the caller declined, and we
     // write the site record.
-    if (record_steps.write_blocks) {
-        const int block_lines = record_steps.write_blocks(graph, snarl, called_traversals, genotype,
-                                                          ref_trav_idx, record, hooks.gl_layout,
-                                                          genotype_snarls);
+    if (steps.write_blocks) {
+        const int block_lines = steps.write_blocks(graph, genotype, ref_trav_idx, record,
+                                                   gl_layout, genotype_snarls);
         if (block_lines >= 0) {
             // The site has no line of its own, and each block numbers its own alleles, so there is
             // no allele map to report.
-            if (record_steps.site_filed) {
-                record_steps.site_filed(snarl, map<int, int>(), 0, block_lines > 0);
+            if (steps.site_filed) {
+                steps.site_filed(map<int, int>(), 0, block_lines > 0);
             }
             return block_lines > 0;
         }
@@ -470,8 +452,8 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     const bool wants_line = genotype_snarls || !out_variant.alt.empty();
     bool added = false;
     if (wants_line) {
-        if (record_steps.finish_record) {
-            record_steps.finish_record(out_variant);
+        if (steps.finish_record) {
+            steps.finish_record(out_variant);
         }
         added = add_variant(out_variant);
     } else if (include_nested) {
@@ -481,8 +463,8 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
             {out_variant.sequenceName, static_cast<size_t>(out_variant.position),
              out_variant.ref.length()};
     }
-    if (record_steps.site_filed) {
-        record_steps.site_filed(snarl, record.trav_to_allele, called_traversals.size(), added);
+    if (steps.site_filed) {
+        steps.site_filed(record.trav_to_allele, traversal_count, added);
     }
     if (wants_line && !added) {
         stringstream ss;

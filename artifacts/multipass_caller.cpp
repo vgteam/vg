@@ -310,22 +310,17 @@ void MultiPassCaller::report_descent_instrumentation() const {
 
 VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
     const StagedSite& site, const AlleleSplicer::SplicedAlleles* spliced) {
-    // Each step reads the staged site rather than the Snarl and SnarlTraversals emit_variant
-    // passes, which are the site's bounds and walks in another form.
     VCFOutputCaller::SiteRecordSteps steps;
     steps.id = &site.id;
     if (nested_calling) {
-        steps.same_as_reference = [this, &site](const Snarl&, const vector<SnarlTraversal>&,
-                                                int trav, int ref_trav_idx) {
+        steps.same_as_reference = [this, &site](int trav, int ref_trav_idx) {
             return is_symbolically_reference(site, trav, ref_trav_idx);
         };
-        steps.count_site = [this, &site](const PathPositionHandleGraph&, const Snarl&,
-                                         const vector<SnarlTraversal>&, const vector<int>&,
-                                         int ref_trav_idx) {
+        steps.count_site = [this, &site](const vector<int>&, int ref_trav_idx) {
             block_records.count_site(site.children, site.travs, ref_trav_idx);
         };
     }
-    steps.phase = [this, &site](const Snarl&, const vector<int>& site_genotype,
+    steps.phase = [this, &site](const vector<int>& site_genotype,
                                 const map<int, int>& trav_to_allele, string& gt) {
         return phase_record_genotype(site.record_key, site_genotype, trav_to_allele, gt);
     };
@@ -336,7 +331,6 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
         return call_info != nullptr ? GLLayout::Colexicographic : GLLayout::IMajor;
     };
     steps.write_blocks = [this, &site, spliced](const PathPositionHandleGraph& graph,
-                                                const Snarl&, const vector<SnarlTraversal>&,
                                                 const vector<int>& genotype, int ref_trav_idx,
                                                 const SiteRecord& record, GLLayout gl_layout,
                                                 bool genotype_snarls) {
@@ -369,7 +363,7 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
     // reference still has two alleles, which differ only inside its children, and the children
     // need them to know which strand carries the chain. In VCF allele numbering such a parent is
     // 0/0; only in traversal space is it heterozygous.
-    steps.site_filed = [this, &site](const Snarl&, const map<int, int>& trav_to_allele,
+    steps.site_filed = [this, &site](const map<int, int>& trav_to_allele,
                                      size_t traversal_count, bool has_line) {
         if (!linker.enabled()) {
             return;
@@ -592,20 +586,16 @@ void MultiPassCaller::render_retained_records() {
             const vector<Traversal>& spelled = is_spliced ? spliced.travs : site.travs;
             const AlleleSequences& spelled_steps =
                 is_spliced ? spliced.sequences : site.sequences;
-            // The VCF writer and the genotyper's record fields still take a Snarl and
-            // SnarlTraversals.
-            output.emit_variant(graph, snarl_caller, snarl_of(graph, site.bounds),
-                                snarl_traversals_of(graph, site.travs), genotype,
-                                site.ref_trav_idx, site.call_info, site.reference.path_name,
-                                site.reference.offset, genotype_snarls, site.ploidy,
-                                record_steps(site, is_spliced ? &spliced : nullptr),
-                                // Each allele is spelled as the site holds it: by its step
-                                // sequences where it has them, or else by its walk.
-                                [&](const vector<SnarlTraversal>&, const vector<int>&, int trav,
-                                    int, int) {
-                                    return allele_sequence(graph, spelled[trav],
-                                                           own_sequences(&spelled_steps, trav));
-                                });
+            output.emit_site(graph, site.bounds.start, site.bounds.end, site.travs, genotype,
+                             site.ref_trav_idx, site.call_info.get(), site.reference.path_name,
+                             site.reference.offset, genotype_snarls, site.ploidy,
+                             record_steps(site, is_spliced ? &spliced : nullptr),
+                             // Each allele is spelled as the site holds it: by its step sequences
+                             // where it has them, or else by its walk.
+                             [&](int trav, int) {
+                                 return allele_sequence(graph, spelled[trav],
+                                                        own_sequences(&spelled_steps, trav));
+                             });
         },
         show_progress, [&]() { splicer.index(staged_sites, emit_phasing); });
     splicer.clear();
