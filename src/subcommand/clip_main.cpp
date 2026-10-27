@@ -36,10 +36,10 @@ void help_clip(char** argv) {
          << "  -k, --keep-connected       with -S, only clip edges from an end back into" << endl
          << "                             the graph, and edges tying a piece to more than one" << endl
          << "                             end: a piece hanging off one end stays attached, so" << endl
-         << "                             no node is cut off the reference (one side of one" << endl
-         << "                             node is cut to give a piece with no tips a tip)." << endl
-         << "                             run it after any -s or -d, which can leave an end" << endl
-         << "                             on a cycle again" << endl
+         << "                             no node is cut off the reference (a dead end of a" << endl
+         << "                             piece that only loops gets a tip, by cutting the" << endl
+         << "                             edges on one side of one node). run it after any" << endl
+         << "                             -s or -d, which can leave an end on a cycle again" << endl
          << "snarl selection and clipping options:" << endl
          << "  -n, --min-nodes N          clip out snarls with >N nodes" << endl
          << "  -e, --min-edges N          clip out snarls with >N edges" << endl
