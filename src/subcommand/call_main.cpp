@@ -876,7 +876,7 @@ int main_call(int argc, char** argv) {
     // copied over from vg sim
     std::vector<std::pair<std::regex, size_t>> ploidy_rules;
     string ploidy_bed_filename;
-    string ploidy_preset;
+    optional<string> ploidy_preset;
 
     bool traversals_only = false;
     bool gaf_output = false;
@@ -1892,15 +1892,17 @@ int main_call(int argc, char** argv) {
     if (!ref_path_prefixes.empty() && !ref_paths.empty()) {
         logger.error() << "-P cannot be used with -p" << endl;
     }
-    if (!ploidy_bed_filename.empty() && !ploidy_preset.empty()) {
+    if (!ploidy_bed_filename.empty() && ploidy_preset.has_value()) {
         logger.error() << "--ploidy-bed cannot be used with --ploidy-preset" << endl;
     }
 
-    // The sample's ploidy by region, if --ploidy-preset or --ploidy-bed gives it. We look up a
-    // preset before loading the graph, so that a misspelled name fails quickly.
+    // The sample's ploidy by region, if --ploidy-preset or --ploidy-bed gives it. We read it before
+    // loading the graph, so that a misspelled preset name or a malformed BED fails quickly.
     optional<PloidyRegions> ploidy_regions;
-    if (!ploidy_preset.empty()) {
-        ploidy_regions = PloidyRegions::preset(ploidy_preset);
+    if (ploidy_preset.has_value()) {
+        ploidy_regions = PloidyRegions::preset(*ploidy_preset);
+    } else if (!ploidy_bed_filename.empty()) {
+        ploidy_regions = PloidyRegions(ploidy_bed_filename);
     }
 
     // Check -L/--cluster before loading the graph, so that a mistake fails quickly. We reject a
@@ -2856,9 +2858,6 @@ int main_call(int argc, char** argv) {
                                     : dynamic_cast<VCFOutputCaller*>(graph_caller.get());
 
     // Give the per-region ploidy, if any, to the caller that writes the records.
-    if (!ploidy_bed_filename.empty()) {
-        ploidy_regions = PloidyRegions(ploidy_bed_filename);
-    }
     if (ploidy_regions.has_value()) {
         if (multipass_caller != nullptr) {
             multipass_caller->set_ploidy_regions(std::move(*ploidy_regions));
@@ -2866,7 +2865,7 @@ int main_call(int argc, char** argv) {
             vcf_out->set_ploidy_regions(std::move(*ploidy_regions));
         } else {
             cerr << "error [vg call]: "
-                 << (ploidy_preset.empty() ? "--ploidy-bed" : "--ploidy-preset")
+                 << (ploidy_preset.has_value() ? "--ploidy-preset" : "--ploidy-bed")
                  << " needs a caller that emits VCF" << endl;
             return 1;
         }

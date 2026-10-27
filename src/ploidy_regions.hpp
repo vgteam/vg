@@ -42,8 +42,8 @@ public:
 
     /// Read a BED from a stream.
     ///
-    /// `source` names the BED at the start of each error message. A malformed line, a ploidy other
-    /// than 0, 1 or 2, or two overlapping intervals end the run with an error.
+    /// `source` names the BED in each error message. A malformed line, a ploidy other than 0, 1 or
+    /// 2, or two overlapping intervals end the run with an error.
     PloidyRegions(istream& bed, const string& source);
 
     /// Read the preset named `name`, such as `chm13v2.XY`.

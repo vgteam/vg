@@ -95,10 +95,10 @@ sites is described under [Passes and rounds](#passes-and-rounds), after the voca
 - **Ploidy.** A site's ploidy, $P$, is the number of the sample's haplotypes that pass through the
   site. Options set the ploidy of each contig or region, and a nested site's ploidy follows from its
   parent's genotype (see [Ploidy](#ploidy)). The ploidy options accept only 1 or 2, because the
-  linkage model, phasing and nested calling are built for at most two haplotypes, and
-  the ploidy BED also accepts 0 for a region the sample has no copy of. A nested site that
-  none of its parent's alleles passes through has ploidy 0 (see
-  [Which child chains are genotyped](#which-child-chains-are-genotyped)).
+  linkage model, phasing and nested calling are built for at most two haplotypes. A ploidy BED, a
+  table of ploidies by region given with `--ploidy-bed` or `--ploidy-preset`, may also give 0 for a
+  region the sample has no copy of. A nested site that none of its parent's alleles passes through
+  has ploidy 0 (see [Which child chains are genotyped](#which-child-chains-are-genotyped)).
 - **Panel.** The haplotypes stored in the GBZ file's
   [GBWT](https://github.com/vgteam/vg/wiki/Extra-details-on-vg-file-formats#gbwt-gbwt) index, or in
   a separate GBWT file given with `--gbwt`. A panel haplotype can be stored as several paths that
@@ -307,8 +307,8 @@ as its `GT`.
 
 `--ploidy-preset` names a ploidy BED built into vg, one per reference assembly and sample sex:
 `chm13v2`, `grch38`, `grch37.ucsc` and `grch37.b37`, each as `XY` and `XX`, for example
-`chm13v2.XY`. An `XY` preset makes chrX haploid outside its pseudoautosomal regions and chrY and
-the mitochondrion haploid, and an `XX` preset gives chrY ploidy 0 and makes the mitochondrion
+`chm13v2.XY`. An `XY` preset makes chrX haploid outside its pseudoautosomal regions. It also makes
+chrY and the mitochondrion haploid. An `XX` preset gives chrY ploidy 0 and makes the mitochondrion
 haploid. The `grch37.b37` presets name the contigs `X`, `Y` and `MT`, and the others `chrX`, `chrY`
 and `chrM`. A preset has no lines for the autosomes, so one preset serves a whole-genome run and a
 run on any one contig alike, with no `--ploidy`. `--ploidy-bed` and `--ploidy-preset` cannot be

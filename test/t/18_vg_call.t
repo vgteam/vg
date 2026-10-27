@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 501
+plan tests 503
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -2495,11 +2495,15 @@ for PRESET in ${PRESETS}; do
     vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset "${PRESET}" 2>/dev/null | grep -v '^#' > preset.txt
     [ "${PIPESTATUS[0]}" = 0 ] && cmp -s preset.txt <(grep -v '^#' ploidy_bed_none.vcf) && PRESETS_OK=$((PRESETS_OK + 1))
 done
-# An unknown name fails with a message that lists the presets, which are the eight above.
+# An unknown name fails with a message that lists the presets, which are the eight above, and the
+# help lists the same eight.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset nosuch >/dev/null 2> preset_err.txt
 is "$?" 1 "--ploidy-preset rejects an unknown name"
 is "$(grep -o '[a-z0-9.]*\.X[XY]' preset_err.txt | sort | tr '\n' ' ')" "$(printf '%s\n' ${PRESETS} | sort | tr '\n' ' ')" "vg has XY and XX ploidy presets for four assemblies"
+is "$(vg call --help 2>&1 | grep -o '[a-z0-9.]*\.X[XY]' | sort | tr '\n' ' ')" "$(printf '%s\n' ${PRESETS} | sort | tr '\n' ' ')" "vg call --help names every ploidy preset"
 is "${PRESETS_OK}" "8" "every ploidy preset parses and leaves an unnamed contig as it was"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset '' >/dev/null 2>&1
+is "$?" 1 "--ploidy-preset rejects an empty name"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed elsewhere_ploidy.bed --ploidy-preset chm13v2.XY >/dev/null 2>&1
 is "$?" 1 "--ploidy-bed cannot be used with --ploidy-preset"
 

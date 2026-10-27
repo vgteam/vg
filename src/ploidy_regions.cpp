@@ -27,8 +27,9 @@ namespace {
  * included, because the second PAR copy of the sample is counted on chrX. In an XX preset, chrX is
  * diploid, chrY has ploidy 0, and the mitochondrion is haploid.
  *
- * A preset has no lines for the autosomes, which keep the ploidy of their contig. So one preset
- * serves a whole-genome run and a run on one contig alike.
+ * A preset has no lines for the autosomes, so a position on an autosome takes the ploidy set for
+ * the whole contig, which is 2 by default. One preset therefore serves a whole-genome run and a run
+ * on one contig alike.
  *
  * Each BED starts with comment lines that cite the sources of its contig lengths and PAR
  * coordinates.
@@ -155,7 +156,7 @@ MT	0	16569	1
 )bed"},
 };
 
-}
+} // namespace
 
 PloidyRegions::PloidyRegions(const string& bed_path) {
     ifstream in(bed_path);
@@ -224,8 +225,8 @@ PloidyRegions::PloidyRegions(istream& bed, const string& source) {
 PloidyRegions PloidyRegions::preset(const string& name) {
     auto found = PRESET_BEDS.find(name);
     if (found == PRESET_BEDS.end()) {
-        cerr << "error [vg call]: there is no ploidy preset named " << name
-             << ". The presets are ";
+        cerr << "error [vg call]: there is no ploidy preset named \"" << name
+             << "\". The presets are ";
         vector<string> names = preset_names();
         for (size_t i = 0; i < names.size(); ++i) {
             cerr << (i == 0 ? "" : ", ") << names[i];
