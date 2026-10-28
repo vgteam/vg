@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 131
+plan tests 138
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -249,6 +249,26 @@ is $(vg paths -x flip_test.vg -L | grep "_alt$" | wc -l) 2 "intervals on either 
 is "$(vg paths -x flip_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "32" "no sequence is dropped at an orientation flip"
 
 is $(grep -vc "^#" flip.segs) 2 "gref-segs describes every emitted fragment at an orientation flip"
+
+# A haplotype can read consecutive non-reference nodes in alternating orientations.  Every
+# single-orientation piece of this 80 bp insertion is under 50 bp, so the length filter drops
+# them all; the orientation fallback then covers the insertion with one mixed fragment.
+vg paths -x nesting/orientation_fallback.gfa -Q x --compute-gref --min-gref-len 50 --gref-segs fallback.segs > fallback_test.vg
+vg validate fallback_test.vg
+is $? 0 "orientation fallback: gref computation produces valid graph"
+
+is "$(vg paths -x fallback_test.vg -E | grep "_alt" | awk '{print $2}')" "80" "orientation fallback covers an insertion whose single-orientation pieces are all too short"
+
+is "$(vg paths -x fallback_test.vg -A | grep gref_x_1_alt | cut -f6)" ">6<5>4<3" "a mixed fragment is written in the direction that reads most of its bases forward"
+
+is "$(grep -v "^#" fallback.segs | cut -f6)" "-" "gref-segs marks a mixed fragment written reverse-complemented"
+
+vg convert -f -Q gref_ fallback_test.vg > fallback_rgfa.gfa 2> /dev/null
+is $? 0 "rGFA export does not fail on a mixed-orientation gref fragment"
+
+is "$(grep -c "SN:Z:gref_x" fallback_rgfa.gfa)" "2" "rGFA tags are written for the reference copy but not the mixed fragment"
+
+is "$(grep -E "^(P|W)" fallback_rgfa.gfa | grep -c gref_x_1_alt)" "1" "a mixed fragment is written as a path line instead of rGFA tags"
 
 # Fragments in a component with no reference path get named after their source path.  The
 # name still has to be a valid path name: the "_{N}_alt" suffix must land on the locus, not
@@ -510,6 +530,7 @@ rm -f gref_test.vg triple_gref.vg triple_gref_long.vg dangling_gref.vg x.pg x.gb
 rm -f gref_test.segs gref_segs_test.vg gref_sample_test.segs gref_sample_test.vg
 rm -f cross_merge_test.vg cross_merge_right_test.vg
 rm -f ref_start_test.vg ref_start.segs ref_end_test.vg flip_test.vg flip.segs
+rm -f fallback_test.vg fallback.segs fallback_rgfa.gfa
 rm -f unanchored_test.vg unanchored.segs hap_sense_test.vg
 
 

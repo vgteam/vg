@@ -277,8 +277,14 @@ protected:
     void filter_short_intervals(int64_t minimum_length);
 
     // Build the cover: enumerate the maximal runs of uncovered nodes along every candidate
-    // source path, then claim them longest-first.  This is the whole cover.
-    void fill_uncovered_nodes(int64_t minimum_length);
+    // source path, then claim them longest-first.  Runs end where the source path changes
+    // the orientation it reads nodes in, unless cross_orientation_flips is set.
+    void fill_uncovered_nodes(int64_t minimum_length, bool cross_orientation_flips = false);
+
+    // Whether apply() writes the interval reverse-complemented relative to its source path.
+    // An interval is written in the direction that reads the most of its bases on forward
+    // nodes, so an interval the source walks in reverse is written forward, as rGFA needs.
+    bool written_reversed(int64_t interval_index) const;
 
     // Search back to the reference and return <distance, node_id> when found.
     // (here distance is the number of intervals crossed, aka rank)

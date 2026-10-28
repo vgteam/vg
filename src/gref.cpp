@@ -172,7 +172,8 @@ void GrefCover::compute(const PathHandleGraph* graph,
     // fragment is contiguous on one source path, single-orientation, free of repeated node
     // ids and free of reference nodes, which is exactly what a maximal run is maximal under.
     // So every admissible fragment is a sub-run of exactly one enumerated run, and no other
-    // candidate generator can beat it.
+    // candidate generator can beat it.  (The orientation fallback below relaxes
+    // single-orientation, but only for nodes this cover leaves uncovered.)
 
     // Build the cover.  minimum_length is deferred: a run that is too short on its own may
     // still be the longest thing available for its nodes, and filtering before selection
@@ -183,6 +184,28 @@ void GrefCover::compute(const PathHandleGraph* graph,
     verify_cover(minimum_length);
 
     filter_short_intervals(minimum_length);
+
+    // Fallback for regions the cover above cannot reach.  A haplotype can read consecutive
+    // non-reference nodes in alternating orientations: node orientation comes from whichever
+    // sequence created the node, not from the haplotype.  Runs end at every flip, so such a
+    // region can yield only pieces shorter than minimum_length, which the filter just dropped.
+    // Offer the nodes that are still uncovered once more, as runs that may cross flips.  Every
+    // fragment kept above is unchanged and still reads its nodes in one orientation, as rGFA
+    // export needs; only the fragments added here can mix orientations.
+    size_t intervals_before_fallback = this->gref_intervals.size();
+    fill_uncovered_nodes(minimum_length, true);
+    if (verbose && this->gref_intervals.size() > intervals_before_fallback) {
+        int64_t fallback_length = 0;
+        for (size_t i = intervals_before_fallback; i < this->gref_intervals.size(); ++i) {
+            for (step_handle_t step = this->gref_intervals[i].first; step != this->gref_intervals[i].second;
+                 step = graph->get_next_step(step)) {
+                fallback_length += graph->get_length(graph->get_handle_of_step(step));
+            }
+        }
+        cerr << "[gref] Orientation fallback: " << (this->gref_intervals.size() - intervals_before_fallback)
+             << " fragments (" << fallback_length << " bp) cover nodes that single-orientation runs "
+             << "could not reach at min " << minimum_length << " bp" << endl;
+    }
 
     // the cover is final here: nothing below adds, merges or extends an interval
     verify_disjoint();
@@ -201,7 +224,7 @@ void GrefCover::compute(const PathHandleGraph* graph,
     }
 }
 
-void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
+void GrefCover::fill_uncovered_nodes(int64_t minimum_length, bool cross_orientation_flips) {
     // Collect all uncovered nodes and the paths that pass through them
     unordered_set<nid_t> uncovered_nodes;
     map<string, path_handle_t> candidate_paths;  // sorted by name for deterministic ordering
@@ -258,7 +281,8 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
     };
 
     // Split one path into maximal runs of currently-uncovered nodes, breaking at orientation
-    // flips and at a repeated node id so no run can contain a cycle.
+    // flips (unless cross_orientation_flips) and at a repeated node id so no run can contain
+    // a cycle.
     auto enumerate_runs = [&](const string& path_name, path_handle_t path_handle,
                               vector<FillRun>& out) {
         bool in_run = false;
@@ -290,7 +314,8 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
             nid_t node_id = graph->get_id(handle);
             bool is_reverse = graph->get_is_reverse(handle);
             if (!uncovered_nodes.count(node_id) ||
-                (in_run && (run_nodes.count(node_id) || is_reverse != run_reverse))) {
+                (in_run && (run_nodes.count(node_id) ||
+                            (!cross_orientation_flips && is_reverse != run_reverse)))) {
                 close_run();
             }
             if (uncovered_nodes.count(node_id)) {
@@ -474,23 +499,8 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
         // already predicted this name using the same call; see resolve_base_path_name().
         string base_path_name = this->resolve_base_path_name(i);
 
-        // Check if this interval is all-reverse (needs to be flipped when writing)
-        bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(gref_intervals[i].first));
-
-        // Safety check: verify consistent orientation (should be guaranteed by upstream filtering)
-        bool mixed = false;
-        for (step_handle_t step_handle = gref_intervals[i].first; step_handle != gref_intervals[i].second;
-             step_handle = graph->get_next_step(step_handle)) {
-            if (graph->get_is_reverse(graph->get_handle_of_step(step_handle)) != all_reverse) {
-                mixed = true;
-                break;
-            }
-        }
-        if (mixed) {
-            // Mixed-orientation interval should not reach here; skip as safety net
-            skipped_intervals++;
-            continue;
-        }
+        // An interval the source path walks in reverse is flipped so it reads forward.
+        bool reversed = written_reversed(i);
 
         // Get next available gref index for this base path
         int64_t gref_index = ++base_path_gref_counter[base_path_name];
@@ -502,15 +512,15 @@ void GrefCover::apply(MutablePathMutableHandleGraph* mutable_graph) {
         path_handle_t gref_handle = mutable_graph->create_path_handle(gref_name, false);
 
         int64_t interval_length = 0;
-        if (!all_reverse) {
-            // Forward interval: walk forward and append steps as-is
+        if (!reversed) {
+            // Write the steps as the source path walks them
             for (step_handle_t step_handle = gref_intervals[i].first; step_handle != gref_intervals[i].second;
                  step_handle = mutable_graph->get_next_step(step_handle)) {
                 mutable_graph->append_step(gref_handle, mutable_graph->get_handle_of_step(step_handle));
                 interval_length += mutable_graph->get_length(mutable_graph->get_handle_of_step(step_handle));
             }
         } else {
-            // All-reverse interval: collect handles, reverse order, flip each to forward
+            // Write the reverse walk: reverse the order and flip each handle
             vector<handle_t> handles;
             for (step_handle_t step_handle = gref_intervals[i].first; step_handle != gref_intervals[i].second;
                  step_handle = graph->get_next_step(step_handle)) {
@@ -612,6 +622,20 @@ void GrefCover::filter_short_intervals(int64_t minimum_length) {
 }
 
 
+
+bool GrefCover::written_reversed(int64_t interval_index) const {
+    // Compare the bases on nodes the source path reads forward with those it reads in
+    // reverse.  For a single-orientation interval this flips exactly the all-reverse ones.
+    // For one from the orientation fallback, a tie keeps the source path's direction.
+    const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[interval_index];
+    int64_t forward_length = 0;
+    int64_t reverse_length = 0;
+    for (step_handle_t step = interval.first; step != interval.second; step = graph->get_next_step(step)) {
+        handle_t handle = graph->get_handle_of_step(step);
+        (graph->get_is_reverse(handle) ? reverse_length : forward_length) += graph->get_length(handle);
+    }
+    return reverse_length > forward_length;
+}
 
 string GrefCover::resolve_base_path_name(int64_t interval_index,
                                          path_handle_t* out_ref_path,
@@ -1500,9 +1524,7 @@ void GrefCover::write_gref_segments(ostream& os) {
     // (it restated ref_contig on 76% of rows and named a contig without a position on the
     // rest), so nothing needs a name but the row being written.
     //
-    // Skipped: an interval decommissioned to a path_end sentinel, and one of mixed
-    // orientation, which apply() also refuses to write.  Runs split at orientation flips so a
-    // mixed interval should be unreachable; the check is a net, matching apply()'s.
+    // Skipped: an interval decommissioned to a path_end sentinel, which apply() also skips.
     unordered_map<string, int64_t> gref_counter;
 
     // Write each gref interval
@@ -1512,18 +1534,7 @@ void GrefCover::write_gref_segments(ostream& os) {
         if (interval.first == graph->path_end(source_path_handle)) {
             continue;
         }
-        bool all_reverse = graph->get_is_reverse(graph->get_handle_of_step(interval.first));
-        bool mixed = false;
-        for (step_handle_t step = interval.first; step != interval.second;
-             step = graph->get_next_step(step)) {
-            if (graph->get_is_reverse(graph->get_handle_of_step(step)) != all_reverse) {
-                mixed = true;
-                break;
-            }
-        }
-        if (mixed) {
-            continue;
-        }
+        bool reversed = written_reversed(i);
 
         // Look up pre-computed source path offsets
         int64_t source_start = step_offset_cache.at(interval.first);
@@ -1672,12 +1683,13 @@ void GrefCover::write_gref_segments(ostream& os) {
            << gref_name << "\t"
            << (this->interval_level.empty() ? 0 : this->interval_level[i]) << "\t"
            // Strand of the fragment against columns 1-3.  apply() reverse-complements an
-           // all-reverse run so the emitted contig always reads forward, which means the
-           // sequence at source_path[source_start:source_end] is the REVERSE COMPLEMENT of
-           // the gref contig for these.  26 of 2137 chr22 fragments.  Without this column
-           // cols 1-3 are a BED interval whose sequence silently disagrees with the VCF's
-           // REF/ALT, and nothing else in the table or the VCF reveals it.
-           << (all_reverse ? '-' : '+') << "\t"
+           // interval the source walks mostly in reverse (all-reverse runs; see
+           // written_reversed()), which means the sequence at
+           // source_path[source_start:source_end] is the REVERSE COMPLEMENT of the gref
+           // contig for these.  26 of 2137 chr22 fragments.  Without this column cols 1-3
+           // are a BED interval whose sequence silently disagrees with the VCF's REF/ALT, and
+           // nothing else in the table or the VCF reveals it.
+           << (reversed ? '-' : '+') << "\t"
            << ref_path_name << "\t"
            << (ref_start + ref_offset) << "\t"
            << (ref_end + ref_offset) << "\t"

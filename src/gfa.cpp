@@ -16,12 +16,35 @@ static bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t p
 /// subranges on a haplotype, since GFA doesn't support them.
 static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& fake_subrange_end);
 
-void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
+void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& requested_rgfa_paths,
                   bool rgfa_pline, bool use_w_lines) {
-    
+
     // TODO: Support sorting nodes, paths, and/or edges for canonical output
     // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
-    
+
+    // rGFA puts every segment on the forward strand of its stable sequence, so a path that
+    // reads a node in reverse cannot provide tags.  Leave such paths out of the rGFA set;
+    // everything below then writes them as ordinary path lines, so nothing is lost.
+    set<string> rgfa_paths;
+    for (const string& path_name : requested_rgfa_paths) {
+        nid_t reversed_node = 0;
+        graph->for_each_step_in_path(graph->get_path_handle(path_name), [&](step_handle_t step_handle) {
+            handle_t handle = graph->get_handle_of_step(step_handle);
+            if (graph->get_is_reverse(handle)) {
+                reversed_node = graph->get_id(handle);
+                return false;
+            }
+            return true;
+        });
+        if (reversed_node != 0) {
+            cerr << "warning [gfa]: writing path " << path_name << " as a path line instead of rGFA tags, because"
+                 << " node " << reversed_node << " is traversed on its reverse strand. rGFA only supports"
+                 << " the forward strand." << endl;
+        } else {
+            rgfa_paths.insert(path_name);
+        }
+    }
+
     // Compute reference-sense sample header tags
     gbwtgraph::sample_name_set reference_samples;
     graph->for_each_path_matching({PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& h) {
@@ -48,12 +71,6 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
                 handle_t handle = graph->get_handle_of_step(step_handle);
                 nid_t node_id = graph->get_id(handle);
-                if (graph->get_is_reverse(handle)) {
-                    stringstream ss;
-                    ss << "error [gfa]: unable to write rGFA tags for path " << path_name << " because node "
-                       << node_id << " is traversed on its reverse strand.  rGFA only supports the forward strand." << endl;
-                    throw runtime_error(ss.str());
-                }
                 if (node_offsets.count(node_id)) {
                     cerr << "warning [gfa]: multiple selected rgfa paths found on node " << node_id << ": keeping tags for "
                          << graph->get_path_name(node_offsets[node_id].first) << " and ignoring those for " << path_name << endl;
