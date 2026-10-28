@@ -97,7 +97,7 @@ void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& g
                           phases.haploid_slot(rec.record_key, genotype),
                           anchor_gqn(rec, genotype, linker.collector()), score->explained_share};
     anchors.collect(*score->anchor_evidence, call, rec.id,
-                    anchors.wants_leaf_test() ? rec.leaf : true, strands, rec.record_key);
+                    anchors.wants_leaf_test() ? rec.is_leaf() : true, strands, rec.record_key);
 }
 
 void RecordRenderer::hand_off(StagedSiteTable& staged, bool show_progress) const {

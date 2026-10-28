@@ -357,7 +357,7 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
                                     vcflib::Variant& variant) {
         snarl_caller.write_vcf_fields(site_trav, site_genotype, site.call_info.get(), sample_name,
                                       variant);
-        if (site.off_panel) {
+        if (site.is_edit()) {
             variant.infoFlags["OP"] = true;
         }
     };
@@ -953,7 +953,7 @@ size_t MultiPassCaller::rederive_reported_inline() {
             const bool was = child.placement.reported_inline;
             child.placement.reported_inline =
                 parent.placement.reported_inline
-                || (child.in_chain && block_records.chain_reported_inline(graph, ctx, child.chain));
+                || block_records.chain_reported_inline(graph, ctx, child.chain);
             if (was != child.placement.reported_inline) {
                 ++rederived;
             }

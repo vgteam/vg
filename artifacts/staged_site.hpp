@@ -92,12 +92,6 @@ struct StagedSite {
      * when a reference path visits this site (see `reference`).
      */
     NestingPlacement placement;
-    /// Whether off-panel detection added the site, as an edit site whose ALT no walk of the graph
-    /// spells.
-    ///
-    /// Its record carries INFO/OP.
-    bool off_panel = false;
-
     // The site in the graph.
 
     /// The bounds of the site, oriented forward along the reference path.
@@ -112,14 +106,19 @@ struct StagedSite {
     int ref_trav_idx = -1;
     /// The sites nested in this one, for its symbolic alleles.
     SiteChildren children;
-    /// Whether the site has no child sites.
-    bool leaf = true;
-    /// The chain the site is in, if `in_chain`.
+    /// The chain the site is in.
     ///
     /// A nested site's line is held back when its parent's blocks report its chain.
     ChildChain chain;
-    /// Whether the decomposition knows the site, so that `chain` is set.
-    bool in_chain = false;
+
+    /// Return true if off-panel detection added the site, as an edit site whose ALT no walk of the
+    /// graph spells. Its record carries INFO/OP.
+    bool is_edit() const { return bounds.inside_node; }
+    /// Return true if the site has no child sites.
+    ///
+    /// A site holds a child site wherever one of its child chains has two nodes, which makes an
+    /// entry in `children`.
+    bool is_leaf() const { return children.entries.empty(); }
     /// The bounds of the sites enclosing this one in the decomposition, innermost first
     /// (`SiteView::enclosing`).
     ///

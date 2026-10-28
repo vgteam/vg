@@ -875,10 +875,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     if (!top_level) {
         place_in_tree(*staged, placement);
     }
-    // Make the edit site a leaf, in the chain its node is in.
-    staged->off_panel = true;
-    staged->leaf = true;
-    staged->in_chain = true;
+    // Put the edit site in the chain its node is in.
     staged->chain = edit.child.chain;
     staged->enclosing = enclosing;
     staged->sequences = sequences;
@@ -926,10 +923,6 @@ unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
 void TreeGenotyper::fill_tree_fields(const SiteView& view, const SiteChildren& children,
                                      StagedSite& site) const {
     site.children = children;
-    // A site holds a child site wherever one of its child chains has two nodes, which makes an
-    // entry.
-    site.leaf = children.entries.empty();
-    site.in_chain = true;
     site.chain = parts.child_placer->chain_of(view.net);
     site.enclosing = view.enclosing;
 }
