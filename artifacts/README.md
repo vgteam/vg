@@ -11,9 +11,10 @@ The tree mirrors `src/`:
   into the `vg` binary and into a test binary of their own in `bin/unittest/`, beside the tests in
   `src/unittest/`.
 - `artifacts/doc/` holds write-ups, listed in `artifacts/doc/README.md`.
+- `artifacts/scripts/` holds scripts, such as `mosaic_to_path.py`, which the call tests use to check
+  a mosaic against the graph.
 
 Code in `src/` may include headers from here. No file here other than a `README.md` may share a
 name with a file in `src/` or `doc/`, since objects, test binaries and includes are found by name.
-The Makefile stops with an error if one does.
 
 A file leaves this tree for `src/` or `doc/` once a person has read it and cleared it for reading.

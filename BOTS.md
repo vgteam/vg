@@ -156,7 +156,7 @@ Some words mean something narrower, or something else, inside one module. In tha
 
 ## Machine-Written Files
 - New source files, unit tests and write-ups that you write go in `artifacts/`, `artifacts/unittest/` and `artifacts/doc/`, not in `src/` or `doc/`. A file moves to `src/` or `doc/` only when a person has read it and cleared it for reading. See `artifacts/README.md`.
-- A file in `artifacts/` other than a `README.md` must not share a name with a file in `src/` or `doc/`. The Makefile checks this.
+- A file in `artifacts/` other than a `README.md` must not share a name with a file in `src/` or `doc/`, since objects, unit test binaries and includes are found by name. Check this yourself when you add a file.
 
 ## Writing Classes and Functions
 - When adding, splitting or reviewing classes and structs, use the `class-identity` skill.

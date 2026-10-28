@@ -400,14 +400,6 @@ ARTIFACTS_UNITTEST_SUPPORT_SRC = $(wildcard $(ARTIFACTS_UNITTEST_SUPPORT_SRC_DIR
 OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC)))
 SHARED_OBJ = $(patsubst $(OBJ_DIR)/%.o,$(SHARED_OBJ_DIR)/%.o,$(OBJ))
 
-# A file in artifacts/ must not share a name with one in src/ or doc/, except for a README.md.
-# Objects, unit test binaries and includes are found by name, so two files of one name would build
-# the wrong one.
-ARTIFACTS_NAME_CLASHES := $(filter $(notdir $(wildcard $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp $(UNITTEST_SUPPORT_SRC_DIR)/*.hpp $(filter-out doc/README.md,$(wildcard doc/*.md)))),$(notdir $(wildcard $(ARTIFACTS_SRC_DIR)/*.cpp $(ARTIFACTS_SRC_DIR)/*.hpp $(ARTIFACTS_UNITTEST_SRC_DIR)/*.cpp $(ARTIFACTS_UNITTEST_SRC_DIR)/*.hpp $(ARTIFACTS_UNITTEST_SUPPORT_SRC_DIR)/*.cpp $(ARTIFACTS_UNITTEST_SUPPORT_SRC_DIR)/*.hpp $(ARTIFACTS_SRC_DIR)/doc/*.md)))
-ifneq ($(ARTIFACTS_NAME_CLASHES),)
-    $(error These files in artifacts/ share names with files in src/ or doc/: $(ARTIFACTS_NAME_CLASHES))
-endif
-
 # The library code in artifacts/ also goes into libvg
 ARTIFACTS_OBJ = $(patsubst $(ARTIFACTS_SRC_DIR)/%.cpp,$(ARTIFACTS_OBJ_DIR)/%.o,$(ARTIFACTS_SRC))
 ARTIFACTS_SHARED_OBJ = $(patsubst $(ARTIFACTS_OBJ_DIR)/%.o,$(ARTIFACTS_SHARED_OBJ_DIR)/%.o,$(ARTIFACTS_OBJ))

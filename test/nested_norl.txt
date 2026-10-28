@@ -1,1 +1,0 @@
-t/18_vg_call.t: line 829: ../bin/vg: Permission denied

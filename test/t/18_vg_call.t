@@ -318,7 +318,7 @@ rm -f c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg c.aug
 
 # simple gbwt
 vg autoindex -r small/x.fa -v small/x.vcf.gz -w giraffe -p x
-rm -f x.min x.dist
+rm -f x.min x.dist x.shortread.withzip.min x.shortread.zipcodes
 mv x.giraffe.gbz x.gbz
 vg gbwt -o x.gbwt -Z x.gbz
 vg convert x.gbz -p > x.vg
@@ -634,7 +634,7 @@ rm -f rl_mosaic2.tsv rl_mosaic2.err
 # matters; a fixture with recombination and a clipped haplotype is what will make it bite.
 vg paths -x x.gbz -A > rl_paths.gaf 2>/dev/null
 vg view -g x.gbz > rl_graph.gfa 2>/dev/null
-is $(python3 ./mosaic_to_path.py --mosaic rl_mosaic.tsv --gaf rl_paths.gaf --gfa rl_graph.gfa --quiet >rl_expand.txt 2>&1; echo $?) "0" \
+is $(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rl_mosaic.tsv --gaf rl_paths.gaf --gfa rl_graph.gfa --quiet >rl_expand.txt 2>&1; echo $?) "0" \
    "every thread in the mosaic expands to an exact path in the graph"
 rm -f rl_paths.gaf rl_graph.gfa rl_expand.txt
 # An unresolvable position is allowed -- it means no panel haplotype of that name visits the node --
@@ -834,6 +834,7 @@ vg call x.vg -k x.pack --read-likelihood --gam sim.gam --bottom-up -I -t 1 >/dev
 is "$(grep -o -- "--read-likelihood cannot be used with .*" rl_modes.txt)" \
    "--read-likelihood cannot be used with --bottom-up, -I/--chains" \
    "--read-likelihood refuses the modes it does not have, naming each"
+rm -f mos_norl.txt multi_norl.txt trav_norl.txt nested_norl.txt rl_modes.txt
 
 # --anchors-hom-split splits a homozygous site by each read's phase across the OTHER sites it
 # crosses, and that log-odds comes from the read-phasing chain.  With no phasing,
@@ -973,13 +974,14 @@ is $(grep -c "only applies with" sub_regok.txt) "0" "the same option with --rege
 
 vg call x.vg -k x.pack --anchors-min-q 30 -t 1 >/dev/null 2>sub_outer.txt
 is $(grep -c "only applies to --read-likelihood" sub_outer.txt) "1" "with both switches missing the outer one is named"
+rm -f sub_anch.txt sub_reg.txt sub_regok.txt sub_outer.txt
 
 # A missing gaf-base is the user's setup, not a vg bug: it must be an error with a fix
 # in it, not a crash telling them to file an issue.
 vg call x.vg -k x.pack --read-likelihood --gaf-base gb_placeholder.db --gaf-base-binary /nonexistent/gaf-base -t 1 >/dev/null 2>gb_nobin.txt
 is $(grep -c "could not execute" gb_nobin.txt) "1" "a missing gaf-base binary is reported with a remedy"
 is $(grep -c "VG has crashed" gb_nobin.txt) "0" "a missing gaf-base binary is not reported as a vg crash"
-rm -f gb_placeholder.db
+rm -f gb_placeholder.db gb_nobin.txt
 
 # The equivalence tests: the same reads, reached through a database instead of held in
 # memory, must give the same calls. Compared against the in-memory *GAF* rather than the
@@ -2102,7 +2104,7 @@ grep -v "##contig" x_subs_override.vcf > x_subs_override_nocontig.vcf
 diff x_subs_nocontig.vcf x_subs_override_nocontig.vcf
 is $? 0 "overriding contig length does not change calls"
 
-rm -f x_sub1.fa x_sub1.fa.fai x_sub2.fa x_sub2.fa.fai x_sub1.vcf.gz x_sub1.vcf.gz.tbi  x_sub2.vcf.gz x_sub2.vcf.gz.tbi sim.gam x_subs.vcf x_subs_override.vcf x_subs_nocontig.vcf x_subs_override_nocontig.vcf
+rm -f x_sub1.fa x_sub1.fa.fai x_sub2.fa x_sub2.fa.fai x_sub1.vcf.gz x_sub1.vcf.gz.tbi  x_sub2.vcf.gz x_sub2.vcf.gz.tbi sim.gam x_subs.vg x_subs.pack x_subs.vcf x_subs_override.vcf x_subs_nocontig.vcf x_subs_override_nocontig.vcf
 
 # Test: -L/--cluster merges near-identical called alt alleles after genotyping, so a 1/2 call of two
 # effectively-identical alleles becomes 1/1.  Two alt paths differing by one 1bp node; reads are
@@ -2649,7 +2651,7 @@ is $(grep -v "^#" ns_mix.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "mixed-rea
 STAR_GQ=$(grep -v "^#" ns_mix.vcf | awk -F'\t' '$5=="*"{nk=split($9,k,":"); qi=0; for(j=1;j<=nk;j++) if(k[j]=="GQ") qi=j; split($10,f,":"); print f[qi]}')
 is $(if [ "${STAR_GQ}" -gt 100 ]; then echo 1; else echo 0; fi) "1" "a singly-traversed nested site is genotyped at its own ploidy, not diluted by a spurious het"
 
-rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf ns_rl_a.vcf ns_mix.gam ns_mix.pack ns_mix.vcf
+rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf ns_rl_a.vcf ns_mix.gam ns_mix.pack ns_mix.vcf ns_rl_a_nested.err
 
 # Test: Star allele option validation (-Y requires --top-down)
 vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg
@@ -3321,7 +3323,7 @@ is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; n[k]++; if ($12==".") d[k]++}
 # break and a junction. Every fragment must expand to an exact walk in the graph.
 vg paths -x fx.gbz -A > fx.paths.gaf 2>/dev/null
 vg view -g fx.gbz > fx.graph.gfa 2>/dev/null
-is $(python3 ./mosaic_to_path.py --mosaic fx.mosaic.tsv --gaf fx.paths.gaf --gfa fx.graph.gfa \
+is $(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic fx.mosaic.tsv --gaf fx.paths.gaf --gfa fx.graph.gfa \
        --quiet >fx.expand.txt 2>&1; echo $?) "0" \
    "every fragment of the structural fixture expands to an exact path in the graph"
 
