@@ -4,6 +4,7 @@
 /// and a SnarlDistanceIndex built from the same decomposition.
 
 #include "catch.hpp"
+#include "site_tree_queries.hpp"
 #include "snarl_fixtures.hpp"
 #include "decomposition_sites.hpp"
 #include "handle.hpp"

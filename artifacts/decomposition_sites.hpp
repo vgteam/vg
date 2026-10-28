@@ -41,15 +41,6 @@ struct SiteBounds {
 };
 
 /**
- * Get the bounds of a site or chain, read the way the net handle traverses it.
- *
- * For an end-to-start traversal, the start is the end bound read inward.
- *
- * @pre `net` is not the root, and does not start or end at a tip.
- */
-SiteBounds site_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph, const net_handle_t& net);
-
-/**
  * Return true if a snarl is a trivial snarl, which holds nothing to call.
  *
  * A snarl counts as trivial when it has no children and every realizable traversal of it goes
@@ -79,16 +70,6 @@ vector<net_handle_t> child_sites(const SnarlDecomposition& decomposition, const 
  * if the site is top-level.
  */
 net_handle_t parent_site(const SnarlDecomposition& decomposition, const net_handle_t& site);
-
-/**
- * Count the sites enclosing a site. A top-level site has depth 0.
- */
-size_t depth(const SnarlDecomposition& decomposition, const net_handle_t& site);
-
-/**
- * Return true if a site has no child sites.
- */
-bool is_leaf(const SnarlDecomposition& decomposition, const net_handle_t& site);
 
 }
 
