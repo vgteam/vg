@@ -23,6 +23,7 @@
 #include "decomposition_sites.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "handle.hpp"
+#include "materialized_site.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
 #include <vg/vg.pb.h>
@@ -31,54 +32,20 @@ namespace vg {
 using namespace std;
 
 /**
- * The sequence an allele has at each node its walk visits, for an allele the graph cannot spell.
+ * A site inside nodes, whose alternate alleles change the bases of the nodes, before it is added to
+ * the overlay of sites.
  *
- * An allele of an edit site differs from the graph inside a node, such as by one changed base, so
- * no walk of the graph spells it. The allele still has a walk, which says which nodes it covers.
- * Element `i` is the allele's sequence where the walk visits node `walk[i]`, read the way the walk
- * reads that node: the node's sequence with the edit applied.
- *
- * An allele whose walk spells it has none, and this is empty.
+ * All its alleles take the same walk. The site runs from its first base, inside the first node of
+ * the walk, to the end of the walk's last node. A substitution lies inside one node. The walk of an
+ * indel runs from the node of its anchor base to the node of the first base after its repeat
+ * tract. That way the site holds every placement of the indel, and a base on each side.
  */
-using StepSequences = vector<string>;
-
-/**
- * The `StepSequences` of each allele of a site, indexed like the site's walks.
- *
- * For a site of the decomposition, every walk spells its allele, and this is empty. For an edit
- * site, the reference allele's entry is empty, and each other allele's entry holds its edited
- * sequences.
- *
- * Code that spells, scores or writes an allele uses its step sequences where it has them (see
- * `own_sequences`). No panel haplotype carries an allele that has them.
- */
-using AlleleSequences = vector<StepSequences>;
-
-/// Get the step sequences of allele `allele` in `sequences`, or null when its walk spells it or
-/// `sequences` is null.
-const StepSequences* own_sequences(const AlleleSequences* sequences, size_t allele);
-
-/// Get the sequence an allele spells, from its step sequences `own` if not null, or else from its
-/// walk.
-string allele_sequence(const HandleGraph& graph, const Traversal& walk, const StepSequences* own);
-
-/// Count the bases of the start node of a site inside nodes that come before the site's first base.
-///
-/// Count them the way `site.start` reads the node. Return 0 for any other site.
-size_t bases_before_site(const HandleGraph& graph, const SiteBounds& site);
-
-/// A site inside nodes, whose alternate alleles change the bases of the nodes.
-///
-/// All its alleles take the same walk. The bounds are the first and last handles of the walk. A
-/// substitution lies inside one node. The walk of an indel runs from the node of its anchor base
-/// to the node of the first base after its repeat tract. That way the site holds every placement
-/// of the indel, and a base on each side.
 struct EditSite {
-    SiteBounds bounds;
-    /// The walk of each allele, REF first.
-    vector<Traversal> travs;
-    /// The spelling of each allele. REF has none, because its walk spells it.
-    AlleleSequences sequences;
+    /// The alleles, REF first. REF has no step sequences, because its walk spells it.
+    CandidateAlleles alleles;
+    /// The bases of the first node of the walk before the site's first base, read the way the
+    /// walk reads the node.
+    size_t start_offset = 0;
 };
 
 /**
@@ -93,9 +60,6 @@ struct EditSite {
  */
 EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t offset, size_t at,
                    size_t length, const vector<string>& alts);
-
-/// Return true if `site` lies inside one node.
-bool inside_one_node(const SiteBounds& site);
 
 /**
  * Make the ID of an edit site, `op<node>.<offset>.<kind><alt>`.

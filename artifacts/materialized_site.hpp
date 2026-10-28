@@ -6,15 +6,47 @@
  * time.
  */
 
+#include <string>
 #include <vector>
 
 #include "handle.hpp"
-#include "site_values.hpp"
 #include "traversal_finder.hpp"
 
 namespace vg {
 
 using namespace std;
+
+/**
+ * The sequence an allele has at each node its walk visits, for an allele the graph cannot spell.
+ *
+ * An allele of an edit site differs from the graph inside a node, such as by one changed base, so
+ * no walk of the graph spells it. The allele still has a walk, which says which nodes it covers.
+ * Element `i` is the allele's sequence where the walk visits node `walk[i]`, read the way the walk
+ * reads that node: the node's sequence with the edit applied.
+ *
+ * An allele whose walk spells it has none, and this is empty.
+ */
+using StepSequences = vector<string>;
+
+/**
+ * The `StepSequences` of each allele of a site, indexed like the site's walks.
+ *
+ * For a site of the decomposition, every walk spells its allele, and this is empty. For an edit
+ * site, the reference allele's entry is empty, and each other allele's entry holds its edited
+ * sequences.
+ *
+ * Code that spells, scores or writes an allele uses its step sequences where it has them (see
+ * `own_sequences`). No panel haplotype carries an allele that has them.
+ */
+using AlleleSequences = vector<StepSequences>;
+
+/// Get the step sequences of allele `allele` in `sequences`, or null when its walk spells it or
+/// `sequences` is null.
+const StepSequences* own_sequences(const AlleleSequences* sequences, size_t allele);
+
+/// Get the sequence an allele spells, from its step sequences `own` if not null, or else from its
+/// walk.
+string allele_sequence(const HandleGraph& graph, const Traversal& walk, const StepSequences* own);
 
 /**
  * The alleles of a site: what the snarl decomposition does not know about it.

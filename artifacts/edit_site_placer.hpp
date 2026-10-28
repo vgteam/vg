@@ -23,7 +23,8 @@ using namespace std;
 struct HeldEdit {
     /// The edit site's net handle, as an edit in the overlay of sites.
     net_handle_t net;
-    EditSite site;
+    /// The alleles of the edit site.
+    CandidateAlleles alleles;
     EditCandidate candidate;
 };
 
@@ -113,7 +114,7 @@ private:
     /// Return true if the reference reads the walk of `c` forward and once, or not at all.
     bool reference_reads_whole_walk(const EditCandidate& c) const;
 
-    /// Add the edit of `site` to the overlay of sites, and return its net handle.
+    /// Add `site` to the overlay of sites as an edit, and return its net handle.
     net_handle_t add_edit(const EditSite& site) const;
 
     /**

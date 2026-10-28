@@ -533,8 +533,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit,
                                        int ploidy_override, const NestingPlacement& placement,
                                        bool top_level) {
     const PathPositionHandleGraph& graph = *parts.graph;
-    const vector<Traversal>& walks = edit.site.travs;
-    const AlleleSequences& sequences = edit.site.sequences;
+    const vector<Traversal>& walks = edit.alleles.walks;
     const EditCandidate& c = edit.candidate;
     EditOutcome outcome = unplaced_outcome(c, top_level ? "top" : "nested");
     outcome.site = edit_site_id(c.node, c.offset, c.kind, alt_label(c));
@@ -576,9 +575,8 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit,
         ploidies.region_ploidy = region_ploidy;
         ploidies.also_score_other = true;
     }
-    const CandidateAlleles alleles{walks, 0, sequences};
     auto called = parts.genotyper->genotype_at(
-        materialize(*parts.sites, edit.net, alleles), ploidies,
+        materialize(*parts.sites, edit.net, edit.alleles), ploidies,
         fallback_nodes_of(*parts.sites, graph, edit.net));
     vector<int>& genotype = called.first;
     SiteScore* score = called.second.get();
@@ -615,7 +613,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit,
     if (!top_level) {
         place_in_tree(*staged, placement);
     }
-    staged->alleles.sequences = sequences;
+    staged->alleles.sequences = edit.alleles.sequences;
     // A retain_only site is crossed by no called parent allele, so it is not filed yet. A site
     // with no reference position is filed anyway.
     if (top_level || no_ref_position || !placement.retain_only) {

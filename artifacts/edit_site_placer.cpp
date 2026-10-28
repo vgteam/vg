@@ -105,10 +105,10 @@ bool EditSitePlacer::reference_reads_whole_walk(const EditCandidate& c) const {
 }
 
 net_handle_t EditSitePlacer::add_edit(const EditSite& site) const {
-    const HandleGraph& graph = *parts.graph;
+    const Traversal& walk = site.alleles.walks.front();
     // The site runs from its first base to the end of its walk.
-    return parts.sites->add_edit(site.bounds.start, bases_before_site(graph, site.bounds),
-                                 site.bounds.end, graph.get_length(site.bounds.end));
+    return parts.sites->add_edit(walk.front(), site.start_offset, walk.back(),
+                                 parts.graph->get_length(walk.back()));
 }
 
 bool EditSitePlacer::edit_site_of(const EditCandidate& c, handle_t read_as,
@@ -206,14 +206,15 @@ vector<HeldEdit> EditSitePlacer::held_by(const net_handle_t& site,
         if (parts.sites->canonical(where.site) != holder) {
             continue;
         }
-        HeldEdit edit;
-        if (!edit_site_of(c, read_as_in_walks(graph, walks, ref_trav_idx, c.node), where,
-                          edit.site)) {
+        EditSite site;
+        if (!edit_site_of(c, read_as_in_walks(graph, walks, ref_trav_idx, c.node), where, site)) {
             parts.edit_outcomes->add(unplaced_outcome(c, "walk_leaves_site"));
             continue;
         }
+        HeldEdit edit;
         edit.candidate = c;
-        edit.net = add_edit(edit.site);
+        edit.net = add_edit(site);
+        edit.alleles = std::move(site.alleles);
         held.push_back(std::move(edit));
     }
     return held;
@@ -298,13 +299,15 @@ void EditSitePlacer::place_free_edits(vector<EditCandidate> candidates,
             }
             return true;
         });
-        HeldEdit edit;
-        if (!edit_site_of(c, read_as, where, edit.site)) {
+        EditSite site;
+        if (!edit_site_of(c, read_as, where, site)) {
             parts.edit_outcomes->add(unplaced_outcome(c, "walk_leaves_site"));
             continue;
         }
+        HeldEdit edit;
         edit.candidate = c;
-        edit.net = add_edit(edit.site);
+        edit.net = add_edit(site);
+        edit.alleles = std::move(site.alleles);
         genotype(edit);
     }
 }

@@ -215,12 +215,11 @@ TEST_CASE("An indel is counted under its left-aligned anchor, whichever window c
         const EditCandidate c = count_on({1, 2, 3}).front();
         const EditSite site = edit_site(graph, {graph.get_handle(1), graph.get_handle(2)},
                                         c.offset, c.offset + 1, c.sequence.size(), {""});
-        REQUIRE(site.bounds.inside_node);
-        REQUIRE(graph.get_id(site.bounds.start) == 1);
-        REQUIRE(graph.get_id(site.bounds.end) == 2);
-        REQUIRE(site.travs[0] == site.travs[1]);
-        REQUIRE(site.sequences[1] == StepSequences{"CGTCAA", "AAGTCCG"});
-        REQUIRE(allele_sequence(graph, site.travs[1], own_sequences(&site.sequences, 1))
+        REQUIRE(graph.get_id(site.alleles.walks.front().front()) == 1);
+        REQUIRE(graph.get_id(site.alleles.walks.front().back()) == 2);
+        REQUIRE(site.alleles.walks[0] == site.alleles.walks[1]);
+        REQUIRE(site.alleles.sequences[1] == StepSequences{"CGTCAA", "AAGTCCG"});
+        REQUIRE(allele_sequence(graph, site.alleles.walks[1], site.alleles.own_sequences(1))
                 == "CGTCAAAAGTCCG");
     }
 }

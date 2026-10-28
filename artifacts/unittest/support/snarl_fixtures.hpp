@@ -11,6 +11,7 @@
 #include "decomposition_sites.hpp"
 #include "handle.hpp"
 #include "materialized_site.hpp"
+#include "site_values.hpp"
 #include "traversal_finder.hpp"
 #include <vg/vg.pb.h>
 
@@ -53,17 +54,11 @@ inline MaterializedSite materialized_of(const HandleGraph& graph, const Snarl& s
     return MaterializedSite{start, graph.get_length(start), end, 0, alleles};
 }
 
-/// Get the alleles of the edit site `edit`.
-inline CandidateAlleles alleles_of(const EditSite& edit) {
-    return CandidateAlleles{edit.travs, 0, edit.sequences};
-}
-
-/// Write out the edit site `edit`, with its alleles `alleles`, which runs from its first base to
-/// the end of its walk.
-inline MaterializedSite materialized_of(const HandleGraph& graph, const EditSite& edit,
-                                        const CandidateAlleles& alleles) {
-    return MaterializedSite{edit.bounds.start, bases_before_site(graph, edit.bounds),
-                            edit.bounds.end, graph.get_length(edit.bounds.end), alleles};
+/// Write out the edit site `edit`, which runs from its first base to the end of its walk.
+inline MaterializedSite materialized_of(const HandleGraph& graph, const EditSite& edit) {
+    const Traversal& walk = edit.alleles.walks.front();
+    return MaterializedSite{walk.front(), edit.start_offset, walk.back(),
+                            graph.get_length(walk.back()), edit.alleles};
 }
 
 }

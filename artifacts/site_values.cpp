@@ -4,30 +4,15 @@
 #include <algorithm>
 
 namespace vg {
-const StepSequences* own_sequences(const AlleleSequences* sequences, size_t allele) {
-    if (sequences == nullptr || allele >= sequences->size() || (*sequences)[allele].empty()) {
-        return nullptr;
-    }
-    return &(*sequences)[allele];
-}
-
-size_t bases_before_site(const HandleGraph& graph, const SiteBounds& site) {
-    if (!site.inside_node) {
-        return 0;
-    }
-    return graph.get_is_reverse(site.start) ? graph.get_length(site.start) - 1 - site.offset
-                                            : site.offset;
-}
-
 EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t offset, size_t at,
                    size_t length, const vector<string>& alts) {
     EditSite site;
-    site.bounds.start = steps.front();
-    site.bounds.end = steps.back();
-    site.bounds.inside_node = true;
-    site.bounds.offset = offset;
-    site.travs.assign(alts.size() + 1, steps);
-    site.sequences.resize(alts.size() + 1);
+    site.start_offset = graph.get_is_reverse(steps.front())
+                            ? graph.get_length(steps.front()) - 1 - offset
+                            : offset;
+    site.alleles.walks.assign(alts.size() + 1, steps);
+    site.alleles.ref_allele = 0;
+    site.alleles.sequences.resize(alts.size() + 1);
     const size_t host = length > 0 ? at : at - 1;
     for (size_t a = 0; a < alts.size(); ++a) {
         size_t start = 0;
@@ -41,33 +26,15 @@ EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t of
             if (host >= start && host < end) {
                 seq.insert(at - start, alts[a]);
             }
-            site.sequences[a + 1].push_back(std::move(seq));
+            site.alleles.sequences[a + 1].push_back(std::move(seq));
             start = end;
         }
     }
     return site;
 }
 
-bool inside_one_node(const SiteBounds& site) {
-    return site.inside_node && site.start == site.end;
-}
-
 string edit_site_id(nid_t node, uint32_t offset, char kind, const string& alt) {
     return "op" + std::to_string(node) + "." + std::to_string(offset) + "." + kind + alt;
-}
-
-string allele_sequence(const HandleGraph& graph, const Traversal& walk, const StepSequences* own) {
-    string sequence;
-    if (own != nullptr) {
-        for (const string& step : *own) {
-            sequence += step;
-        }
-    } else {
-        for (const handle_t& handle : walk) {
-            sequence += graph.get_sequence(handle);
-        }
-    }
-    return sequence;
 }
 
 namespace multipass {

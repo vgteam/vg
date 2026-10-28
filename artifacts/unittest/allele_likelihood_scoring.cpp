@@ -844,9 +844,7 @@ TEST_CASE("A complex allele is judged on the read's bases between the unchanged 
     AlleleLikelihoodParams params;
     GraphAlignedAlleleLikelihoodCalculator calculator(graph, source, qual_scorer, plain_scorer,
                                                       params);
-    const CandidateAlleles alleles = alleles_of(site);
-    AlleleReadLikelihoods matrix =
-        calculator.compute(materialized_of(graph, site, alleles), {}, 2);
+    AlleleReadLikelihoods matrix = calculator.compute(materialized_of(graph, site), {}, 2);
     REQUIRE(matrix.num_reads() == 3);
     REQUIRE(matrix.rel(0, 0) == Approx(1.0));
     REQUIRE(matrix.rel(0, 1) < 0.01);
