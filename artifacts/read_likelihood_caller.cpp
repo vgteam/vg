@@ -743,9 +743,7 @@ vector<int> parse_gt(const string& printed) {
 size_t gl_index(const vector<int>& called, size_t gl_size, const string& printed_alt) {
     size_t n_alleles = 1;
     if (printed_alt != "." && !printed_alt.empty()) {
-        vector<string> alt_list;
-        split_delims_keep_empty(printed_alt, ",", alt_list);
-        n_alleles += alt_list.size();
+        n_alleles += split_delims_keep_empty(printed_alt, ",").size();
     }
     const bool diploid_gl = gl_size == n_alleles * (n_alleles + 1) / 2;
     const bool haploid_gl = gl_size == n_alleles;

@@ -62,12 +62,10 @@ std::vector<std::string>& split_delims(const std::string &s, const std::string& 
 std::vector<std::string> split_delims(const std::string &s, const std::string& delims,
                                       size_t max_cuts = numeric_limits<size_t>::max());
 
-/// Split a string at every character in `delims`, keeping empty fields, and append the fields to
-/// `elems`.
+/// Split a string at every character in `delims`, keeping empty fields.
 ///
 /// "a,,b" gives "a", "", "b", and "" gives one empty field.
-std::vector<std::string>& split_delims_keep_empty(std::string_view s, std::string_view delims,
-                                                  std::vector<std::string>& elems);
+std::vector<std::string> split_delims_keep_empty(const std::string& s, const std::string& delims);
 
 /// Join strings with `delim` between each pair.
 ///
