@@ -611,7 +611,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit,
     if (!top_level) {
         place_in_tree(*staged, placement);
     }
-    staged->alleles.sequences = edit.alleles.sequences;
+    staged->alleles.edits = edit.alleles.edits;
     // A retain_only site is crossed by no called parent allele, so it is not filed yet. A site
     // with no reference position is filed anyway.
     if (top_level || no_ref_position || !placement.retain_only) {

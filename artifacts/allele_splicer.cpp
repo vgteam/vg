@@ -67,9 +67,7 @@ bool AlleleSplicer::splice(const StagedSite& site, SplicedAlleles& out) const {
             out.travs = site.alleles.walks;
             out.sequences.assign(site.alleles.walks.size(), StepSequences());
             for (size_t t = 0; t < site.alleles.walks.size(); ++t) {
-                if (const StepSequences* own = site.alleles.own_sequences(t)) {
-                    out.sequences[t] = *own;
-                }
+                out.sequences[t] = site.alleles.step_sequences(graph, t);
             }
             changed = true;
         }
@@ -104,8 +102,8 @@ bool AlleleSplicer::chosen_replacement(const StagedSite& child, int strand, bool
     rep.key = child.record_key;
     if (!spliced_allele(child, child_trav, strand, phase->ploidy == 1, rep.walk, rep.steps)) {
         rep.walk = child.alleles.walks[child_trav];
-        if (const StepSequences* own = child.alleles.own_sequences(child_trav)) {
-            rep.steps = *own;
+        if (!child.alleles.spelled_by_walk(child_trav)) {
+            rep.steps = child.alleles.step_sequences(graph, child_trav);
         } else {
             rep.steps.clear();
             for (const handle_t& h : rep.walk) {
@@ -317,8 +315,9 @@ bool AlleleSplicer::spliced_allele(const StagedSite& site, int trav, int strand,
     steps.clear();
     // Splice the routes in walk order, then make the edits of the children inside nodes on the
     // spliced walk.
+    const StepSequences own = site.alleles.step_sequences(graph, trav);
     const bool routes_changed =
-        splice_routes(parent_walk, site.alleles.own_sequences(trav), routes, walk, steps);
+        splice_routes(parent_walk, own.empty() ? nullptr : &own, routes, walk, steps);
     const bool edits_changed = apply_step_edits(step_edits_of(edits, walk), steps);
     if (!routes_changed && !edits_changed) {
         walk.clear();

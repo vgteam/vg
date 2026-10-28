@@ -218,8 +218,8 @@ TEST_CASE("An indel is counted under its left-aligned anchor, whichever window c
         REQUIRE(graph.get_id(site.alleles.walks.front().front()) == 1);
         REQUIRE(graph.get_id(site.alleles.walks.front().back()) == 2);
         REQUIRE(site.alleles.walks[0] == site.alleles.walks[1]);
-        REQUIRE(site.alleles.sequences[1] == StepSequences{"CGTCAA", "AAGTCCG"});
-        REQUIRE(allele_sequence(graph, site.alleles.walks[1], site.alleles.own_sequences(1))
+        REQUIRE(site.alleles.step_sequences(graph, 1) == StepSequences{"CGTCAA", "AAGTCCG"});
+        REQUIRE(site.alleles.sequence(graph, 1)
                 == "CGTCAAAAGTCCG");
     }
 }

@@ -85,23 +85,22 @@ bool GenotypeLinker::file(StagedSite& site, bool nested) const {
             .unpositioned = site.reference.no_reference,
             .chain_key = placement.chain_key,
             .freq_prior =
-                freq_prior(site.alleles.walks, &site.alleles.sequences, site.alleles.ref_allele),
+                freq_prior(site.alleles),
         });
     return true;
 }
 
-double GenotypeLinker::freq_prior(const vector<Traversal>& travs,
-                                  const AlleleSequences* sequences, int ref_trav_idx) const {
+double GenotypeLinker::freq_prior(const CandidateAlleles& candidates) const {
     const LinkageModel::Params& params = model->model_params();
     if (params.hp_prior <= 0.0) {
         return -1.0;
     }
     vector<string> alleles;
-    alleles.reserve(travs.size());
-    for (size_t a = 0; a < travs.size(); ++a) {
-        alleles.push_back(reader.spell(travs[a], own_sequences(sequences, a)));
+    alleles.reserve(candidates.walks.size());
+    for (size_t a = 0; a < candidates.walks.size(); ++a) {
+        alleles.push_back(candidates.sequence(*reader.graph, a));
     }
-    const size_t ref = ref_trav_idx >= 0 ? (size_t)ref_trav_idx : (size_t)-1;
+    const size_t ref = candidates.ref_allele >= 0 ? (size_t)candidates.ref_allele : (size_t)-1;
     return LinkageModel::run_length_site(alleles, params.hp_prior_run, ref) ? params.hp_prior : -1.0;
 }
 

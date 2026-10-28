@@ -72,8 +72,7 @@ public:
     /// Return the frequency exponent a site decodes with, or -1 for the model's own.
     ///
     /// A run-length site takes `LinkageModel::Params::hp_prior` when that is on.
-    double freq_prior(const vector<Traversal>& travs, const AlleleSequences* sequences,
-                      int ref_trav_idx) const;
+    double freq_prior(const CandidateAlleles& candidates) const;
 
     /// Return the genotype the linkage model chose for a staged site, or else its direct-pass
     /// genotype.

@@ -59,8 +59,8 @@ vector<gbwt::size_type> PanelLookup::sequences_following(const Traversal& walk) 
     return cached ? cache[thread].locate(state) : index->locate(state);
 }
 
-vector<int> PanelLookup::alleles(const vector<Traversal>& travs,
-                                 const AlleleSequences* sequences) const {
+vector<int> PanelLookup::alleles(const CandidateAlleles& candidates) const {
+    const vector<Traversal>& travs = candidates.walks;
     vector<int> out;
     if (index == nullptr || haplotype_of_sequence == nullptr) {
         return out;
@@ -74,7 +74,7 @@ vector<int> PanelLookup::alleles(const vector<Traversal>& travs,
 
     for (size_t a = 0; a < travs.size(); ++a) {
         const Traversal& walk = travs[a];
-        if (walk.empty() || own_sequences(sequences, a) != nullptr) {
+        if (walk.empty() || !candidates.spelled_by_walk(a)) {
             continue;
         }
         for (gbwt::size_type seq : sequences_following(walk)) {

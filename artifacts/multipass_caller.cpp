@@ -178,6 +178,8 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
                                                 const SiteRecord& record, GLLayout gl_layout,
                                                 bool genotype_snarls) {
         // The blocks spell the alleles the site record spells.
+        const AlleleSequences site_steps =
+            spliced != nullptr ? AlleleSequences() : site.alleles.all_step_sequences(graph);
         return block_records.write(graph, site.children,
                                    spliced != nullptr ? spliced->travs : site.alleles.walks,
                                    genotype,
@@ -187,8 +189,7 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
                                        finish_moved_record(line);
                                        return output.add_variant(line, block);
                                    },
-                                   spliced != nullptr ? &spliced->sequences
-                                                      : &site.alleles.sequences);
+                                   spliced != nullptr ? &spliced->sequences : &site_steps);
     };
     steps.finish_record = [this](vcflib::Variant& record) {
         finish_moved_record(record);
@@ -304,9 +305,6 @@ void MultiPassCaller::install_widgets() {
         .graph = &graph,
         .sites = &sites,
         .genotyper = &snarl_caller,
-        .spell = [this](const Traversal& walk, const StepSequences* own) {
-            return allele_sequence(graph, walk, own);
-        },
     };
     linker.set_site_reader(reader);
     rescorer.set_site_reader(reader);
@@ -430,8 +428,9 @@ void MultiPassCaller::render_retained_records() {
             AlleleSplicer::SplicedAlleles spliced;
             const bool is_spliced = splicer.splice(site, spliced);
             const vector<Traversal>& spelled = is_spliced ? spliced.travs : site.alleles.walks;
-            const AlleleSequences& spelled_steps =
-                is_spliced ? spliced.sequences : site.alleles.sequences;
+            const AlleleSequences site_steps =
+                is_spliced ? AlleleSequences() : site.alleles.all_step_sequences(graph);
+            const AlleleSequences& spelled_steps = is_spliced ? spliced.sequences : site_steps;
             output.emit_site(graph, sites.get_site_start(site.net), sites.get_site_end(site.net),
                              site.alleles.walks, genotype, site.alleles.ref_allele,
                              site.call_info.get(), site.reference.path_name,
@@ -701,10 +700,9 @@ bool MultiPassCaller::is_symbolically_reference(const StagedSite& site, int trav
         || trav_idx >= (int)site.alleles.walks.size()) {
         return false;
     }
-    // An allele with step sequences spells something its walk does not, so sharing the
-    // reference's route does not make it the reference.
-    if (site.alleles.own_sequences(trav_idx) != nullptr
-        || site.alleles.own_sequences(ref_trav_idx) != nullptr) {
+    // An allele that changes the sequences of its walk spells something the walk does not, so
+    // sharing the reference's route does not make it the reference.
+    if (!site.alleles.spelled_by_walk(trav_idx) || !site.alleles.spelled_by_walk(ref_trav_idx)) {
         return false;
     }
     return symbolically_equal(graph, site.alleles.walks[trav_idx], site.alleles.walks[ref_trav_idx],

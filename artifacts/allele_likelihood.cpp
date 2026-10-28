@@ -1596,8 +1596,7 @@ GraphAlignedAlleleLikelihoodCalculator::WalkChanges::WalkChanges(
     const HandleGraph& graph, const MaterializedSite& site, const Params& params)
     : is_indel_allele(site.alleles.walks.size(), false) {
     const vector<Traversal>& traversals = site.alleles.walks;
-    const AlleleSequences* sequences = &site.alleles.sequences;
-    if (!site.bounds_inside_nodes(graph) || site.alleles.sequences.empty()
+    if (!site.bounds_inside_nodes(graph) || site.alleles.edits.empty()
         || !std::ranges::all_of(traversals,
                                 [&](const Traversal& t) { return t == traversals.front(); })) {
         return;
@@ -1613,11 +1612,10 @@ GraphAlignedAlleleLikelihoodCalculator::WalkChanges::WalkChanges(
     bool resized = false;
     size_t own_alleles = 0;
     for (size_t a = 0; a < traversals.size(); ++a) {
-        const StepSequences* own = own_sequences(sequences, a);
-        if (own == nullptr) {
+        if (site.alleles.spelled_by_walk(a)) {
             continue;
         }
-        const string spelled = allele_sequence(graph, traversals[a], own);
+        const string spelled = site.alleles.sequence(graph, a);
         if (spelled == walk_spelling) {
             continue;
         }
@@ -1640,7 +1638,8 @@ GraphAlignedAlleleLikelihoodCalculator::WalkChanges::WalkChanges(
     }
     window_scored = window_scored || (resized && own_alleles > 1);
     if (window_scored) {
-        cut_windows(graph, traversals, sequences);
+        const AlleleSequences sequences = site.alleles.all_step_sequences(graph);
+        cut_windows(graph, traversals, &sequences);
     }
 }
 
@@ -2249,9 +2248,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     SiteAlleles alleles;
     alleles.steps.reserve(traversals.size());
     for (size_t a = 0; a < traversals.size(); ++a) {
-        const StepSequences* own = changes.scored_as_walk(a) ? nullptr
-                                                             : site.alleles.own_sequences(a);
-        alleles.steps.push_back(get_allele_steps(traversals[a], own));
+        const StepSequences own = changes.scored_as_walk(a) ? StepSequences()
+                                                            : site.alleles.step_sequences(graph, a);
+        alleles.steps.push_back(get_allele_steps(traversals[a], own.empty() ? nullptr : &own));
     }
     alleles.index(!params.optimal_pairing);
 

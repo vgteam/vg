@@ -146,7 +146,7 @@ struct StagedSite {
     /// in the next.
     bool dropped = false;
 
-    /// Get `lookup.alleles(alleles.walks, &alleles.sequences)`, computing it on the first call.
+    /// Get `lookup.alleles(alleles)`, computing it on the first call.
     ///
     /// The traversals do not change after the direct pass, so the answer is kept, which saves each
     /// re-genotyping round the GBWT lookups.
@@ -209,8 +209,6 @@ struct SiteReader {
     const EditSnarlDecompositionOverlay* sites = nullptr;
     /// The read-likelihood genotyper that called the sites, or null where another genotyper did.
     const ReadLikelihoodSnarlCaller* genotyper = nullptr;
-    /// Spells an allele, from its step sequences when not null, or else from its walk.
-    function<string(const Traversal& walk, const StepSequences* own)> spell;
 };
 
 /**

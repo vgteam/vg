@@ -98,14 +98,58 @@ TEST_CASE("No panel haplotype carries an allele with step sequences, whatever it
     const vector<Traversal> travs{forward_walk(graph, {1, 2, 4}), forward_walk(graph, {1, 3, 4}),
                                   forward_walk(graph, {1, 2, 4})};
 
-    SECTION("without step sequences, a haplotype carries whichever allele follows its walk") {
+    SECTION("without changes, a haplotype carries whichever allele follows its walk") {
         // Haplotype 0 follows the walk of alleles 0 and 2, and the later one wins.
-        REQUIRE(lookup.alleles(travs) == vector<int>({2, 1}));
+        REQUIRE(lookup.alleles(CandidateAlleles{travs, 0, {}}) == vector<int>({2, 1}));
     }
-    SECTION("with step sequences, the allele its walk does not spell is carried by none") {
-        const AlleleSequences sequences{{}, {}, {"AAAA", "G", "CCCC"}};
-        REQUIRE(lookup.alleles(travs, &sequences) == vector<int>({0, 1}));
+    SECTION("an allele that changes its walk's sequences is carried by none") {
+        const vector<vector<AlleleEdit>> edits{{}, {}, {AlleleEdit{1, 0, 1, "G"}}};
+        REQUIRE(lookup.alleles(CandidateAlleles{travs, 0, edits}) == vector<int>({0, 1}));
     }
+}
+
+TEST_CASE("An allele's changes are made to its steps, several to one step",
+          "[allele_sequences]") {
+    bdsg::HashGraph graph;
+    make_snp_graph(graph);
+    const Traversal ref = forward_walk(graph, {1, 2, 4});
+    // AAAA T CCCC. Allele 1 inserts GG after the second base of node 1 and deletes the last base of
+    // node 1; it also changes the T of node 2 to G, and deletes the first two bases of node 4.
+    const CandidateAlleles alleles{
+        {ref, ref},
+        0,
+        {{},
+         {AlleleEdit{0, 2, 0, "GG"}, AlleleEdit{0, 3, 1, ""}, AlleleEdit{1, 0, 1, "G"},
+          AlleleEdit{2, 0, 2, ""}}}};
+
+    REQUIRE(alleles.spelled_by_walk(0));
+    REQUIRE_FALSE(alleles.spelled_by_walk(1));
+    REQUIRE(alleles.step_sequences(graph, 0).empty());
+    REQUIRE(alleles.step_sequences(graph, 1) == StepSequences{"AAGGA", "G", "CC"});
+    REQUIRE(alleles.sequence(graph, 0) == "AAAATCCCC");
+    REQUIRE(alleles.sequence(graph, 1) == "AAGGAGCC");
+    REQUIRE(alleles.all_step_sequences(graph) == AlleleSequences{{}, {"AAGGA", "G", "CC"}});
+    // An allele past the end of the changes is spelled by its walk.
+    REQUIRE(alleles.spelled_by_walk(5));
+}
+
+TEST_CASE("An allele's changes spell the same steps in any order", "[allele_sequences]") {
+    bdsg::HashGraph graph;
+    make_snp_graph(graph);
+    const Traversal ref = forward_walk(graph, {1, 2, 4});
+    // On node 1, AAAA, an insertion of GG at offset 2, where another change replaces the A there
+    // with T. The insertion goes first. Then the last base of node 4, CCCC, is deleted.
+    vector<AlleleEdit> changes{AlleleEdit{0, 2, 0, "GG"}, AlleleEdit{0, 2, 1, "T"},
+                               AlleleEdit{2, 3, 1, ""}};
+    std::ranges::sort(changes, [](const AlleleEdit& a, const AlleleEdit& b) {
+        return std::tie(a.step, a.at, a.removed) < std::tie(b.step, b.at, b.removed);
+    });
+    do {
+        const CandidateAlleles alleles{{ref, ref}, 0, {{}, changes}};
+        REQUIRE(alleles.step_sequences(graph, 1) == StepSequences{"AAGGTA", "T", "CCC"});
+    } while (std::ranges::next_permutation(changes, [](const AlleleEdit& a, const AlleleEdit& b) {
+                 return std::tie(a.step, a.at, a.removed) < std::tie(b.step, b.at, b.removed);
+             }).found);
 }
 
 TEST_CASE("An edit site changes one base inside a node, read either way along the node",
@@ -118,18 +162,18 @@ TEST_CASE("An edit site changes one base inside a node, read either way along th
         EditSite site = edit_site(graph, {node}, 1, 1, 1, {"G"});
         REQUIRE(site.start_offset == 1);
         REQUIRE(site.alleles.walks.size() == 2);
-        REQUIRE(site.alleles.own_sequences(0) == nullptr);
-        REQUIRE(allele_sequence(graph, site.alleles.walks[0], site.alleles.own_sequences(0))
+        REQUIRE(site.alleles.spelled_by_walk(0));
+        REQUIRE(site.alleles.sequence(graph, 0)
                 == "AAAA");
-        REQUIRE(allele_sequence(graph, site.alleles.walks[1], site.alleles.own_sequences(1))
+        REQUIRE(site.alleles.sequence(graph, 1)
                 == "AGAA");
     }
 
     SECTION("Read backward, the ALT is complemented and the offset counted from the other end") {
         EditSite site = edit_site(graph, {graph.flip(node)}, 1, 2, 1, {"C"});
-        REQUIRE(allele_sequence(graph, site.alleles.walks[0], site.alleles.own_sequences(0))
+        REQUIRE(site.alleles.sequence(graph, 0)
                 == "TTTT");
-        REQUIRE(allele_sequence(graph, site.alleles.walks[1], site.alleles.own_sequences(1))
+        REQUIRE(site.alleles.sequence(graph, 1)
                 == "TTCT");
         REQUIRE(site.start_offset == 2);
     }
@@ -145,8 +189,7 @@ TEST_CASE("An edit site's ALTs replace bases across its steps", "[allele_sequenc
     const handle_t h2 = graph.create_handle("AAGTCCG", 2);
     graph.create_edge(h1, h2);
     auto spelled = [&](const EditSite& site, size_t allele) {
-        return allele_sequence(graph, site.alleles.walks[allele],
-                               site.alleles.own_sequences(allele));
+        return site.alleles.sequence(graph, allele);
     };
 
     SECTION("an ALT of the replaced length is written in place, and several ALTs are alleles") {
@@ -157,12 +200,12 @@ TEST_CASE("An edit site's ALTs replace bases across its steps", "[allele_sequenc
     }
     SECTION("a complex ALT goes in the step holding its first replaced base, cut from the others") {
         const EditSite site = edit_site(graph, {h1, h2}, 5, 5, 3, {"T"});
-        REQUIRE(site.alleles.sequences[1] == StepSequences{"CGTCAT", "AGTCCG"});
+        REQUIRE(site.alleles.step_sequences(graph, 1) == StepSequences{"CGTCAT", "AGTCCG"});
         REQUIRE(spelled(site, 0) == "CGTCAAAAAGTCCG");
     }
     SECTION("an insertion at a step's end goes in that step") {
         const EditSite site = edit_site(graph, {h1, h2}, 6, 7, 0, {"GG"});
-        REQUIRE(site.alleles.sequences[1] == StepSequences{"CGTCAAAGG", "AAGTCCG"});
+        REQUIRE(site.alleles.step_sequences(graph, 1) == StepSequences{"CGTCAAAGG", "AAGTCCG"});
     }
 }
 

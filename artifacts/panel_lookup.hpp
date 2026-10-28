@@ -6,6 +6,7 @@
 #include <gbwt/cached_gbwt.h>
 
 #include "handle.hpp"
+#include "materialized_site.hpp"
 #include "site_values.hpp"
 #include <vg/vg.pb.h>
 
@@ -41,15 +42,14 @@ public:
                 const vector<size_t>* sequence_to_haplotype, size_t panel_size);
 
     /**
-     * Return which of the alleles `travs` each panel haplotype carries.
+     * Return which of the alleles `candidates` each panel haplotype carries.
      *
-     * The row has one entry per panel haplotype, holding an index into `travs`, or -1 where the
-     * haplotype does not traverse the site. A haplotype carries an allele when it follows the
-     * allele's walk. An allele with step sequences in `sequences` is carried by no haplotype,
+     * The row has one entry per panel haplotype, holding an index into the alleles, or -1 where
+     * the haplotype does not traverse the site. A haplotype carries an allele when it follows the
+     * allele's walk. An allele that changes the sequences of its walk is carried by no haplotype,
      * because no graph walk spells it. The row is empty when there is no panel.
      */
-    vector<int> alleles(const vector<Traversal>& travs,
-                        const AlleleSequences* sequences = nullptr) const;
+    vector<int> alleles(const CandidateAlleles& candidates) const;
 
     /// Get the GBWT, or null when there is no panel.
     const gbwt::GBWT* gbwt() const { return index; }

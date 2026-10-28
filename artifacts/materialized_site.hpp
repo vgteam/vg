@@ -51,6 +51,29 @@ const StepSequences* own_sequences(const AlleleSequences* sequences, size_t alle
 string allele_sequence(const HandleGraph& graph, const Traversal& walk, const StepSequences* own);
 
 /**
+ * One change an allele makes to the sequence of one step of its walk.
+ *
+ * The sequence of a step is the sequence of its node, read the way the walk reads the node. The
+ * change removes `removed` bases of that sequence from offset `at` on, and puts `added` in their
+ * place. It inserts bases where `removed` is 0, and deletes them where `added` is empty.
+ *
+ * The offsets count bases of the node's own sequence, not of the sequence after other changes, so
+ * a change means the same thing whatever other changes the allele makes.
+ */
+struct AlleleEdit {
+    /// The index of the step in the walk.
+    size_t step;
+    /// The offset in the step's sequence where the change starts.
+    size_t at;
+    /// The number of bases the change removes.
+    size_t removed;
+    /// The bases the change puts in their place.
+    string added;
+
+    bool operator==(const AlleleEdit& other) const = default;
+};
+
+/**
  * The alleles of a site: what the snarl decomposition does not know about it.
  *
  * The decomposition gives a site's bounds and its place in the tree. The alleles come from
@@ -62,11 +85,31 @@ struct CandidateAlleles {
     vector<Traversal> walks;
     /// The index of the reference allele in `walks`, or -1 for none.
     int ref_allele = -1;
-    /// The step sequences of the alleles that have them, which an edit site's ALTs do.
-    AlleleSequences sequences;
+    /**
+     * The changes each allele makes to the sequences of the steps of its walk, in any order.
+     *
+     * No two changes to one step may remove the same base. An insertion at the offset where
+     * another change starts removing bases goes before the bases that change puts in.
+     *
+     * An edit site's ALTs differ from the graph inside nodes, so their walks do not spell them and
+     * they have changes here. An allele whose entry is empty, or lies past the end of the vector,
+     * is spelled by its walk. A snarl's alleles all are, and the vector is empty.
+     */
+    vector<vector<AlleleEdit>> edits;
 
-    /// Get the step sequences of allele `allele`, or null when its walk spells it.
-    const StepSequences* own_sequences(size_t allele) const;
+    /// Return true if the walk of allele `allele` spells it, with no changes.
+    bool spelled_by_walk(size_t allele) const;
+
+    /// Get the sequence of each step of the walk of allele `allele`, with the allele's changes
+    /// made, or an empty vector when its walk spells it.
+    StepSequences step_sequences(const HandleGraph& graph, size_t allele) const;
+
+    /// Get the step sequences of every allele, indexed like `walks`, or an empty vector when every
+    /// walk spells its allele.
+    AlleleSequences all_step_sequences(const HandleGraph& graph) const;
+
+    /// Get the sequence allele `allele` spells.
+    string sequence(const HandleGraph& graph, size_t allele) const;
 };
 
 /**

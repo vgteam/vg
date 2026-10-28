@@ -12,21 +12,22 @@ EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t of
                             : offset;
     site.alleles.walks.assign(alts.size() + 1, steps);
     site.alleles.ref_allele = 0;
-    site.alleles.sequences.resize(alts.size() + 1);
+    site.alleles.edits.resize(alts.size() + 1);
     const size_t host = length > 0 ? at : at - 1;
     for (size_t a = 0; a < alts.size(); ++a) {
         size_t start = 0;
-        for (const handle_t& h : steps) {
-            string seq = graph.get_sequence(h);
-            const size_t end = start + seq.size();
+        for (size_t k = 0; k < steps.size(); ++k) {
+            const size_t end = start + graph.get_length(steps[k]);
+            // Cut the replaced bases this step holds, and put the ALT in the step holding the
+            // base at `at`, or for an insertion the base before it, where the cut starts.
             const size_t from = std::max(start, at);
-            if (const size_t to = std::min(end, at + length); from < to) {
-                seq.erase(from - start, to - from);
-            }
+            const size_t to = std::min(end, at + length);
+            const size_t removed = from < to ? to - from : 0;
             if (host >= start && host < end) {
-                seq.insert(at - start, alts[a]);
+                site.alleles.edits[a + 1].push_back(AlleleEdit{k, at - start, removed, alts[a]});
+            } else if (removed > 0) {
+                site.alleles.edits[a + 1].push_back(AlleleEdit{k, from - start, removed, ""});
             }
-            site.alleles.sequences[a + 1].push_back(std::move(seq));
             start = end;
         }
     }

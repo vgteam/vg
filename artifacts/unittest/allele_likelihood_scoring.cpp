@@ -761,7 +761,7 @@ TEST_CASE("An allele with step sequences is scored against them, though it share
     // than through node 3.
     const Traversal ref_walk = walk_of(site.graph, site.traversals[0]);
     const vector<Traversal> walks{ref_walk, ref_walk};
-    const AlleleSequences sequences{{}, {"AAAACCCC", "G", "GGGGTTTT"}};
+    const vector<vector<AlleleEdit>> edits{{}, {AlleleEdit{1, 0, 1, "G"}}};
 
     // A read of the reference, and a read along the same nodes with a G where node 2 has a T.
     Alignment ref_read = make_matching_alignment(site.graph, "ref", {{1, false}, {2, false}, {4, false}});
@@ -787,7 +787,7 @@ TEST_CASE("An allele with step sequences is scored against them, though it share
         GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
                                                           plain_scorer, params);
         AlleleReadLikelihoods matrix = calculator.compute(
-            materialized_of(site.graph, site.snarl, CandidateAlleles{walks, 0, sequences}), {}, 2);
+            materialized_of(site.graph, site.snarl, CandidateAlleles{walks, 0, edits}), {}, 2);
         REQUIRE(matrix.num_reads() == 2);
         // Each read fits its own allele best, which it would not if both alleles were spelled by
         // their shared walk.
