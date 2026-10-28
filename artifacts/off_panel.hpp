@@ -330,8 +330,8 @@ IndelObservation observe_large_indel(const WalkAlignment& aln, const WalkIndel& 
                                      int64_t reach_begin, int64_t reach_end,
                                      int* by_clip = nullptr);
 
-/// Visit the candidates in `sorted`, as `count_edits` sorts them, that lie on the nodes
-/// `nodes`, which are sorted and free of duplicates.
+/// Visit the candidates in `sorted` that lie on the nodes `nodes`. `sorted` is sorted by node,
+/// and `nodes` is sorted and free of duplicates.
 void for_each_candidate_on(const vector<EditCandidate>& sorted, const vector<nid_t>& nodes,
                            const function<void(const EditCandidate&)>& iteratee);
 

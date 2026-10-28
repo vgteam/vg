@@ -111,6 +111,15 @@ the code.
    what they don't do, unless the reader has a really good reason to assume
    something would happen and needs to be disabused of that notion. Do not
    describe a thing by what it is not.
+7. **Say directly what a thing is.** Don't first describe it by its likeness
+   to another type or convention and then explain it. The reader works out
+   the likeness, only to find the explanation in the next sentence. Drop the
+   likeness and keep the explanation. If no explanation follows, replace the
+   likeness with one.
+   - Not: "The two bounds of a site, oriented like the start and end of a
+     Snarl. `start` reads into the site and `end` reads out of it."
+   - But: "The two bounds of a site. `start` reads into the site and `end`
+     reads out of it."
 
 ## Choose the facts
 
@@ -171,6 +180,9 @@ Rejected:
   read that reaches into another window is fetched with that window too.
   (contorted, should be multiple sentences, "reaches" is vague, the reason is
   about other code)
+- The two bounds of a site or chain, oriented like the start and end of a
+  Snarl. (indirect: describes the bounds by likeness to another type, then
+  explains them anyway in the next sentence)
 
 ## Voice
 

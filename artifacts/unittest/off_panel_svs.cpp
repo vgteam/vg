@@ -1,12 +1,18 @@
 /// \file off_panel_svs.cpp
 ///
-/// Unit tests for finding off-panel indels of 50 bases or more in the reads.
+/// Unit tests for finding large off-panel indels. An off-panel indel is an insertion or deletion
+/// that recurs in the reads but that no walk of the graph spells. A large one is 50 bases or more
+/// long.
 ///
-/// Long reads carry such an indel in their own alignments, each read placing and sizing it a
-/// little differently. The tests check that those reads make one candidate, whose ALT is the
-/// insertion of the medoid read. Short reads cannot span such a deletion, but are clipped at its two
-/// ends. The tests check that the clips find the deletion, and that each read of a large deletion
-/// is classed correctly.
+/// Reads show a large indel in two ways. A long read holds the whole indel, but sequencing errors
+/// shift its position and length a little from read to read. A short read that crosses one end of
+/// a deletion is aligned up to that end, and its remaining bases are left unaligned as a clip. The
+/// clip's bases match the graph past the other end of the deletion.
+///
+/// The tests check three things. Long reads' slightly different insertions are counted as one
+/// candidate. A deletion is found from short reads' clips at both its ends, and not from clips at
+/// one end alone. A single read is classed against a known large deletion as carrying it, as
+/// carrying the reference, as carrying another indel, or as saying nothing about it.
 
 #include <string>
 #include <tuple>
@@ -113,7 +119,7 @@ TEST_CASE("Long reads' loosely matching large insertions are one candidate", "[o
     REQUIRE(c.walk == vector<nid_t>{1});
 }
 
-TEST_CASE("Short reads' clips at both ends of a deletion find it", "[off_panel]") {
+TEST_CASE("A deletion is found from short reads' clips at both its ends", "[off_panel]") {
     const string node = sv_sequence(400, 11);
     bdsg::HashGraph graph;
     graph.create_handle(node, 1);

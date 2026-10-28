@@ -81,7 +81,7 @@ void OffPanelLedger::report(size_t nodes_after_pass) const {
 /// mapping quality.
 static void write_candidate_columns(ostream& out, const EditCandidate& c) {
     if (c.is_indel()) {
-        // Write an indel as VCF does, from its anchor base.
+        // Start an indel's REF and ALT with its anchor base, the base before it.
         out << c.ref << (c.kind == 'D' ? c.sequence : "") << "\t" << c.ref
             << (c.kind == 'I' ? c.sequence : "");
     } else if (c.kind == 'M') {

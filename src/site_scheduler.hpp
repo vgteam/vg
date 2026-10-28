@@ -274,7 +274,7 @@ public:
 };
 
 /**
- * Walk a forest of sites as `vg call` does.
+ * Call the sites of a forest from the top level down.
  *
  * Call every top-level site in parallel, then the children `recurse_type` asks for, and so on
  * down. Run the calls in the jobs that a `SiteScheduler` with `batch_window` gives.

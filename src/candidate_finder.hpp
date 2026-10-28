@@ -101,7 +101,8 @@ public:
     /// Find candidates in `graph` with `traversal_finder`, on the reference paths in
     /// `ref_paths`, or on all non-alt paths if it is empty.
     ///
-    /// Skip sites as the constructor from a set of path names does. Nothing is owned.
+    /// Skip a site unless its longest traversal is at least `allele_length_range.first` long and
+    /// none is longer than `allele_length_range.second`. Nothing is owned.
     CandidateFinder(const PathPositionHandleGraph& graph,
                     SiteTraversalFinder& traversal_finder,
                     const multipass::ReferencePathTable& ref_paths,
@@ -176,9 +177,10 @@ private:
     SiteTraversalFinder& traversal_finder;
     /// Tests whether a non-alt path, by name, is one a site can be placed on.
     function<bool(const string&)> usable_path;
-    /// See set_max_snarl_edges.
+    /// The most edges a site may have, including those of its nested sites, or the largest
+    /// `size_t` for no limit.
     size_t max_snarl_edges = numeric_limits<size_t>::max();
-    /// See the constructor.
+    /// The bounds on the length, in bases, of the longest traversal of a site.
     pair<size_t, size_t> allele_length_range;
 };
 

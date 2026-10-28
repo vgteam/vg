@@ -58,7 +58,7 @@ struct ReadLambda {
     double lambda = 0.0;
     /// How many sites contributed.
     size_t sites = 0;
-    /// The phase set the read was found in, as `PhaseSite::phase_set` names it.
+    /// The phase set the read was found in, as an ID unique across contigs.
     size_t phase_set = 0;
     /// Whether the read was seen in more than one phase set.
     ///
@@ -233,9 +233,9 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const Lambd
 /// Both assignments of a heterozygote's alleles to the strands are scored, and the larger
 /// correction is kept, so the phase information is not averaged away.
 ///
-/// `own` is this site's own per-read contribution to Lambda, signed as `accumulate_lambda`
-/// signed it, which is subtracted so that a site does not confirm its own genotype. Empty for a
-/// site with no `PhaseSite`, such as a homozygote.
+/// `own` is this site's own per-read contribution to Lambda, negated where read phasing flipped
+/// the site. It is subtracted so that a site does not confirm its own genotype. Empty for a site
+/// with no `PhaseSite`, such as a homozygote.
 ///
 /// `phase_set` is the site's phase set, or `NO_PHASE_SET`; a read whose strand is not usable there
 /// (see `read_strand_usable`) gets the site's own weights.
@@ -250,8 +250,8 @@ bool phase_aware_correction(const PhaseReadEvidence& evidence, const LambdaTable
                             const StrandCalibration& calibration, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters);
 
-/// Fill `out` with a site's contribution to each read's Lambda, signed as `accumulate_lambda`
-/// signs it, for subtracting from each read's total.
+/// Fill `out` with a site's contribution to each read's Lambda, for subtracting from each read's
+/// total. Negate the contribution if `flipped`, which says that read phasing flipped the site.
 void site_own_log_odds(const PhaseSite& site, bool flipped, unordered_map<uint64_t, double>& out);
 
 }

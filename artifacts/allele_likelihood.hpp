@@ -870,7 +870,8 @@ protected:
     ///
     /// Windows add up the counts of their buckets before dividing.
     struct StartCounts {
-        /// The number of reads, each counted as for a rate window.
+        /// The number of reads, each counted as 1 - e_r when `depth_effective_reads` is set, and
+        /// as 1 otherwise.
         double reads = 0.0;
         /// The total length of the reads.
         double length_total = 0.0;

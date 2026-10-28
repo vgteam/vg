@@ -67,7 +67,7 @@ public:
 private:
     const SnarlDecomposition& decomposition;
     const HandleGraph& graph;
-    /// The top-level sites, in the order `top_level_sites()` gives them.
+    /// The top-level sites, in chain order.
     const vector<net_handle_t> top_level;
 };
 

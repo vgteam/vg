@@ -1,6 +1,6 @@
 /// \file multipass_parts.cpp
-/// Tests for parts of the read-likelihood caller: the VCF output buffer's record ordering, child
-/// offsets, the staged-site tree, anchor strands and phase swaps.
+/// Tests for the parts of the read-likelihood caller that sort buffered VCF records, nest staged
+/// sites, and phase reads and nested sites.
 ///
 /// Records sharing a position are rare in real output, so the order of ties is checked here.
 
@@ -35,9 +35,6 @@ using namespace std;
 
 TEST_CASE("The buffered record order is total, so two runs cannot disagree", "[graph_caller]") {
     using BufferedRecordKey = VCFOutputCaller::BufferedRecordKey;
-    const auto buffered_record_key_less = [](const BufferedRecordKey& a, const BufferedRecordKey& b) {
-        return a < b;
-    };
 
     // Two records at the same position, distinguished only by the snarl they came from. This is the
     // case (contig, POS) cannot order, and it is not rare: a nested site sits at or near its
@@ -45,34 +42,33 @@ TEST_CASE("The buffered record order is total, so two runs cannot disagree", "[g
     const BufferedRecordKey a{"chr20", 1000, ">1>5"};
     const BufferedRecordKey b{"chr20", 1000, ">6>9"};
 
-    // Antisymmetry: without the ID in the key, the comparator would return false in both directions
-    // for this pair, so `std::sort` could leave them in input order.
-    REQUIRE(buffered_record_key_less(a, b));
-    REQUIRE_FALSE(buffered_record_key_less(b, a));
+    // Antisymmetry: without the ID in the key, `<` would be false in both directions for this
+    // pair, so `std::sort` could leave them in input order.
+    REQUIRE(a < b);
+    REQUIRE_FALSE(b < a);
 
-    // Irreflexivity, on every field, since a strict weak ordering needs it and a `<=` typo here
-    // would make std::sort's behaviour undefined rather than merely wrong.
-    REQUIRE_FALSE(buffered_record_key_less(a, a));
+    // Irreflexivity, since a strict weak ordering needs it and a `<=` typo here would make
+    // std::sort's behaviour undefined rather than merely wrong.
+    REQUIRE_FALSE(a < a);
 
     SECTION("the earlier field always dominates the later one") {
         // Position beats ID: a later ID at an earlier position still sorts first, so the tie-break
         // cannot reorder the file.
-        REQUIRE(buffered_record_key_less(BufferedRecordKey{"chr20", 999, ">9>9"},
-                                         BufferedRecordKey{"chr20", 1000, ">1>1"}));
+        REQUIRE(BufferedRecordKey{"chr20", 999, ">9>9"} < BufferedRecordKey{"chr20", 1000, ">1>1"});
         // Contig beats both.
-        REQUIRE(buffered_record_key_less(BufferedRecordKey{"chr1", 5000, ">9>9"},
-                                         BufferedRecordKey{"chr20", 1, ">1>1"}));
+        REQUIRE(BufferedRecordKey{"chr1", 5000, ">9>9"} < BufferedRecordKey{"chr20", 1, ">1>1"});
     }
 
     SECTION("every input permutation sorts to one output") {
-    // Sorting each permutation of a set containing a tie must give the same sequence every time.
+        // Sorting each permutation of a set containing a tie must give the same sequence every
+        // time.
         vector<BufferedRecordKey> keys{
             {"chr20", 1000, ">6>9"},
             {"chr20", 1000, ">1>5"},
             {"chr20", 900, ">2>3"},
             {"chr21", 10, ">4>7"},
         };
-        sort(keys.begin(), keys.end(), buffered_record_key_less);
+        sort(keys.begin(), keys.end());
         const vector<string> want{">2>3", ">1>5", ">6>9", ">4>7"};
 
         // Start from the first permutation in id order, so next_permutation walks all of them
@@ -83,7 +79,7 @@ TEST_CASE("The buffered record order is total, so two runs cannot disagree", "[g
         size_t checked = 0;
         do {
             vector<BufferedRecordKey> copy = permuted;
-            sort(copy.begin(), copy.end(), buffered_record_key_less);
+            sort(copy.begin(), copy.end());
             for (size_t i = 0; i < want.size(); ++i) {
                 REQUIRE(copy[i].id == want[i]);
             }
@@ -158,8 +154,9 @@ TEST_CASE("The staged-site tree places each site under the sites enclosing it, o
 
 TEST_CASE("A strand from another phase set is NaN in the anchor path, and no strand is 0",
           "[graph_caller]") {
-    // `AnchorParams::hom_split` drops a NaN read from a split site and places a 0 read by a coin, so the
-    // two must stay distinct here; re-genotyping, which does not use this lookup, gives both 0.
+    // When homozygous sites are split for the anchors, a NaN read is dropped from a split site and
+    // a 0 read is placed by a coin, so the two must stay distinct here. Re-genotyping does not use
+    // this lookup, and gives both 0.
     auto key = [](const string& name) { return (uint64_t)std::hash<std::string_view>{}(name); };
     // Each read carries the allele in slot 0, so each site it is on points it to strand 0.
     auto site = [&](size_t record_key, size_t phase_set, const vector<string>& reads) {

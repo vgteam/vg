@@ -133,8 +133,8 @@ TEST_CASE("break counts describe the chain the last coherence round left", "[rea
 }
 
 TEST_CASE("a hung site that no read links keeps the panel's order", "[read_phasing]") {
-    // With a panel weight of 0 and no shared read, the hang stage has no vote either way, and the panel
-    // gave the site an order. Flipping it would invent a phase out of nothing.
+    // With `panel_weight` at 0 and no shared read, the hang stage has no vote either way, and the
+    // panel gave the site an order. Flipping it would invent a phase out of nothing.
     vector<PhaseSite> sites{site(1, 100, 0), site(2, 200, 1, 20, 1.0, 500), site(3, 300, 0)};
     ReadPhasingParams params;
     params.panel_weight = 0.0;

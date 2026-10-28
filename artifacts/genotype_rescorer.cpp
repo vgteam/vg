@@ -236,7 +236,7 @@ void SiteCorrector::correct(StagedSite& rec) {
             : phase_aware_correction(*pe, round.lambda, phase.phase_set, phase.strand0_allele, own,
                                      round.calibration, round.params, target, counters);
     if (round.keep && site_moved) {
-        // Recompute GQ as the direct pass computes it. GQI and GQN stay, because the achievable
+        // Recompute GQ from the corrected likelihoods. GQI and GQN stay, because the achievable
         // gap of GQN assumes the site's own mixture weights, not per-read ones.
         round.genotyper.recompute_gq(*score);
     }

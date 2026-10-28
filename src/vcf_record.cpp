@@ -336,7 +336,7 @@ bool merge_similar_alleles(const PathPositionHandleGraph& graph, size_t allele_c
         return false;
     }
 
-    // Cluster as vg deconstruct does, deepest ALT first, so that each cluster merges into its
+    // Cluster the ALTs deepest first, as vg deconstruct does, so that each cluster merges into its
     // best-supported member, and MAT measures against it. The order of the traversal finder can
     // put a short, lightly supported allele first, and merging into it would write the minority
     // sequence as a homozygous call with the pooled depth.

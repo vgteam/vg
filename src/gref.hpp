@@ -195,8 +195,8 @@ public:
     // agreed on only 76% of chr22 fragments.  The difference then was that the cover had no
     // snarl decomposition and had to approximate containment.  It has one now, and it is the
     // same decomposition deconstruct recurses, so this computes the caller's answer directly
-    // instead of a proxy for it.  Gate any change here on agreement with INFO/CH, not on
-    // whether the numbers look plausible.
+    // instead of a proxy for it.  Test any change here by comparing the levels with INFO/CH, not
+    // by whether the numbers look plausible.
     void assign_nesting(const bdsg::SnarlDistanceIndex& distance_index);
 
     // Write the table of gref fragments, one row each, preceded by a '#' header naming the

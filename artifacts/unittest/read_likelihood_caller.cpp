@@ -3,9 +3,9 @@
 /// Unit tests for ReadLikelihoodSnarlCaller, which turns a matrix of read and allele likelihoods
 /// into a genotype and its quality fields.
 ///
-/// The matrix itself is tested under `[allele_likelihood]`. These tests check what the quality
-/// fields contain: the two factors that discount GQ, and the keys of the genotype likelihoods. One
-/// of the factors, the depth discount, applies only where the alleles differ in length by enough.
+/// The matrix itself is tested under `[allele_likelihood]`. These tests check the quality
+/// fields. GQ is multiplied by the explained share and by the depth discount. The tests also
+/// check the keys of the genotype likelihoods.
 
 #include <cmath>
 #include <string>
@@ -30,18 +30,22 @@ using namespace std;
 
 namespace {
 
-/// A site whose alleles are the reference walk, a walk of the same length through another node,
-/// and a 60 bp deletion.
+/// A snarl from node 1 to node 4 with three traversals: the reference through node 2, a
+/// substitution through node 3, and a deletion along the edge from node 1 to node 4.
 ///
-/// The deletion changes the allele length by more than the 50 bp at which the depth discount
-/// starts to apply, and the other alternative changes it by nothing.
+/// Nodes 2 and 3 hold 60 bp each, so the substitution has the reference's length and the
+/// deletion is 60 bp shorter. The depth discount applies to a call only when a called allele
+/// differs in length from the reference allele by at least the minimum length given to the
+/// caller. The lengths leave out the boundary nodes 1 and 4. With a minimum of 50 bp, the
+/// discount can apply to a call of the deletion and never to a call of the substitution.
 struct CallerSite {
     bdsg::HashGraph graph;
     Snarl snarl;
-    vector<SnarlTraversal> traversals;   // 0: ref (1,2,4)  1: alt (1,3,4)  2: del (1,4)
+    /// The traversals by index: 0 is the reference (1,2,4), 1 the substitution (1,3,4), and 2
+    /// the deletion (1,4).
+    vector<SnarlTraversal> traversals;
 
     CallerSite() {
-        // 60 bp of interior sequence, so ref -> deletion is a 60 bp length change.
         string interior(60, 'T');
         string interior_alt(60, 'G');
         graph.create_handle("AAAACCCCAAAACCCC", 1);
@@ -96,17 +100,17 @@ Alignment matching_read(const HandleGraph& graph, const string& name,
     return aln;
 }
 
-/// The genotype of a site, with the call info that explains it.
+/// The result of genotyping one site with `call_site`.
 struct Called {
     vector<int> genotype;
-    /// The call info, or null if the caller made none.
+    /// The call info that `genotype_at` returned with the genotype.
     unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> info;
     /// The caller's `gq_factor` for `info`, under the settings it was called with.
     double gq_factor = 0.0;
 };
 
-/// Genotype the site from `reads`. `configure` runs against the caller before genotyping.
-
+/// Genotype `site` from `reads` with a new caller. `configure`, where given, changes the
+/// caller's settings first.
 Called call_site(CallerSite& site, const vector<Alignment>& reads,
                  const function<void(ReadLikelihoodSnarlCaller&)>& configure = nullptr,
                  int ploidy = 2, int region_ploidy = 0, bool also_score_other = false) {
@@ -170,13 +174,13 @@ TEST_CASE("GQ rises with the evidence and never exceeds the undiscounted value",
     REQUIRE(strong.info->explained_share <= 1.0);
 }
 
-TEST_CASE("Without the share discount, GQ is the raw ratio and the share is still reported",
+TEST_CASE("GQ is GQI times the explained share, or GQI with the share discount off",
           "[read_likelihood_caller]") {
     CallerSite site;
     vector<Alignment> reads;
     // The share falls below 1 only when some reads prefer an allele the call does not
-    // contain. Ten reference reads, ten SNP reads and four deletion reads give the call
-    // 0/1, which leaves the four deletion reads unexplained.
+    // contain. Ten reference reads, ten substitution reads and four deletion reads give the
+    // call 0/1, which leaves the four deletion reads unexplained.
     for (int i = 0; i < 10; ++i) {
         reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 2, 4}));
         reads.push_back(matching_read(site.graph, "a" + std::to_string(i), {1, 3, 4}));
@@ -204,8 +208,10 @@ TEST_CASE("Without the share discount, GQ is the raw ratio and the share is stil
 
 TEST_CASE("GQ and GQN can be recomputed from gq_factor and achievable_gap",
           "[read_likelihood_caller]") {
-    // A moved record's quality fields are rewritten from these two, so each must reproduce the
-    // per-site value it stands for, under every setting that changes GQ.
+    // Where the linkage model writes a genotype other than the direct call, the record's GQ and
+    // GQN are rewritten from `gq_factor` and `achievable_gap`. So GQ must be GQI times
+    // `gq_factor`, and GQN must follow from GQI, `achievable_gap` and the explained share. Both
+    // must hold under every setting that changes GQ.
     CallerSite site;
     vector<Alignment> mixed;
     for (int i = 0; i < 10; ++i) {
@@ -249,7 +255,7 @@ TEST_CASE("GQ and GQN can be recomputed from gq_factor and achievable_gap",
     REQUIRE(deep_raw.gq_factor == Approx(deep_raw.info->depth_discount));
 }
 
-TEST_CASE("The depth discount does not apply when the alleles have the same length",
+TEST_CASE("The depth discount applies only to calls that change length by at least the minimum",
           "[read_likelihood_caller]") {
     CallerSite site;
     vector<Alignment> reads;
@@ -257,36 +263,49 @@ TEST_CASE("The depth discount does not apply when the alleles have the same leng
         reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 2, 4}));
     }
 
-    // The reference and the SNP alternative have the same length, so the discount must not
-    // apply however implausible the depth is. It is meant for ranking structural variants, and
-    // must leave the SNVs, which are most of every call set, as they are.
-    Called snp_site = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
+    // Every read is on the reference, so the call is 0/0 and no called allele changes length.
+    // The discount is meant for ranking structural variants, and its length condition keeps it
+    // off small variants. With a minimum length of 50 bp, it must leave this call's GQ alone.
+    Called min_50 = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
         c.set_depth_quality(1.0, 50);
     });
-    REQUIRE(snp_site.info != nullptr);
-    REQUIRE(snp_site.genotype == vector<int>({0, 0}));
+    REQUIRE(min_50.info != nullptr);
+    REQUIRE(min_50.genotype == vector<int>({0, 0}));
 
-    Called undiscounted = call_site(site, reads);
-    REQUIRE(undiscounted.info != nullptr);
-    // The two runs differ only by a discount that does not apply here, so GQ must be the same.
-    // If the length test were dropped or inverted, the GQs would differ.
-    REQUIRE(snp_site.info->gq == Approx(undiscounted.info->gq));
+    Called discount_off = call_site(site, reads);
+    REQUIRE(discount_off.info != nullptr);
+    REQUIRE(min_50.info->gq == Approx(discount_off.info->gq));
+
+    // With a minimum length of 0, the discount applies to every call, and it lowers this call's
+    // GQ. So the length of the call is what kept the discount off it above.
+    Called min_0 = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
+        c.set_depth_quality(1.0, 0);
+    });
+    REQUIRE(min_0.info != nullptr);
+    REQUIRE(min_0.info->gq < discount_off.info->gq);
 }
 
-TEST_CASE("A zero depth-quality exponent is inert", "[read_likelihood_caller]") {
+TEST_CASE("A depth discount with an exponent of 0 leaves GQ unchanged",
+          "[read_likelihood_caller]") {
     CallerSite site;
     vector<Alignment> reads;
     for (int i = 0; i < 12; ++i) {
         reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 4}));
     }
 
-    Called off = call_site(site, reads);
+    // Every read carries the deletion, a length change of 60 bp, which is at least the 50 bp
+    // minimum. With an exponent of 1 the discount lowers this call's GQ. With an exponent of 0
+    // the discount is 1, so GQ is GQI times the explained share alone.
+    Called one = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
+        c.set_depth_quality(1.0, 50);
+    });
     Called zero = call_site(site, reads, [](ReadLikelihoodSnarlCaller& c) {
         c.set_depth_quality(0.0, 50);
     });
-    REQUIRE(off.info != nullptr);
+    REQUIRE(one.info != nullptr);
     REQUIRE(zero.info != nullptr);
-    REQUIRE(zero.info->gq == Approx(off.info->gq));
+    REQUIRE(one.info->gq < zero.info->gq);
+    REQUIRE(zero.info->gq == Approx(zero.info->gq_undiscounted * zero.info->explained_share));
 }
 
 TEST_CASE("Genotype likelihoods are keyed by the genotype that was scored",
@@ -410,7 +429,7 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     const double het_ll = info.genotype_lls.at(vector<int>({0, 1}));
     info.genotype_lls[vector<int>({1, 1})] = het_ll + 2.0;
     const double gap = logprob_to_phred(het_ll) - logprob_to_phred(het_ll + 2.0);
-    // Only the SNP reads have allele 1 as their best allele.
+    // Only the substitution reads have allele 1 as their best allele.
     const double share = info.allele_support[1] / (double)info.n_reads;
     REQUIRE(share < 1.0);
 
@@ -498,7 +517,7 @@ TEST_CASE("A moved record's quality fields come from the stored direct call",
         moved.direct.gq_factor = 0.5;   // the share, as by default
         REQUIRE(rewrite(shared, "s", moved, 0.0));
         REQUIRE(field(shared, "GQ") == "11");
-        moved.direct.gq_factor = 1.0;   // neither the share discount nor the depth discount
+        moved.direct.gq_factor = 1.0;   // no share discount and no depth discount
         REQUIRE(rewrite(unshared, "s", moved, 0.0));
         REQUIRE(field(unshared, "GQ") == "23");
     }

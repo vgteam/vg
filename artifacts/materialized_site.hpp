@@ -16,31 +16,33 @@ namespace vg {
 
 using namespace std;
 
-/**
- * The sequence an allele has at each node its walk visits, for an allele the graph cannot spell.
- *
- * An allele of an edit site differs from the graph inside a node, such as by one changed base, so
- * no walk of the graph spells it. The allele still has a walk, which says which nodes it covers.
- * Element `i` is the allele's sequence where the walk visits node `walk[i]`, read the way the walk
- * reads that node: the node's sequence with the edit applied.
- *
- * An allele whose walk spells it has none, and this is empty.
- */
+/// The step sequences of an allele, in the order of its walk.
+///
+/// The step sequence of a visit of the walk holds the bases that the allele has at the visited
+/// node, read the way the walk reads the node.
+///
+/// A walk spells an allele by reading the sequence of each node it visits. An edit found in the
+/// reads, such as a substitution or a short indel, changes bases inside a node. An allele that
+/// carries the edit visits the same nodes as an allele that does not, so its walk does not spell
+/// it, and its step sequences do. A step sequence can be longer or shorter than the sequence of its
+/// node, or empty, where the allele inserts or deletes bases.
+///
+/// The vector has one string for each visit of the walk, or is empty. An empty vector means that
+/// the walk of the allele spells it.
 using StepSequences = vector<string>;
 
-/**
- * The `StepSequences` of each allele of a site, indexed like the site's walks.
- *
- * For a site of the decomposition, every walk spells its allele, and this is empty. For an edit
- * site, the reference allele's entry is empty, and each other allele's entry holds its edited
- * sequences.
- *
- * Code that spells, scores or writes an allele uses its step sequences where it has them (see
- * `own_sequences`). No panel haplotype carries an allele that has them.
- */
+/// The step sequences of each allele of a site, indexed by allele and then by visit of its walk.
+///
+/// An allele is numbered by the index of its walk among the walks of the site, not by its VCF
+/// allele number. `sequences[a][i]` is the step sequence of visit `i` of the walk of allele `a`. An
+/// allele whose entry is empty, or lies past the end of the vector, has no step sequences, and its
+/// walk spells it. An empty vector means that the walks spell every allele.
+///
+/// An allele with step sequences is spelled and written as them, and reads are scored against
+/// them. No panel haplotype is taken to carry it.
 using AlleleSequences = vector<StepSequences>;
 
-/// Get the step sequences of allele `allele` in `sequences`, or null when its walk spells it or
+/// Get the step sequences of allele `allele` in `sequences`, or null if the allele has none or
 /// `sequences` is null.
 const StepSequences* own_sequences(const AlleleSequences* sequences, size_t allele);
 

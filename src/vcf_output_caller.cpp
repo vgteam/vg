@@ -448,7 +448,8 @@ bool VCFOutputCaller::file_record(const PathPositionHandleGraph& graph, SiteReco
     }
 
     // Whether the site gets a line. A site whose called traversals differ from the reference only
-    // inside child chains has no ALT, and gets no line unless it is genotyped with -a.
+    // inside child chains has no ALT, and gets a line only if `genotype_snarls` asks for reference
+    // calls to be written too.
     const bool wants_line = genotype_snarls || !out_variant.alt.empty();
     bool added = false;
     if (wants_line) {

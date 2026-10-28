@@ -88,7 +88,7 @@ separately.
    Grice maxim (with the meaning it would infer), each citing the `file:line` it came from.
 4. **Check against the code.** For each explanation that is wrong and each real question, find the
    truth in the code and fix the comment, the doc, or the code (a rename, a split, removing dead
-   code). Behaviour must not change unless that is the task: gate with a byte-identity check of the
-   program's output against a binary built before the change.
+   code). Behaviour must not change unless that is the task: confirm it with a byte-identity check
+   of the program's output against a binary built before the change.
 5. **Repeat** from step 2 until the agent's explanation is right and its questions are about the
    domain rather than about the prose.

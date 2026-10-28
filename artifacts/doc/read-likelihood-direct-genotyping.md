@@ -547,14 +547,14 @@ Its inputs are:
    the rate is independent of how many non-reference nodes the window holds. Variation that the
    sample carries in the window still changes it: a deletion leaves reference bases on which no
    reads start. The counts are computed once per bucket and shared, and each site divides the read
-   rate by the ploidy of its region (set by `--ploidy-bed`, `--ploidy` or `--ploidy-regex`) to give
-   $\kappa$, a rate per haplotype. That is the site's own ploidy, except at a nested site that only
-   some of its parent's alleles cross: the site is genotyped at a lower ploidy, but the window's
-   reads come from every haplotype. When no read begins in the window, $\kappa = 0$, and the depth
-   term is left out (its factor is 1). A site with no reference position anywhere among its
-   enclosing sites, as in a graph without reference path positions, uses a fixed block of
-   consecutive node IDs in place of the rate window, the block that contains the site's lowest node
-   ID, with the summed length of its nodes as the length.
+   rate by the ploidy of its region (set by `--ploidy-bed`, `--ploidy-preset`, `--ploidy` or
+   `--ploidy-regex`) to give $\kappa$, a rate per haplotype. That is the site's own ploidy, except
+   at a nested site that only some of its parent's alleles cross: the site is genotyped at a lower
+   ploidy, but the window's reads come from every haplotype. When no read begins in the window,
+   $\kappa = 0$, and the depth term is left out (its factor is 1). A site with no reference position
+   anywhere among its enclosing sites, as in a graph without reference path positions, uses a fixed
+   block of consecutive node IDs in place of the rate window, the block that contains the site's
+   lowest node ID, with the summed length of its nodes as the length.
 2. **The mean read length $\bar L$**, the unweighted mean sequence length of the reads that begin in
    $\kappa$'s rate window, or of the site's own reads if none does. The mixture weights use the same
    $\bar L$.

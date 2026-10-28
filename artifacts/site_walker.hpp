@@ -14,7 +14,7 @@ namespace vg::multipass {
 using namespace std;
 
 /**
- * A walker over the sites of a snarl decomposition, which calls them as `vg call` does.
+ * A walker over the sites of a snarl decomposition.
  *
  * It calls every top-level site in parallel, then the child sites that the recursion asks for, a
  * level at a time, as `walk_site_tree` does. It hands each site to its callback as its net handle.
@@ -31,8 +31,8 @@ public:
      * of every site that `call_site` returns false for (`RecurseOnFail`), or of none
      * (`RecurseNever`), and so on down.
      *
-     * @param batch_window Batch the top-level sites by windows of this many node IDs, as
-     * `SiteScheduler` does. 0 makes each site its own job.
+     * @param batch_window Batch the top-level sites into one parallel job per window of this many
+     * node IDs. 0 makes each site its own job.
      * @param show_progress Report the sites called to stderr.
      */
     void walk(GraphCaller::RecurseType recurse_type, size_t batch_window, bool show_progress,

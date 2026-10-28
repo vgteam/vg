@@ -95,10 +95,10 @@ sites is described under [Passes and rounds](#passes-and-rounds), after the voca
 - **Ploidy.** A site's ploidy, $P$, is the number of the sample's haplotypes that pass through the
   site. Options set the ploidy of each contig or region, and a nested site's ploidy follows from its
   parent's genotype (see [Ploidy](#ploidy)). The ploidy options accept only 1 or 2, because the
-  linkage model, phasing and nested calling are built for at most two haplotypes, and
-  `--ploidy-bed` also accepts 0 for a region the sample has no copy of. A nested site that
-  none of its parent's alleles passes through has ploidy 0 (see
-  [Which child chains are genotyped](#which-child-chains-are-genotyped)).
+  linkage model, phasing and nested calling are built for at most two haplotypes. A ploidy BED, a
+  table of ploidies by region given with `--ploidy-bed` or `--ploidy-preset`, may also give 0 for a
+  region the sample has no copy of. A nested site that none of its parent's alleles passes through
+  has ploidy 0 (see [Which child chains are genotyped](#which-child-chains-are-genotyped)).
 - **Panel.** The haplotypes stored in the GBZ file's
   [GBWT](https://github.com/vgteam/vg/wiki/Extra-details-on-vg-file-formats#gbwt-gbwt) index, or in
   a separate GBWT file given with `--gbwt`. A panel haplotype can be stored as several paths that
@@ -295,23 +295,25 @@ haplotype enumeration, which does not use Yen's search, there is no limit by def
 
 ## Ploidy
 
-A site's ploidy comes from `--ploidy-bed`, a BED file of `CHROM START END PLOIDY` lines. `CHROM`
-is spelled as in the output VCF. Intervals are 0-based and half-open, and must not overlap. A site
-takes the ploidy of the interval that contains its position. A site outside every interval takes
-the ploidy from `--ploidy`, 2 by default, or from `--ploidy-regex`, a comma-separated list of
-`REGEX:PLOIDY` rules of which the first whose regular expression matches the reference path's name
-applies. Every ploidy must be 1 or 2, except that a `--ploidy-bed` interval may have ploidy 0: the
-sample has no copy of that region, so a site there is not genotyped and gets no record. A site at
-ploidy 1 has a single allele as its `GT`.
+A site's ploidy comes from a ploidy BED of `CHROM START END PLOIDY` lines, given as a file with
+`--ploidy-bed` or by name with `--ploidy-preset`. `CHROM` is spelled as in the output VCF.
+Intervals are 0-based and half-open, and must not overlap. A site takes the ploidy of the interval
+that contains its position. A site outside every interval takes the ploidy from `--ploidy`, 2 by
+default, or from `--ploidy-regex`, a comma-separated list of `REGEX:PLOIDY` rules of which the
+first whose regular expression matches the reference path's name applies. Every ploidy must be 1
+or 2, except that an interval of the ploidy BED may have ploidy 0: the sample has no copy of that
+region, so a site there is not genotyped and gets no record. A site at ploidy 1 has a single allele
+as its `GT`.
 
-vg has such a table built in for each common reference assembly and sample sex, which
-`--ploidy-preset NAME` selects in place of `--ploidy-bed`. The assemblies are `chm13v2`, `grch38`,
-`grch37.ucsc` and `grch37.b37`, each as `XY` and `XX`, for example `--ploidy-preset chm13v2.XY`.
-An `XY` table makes chrX haploid outside its pseudoautosomal regions and chrY and the
-mitochondrion haploid, and an `XX` table gives chrY ploidy 0 and makes the mitochondrion haploid.
-A contig with no line is diploid, so one table serves a whole-genome run and a run on any one
-contig alike, with no `--ploidy`. The tables are in `artifacts/ploidy_presets.cpp`; for another assembly
-or karyotype, copy the nearest one into a BED file, edit it, and pass it with `--ploidy-bed`.
+`--ploidy-preset` names a ploidy BED built into vg, one per reference assembly and sample sex:
+`chm13v2`, `grch38`, `grch37.ucsc` and `grch37.b37`, each as `XY` and `XX`, for example
+`chm13v2.XY`. An `XY` preset makes chrX haploid outside its pseudoautosomal regions. It also makes
+chrY and the mitochondrion haploid. An `XX` preset gives chrY ploidy 0 and makes the mitochondrion
+haploid. The `grch37.b37` presets name the contigs `X`, `Y` and `MT`, and the others `chrX`, `chrY`
+and `chrM`. A preset has no lines for the autosomes, so one preset serves a whole-genome run and a
+run on any one contig alike, with no `--ploidy`. `--ploidy-bed` and `--ploidy-preset` cannot be
+given together. The presets are in `artifacts/ploidy_regions.cpp`; for another assembly or
+karyotype, copy the nearest one into a BED file, edit it, and pass it with `--ploidy-bed`.
 
 A nested site takes its ploidy from its parent's genotype instead (see
 [Which child chains are genotyped](#which-child-chains-are-genotyped)). The exception is a child of
@@ -497,7 +499,7 @@ genotype, whether a block spells the chain out.
 |---|---|
 | `GT` | the settled genotype, phased where phasing ran |
 | `GL` | $\log_{10} \mathcal{L}(G)$ for every genotype of the record's alleles, in the order VCF specifies for the record's alleles |
-| `GQ` | the difference between the log-likelihoods of the direct call and the **runner-up**, the genotype with the second-highest $\mathcal{L}(G)$, in phred units. It is multiplied by the **explained share**, the fraction of reads whose best allele is in the direct call (a tied read split as for `AD`), and by the `--depth-quality` factor where that applies |
+| `GQ` | the difference between the log-likelihoods of the direct call and the **runner-up**, the genotype with the second-highest $\mathcal{L}(G)$, in phred units. It is multiplied by the **explained share**, the fraction of reads whose best allele is in the direct call (a read tied between alleles counts a fraction to each), and by the `--depth-quality` factor where that applies |
 | `GQI` | the same difference, with neither factor |
 | `GQN` | the same difference divided by the **achievable gap** (below), held at 1 or less, and multiplied by the explained share |
 | `GP` | one value: the natural log of the posterior probability of the direct call, computed from $\mathcal{L}(G)$ with a uniform prior over genotypes, and still the direct call's on a record the linkage model moved. (In the VCF specification, `GP` is a phred-scaled value per genotype.) |
@@ -587,10 +589,13 @@ not re-genotyping ran.
 #### Options that change the fields
 
 `--cluster` merges similar called ALT alleles, as `vg deconstruct --cluster` does, at sites at
-least `--cluster-min-len` long. Two alleles are merged when their similarity, as
-`vg deconstruct --cluster` measures it, is at least the value of `--cluster`. `GT` is rewritten
-for the merged alleles, their `AD` entries are summed, each merged genotype's `GL` entry is the
-largest of those it replaces, and `INFO/MAT` records the merge. It is off by default.
+least `--cluster-min-len` long. Two alleles are merged when their similarity is at least the value
+of `--cluster`. The similarity is the total length of the node visits inside the site that both
+alleles make, over the total length of those either allele makes. Against a pure deletion, which
+makes no visit inside the site, it is 1 minus the other allele's length inside the site over the
+larger of that length and the reference allele's. `GT` is rewritten for the merged alleles, their
+`AD` entries are summed, each merged genotype's `GL` entry is the largest of those it replaces,
+and `INFO/MAT` records the merge. It is off by default.
 
 `--no-share-quality` leaves the explained share out of the per-site `GQ`; `GQN` keeps it.
 `--depth-quality` multiplies the per-site `GQ` by $e^{-D_q \vert \ln \mathrm{DR} \vert}$, where
@@ -735,12 +740,12 @@ earlier in the file holds, it leaves that read out, and an off-panel anchor left
 `--anchors-reads` reads is not written. vg reports on standard error how many read placements
 and anchors it left out.
 
-A site's reads are divided among its **slots**. A slot is a strand, numbered as a field of `GT`:
-slot 0 the first allele, to the left of the `|`, and slot 1 the second. But a diploid site that is
-not phaseable pools both strands in one slot, 0, unless `--anchors-hom-split` divides its reads
-between slots 0 and 1, which then carry the same allele. A haploid site also has a single slot, 0,
-except at a site of a nested haploid chain whose `GT` is `.|a`, where it is 1. An **anchor** is one
-pin together with the reads of one slot that cross it.
+A site's reads are divided among its **slots**. A slot is a strand. Slot 0 is the strand of the
+first allele of `GT`, to the left of the `|`, and slot 1 the strand of the second. But a diploid
+site that is not phaseable pools both strands in one slot, 0, unless `--anchors-hom-split` divides
+its reads between slots 0 and 1, which then carry the same allele. A haploid site also has a single
+slot, 0, except at a site of a nested haploid chain whose `GT` is `.|a`, where it is 1. An
+**anchor** is one pin together with the reads of one slot that cross it.
 
 #### Placing reads in slots
 
@@ -840,7 +845,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
 | [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
-| [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed` |
+| [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
 | [Phasing](#phasing) | `--phased`, `--no-phased`, `--read-phasing`, `--no-read-phasing`, `--phase-min-q`, `--phase-coherence`, `--phase-coh-rounds`, `--phase-break`, `--phase-relink`, `--phase-hang`, `--phase-prior`, `--phase-cap` |
 | [Re-genotyping](#re-genotyping-from-the-phase) | `--regenotype`, `--no-regenotype`, `--regeno-temper`, `--regeno-ceiling`, `--regeno-passes`, `--regeno-haploid`, `--no-regeno-haploid`, `--regeno-ledger` |
 | [Quality fields](#options-that-change-the-fields) | `--no-share-quality`, `--depth-quality`, `--min-confidence` |

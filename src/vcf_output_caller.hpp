@@ -37,7 +37,7 @@ using vg::io::AlignmentEmitter;
 class VCFOutputCaller {
 public:
     /**
-     * The sort key of a buffered VCF record: contig, POS, ID, then block number.
+     * The sort key of a buffered VCF record.
      *
      * Several records can share a contig and POS, such as a nested site and its parent. The sort
      * is not stable, so the output order is the same on every run only if the records at one POS
@@ -52,7 +52,8 @@ public:
         /// record of a whole snarl. Two blocks of one snarl share an ID and can share a POS.
         size_t block = 0;
 
-        /// Order keys by contig, POS, ID, then block number.
+        /// Return true if this key sorts before `other`, comparing contig, then POS, then ID, then
+        /// block number.
         bool operator<(const BufferedRecordKey& other) const {
             return std::tie(contig, position, id, block)
                    < std::tie(other.contig, other.position, other.id, other.block);
@@ -109,14 +110,18 @@ public:
     void set_gref_levels(map<string, int> levels);
 
     /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
-    /// two effectively-identical alleles collapses to 1/1 with a single ALT.  Uses the same
-    /// similarity metric and the same core-length gate as "vg deconstruct -L/--cluster-min-len" (a
-    /// length-weighted Jaccard, except that a pure deletion is scored against the site -- see
-    /// weighted_traversal_similarity).  The gate is applied to the alleles each tool emits, and
-    /// those sets differ, so the two can disagree at a given site:
-    /// similarity is >= threshold to merge, and min_len > 0 restricts merging to sites whose
-    /// core length reaches min_len bp (see allele_core_length).
-    /// A threshold of 1.0 (the default) disables merging entirely.
+    /// two effectively-identical alleles collapses to 1/1 with a single ALT.
+    ///
+    /// Two alleles merge when their similarity is at least threshold. The similarity is a
+    /// length-weighted Jaccard that scores a pure deletion against the site (see
+    /// weighted_traversal_similarity). When min_len is above 0, alleles merge only at a site
+    /// whose core length (see allele_core_length) is at least min_len bp. A threshold of 1.0,
+    /// the default, turns merging off.
+    ///
+    /// vg deconstruct clusters traversals by the same similarity and core length (see
+    /// Deconstructor's cluster_threshold and cluster_min_allele_len). Each tool measures core
+    /// length on the alleles it emits, and the two tools can emit different alleles for one site,
+    /// so they can disagree about whether its alleles merge.
     void set_allele_merge(double threshold, int64_t min_len);
 
     /// The set of reference contigs that actually have a record.  Reads the sort keys of the
@@ -129,8 +134,14 @@ public:
     /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
-    /// Callbacks that a caller adds to the writing of a site's record. Each is empty unless the
-    /// caller needs it.
+    /// The callbacks and record ID with which a variant caller changes how `emit_variant` writes a
+    /// site's record.
+    ///
+    /// `emit_variant` calls `count_site`, `write_blocks`, `finish_record` and `site_filed` itself.
+    /// It binds the site to `same_as_reference` and `phase`, to make `SiteHooks` callbacks that
+    /// build_site_record calls, and passes `fill_info` to build_site_record as it is. It calls
+    /// `gl_layout` to get the order of the GL values, which it gives to build_site_record and
+    /// `write_blocks`. Each callback is empty unless the caller needs it.
     struct SiteRecordSteps {
         /// The ID of the site's records, or null to print the ID from the snarl's bounds.
         const string* id = nullptr;
@@ -139,7 +150,11 @@ public:
         function<bool(int trav, int ref_trav_idx)> same_as_reference;
         /// Count the site, before its record is built.
         function<void(const vector<int>& genotype, int ref_trav_idx)> count_site;
-        /// Phase the record's genotype, as `SiteHooks::phase` does.
+        /// Phase the genotype of the record, and return the phase set to write as PS, or -1 for
+        /// none.
+        ///
+        /// `site_genotype` is in VCF allele numbers, and `trav_to_allele` gives the VCF allele of
+        /// each traversal in the genotype. The step may replace the GT string `gt`.
         function<int64_t(const vector<int>& site_genotype, const map<int, int>& trav_to_allele,
                          string& gt)> phase;
         /// Return the order in which the snarl caller wrote the GL of a call.
@@ -151,8 +166,11 @@ public:
                      bool genotype_snarls)> write_blocks;
         /// Change the finished site record just before it is added to the output.
         function<void(vcflib::Variant& record)> finish_record;
-        /// Add the caller's INFO and FORMAT fields, as `SiteHooks::fill_info` does, in place of
-        /// the snarl caller's `update_vcf_info`.
+        /// Add the caller's INFO and FORMAT fields to `variant`, in place of the snarl caller's
+        /// `update_vcf_info`.
+        ///
+        /// `site_trav` gives the traversal of each VCF allele, or -1 for "*". The record has its GT
+        /// and not yet its PS.
         function<void(const vector<int>& site_trav, const vector<int>& site_genotype,
                       vcflib::Variant& variant)> fill_info;
         /// Take note of a site whose records are done. `trav_to_allele` gives the VCF allele of
@@ -231,7 +249,8 @@ public:
     string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
     /// The same as above, but print the snarl as if its orientation has been flipped
     string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
-    /// Print a snarl from its two boundary visits, as the other print_snarl overloads do.
+    /// Print a snarl from its two boundary visits, as >3435<12222, or as (>3435<12222) with
+    /// `in_brackets`.
     string print_snarl(nid_t start_id, bool start_backward, nid_t end_id, bool end_backward,
                        bool in_brackets) const;
 

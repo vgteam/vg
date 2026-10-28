@@ -114,7 +114,7 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
 /// true is optimal pairing. The invariants below must hold for both, since they are properties of
 /// the scoring model, not of how the pairing is searched for.
 ///
-/// `insertion_nats` is `AlleleLikelihoodParams::insertion_gap_nats`.
+/// `insertion_nats` sets `AlleleLikelihoodParams::insertion_gap_nats`.
 template<typename Site>
 static AlleleReadLikelihoods score_site(Site& site, const vector<Alignment>& reads,
                                         int ploidy = 2, bool optimal_pairing = false,
@@ -371,8 +371,8 @@ TEST_CASE("Allele sequence between two anchors is charged, outside them is not",
 
 TEST_CASE("No read's allele preference depends on the flank's length",
           "[allele_likelihood][scoring]") {
-    // The same kind of property as the test above, across many configurations, since a greedy
-    // single-pass walk can choose a bad pairing in more than one way.
+    // Check many configurations, since a greedy single-pass walk can choose a bad pairing in more
+    // than one way.
     //
     // The invariant: rel is normalised by each read's own best allele, and lengthening a
     // node EVERY allele shares adds the same match credit to all of them. So no rel value
@@ -406,7 +406,7 @@ TEST_CASE("No read's allele preference depends on the flank's length",
         for (const Alignment& a : long_reads) long_src.add(a);
         QualAdjAlignmentScorer qs;
         MatrixAlignmentScorer ps;
-        // Both pairings: greedy, the default, and optimal.
+        // Check greedy pairing, the default, and optimal pairing.
         for (bool optimal_pairing : {false, true}) {
         AlleleLikelihoodParams params;
         params.optimal_pairing = optimal_pairing;
@@ -421,13 +421,14 @@ TEST_CASE("No read's allele preference depends on the flank's length",
                             CandidateAlleles{walks_of(longf.graph, longf.traversals), 0}),
             /* top-level: nothing encloses it */ {}, 2);
 
-        INFO("configuration " << c << (optimal_pairing ? " (optimal)" : " (greedy)"));
+        INFO("configuration " << c
+                              << (optimal_pairing ? " (optimal pairing)" : " (greedy pairing)"));
         REQUIRE(sm.num_reads() == lm.num_reads());
         REQUIRE(sm.num_alleles() == lm.num_alleles());
         for (size_t r = 0; r < sm.num_reads(); ++r) {
             for (size_t a = 0; a < sm.num_alleles(); ++a) {
                 INFO("config " << c << " read " << r << " allele " << a
-                                << (optimal_pairing ? " (optimal)" : " (greedy)"));
+                                << (optimal_pairing ? " (optimal pairing)" : " (greedy pairing)"));
                 REQUIRE(sm.rel(r, a) == Approx(lm.rel(r, a)));
             }
         }
@@ -482,7 +483,8 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
                 CandidateAlleles{walks_of(site.graph, site.traversals), 0}),
             /* top-level: nothing encloses it */ {}, 2);
 
-        INFO("configuration " << c << (optimal_pairing ? " (optimal)" : " (greedy)"));
+        INFO("configuration " << c
+                              << (optimal_pairing ? " (optimal pairing)" : " (greedy pairing)"));
         REQUIRE(m.num_reads() == configurations[c].size());
         for (size_t r = 0; r < m.num_reads(); ++r) {
             // A read built to follow allele r's own path matches it exactly, so it is that
@@ -492,7 +494,7 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
             REQUIRE(m.rel(r, r) == Approx(1.0));
             for (size_t a = 0; a < m.num_alleles(); ++a) {
                 INFO("config " << c << " read " << r << " allele " << a
-                                << (optimal_pairing ? " (optimal)" : " (greedy)"));
+                                << (optimal_pairing ? " (optimal pairing)" : " (greedy pairing)"));
                 REQUIRE(m.rel(r, a) > 0.0);
             }
         }
@@ -533,7 +535,7 @@ TEST_CASE("Optimal pairing keeps the indel invariants greedy pairing has",
     AlleleReadLikelihoods exact = score_site(site, {spanning, deleting}, 2, true);
 
     for (const auto& named :
-         {make_pair("greedy", &greedy), make_pair("optimal", &exact)}) {
+         {make_pair("greedy pairing", &greedy), make_pair("optimal pairing", &exact)}) {
         const AlleleReadLikelihoods& m = *named.second;
         INFO(named.first);
         // Each read matches its own allele exactly.
@@ -624,7 +626,7 @@ TEST_CASE("An unpaired read visit with no bases is not a gap",
           "[allele_likelihood][scoring]") {
     // Node 2 lies between nodes 1 and 3. A read that deletes all of node 2 visits it with no
     // bases. Against the allele that skips nodes 2 and 3, its only gap is node 3's ten bases,
-    // as for a read that skips node 2 altogether: the empty visit opens no gap and earns no
+    // as for a read that skips node 2 altogether. The empty visit opens no gap, so it earns no
     // `insertion_gap_nats`.
     bdsg::HashGraph graph;
     graph.create_handle("AAAACCCC", 1);
@@ -713,11 +715,10 @@ TEST_CASE("A read spanning a deletion is kept and prefers the deletion allele",
 
 TEST_CASE("A read entirely inside one boundary node is still dropped",
           "[allele_likelihood][scoring]") {
-    // The counterpart to the test above: widening informativeness to include
-    // boundary-to-boundary reads must not accidentally admit reads that genuinely
-    // cannot discriminate. A read sitting inside a single boundary node uses no
-    // edge inside the site and touches no interior node, so every allele explains
-    // it identically.
+    // Widening informativeness to include boundary-to-boundary reads must not
+    // accidentally admit reads that genuinely cannot discriminate. A read sitting
+    // inside a single boundary node uses no edge inside the site and touches no
+    // interior node, so every allele explains it identically.
     SnpAndDeletionSite site;
 
     Alignment inside_boundary = make_matching_alignment(site.graph, "flank", {{1, false}});

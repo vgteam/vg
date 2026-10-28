@@ -405,9 +405,9 @@ protected:
 /**
  * Return the nodes and edges of a site, including those inside its child sites.
  *
- * The site is entered by reading `start` and left by reading `end`, as the start and end Visits
- * of a Snarl are oriented. We search the graph from the bounds and stop only at them, so we find
- * tips as well as walks. The two boundary nodes are included if `include_boundary_nodes` is set.
+ * The site is entered by reading `start` and left by reading `end`. We search the graph from the
+ * bounds and stop only at them, so we find tips as well as walks. The two boundary nodes are
+ * included if `include_boundary_nodes` is set.
  */
 pair<unordered_set<id_t>, unordered_set<edge_t> > site_contents(const HandleGraph& graph,
                                                                  const handle_t& start,
@@ -462,7 +462,7 @@ public:
     /// Only this function and take_snarls() may add in new Snarls.
     const Snarl* add_snarl(const Snarl& new_snarl);
 
-    /// Move every snarl of `other` into this manager, as add_snarl() would copy them.
+    /// Move every snarl of `other` into this manager, after the snarls it already holds.
     ///
     /// The snarls are added in the order `other` stores them. Afterwards `other` holds empty
     /// snarls, and can only be destroyed. Like add_snarl(), this must come before finish().

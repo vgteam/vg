@@ -323,7 +323,7 @@ public:
     void release_unrendered() { vector<StagedSite>().swap(held_back); }
 
 private:
-    /// See `unrendered()`.
+    /// The nested sites that `hand_off` kept out of the render queues.
     vector<StagedSite> held_back;
     /// The render queues, one per thread: the top-level sites, and after the hand-off also the
     /// nested ones that get a line of their own.

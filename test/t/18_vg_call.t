@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 500
+plan tests 503
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -181,8 +181,8 @@ is "$(echo "${MC_VCF}" | wc -l | tr -d ' ')" "$(grep -vc '^#' HGSVC_rl.vcf)" "--
 
 # --read-min-mapq drops reads before they reach the model, and until now nothing exercised it:
 # it was flagged as a dead option on the strength of no test and no harness use, and it is not
-# dead -- SiteReadFilter::min_mapq is applied in both read paths. Tested the same way
-# --min-confidence is, by pushing the threshold past what the data can satisfy.
+# dead -- SiteReadFilter::min_mapq is applied in both read paths. Tested by pushing the
+# threshold past what the data can satisfy.
 #
 # The fixture's mapping qualities run 0 to 60, so a floor of 61 must leave the model no reads at
 # all. That direction is the one worth pinning: a comparison the wrong way round would keep
@@ -747,9 +747,9 @@ vg call x.vg --read-likelihood --gam sim.gam -k x.pack --insertion-nats 0.9 2>/d
 is $(if [ $(wc -l < rl_ins.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "--insertion-nats is accepted and parsed with --read-likelihood"
 rm -f rl_ins.vcf
 
-# --optimal-pairing selects the optimal read-to-allele walk over the greedy default. It is
-# read-likelihood-only for the same reason the scoring flags are, and it is off by default,
-# so the greedy path is what an unflagged run exercises -- assert both directions here.
+# --optimal-pairing selects the optimal read-to-allele walk over the greedy default. It means
+# nothing without --read-likelihood, so it is refused without it. It is off by default, so the
+# greedy path is what an unflagged run exercises -- assert both directions here.
 vg call x.vg -k x.pack --optimal-pairing 2>/dev/null >/dev/null
 is "$?" "1" "--optimal-pairing without --read-likelihood is refused"
 
@@ -859,14 +859,15 @@ rm -f hs_lw0.txt
 
 # --phase-min-q's default follows the WALK, not the preset: 9.5 fits the greedy distribution
 # (chr20 median 10.06) and 8.5 the exact walk's (median 8.98), and keying it on neither is how the
-# 9.5 came to sit above 94% of the sites it was meant to admit.  The behavioural gate for this is
-# the chr20 sweep and the chr6 hold-out, which no fixture here can stand in for -- this only holds
-# the documented pair together, so the default cannot move without the help text moving with it.
+# 9.5 came to sit above 94% of the sites it was meant to admit.  The defaults themselves are
+# checked by the chr20 sweep and the chr6 hold-out, which no fixture here can stand in for -- this
+# only holds the documented pair together, so the default cannot move without the help text moving
+# with it.
 is $(vg call --help 2>&1 | grep -c -- "\[9.5, or 8.5 under --optimal-pairing\]") "1" \
    "--phase-min-q documents both of its defaults"
 
-# --phase-min-q gates on a HETEROZYGOUS site's mean read score, and that score cannot reach
-# phred(--mismap-min): a balanced het splits the slot weight in half, so the ceiling is
+# A heterozygous site is reliable only if its mean read score reaches --phase-min-q, and that score
+# cannot reach phred(--mismap-min): a balanced het splits the slot weight in half, so the ceiling is
 # phred(e/(e+(1-e)/2)) -- 10.21 at the ONT preset's 0.05 against the 13.01 that applies to
 # homozygous sites.  Above it NO site is reliable and all three phasing stages are skipped in
 # silence, so a sweep past the ceiling reports "0 reliable" and reads as the parameter not
@@ -893,20 +894,20 @@ rm -f pq_hi.txt pq_ok.txt pq_off.txt pq_op.txt
 
 # --split-min-q and --split-min-side expose the two thresholds that decide whether
 # --anchors-hom-split may split a site.  They were hardcoded, so the decision could not be swept at
-# all.  The gate that matters is that naming them explicitly changes NOTHING -- an additive option
-# that silently moved output would be worse than no option.
+# all.  The test that matters is that naming them at their defaults changes nothing -- an additive
+# option that silently moved output would be worse than no option.
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_default.tsv \
     --anchors-hom-split --read-phasing -t 1 2>/dev/null >/dev/null
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_explicit.tsv \
     --anchors-hom-split --read-phasing --split-min-q 0.5 --split-min-side 10 -t 1 2>/dev/null >/dev/null
 is $(if cmp -s sq_default.tsv sq_explicit.tsv; then echo 1; else echo 0; fi) "1" \
    "naming the split thresholds at their defaults changes nothing"
-# The gate above proves nothing unless this fixture exercises the threshold at all, and it once
-# named side 2 against a default of 10 and still passed. A non-default side must move the output.
+# The test above proves nothing unless this fixture exercises the threshold at all. A non-default
+# side must move the output.
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_side2.tsv \
     --anchors-hom-split --read-phasing --split-min-side 2 -t 1 2>/dev/null >/dev/null
 is $(if cmp -s sq_default.tsv sq_side2.tsv; then echo 1; else echo 0; fi) "0" \
-   "and a non-default --split-min-side does change it, so that gate can fire"
+   "and a non-default --split-min-side does change it, so that test can fail"
 
 # --split-min-q is FITTED, on chr20's phased-run length and confirmed on chr6, and it saturates
 # exactly at 0.5: the read-walkable run N50 is identical at 0.5, 0.25, 0.1 and 0.0 while the run's
@@ -958,8 +959,9 @@ rm -f sq_default.tsv sq_explicit.tsv sq_side2.tsv sq_noout.txt sq_bad.txt sq_lo.
 rm -f hs_norp.tsv hs_norp.txt hs_rp.tsv hs_rp.txt
 
 # The owner column generalises past --read-likelihood: --anchors-*, --mosaic-* and --regeno-* each
-# need their own subsystem switched on, and each was silently dropped without it.  The outer gate
-# still wins when BOTH switches are missing, because that is the one the user has to fix first.
+# need their own subsystem switched on, and each was silently dropped without it.  When both
+# switches are missing, the refusal names the outer one, because that is the one the user has to
+# fix first.
 vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --anchors-min-q 30 -t 1 >/dev/null 2>sub_anch.txt
 is $(grep -c -- "--anchors-min-q only applies with --anchors-out" sub_anch.txt) "1" "an --anchors-* option without --anchors-out is refused"
 
@@ -1178,8 +1180,8 @@ is $(grep -v "^#" nest_hap.vcf | cut -f10 | cut -d: -f1 | grep -cE '^[0-9]+$') "
    "no record carries a bare haploid genotype: every called allele names the strand it sits on"
 # And the mechanism that makes that possible on a collapsed parent: a site that writes no VCF line
 # is still entered into the linkage layer and phased, because its two alleles differ only inside its
-# children and those children need to know which is which. Gating entry on the line is what left
-# 289 of chr20's 292 strandless records with an unphased parent.
+# children and those children need to know which is which. If only sites with a line were entered,
+# the children of a collapsed parent would have no strand to inherit.
 is $(grep -c "collapsed sites phased with no line of their own" nest_hap_err.txt) "1" \
    "a site that emits no line is still phased, so its children can inherit a strand"
 # The invariant the whole nested effort is for, asserted on the progress output because it covers
@@ -1240,12 +1242,11 @@ is $(awk -F'\t' '/^H\t/ {print $3}' nest_hap.mosaic.tsv | sort -u | tr -d '\n') 
 is $(awk -F'\t' '/^H\t/ && $11 != "." {n[$3] += $11}
      END {print (n["0"] > 0 && n["1"] > 0) ? "both" : "missing"}' nest_hap.mosaic.tsv) "both" \
    "both strands account for sites with nested sites present"
-# Reference order within a strand was asserted here. WITHDRAWN, for the same two reasons as its
-# twin earlier in this file: it passes because the phasing is sorted into reference order before
-# segmentation, so it is near-tautological, and it would be WRONG for a strand traversing an
-# inversion, where walk order is not reference order. What replaces it is the contiguity assertion --
-# segments meeting at the same oriented node -- which is the property a consumer actually needs and
-# which reference order was standing in for.
+# Reference order within a strand was asserted here. WITHDRAWN, for two reasons. It passes because
+# the phasing is sorted into reference order before segmentation, so it is near-tautological. And
+# it would be WRONG for a strand traversing an inversion, where walk order is not reference order.
+# What replaces it is the contiguity assertion -- segments meeting at the same oriented node --
+# which is the property a consumer actually needs and which reference order was standing in for.
 is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; if (k==pk && $7 != pe) bad++; pk=k; pe=$8}
      END {print bad+0}' nest_hap.mosaic.tsv) "0" \
    "nested-fixture segments meet at the same oriented node too"
@@ -1274,12 +1275,13 @@ is $(awk -F'\t' '!/^#/ {n = ($5 == "." || $5 == "") ? 0 : split($5, a, ","); \
      nest_nested.vcf) "0" \
    "no nested GT names an allele the record has no ALT for"
 
-# The same invariant, on a nested haploid call that DECOMPOSES INTO BLOCKS -- which the fixture
-# above cannot reach, because its nested chain is a single SNP and a single difference is a single
-# record. Block emission asked the site's GT for a phased *pair* before looking at anything else,
-# so a haploid record fell straight through to the unphased fallback: bare "1" and PS erased,
-# losing both the strand and the phase set the unsplit record carries. 3,452 lines genome-wide,
-# from 1,517 snarls, every one of them a nested haploid call that happened to split.
+# A nested haploid record must name its strand and keep its phase set even when it DECOMPOSES
+# INTO BLOCKS -- which the fixture above cannot reach, because its nested chain is a single SNP and
+# a single difference is a single record. Block emission asked the site's GT for a phased *pair*
+# before looking at anything else, so a haploid record fell straight through to the unphased
+# fallback: bare "1" and PS erased, losing both the strand and the phase set the unsplit record
+# carries. 3,452 lines genome-wide, from 1,517 snarls, every one of them a nested haploid call that
+# happened to split.
 #
 # The chain here has two differences separated by a matched run (node 10), which is what makes two
 # blocks. Node 13 bypasses 10 so that 10 is not a cut vertex: without it the decomposition would
@@ -1719,9 +1721,10 @@ vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --phase-mi
     --regenotype --regeno-temper 0 -t 1 2>rl_rg_t0.err > rl_rg_t0.vcf
 is "$?" "0" "--regenotype runs"
 
-# THE gate, and it holds by construction rather than by tolerance: at temper 0 the tilted weights
-# ARE the site's own slot weights, so the corrected and uncorrected mixtures are the same
-# arithmetic on the same values and cancel bit for bit. One differing byte is a bug, not rounding.
+# At temper 0, re-genotyping must leave the VCF byte-identical, and this holds by construction
+# rather than by tolerance: the tilted weights are the site's own slot weights, so the corrected
+# and uncorrected mixtures are the same arithmetic on the same values and cancel bit for bit. One
+# differing byte is a bug, not rounding.
 is $(if cmp -s rl_rg_off.vcf rl_rg_t0.vcf; then echo 1; else echo 0; fi) "1" \
    "--regeno-temper 0 reproduces --no-regenotype byte for byte"
 
@@ -1733,7 +1736,7 @@ is $(grep "re-genotyping: temper" rl_rg_t0.err | sed 's/.*, \([0-9]*\) would mov
    "and moves nothing at temper 0"
 # The correction rewrites every site's likelihoods in place even when it moves no direct call, and
 # GL is written from them, so the linkage pass chooses them before the rounds stop. The byte-identity
-# gate above is then also the proof that choosing an identity correction again is inert.
+# test above is then also the proof that choosing an identity correction again is inert.
 is $(grep -c "re-genotyping round 2:" rl_rg_t0.err) "1" \
    "a correction that moves no direct call is still followed by a linkage pass"
 
@@ -2005,7 +2008,7 @@ from collections import defaultdict
 # Every surviving end anchor must hold a read its own slot\047s start anchor does not -- that is the
 # criterion, checked against the output. Read NAMES shared by two alignments are excluded: a mate at
 # the start pin and a mate at the end pin look like one read reaching both, so on paired data the
-# check is confounded rather than violated. See the plan, section 9.
+# check is confounded rather than violated.
 S = defaultdict(set); E = defaultdict(set); cur = None; role = None
 in_anchor = set(); seen = {}; shared = set()
 for line in open("rl_anchors_sp.tsv"):
@@ -2164,26 +2167,28 @@ vg deconstruct small_cluster_call.gfa -p x -L 0.7142 --cluster-min-len 0 2>/dev/
 is "$(n_alts decon_hi.vcf)" "$(n_alts call_cluster_hi.vcf)" "vg call and vg deconstruct agree above the threshold"
 is "$(n_alts decon_lo.vcf)" "$(n_alts call_cluster_lo.vcf)" "vg call and vg deconstruct agree below the threshold"
 
-# --cluster-min-len gates per site, exactly as in vg deconstruct.  This site's core length is 6 bp.
+# Alleles merge only at a site whose core length is at least --cluster-min-len, exactly as in
+# vg deconstruct.  This site's core length is 6 bp.
 for N in 0 6 7 50 ; do
     vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 --cluster-min-len $N > call_minlen_$N.vcf 2>/dev/null
 done
 is "$(call_site call_minlen_0.vcf 5)"  "ATTTGA"        "--cluster-min-len 0 merges everywhere"
 is "$(call_site call_minlen_6.vcf 5)"  "ATTTGA"        "--cluster-min-len at the site length still merges"
-is "$(call_site call_minlen_7.vcf 5)"  "ATTTGA,ATTTGG" "--cluster-min-len above the site length gates merging"
+is "$(call_site call_minlen_7.vcf 5)"  "ATTTGA,ATTTGG" "--cluster-min-len above the site length prevents merging"
 is "$(call_site call_minlen_50.vcf 5)" "ATTTGA,ATTTGG" "--cluster-min-len 50 restricts merging to SVs"
 # 50 is the DEFAULT, so -L on its own must behave like --cluster-min-len 50 and leave this 6bp site
 # alone.  Every merge assertion above has to pass --cluster-min-len 0 for exactly this reason.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 > call_minlen_default.vcf 2>/dev/null
 diff call_minlen_50.vcf call_minlen_default.vcf
-is "$?" 0 "-L alone gates like --cluster-min-len 50, the default"
+is "$?" 0 "-L alone behaves like --cluster-min-len 50, the default"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len 50 > call_minlen_only.vcf 2>/dev/null
 diff call_no_cluster.vcf call_minlen_only.vcf
 is "$?" 0 "--cluster-min-len without -L is a no-op"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x --cluster-min-len 50 2>&1 >/dev/null | grep -q "no effect without -L"
 is "$?" 0 "--cluster-min-len without -L warns"
 
-# The gate must read the alleles the record emits, not the traversal finder's candidate list.
+# The core length must be measured on the alleles the record emits, not on the traversal finder's
+# candidate list.
 # Adding a long branch with no reads -- absent from the genotype and from every AT entry -- must not
 # change whether merging happens.
 cp small_cluster_call.gfa minlen_ghost.gfa
@@ -2253,7 +2258,7 @@ is "$?" 1 "-L is rejected with -Y/--star-allele"
 
 # The gref workflow, which is what nested -L is for: the reference bypasses a 121bp insertion, so
 # the insertion's interior is only reachable as a gref fragment contig.  The insertion is an SV by
-# the --cluster-min-len 50 default, so it merges without the gate having to be turned off.
+# the --cluster-min-len 50 default, so it merges without --cluster-min-len 0.
 A20=$(printf 'A%.0s' $(seq 20)); C60=$(printf 'C%.0s' $(seq 60))
 A60=$(printf 'A%.0s' $(seq 60)); T20=$(printf 'T%.0s' $(seq 20))
 { printf "H\tVN:Z:1.0\n"
@@ -2278,11 +2283,11 @@ is "$(nlg_field nlg_L.vcf gref_x 8 | grep -c 'MAT=')" "1" "and says so in MAT"
 is "$(nlg_field nlg_L.vcf gref_x_1_alt 1-11)" "$(nlg_field nlg_plain.vcf gref_x_1_alt 1-11)" "the child record on the gref fragment is untouched by the merge"
 rm -f nlg.gfa nlg.pg nlg_a.gam nlg_b.gam nlg.gam nlg.pack nlg_plain.vcf nlg_L.vcf
 
-# The same shape under --read-likelihood, which reaches those chains by descent rather than by
-# --top-down.  A gref cover is what makes them reportable: the reference bypasses the insertion, so
-# without one the SNP inside it has no REF and no POS and is genotyped and thrown away.  Needs a
-# GBZ, because allele enumeration comes from the panel; the truth pair lives in a second graph so
-# the sample's own walks are not in the panel it is called against.
+# The same nodes and edges under --read-likelihood, which reaches the chain inside the insertion
+# by descent rather than by --top-down.  A gref cover is what makes it reportable: the reference
+# bypasses the insertion, so without one the SNP inside it has no REF and no POS and is genotyped
+# and thrown away.  Needs a GBZ, because allele enumeration comes from the panel; the truth pair
+# lives in a second graph so the sample's own walks are not in the panel it is called against.
 A20=$(printf 'A%.0s' $(seq 20)); C60=$(printf 'C%.0s' $(seq 60))
 A60=$(printf 'A%.0s' $(seq 60)); T20=$(printf 'T%.0s' $(seq 20))
 { printf "H\tVN:Z:1.1\n"
@@ -2395,9 +2400,10 @@ vg call bu.vg -k bu.pack -p x --bottom-up -G >/dev/null 2>&1
 is "$?" 1 "--bottom-up is rejected with -G"
 rm -f bu.vg bu.gam bu.pack bu.vcf
 
-# --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
-# every allele are stripped -- not on the raw snarl interior.  Same rule, same helper, as
-# vg deconstruct: without it a 1bp SNP gets gated on the size of whatever snarl contains it.
+# --cluster-min-len is compared with the core length: the length of the longest allele once the
+# prefix and suffix shared by every allele are stripped.  vg deconstruct uses the same rule and the
+# same helper.  With the raw snarl interior instead, whether a 1bp SNP merges would depend on the
+# size of the snarl that contains it.
 core_pack() {
     vg view -Fv nesting/$1.gfa > core_$1.vg
     vg sim -x core_$1.vg -P hapA -n 40 -l 60 -a -s 5 > core_a.gam
@@ -2483,22 +2489,27 @@ is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --bottom-up 2
 is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --bottom-up --ploidy-bed zero_x_ploidy.bed 2>/dev/null | grep -vc '^#') "0" "ploidy 0 makes no --bottom-up calls"
 
 # The ploidy presets built into vg parse, and leave a contig they do not name diploid and unchanged.
-SHIPPED=0
-SHIPPED_OK=0
-for PRESET in chm13v2.XY chm13v2.XX grch38.XY grch38.XX grch37.ucsc.XY grch37.ucsc.XX grch37.b37.XY grch37.b37.XX; do
-    SHIPPED=$((SHIPPED + 1))
-    vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset "${PRESET}" 2>/dev/null | grep -v '^#' > shipped.txt
-    [ "${PIPESTATUS[0]}" = 0 ] && cmp -s shipped.txt <(grep -v '^#' ploidy_bed_none.vcf) && SHIPPED_OK=$((SHIPPED_OK + 1))
+PRESETS="chm13v2.XY chm13v2.XX grch38.XY grch38.XX grch37.ucsc.XY grch37.ucsc.XX grch37.b37.XY grch37.b37.XX"
+PRESETS_OK=0
+for PRESET in ${PRESETS}; do
+    vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset "${PRESET}" 2>/dev/null | grep -v '^#' > preset.txt
+    [ "${PIPESTATUS[0]}" = 0 ] && cmp -s preset.txt <(grep -v '^#' ploidy_bed_none.vcf) && PRESETS_OK=$((PRESETS_OK + 1))
 done
-is "${SHIPPED_OK}" "${SHIPPED}" "every built-in ploidy preset parses and leaves an unnamed contig as it was"
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset nonesuch >/dev/null 2>&1
-isnt "$?" "0" "an unknown ploidy preset is refused"
-vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset chm13v2.XY --ploidy-bed zero_x_ploidy.bed >/dev/null 2>&1
-isnt "$?" "0" "a ploidy preset and a ploidy BED together are refused"
+# An unknown name fails with a message that lists the presets, which are the eight above, and the
+# help lists the same eight.
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset nosuch >/dev/null 2> preset_err.txt
+is "$?" 1 "--ploidy-preset rejects an unknown name"
+is "$(grep -o '[a-z0-9.]*\.X[XY]' preset_err.txt | sort | tr '\n' ' ')" "$(printf '%s\n' ${PRESETS} | sort | tr '\n' ' ')" "vg has XY and XX ploidy presets for four assemblies"
+is "$(vg call --help 2>&1 | grep -o '[a-z0-9.]*\.X[XY]' | sort | tr '\n' ' ')" "$(printf '%s\n' ${PRESETS} | sort | tr '\n' ' ')" "vg call --help names every ploidy preset"
+is "${PRESETS_OK}" "8" "every ploidy preset parses and leaves an unnamed contig as it was"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-preset '' >/dev/null 2>&1
+is "$?" 1 "--ploidy-preset rejects an empty name"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed elsewhere_ploidy.bed --ploidy-preset chm13v2.XY >/dev/null 2>&1
+is "$?" 1 "--ploidy-bed cannot be used with --ploidy-preset"
 
 rm -f bad_ploidy.bed overlap_ploidy.bed reversed_ploidy.bed elsewhere_ploidy.bed
 rm -f ploidy_bed_elsewhere.vcf ploidy_bed_none.vcf whole_x_ploidy.bed zero_x_ploidy.bed
-rm -f sb_hap_d.txt sb_hap_bed.txt shipped.txt
+rm -f sb_hap_d.txt sb_hap_bed.txt preset.txt preset_err.txt
 # -G built a re-indexed traversal vector but kept the original reference index, then indexed the
 # small vector with it.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -G > call_gaf.gaf 2>/dev/null
@@ -2542,7 +2553,7 @@ vg view -Fv nesting/nested_snp_in_del.gfa > ns.vg 2>/dev/null
 vg sim -x ns.vg -P x -n 150 -l 4 -a -s 7 > ns_het.gam 2>/dev/null
 vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 2 -a -s 8 >> ns_het.gam 2>/dev/null
 vg pack -x ns.vg -g ns_het.gam -o ns_het.pack 2>/dev/null
-# --mismap-max pinned for the reason given at the gref fixture: `vg sim` reads carry MAPQ 0.
+# --mismap-max pinned, because `vg sim` reads carry MAPQ 0, which makes e_r the cap for every read.
 vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
 
 is $(grep -v "^#" ns_rl.vcf | wc -l | tr -d ' ') "2" "nested read-likelihood emits both the parent and the child site"
@@ -2586,9 +2597,9 @@ is $(grep -c "alternatives, not a combination" ns_rl_a_nested.err | tr -d ' ') "
    "and says why"
 
 # The same graph with the reference path running BACKWARDS through it, which is the only
-# configuration that exercises resolve_site's reversed branch. nested_snp_in_del_rev.gfa is the
-# mirror of nested_snp_in_del.gfa -- identical topology and sequences, x = 6-,5-,3-,2-,1- -- so both
-# snarls (1,6) and (2,5) are reversed relative to the graph and flip_snarl rewrites them.
+# configuration that exercises resolve_site's reversed branch. nested_snp_in_del_rev.gfa has the
+# topology and sequences of nested_snp_in_del.gfa with every path reversed, x = 6-,5-,3-,2-,1-, so
+# both snarls (1,6) and (2,5) are reversed relative to the graph and flip_snarl rewrites them.
 #
 # This existed only in 26_deconstruct.t, so nothing in the calling suite ever reached the reversed
 # branch: the reverse-oriented fixtures 18_vg_call.t already used run through the support caller with
@@ -2598,7 +2609,7 @@ vg view -Fv nesting/nested_snp_in_del_rev.gfa > nsr.vg 2>/dev/null
 vg sim -x nsr.vg -P x -n 150 -l 4 -a -s 7 > nsr_het.gam 2>/dev/null
 vg sim -x nsr.vg -P 'a#2#y1#0' -n 150 -l 2 -a -s 8 >> nsr_het.gam 2>/dev/null
 vg pack -x nsr.vg -g nsr_het.gam -o nsr_het.pack 2>/dev/null
-# --mismap-max pinned, as for the forward-path fixture above.
+# --mismap-max pinned, because `vg sim` reads carry MAPQ 0, which makes e_r the cap for every read.
 vg call nsr.vg -k nsr_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam nsr_het.gam 2>nsr_rl.err > nsr_rl.vcf
 
 is $(grep -v "^#" nsr_rl.vcf | wc -l | tr -d ' ') "2" "a backwards reference path still emits both the parent and the child site"
@@ -2610,8 +2621,8 @@ is "$(sed -n 's/.*atomize: \([0-9]*\) sites where projection is inert.*/\1/p' ns
 REV_SITES=$(sed -n 's/.*resolve, \([0-9]*\) resolved as the reversal.*/\1/p' nsr_rl.err | head -1)
 is "$([ "${REV_SITES:-0}" -ge 1 ] && echo yes || echo no)" "yes" "the reversed-snarl branch is exercised end to end"
 
-# And the control: the forward twin must NOT take that branch, or the counter is measuring something
-# other than reversal.
+# And the control: ns.vg, whose reference path runs forward, must NOT take that branch, or the
+# counter is measuring something other than reversal.
 vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>ns_fwd.err >/dev/null
 is "$(sed -n 's/.*resolve, \([0-9]*\) resolved as the reversal.*/\1/p' ns_fwd.err | head -1)" "0" "a forward reference path never takes the reversed branch"
 
@@ -3262,9 +3273,9 @@ vg sim -x fx_sim.gbz -n 600 -l 40 -a -s 23 --path "T#1#chr1#0" >> fx.gam 2>/dev/
 # --linkage-scale is the decay distance in bp and defaults to 10 kb, which over 396 bp makes every
 # recombination effectively free to avoid: the model then explains the sample by flipping single
 # alleles rather than switching haplotype, and the mosaic collapses to one segment per strand. A
-# scale on the order of the site spacing is what makes this graph behave like a real contig. The
-# result is stable over 30..60.
-# --mismap-max pinned for the reason given at the gref fixture: `vg sim` reads carry MAPQ 0.
+# scale on the order of the site spacing lets the model switch haplotype between sites. The result
+# is stable over 30..60.
+# --mismap-max pinned, because `vg sim` reads carry MAPQ 0, which makes e_r the cap for every read.
 vg call fx.gbz --read-likelihood --mismap-max 0.7 --gam fx.gam -t 1 -s samp --phased --linkage-scale 40 \
     --mosaic-out fx.mosaic.tsv --progress >/dev/null 2>fx.err
 is "$?" 0 "vg call runs on the mosaic structural fixture"

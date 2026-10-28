@@ -252,7 +252,8 @@ ReadNameTable& read_names();
 struct AnchorRead {
     /// The read, as its index in read_names().
     uint32_t read = 0;
-    /// The MAPQ-derived mismapping probability, clamped as the genotype model clamps it.
+    /// The MAPQ-derived mismapping probability, clamped between the `min_mismap_prob` and
+    /// `max_mismap_prob` of `AlleleLikelihoodParams`.
     float mismap = 0.0f;
     /// Where the read crosses the start pin of the site.
     AnchorPlacement start_pin;
@@ -379,11 +380,11 @@ struct AnchorParams {
     /// Whether to choose a read's slot at a heterozygous site using its strand log-odds as well as
     /// its allele match. On by default.
     ///
-    /// The strand log-odds, computed leaving this site out, change the read's slot weights as
-    /// `phase_aware_correction` does in re-genotyping. Without them each site places a read from
-    /// its own alleles alone, so neighbouring sites can disagree about a read's strand. With them,
-    /// the anchors agree with the phasing where the strand is confident, so they are no longer an
-    /// independent check on it.
+    /// The strand log-odds, computed leaving this site out, multiply the weight of the slot they
+    /// disfavour by exp(-|log-odds|), as `phase_aware_correction` does in re-genotyping. Without
+    /// them each site places a read from its own alleles alone, so neighbouring sites can disagree
+    /// about a read's strand. With them, the anchors agree with the phasing where the strand is
+    /// confident, so they are no longer an independent check on it.
     bool phase_hets = true;
 
     /// Whether to choose a read's slot at a heterozygous site by the sign of its strand log-odds

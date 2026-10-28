@@ -210,8 +210,8 @@ enum class EditOp { MATCH, SUB, DEL, INS };
 /**
  * Trace an optimal alignment back through a filled matrix.
  *
- * Break ties in the order the header gives for `symbolic_diff`: diagonal first (a match before a
- * substitution), then deletion, then insertion.
+ * Break ties diagonal first (a match before a substitution), then deletion, then insertion,
+ * which is the order `symbolic_diff` promises.
  *
  * @return The operations of the alignment, from the start of both alleles.
  */
