@@ -102,7 +102,8 @@ static map<string, string> walk_sites(const SnarlDecomposition& decomposition,
             decomposition.is_root(parent) ? string("root")
                                           : bounds_key(graph, site_bounds(decomposition, graph,
                                                                           parent)),
-            describe_children(graph, site_children(decomposition, graph, site, bounds))};
+            describe_children(graph, site_children(decomposition, graph, site, bounds.start,
+                                                         bounds.end))};
         {
             lock_guard<std::mutex> guard(lock);
             visits.push_back(std::move(visit));

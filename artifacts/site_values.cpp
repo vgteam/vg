@@ -137,17 +137,17 @@ static void add_child_chain(const SnarlDecomposition& decomposition, const Handl
 }
 
 SiteChildren site_children(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                           const net_handle_t& site, const SiteBounds& as_called,
-                           vector<net_handle_t>* child_sites) {
+                           const net_handle_t& site, const handle_t& called_start,
+                           const handle_t& called_end, vector<net_handle_t>* child_sites) {
     SiteChildren out;
     // The caller has this site as the decomposition orients it, or turned round. Compare node IDs
     // for the first, and whole handles for the second, since turning round flips the bounds as
     // well as swapping them.
     const SiteBounds own = oriented_bounds(decomposition, graph, site);
-    const bool forward = graph.get_id(own.start) == graph.get_id(as_called.start)
-                         && graph.get_id(own.end) == graph.get_id(as_called.end);
-    const bool reversed = own.start == graph.flip(as_called.end)
-                          && own.end == graph.flip(as_called.start);
+    const bool forward = graph.get_id(own.start) == graph.get_id(called_start)
+                         && graph.get_id(own.end) == graph.get_id(called_end);
+    const bool reversed = own.start == graph.flip(called_end)
+                          && own.end == graph.flip(called_start);
     if (!forward && !reversed) {
         return out;
     }

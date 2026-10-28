@@ -173,7 +173,7 @@ static handle_t read_as_in_walks(const HandleGraph& graph, const vector<Traversa
     return graph.get_handle(node);
 }
 
-vector<HeldEdit> EditSitePlacer::held_by(const net_handle_t& site, const SiteBounds& bounds,
+vector<HeldEdit> EditSitePlacer::held_by(const net_handle_t& site,
                                          const vector<Traversal>& walks, int ref_trav_idx) const {
     const PathPositionHandleGraph& graph = *parts.graph;
     // Collect the nodes the walks visit.
@@ -186,8 +186,8 @@ vector<HeldEdit> EditSitePlacer::held_by(const net_handle_t& site, const SiteBou
     std::sort(nodes.begin(), nodes.end());
     nodes.erase(std::unique(nodes.begin(), nodes.end()), nodes.end());
     vector<EditCandidate> found;
-    const nid_t start = graph.get_id(bounds.start);
-    const nid_t end = graph.get_id(bounds.end);
+    const nid_t start = graph.get_id(parts.sites->get_site_start(site));
+    const nid_t end = graph.get_id(parts.sites->get_site_end(site));
     // Leave out the candidates on the bounds, which are in the parent's chain. The site's own read
     // query counted the rest.
     parts.edit_source->for_each_edit_candidate(nodes, [&](const EditCandidate& c) {

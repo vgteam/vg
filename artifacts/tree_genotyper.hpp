@@ -57,9 +57,9 @@ public:
         const PloidyRegions* ploidy_regions = nullptr;
         /// The reference paths, with their offsets and ploidies.
         const ReferencePathTable* ref_paths = nullptr;
-        /// Makes the ID of the site with bounds `site`, as its records name it (see
-        /// `StagedSite::id`).
-        function<string(const SiteBounds& site)> site_id;
+        /// Makes the ID of the site with start bound `start` and end bound `end`, as its records
+        /// name it (see `StagedSite::id`).
+        function<string(const handle_t& start, const handle_t& end)> site_id;
         /// Off-panel detection's candidates, or null when it is off.
         const SiteReadSource* edit_source = nullptr;
         /// The source the reads of the sites come from, or null for none.
@@ -226,11 +226,14 @@ private:
 
     /// Genotype one site at `ploidies`.
     ///
+    /// @param start The start bound of the site, as the candidate finder oriented it.
+    /// @param end The end bound of the site, as the candidate finder oriented it.
     /// @param net The site, as its net handle in the overlay of sites.
     /// @param score Set to the score inside the returned call info.
     pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> genotype_site(
-        const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
-        const Ploidies& ploidies, const net_handle_t& net, SiteScore*& score) const;
+        const handle_t& start, const handle_t& end, const vector<Traversal>& travs,
+        int ref_trav_idx, const Ploidies& ploidies, const net_handle_t& net,
+        SiteScore*& score) const;
 
     /// Make the `StagedSite` of a site from its walks and genotype, moving `call_info` into it.
     ///

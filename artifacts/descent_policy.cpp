@@ -42,9 +42,11 @@ void DescentPolicy::configure(const HandleGraph* new_graph,
 }
 
 DescentPolicy::Nested DescentPolicy::nested_in(const net_handle_t& site,
-                                           const SiteBounds& as_called) const {
+                                             const handle_t& called_start,
+                                             const handle_t& called_end) const {
     Nested nested;
-    nested.children = site_children(*decomposition, *graph, site, as_called, &nested.sites);
+    nested.children =
+        site_children(*decomposition, *graph, site, called_start, called_end, &nested.sites);
     return nested;
 }
 

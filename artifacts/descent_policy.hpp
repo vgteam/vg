@@ -166,9 +166,10 @@ public:
         vector<net_handle_t> sites;
     };
 
-    /// Get the sites nested in `site`, which the caller has as `as_called`: its bounds as the
-    /// decomposition orients them, or turned round.
-    Nested nested_in(const net_handle_t& site, const SiteBounds& as_called) const;
+    /// Get the sites nested in `site`, which the caller has with start bound `called_start` and
+    /// end bound `called_end`: read the way the decomposition orients it, or turned round.
+    Nested nested_in(const net_handle_t& site, const handle_t& called_start,
+                     const handle_t& called_end) const;
 
     /// Find the place of node `id` in the decomposition (see `placement_of_node`).
     NodePlacement placement_of(nid_t id) const;

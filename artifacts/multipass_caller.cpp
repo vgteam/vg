@@ -55,8 +55,8 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
             .descent_counters = &descent_counters,
             .ploidy_regions = &ploidy_regions,
             .ref_paths = &ref_paths,
-            .site_id = [this](const SiteBounds& site) {
-                return output.print_snarl(&graph, site.start, site.end);
+            .site_id = [this](const handle_t& start, const handle_t& end) {
+                return output.print_snarl(&graph, start, end);
             },
             .edit_source = off_panel.source(),
             .read_source = read_source,
