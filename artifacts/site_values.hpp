@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "decomposition_sites.hpp"
+#include "edit_snarl_decomposition_overlay.hpp"
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
@@ -188,6 +189,12 @@ vector<SiteBounds> enclosing_sites(const SnarlDecomposition& decomposition,
 /// Get the chain the site `site` is in.
 ChildChain chain_of_site(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                          const net_handle_t& site);
+
+/// Get the chain that holds the site or edit `net` of `sites`.
+///
+/// An edit lies in the chain of the node that holds its start.
+ChildChain chain_holding(const EditSnarlDecompositionOverlay& sites, const HandleGraph& graph,
+                         const net_handle_t& net);
 
 /// The place of a node in a decomposition: the sites that hold it and the chain it is in.
 struct NodePlacement {

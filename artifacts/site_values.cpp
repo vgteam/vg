@@ -196,6 +196,16 @@ NodePlacement placement_of_node(const SnarlDecomposition& decomposition, const H
     return out;
 }
 
+ChildChain chain_holding(const EditSnarlDecompositionOverlay& sites, const HandleGraph& graph,
+                         const net_handle_t& net) {
+    if (!sites.is_edit(net)) {
+        return chain_of_site(sites, graph, net);
+    }
+    const handle_t start = sites.get_site_start(sites.canonical(net));
+    return oriented_bounds(sites, graph,
+                           sites.get_parent(sites.get_net(graph.forward(start), &graph)));
+}
+
 size_t chain_key_of(const HandleGraph& graph, const ChildChain& chain) {
     // Every node is in exactly one chain, so the chain's first node names it alone.
     return (size_t)graph.get_id(chain.start);

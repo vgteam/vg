@@ -303,7 +303,7 @@ bool TreeGenotyper::genotype_nested_chain(SiteCall& call) {
                         : 0;
 
     call.staged = stage_render_record(
-        call.bounds, call.net, call.id, call.genotype, std::move(call.walks),
+        call.net, call.id, call.genotype, std::move(call.walks),
         call.site.ref_trav_idx,
         trav_call_info, trav_score,
         ReferencePlacement{.path_name = call.site.ref_path_name,
@@ -355,7 +355,7 @@ void TreeGenotyper::record_and_stage(SiteCall& call,
                                      unique_ptr<SnarlCaller::CallInfo>& trav_call_info,
                                      SiteScore* trav_score) const {
     call.staged = stage_render_record(
-        call.bounds, call.net, call.id, call.genotype, std::move(call.walks),
+        call.net, call.id, call.genotype, std::move(call.walks),
         call.site.ref_trav_idx,
         trav_call_info, trav_score,
         ReferencePlacement{.path_name = call.site.ref_path_name,
@@ -622,7 +622,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
                               + (int64_t)placement.parent_offset
                         : 0;
     unique_ptr<StagedSite> staged = stage_render_record(
-        bounds, edit.child.net, site_id, genotype, walks, 0, call_info, score,
+        edit.child.net, site_id, genotype, walks, 0, call_info, score,
         ReferencePlacement{.path_name = ref_path_name,
                            .offset = ref_offset,
                            .no_reference = no_ref_position,
@@ -631,8 +631,6 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     if (!top_level) {
         place_in_tree(*staged, placement);
     }
-    // Put the edit site in the chain its node is in.
-    staged->chain = edit.child.chain;
     staged->alleles.sequences = sequences;
     // A retain_only site is crossed by no called parent allele, so it is not filed yet. A site
     // with no reference position is filed anyway.
@@ -659,12 +657,11 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> TreeGenotyper::genotype_sit
 }
 
 unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
-        const SiteBounds& bounds, const net_handle_t& net, const string& site_id,
+        const net_handle_t& net, const string& site_id,
         const vector<int>& trav_genotype,
         vector<Traversal> travs, int ref_trav_idx, unique_ptr<SnarlCaller::CallInfo>& call_info,
         SiteScore* score, const ReferencePlacement& reference, int ploidy) const {
     auto rec = std::make_unique<StagedSite>();
-    rec->bounds = bounds;
     rec->net = net;
     rec->reference = reference;
     rec->alleles.walks = std::move(travs);
@@ -682,7 +679,6 @@ unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
 void TreeGenotyper::fill_tree_fields(const SiteView& view, const SiteChildren& children,
                                      StagedSite& site) const {
     site.children = children;
-    site.chain = parts.descent_policy->chain_of(view.net);
 }
 
 }

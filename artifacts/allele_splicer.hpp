@@ -48,7 +48,8 @@ public:
     /// Make a splicer over `graph` that reads the chosen alleles from `phase_table`.
     ///
     /// Neither is owned.
-    AlleleSplicer(const HandleGraph& graph, const PhaseTable& phase_table);
+    AlleleSplicer(const HandleGraph& graph, const EditSnarlDecompositionOverlay& sites,
+                  const PhaseTable& phase_table);
 
     /// Index the staged sites under each site of `staged_sites`.
     ///
@@ -132,6 +133,8 @@ private:
     static bool apply_step_edits(vector<StepEdit> step_edits, StepSequences& steps);
 
     const HandleGraph& graph;
+    /// The overlay of sites that the staged sites' net handles are in.
+    const EditSnarlDecompositionOverlay& sites;
     /// Gives the chosen allele of each site on each strand.
     const PhaseTable& phase_table;
     /// The staged sites under each site, by the record key of the parent.

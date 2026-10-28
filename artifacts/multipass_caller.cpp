@@ -27,7 +27,7 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
     genotype_snarls(genotype_snarls),
     top_down(top_down),
     star_allele(star_allele),
-    splicer(graph, phase_table),
+    splicer(graph, sites, phase_table),
     off_panel(graph, this->ref_paths),
     candidates(graph, traversal_finder, this->ref_paths, allele_length_range),
     record_renderer(phase_table, read_strands, linker, anchor_collector)
@@ -106,7 +106,9 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
 unique_ptr<SiteTree> MultiPassCaller::site_tree() {
     return std::make_unique<StagedSiteTree>(
         staged_sites, sites, graph,
-        [this](const SiteBounds& site) { return output.print_snarl(&graph, site.start, site.end); });
+        [this](const handle_t& start, const handle_t& end) {
+            return output.print_snarl(&graph, start, end);
+        });
 }
 
 string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
@@ -198,7 +200,7 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
                                     vcflib::Variant& variant) {
         snarl_caller.write_vcf_fields(site_trav, site_genotype, site.call_info.get(), sample_name,
                                       variant);
-        if (site.is_edit()) {
+        if (sites.is_edit(site.net)) {
             variant.infoFlags["OP"] = true;
         }
     };
@@ -430,9 +432,9 @@ void MultiPassCaller::render_retained_records() {
             const vector<Traversal>& spelled = is_spliced ? spliced.travs : site.alleles.walks;
             const AlleleSequences& spelled_steps =
                 is_spliced ? spliced.sequences : site.alleles.sequences;
-            output.emit_site(graph, site.bounds.start, site.bounds.end, site.alleles.walks,
-                             genotype, site.alleles.ref_allele, site.call_info.get(),
-                             site.reference.path_name,
+            output.emit_site(graph, sites.get_site_start(site.net), sites.get_site_end(site.net),
+                             site.alleles.walks, genotype, site.alleles.ref_allele,
+                             site.call_info.get(), site.reference.path_name,
                              site.reference.offset, genotype_snarls, site.ploidy,
                              record_steps(site, is_spliced ? &spliced : nullptr),
                              // Each allele is spelled as the site holds it: by its step sequences
@@ -474,7 +476,8 @@ size_t MultiPassCaller::rederive_reported_inline() {
             const bool was = child.placement.reported_inline;
             child.placement.reported_inline =
                 parent.placement.reported_inline
-                || block_records.chain_reported_inline(graph, ctx, child.chain);
+                || block_records.chain_reported_inline(graph, ctx,
+                                                       chain_holding(sites, graph, child.net));
             if (was != child.placement.reported_inline) {
                 ++rederived;
             }

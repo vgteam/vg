@@ -4,8 +4,9 @@
 
 namespace vg::multipass {
 
-AlleleSplicer::AlleleSplicer(const HandleGraph& graph, const PhaseTable& phase_table) :
-    graph(graph), phase_table(phase_table) {
+AlleleSplicer::AlleleSplicer(const HandleGraph& graph, const EditSnarlDecompositionOverlay& sites,
+                             const PhaseTable& phase_table) :
+    graph(graph), sites(sites), phase_table(phase_table) {
     // Nothing to do
 }
 
@@ -98,7 +99,7 @@ bool AlleleSplicer::chosen_replacement(const StagedSite& child, int strand, bool
     if (child_trav < 0 || child_trav >= (int)child.alleles.walks.size()) {
         return false;
     }
-    rep.inside_node = child.bounds.inside_node;
+    rep.inside_node = sites.is_edit(child.net);
     rep.key = child.record_key;
     if (!spliced_allele(child, child_trav, strand, phase->ploidy == 1, rep.walk, rep.steps)) {
         rep.walk = child.alleles.walks[child_trav];

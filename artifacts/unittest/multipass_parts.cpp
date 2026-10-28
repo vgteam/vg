@@ -105,30 +105,23 @@ TEST_CASE("The staged-site tree places each site under the sites enclosing it, o
     IntegratedSnarlFinder finder(nested.graph);
     DecompositionPair pair(nested.graph, finder);
     EditSnarlDecompositionOverlay overlay(pair.adapter, nested.graph);
-    auto bounds = [&](nid_t start, bool start_back, nid_t end, bool end_back) {
-        return SiteBounds{graph.get_handle(start, start_back), graph.get_handle(end, end_back)};
-    };
-    auto name = [&](const SiteBounds& site) {
-        return site_name(graph, site.start, site.end, nullptr, false);
+    auto name = [&](const handle_t& start, const handle_t& end) {
+        return site_name(graph, start, end, nullptr, false);
     };
     StagedSiteTable table;
     table.start(1);
-    auto stage = [&](const net_handle_t& net, const SiteBounds& site, const string& id) {
+    auto stage = [&](const net_handle_t& net, const string& id) {
         StagedSite staged;
         staged.net = net;
-        staged.bounds = site;
         staged.id = id;
         table.add_top_level(std::move(staged));
     };
     // A top-level site 1..8, and inside it 2..7, staged read backward as the reference might
     // orient it. Inside that, 3..5 is not staged, and inside 3..5 an edit site inside node 4 has an
     // ID of its own.
-    const SiteBounds outer = bounds(1, false, 8, false);
-    SiteBounds inside = bounds(4, false, 4, false);
-    inside.inside_node = true;
-    stage(find_snarl(overlay, graph, 1, 8), outer, name(outer));
-    stage(overlay.flip(find_snarl(overlay, graph, 2, 7)), bounds(7, true, 2, true), "<7<2");
-    stage(overlay.add_edit(nested.handle(4), 1, nested.handle(4), 2), inside, "4:1:G");
+    stage(find_snarl(overlay, graph, 1, 8), name(nested.handle(1), nested.handle(8)));
+    stage(overlay.flip(find_snarl(overlay, graph, 2, 7)), "<7<2");
+    stage(overlay.add_edit(nested.handle(4), 1, nested.handle(4), 2), "4:1:G");
 
     const StagedSiteTree tree(table, overlay, graph, name);
     vector<SiteTree::site_t> order;

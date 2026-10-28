@@ -66,7 +66,7 @@ bool GenotypeLinker::file(StagedSite& site, bool nested) const {
     // allele map then.
     static const vector<int> no_allele_map;
     model->record(
-        site.reference.locus(*reader.graph, site.bounds), site.score->genotype_lls,
+        site.reference.locus(*reader.graph, *reader.sites, site.net), site.score->genotype_lls,
         site.panel_alleles(*lookup),
         LinkageCollector::DirectCall{
             .called_i = genotype[0],
@@ -76,8 +76,8 @@ bool GenotypeLinker::file(StagedSite& site, bool nested) const {
         },
         no_allele_map, site.record_key,
         LinkageCollector::SiteContext{
-            .start_node = (int64_t)reader.graph->get_id(site.bounds.start),
-            .end_node = (int64_t)reader.graph->get_id(site.bounds.end),
+            .start_node = (int64_t)reader.graph->get_id(reader.sites->get_site_start(site.net)),
+            .end_node = (int64_t)reader.graph->get_id(reader.sites->get_site_end(site.net)),
             .nested = nested,
             .parent_record_key = placement.parent_record_key,
             .parent_crossing = placement.parent_crossing,
@@ -307,7 +307,8 @@ void GenotypeLinker::place_chain(
     }
     if (pr.reference.no_reference) {
         pr.reference.position_from_parent += (int64_t)offset - (int64_t)pr.placement.parent_offset;
-        model->set_position(pr.record_key, pr.reference.locus(*reader.graph, pr.bounds).position);
+        model->set_position(pr.record_key,
+                            pr.reference.locus(*reader.graph, *reader.sites, pr.net).position);
     }
     pr.placement.parent_offset = offset;
 }

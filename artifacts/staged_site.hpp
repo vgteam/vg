@@ -51,9 +51,10 @@ struct ReferencePlacement {
      * path, or at its own base for a site inside a node. A site with `no_reference` is placed at
      * `position_from_parent`.
      *
-     * @param bounds The bounds of the site, oriented forward along `path_name`.
+     * @param net The site in `sites`, read forward along `path_name`.
      */
-    SiteLocus locus(const PathPositionHandleGraph& graph, const SiteBounds& bounds) const;
+    SiteLocus locus(const PathPositionHandleGraph& graph,
+                    const EditSnarlDecompositionOverlay& sites, const net_handle_t& net) const;
 };
 
 /// The genotyping result of one site from the direct pass, kept until the render builds the
@@ -94,24 +95,15 @@ struct StagedSite {
     NestingPlacement placement;
     // The site in the graph.
 
-    /// The site's net handle in the overlay of sites, read the way `bounds` reads.
-    net_handle_t net;
-    /// The bounds of the site, oriented forward along the reference path.
+    /// The site's net handle in the overlay of sites, read forward along the reference path.
     ///
     /// This may be the decomposition's orientation turned round.
-    SiteBounds bounds;
+    net_handle_t net;
     /// The candidate alleles.
     CandidateAlleles alleles;
     /// The sites nested in this one, for its symbolic alleles.
     SiteChildren children;
-    /// The chain the site is in.
-    ///
-    /// A nested site's line is held back when its parent's blocks report its chain.
-    ChildChain chain;
 
-    /// Return true if off-panel detection added the site, as an edit site whose ALT no walk of the
-    /// graph spells. Its record carries INFO/OP.
-    bool is_edit() const { return bounds.inside_node; }
     /// Return true if the site has no child sites.
     ///
     /// A site holds a child site wherever one of its child chains has two nodes, which makes an
@@ -183,8 +175,9 @@ public:
     ///
     /// `name` makes the ID of a site from its bounds, as the records of a site the decomposition
     /// holds are named. The tree keeps none of the arguments.
-    StagedSiteTree(StagedSiteTable& sites, const SnarlDecomposition& decomposition,
-                   const HandleGraph& graph, const function<string(const SiteBounds&)>& name);
+    StagedSiteTree(StagedSiteTable& sites, const EditSnarlDecompositionOverlay& decomposition,
+                   const HandleGraph& graph,
+                   const function<string(const handle_t& start, const handle_t& end)>& name);
 
     void for_each_site(const function<void(site_t)>& visit, bool in_preorder) const override;
     site_t parent_of(site_t site) const override;

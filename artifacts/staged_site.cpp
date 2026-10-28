@@ -30,16 +30,19 @@ static SiteLocus locus_of(pair<string, int64_t> pos_info) {
 }
 
 SiteLocus ReferencePlacement::locus(const PathPositionHandleGraph& graph,
-                                    const SiteBounds& bounds) const {
+                                    const EditSnarlDecompositionOverlay& sites,
+                                    const net_handle_t& net) const {
     if (no_reference) {
         // `get_ref_position` would fail an assertion on a site the path does not visit.
         return locus_of(make_pair(path_name, position_from_parent));
     }
     // Place a site inside a node at its own base, so that the sites inside one node are ordered
     // and spaced. Its bounds read the node the way the reference path does.
-    pair<string, int64_t> position =
-        get_ref_position(graph, bounds.start, bounds.end, path_name, offset);
-    position.second += (int64_t)bases_before_site(graph, bounds);
+    pair<string, int64_t> position = get_ref_position(graph, sites.get_site_start(net),
+                                                      sites.get_site_end(net), path_name, offset);
+    if (sites.is_edit(net)) {
+        position.second += (int64_t)sites.get_site_start_offset(net);
+    }
     return locus_of(position);
 }
 
@@ -200,31 +203,27 @@ size_t StagedSiteTable::queued_count() const {
     return total_queued(queues);
 }
 
-StagedSiteTree::StagedSiteTree(StagedSiteTable& sites, const SnarlDecomposition& decomposition,
-                               const HandleGraph& graph,
-                               const function<string(const SiteBounds&)>& name) {
+StagedSiteTree::StagedSiteTree(
+    StagedSiteTable& sites, const EditSnarlDecompositionOverlay& decomposition,
+    const HandleGraph& graph,
+    const function<string(const handle_t& start, const handle_t& end)>& name) {
+    auto ends_of_site = [&](const net_handle_t& net) {
+        const handle_t start = decomposition.get_site_start(net);
+        const handle_t end = decomposition.get_site_end(net);
+        return SiteEnds{graph.get_id(start), graph.get_is_reverse(start), graph.get_id(end),
+                        graph.get_is_reverse(end)};
+    };
     // Make one node for each site named by its bounds, however many staged sites it encloses and
-    // whether or not it was staged itself. Find it by its bounds, read either way round.
-    using BoundsKey = tuple<uint64_t, uint64_t, bool>;
-    auto key_of = [&](const SiteBounds& bounds) {
-        const BoundsKey forward(handlegraph::as_integer(bounds.start),
-                                handlegraph::as_integer(bounds.end), bounds.inside_node);
-        const BoundsKey turned(handlegraph::as_integer(graph.flip(bounds.end)),
-                               handlegraph::as_integer(graph.flip(bounds.start)),
-                               bounds.inside_node);
-        return min(forward, turned);
-    };
-    auto ends_of_bounds = [&](const SiteBounds& bounds) {
-        return SiteEnds{graph.get_id(bounds.start), graph.get_is_reverse(bounds.start),
-                        graph.get_id(bounds.end), graph.get_is_reverse(bounds.end)};
-    };
-    map<BoundsKey, const Node*> by_bounds;
-    auto node_for = [&](const SiteBounds& bounds, const Node* parent) {
-        if (auto found = by_bounds.find(key_of(bounds)); found != by_bounds.end()) {
+    // whether or not it was staged itself. Find it by its net handle, read either way round. The
+    // node keeps the orientation the site was first added in.
+    unordered_map<net_handle_t, const Node*> by_site;
+    auto node_for = [&](const net_handle_t& net, const Node* parent) {
+        const net_handle_t key = decomposition.canonical(net);
+        if (auto found = by_site.find(key); found != by_site.end()) {
             return found->second;
         }
-        nodes.emplace_back(Node{ends_of_bounds(bounds), string(), parent});
-        by_bounds.try_emplace(key_of(bounds), &nodes.back());
+        nodes.emplace_back(Node{ends_of_site(net), string(), parent});
+        by_site.try_emplace(key, &nodes.back());
         return (const Node*)&nodes.back();
     };
     sites.for_each([&](StagedSite& site) {
@@ -236,12 +235,14 @@ StagedSiteTree::StagedSiteTree(StagedSiteTable& sites, const SnarlDecomposition&
         }
         const Node* parent = nullptr;
         for (auto it = enclosing.rbegin(); it != enclosing.rend(); ++it) {
-            parent = node_for(oriented_bounds(decomposition, graph, *it), parent);
+            // An enclosing site is added the way the decomposition orients it.
+            parent = node_for(decomposition.canonical(*it), parent);
         }
-        if (site.id == name(site.bounds)) {
-            node_for(site.bounds, parent);
+        if (site.id == name(decomposition.get_site_start(site.net),
+                            decomposition.get_site_end(site.net))) {
+            node_for(site.net, parent);
         } else {
-            nodes.emplace_back(Node{ends_of_bounds(site.bounds), site.id, parent});
+            nodes.emplace_back(Node{ends_of_site(site.net), site.id, parent});
         }
     });
 }
