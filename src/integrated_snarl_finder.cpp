@@ -4,6 +4,7 @@
 ///
 
 #include "integrated_snarl_finder.hpp"
+#include "../artifacts/algorithms/weakly_connected_components_dense.hpp"
 
 #include "algorithms/three_edge_connected_components.hpp"
 #include "subgraph_overlay.hpp"
@@ -1868,61 +1869,9 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
     
 }
 
-/**
- * Add to `component` every node that a depth-first search from `start` reaches.
- *
- * `traversed` marks the nodes reached by this and earlier searches, indexed by node ID minus
- * `min_id`. The search does not enter nodes already marked.
- */
-static void collect_weak_component(const HandleGraph* graph, handle_t start, nid_t min_id,
-                                   vector<bool>& traversed, unordered_set<id_t>& component) {
-    // The stack only holds locally forward handles
-    vector<handle_t> stack{graph->forward(start)};
-    while (!stack.empty()) {
-        handle_t here = stack.back();
-        stack.pop_back();
-        traversed[graph->get_id(here) - min_id] = true;
-        component.insert(graph->get_id(here));
-        auto handle_other = [&](const handle_t& other) {
-            handle_t other_forward = graph->forward(other);
-            if (!traversed[graph->get_id(other_forward) - min_id]) {
-                stack.push_back(other_forward);
-            }
-        };
-        // Look at edges in both directions
-        graph->follow_edges(here, false, handle_other);
-        graph->follow_edges(here, true, handle_other);
-    }
-}
-
-/**
- * Return the weakly connected components of a graph, as handlealgs::weakly_connected_components
- * does.
- *
- * We run the same depth-first search from nodes in the graph's own order, so the components, and
- * the nodes in each, are inserted in the same order. We mark the nodes reached in an array indexed
- * by node ID, which is much faster than the hash set that handlealgs uses.
- */
-static vector<unordered_set<id_t>> weakly_connected_components_by_id(const HandleGraph* graph) {
-    vector<unordered_set<id_t>> to_return;
-    const nid_t min_id = graph->min_node_id();
-    const nid_t max_id = graph->max_node_id();
-    vector<bool> traversed(max_id >= min_id ? (size_t)(max_id - min_id + 1) : 0, false);
-
-    graph->for_each_handle([&](const handle_t& handle) {
-        if (traversed[graph->get_id(handle) - min_id]) {
-            // Already have this node, so don't start a search from it.
-            return;
-        }
-        to_return.emplace_back();
-        collect_weak_component(graph, handle, min_id, traversed, to_return.back());
-    });
-    return to_return;
-}
-
 SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
 
-    vector<unordered_set<id_t>> weak_components = weakly_connected_components_by_id(graph);
+    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components_dense(*graph);
     vector<SnarlManager> snarl_managers(weak_components.size());
 
     #pragma omp parallel for schedule(dynamic, 1)
