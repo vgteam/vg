@@ -1,8 +1,8 @@
 # Read-likelihood caller: a guide to the source
 
 `vg call --read-likelihood` runs through one driver class, `MultiPassCaller` in
-`multipass_caller.hpp`, and the classes it holds. A module is a header in `src/` and its `.cpp`
-file, and is named here by its header. The classes that run the caller's passes, from
+`multipass_caller.hpp`, and the classes it holds. A module is a header in `artifacts/` or `src/`
+and its `.cpp` file, and is named here by its header. The classes that run the caller's passes, from
 `MultiPassCaller` down, are in namespace `vg::multipass`. The modules they call are in namespace
 `vg`: the genotyper, the likelihood calculation and read source, the linkage model, read phasing,
 re-genotyping, the symbolic layer and the anchors, and the modules vg's other callers share, such
@@ -163,13 +163,15 @@ grouped by the step they serve; the driver and its walk come first.
 | Step | Module | What it holds |
 |---|---|---|
 | Driver | `multipass_caller.hpp` | `MultiPassCaller`, which holds the options and the widgets, and runs the passes in `call()` |
+| | `edit_snarl_decomposition_overlay.hpp` | `EditSnarlDecompositionOverlay`, the snarl decomposition with the edit sites laid over it as leaf children, through which the caller walks its sites |
 | | `site_walker.hpp`, `site_scheduler.hpp` | `SiteWalker`, the walk over a decomposition's sites, and the batching scheduler it shares with `GraphCaller` |
-| | `site_values.hpp` | the plain values a site is described by (`SiteView`, `SiteChildren`, `ChildSite`), and conversions from `Snarl` and `SnarlTraversal` |
+| | `site_values.hpp` | the plain values a site is described by (`SiteView`, `SiteChildren`, `ChildSite`), and the spelling of edit sites' alleles |
 | | `staged_site.hpp` | `StagedSite`, one site's result from the direct pass, and `StagedSiteTable`, which holds every staged site from the direct pass to the render |
 | Site likelihood computation | `site_read_source.hpp` | `SiteRead`, a read as a site sees it, and `SiteReadSource`, which delivers the reads of a site from a GAM or GAF file in memory, an indexed GAM file, a bgzipped GAF file through its tabix index, or a GAF-base database |
 | | `allele_likelihood.hpp` | `GraphAlignedAlleleLikelihoodCalculator`, which scores each read against each candidate allele by pairing their node visits, and `AlleleReadLikelihoods`, the resulting matrix of relative likelihoods, which computes $\mathcal{L}(G)$ for each genotype |
 | Genotyping | `candidate_finder.hpp` | `CandidateFinder`, which finds a site's reference path and candidate alleles; `FlowCaller` uses it too |
 | | `read_likelihood_caller.hpp` | `ReadLikelihoodSnarlCaller`, which makes one site's direct call from its likelihoods at explicit ploidies, returns it as a `SiteScore`, and computes its quality fields |
+| | `edit_site_placer.hpp` | `EditSitePlacer`, which places the off-panel edit sites among the sites and adds them to the overlay |
 | | `tree_genotyper.hpp`, `child_placer.hpp` | `TreeGenotyper`, the direct pass for one top-level site and the sites below it, and `ChildPlacer`, which lists the child chains a site's called alleles cross, each with its `NestingPlacement` |
 | | `linkage_model.hpp`, `genotype_linker.hpp` | `LinkageModel`, the hidden Markov model over the panel; `LinkageCollector`, which holds each site's entry, runs the model over linkage chains one level at a time, and keeps each site's chosen genotype; and `GenotypeLinker`, the linkage pass, which files the staged sites with the collector and revises each nested staged site from its parent's chosen genotype |
 | | `panel_lookup.hpp`, `ploidy_regions.hpp` | `PanelLookup`, which finds the panel haplotypes that carry an allele, and `PloidyRegions`, the ploidy of each region |
@@ -178,6 +180,8 @@ grouped by the step they serve; the driver and its walk come first.
 | | `read_strand_table.hpp` | `ReadStrandTable`, what read phasing decided about each site's reads, and `TemperFit`, the temper fitted in the first re-genotyping round |
 | | `regenotype.hpp`, `genotype_rescorer.hpp`, `round_history.hpp` | strand log-odds, tempering and the per-read likelihood correction; `GenotypeRescorer`, which applies the correction to every staged site; and `RoundHistory`, the chosen genotypes of each round |
 | Output | `record_renderer.hpp` | `RecordRenderer`, which builds each staged site's records once and collects its anchors |
+| | `allele_splicer.hpp` | `AlleleSplicer`, which spells a site's alleles with the chosen alleles of the sites staged under it |
+| | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the dump and the summary |
 | | `vcf_output_caller.hpp`, `vcf_record.hpp` | `VCFOutputCaller`, the record buffer and VCF writer that vg's callers share, and `build_site_record`, which builds one site's record from its alleles and the steps a caller adds |
 | | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks |
 | | `anchor.hpp`, `mosaic_writer.hpp` | the anchor file (`AnchorCollector`, `AnchorWriter`) and the mosaic file (`MosaicWriter`) |

@@ -2,12 +2,16 @@
 #define VG_SITE_VALUES_HPP_INCLUDED
 
 /** \file
- * Plain values that describe a site to the read-likelihood caller.
+ * The types the read-likelihood caller copies a site's place in the decomposition into.
  *
- * Once a site has been found, the caller needs no snarl decomposition types. A site is its
- * `SiteBounds`. An allele of a site is a `Traversal`, a walk of handles from the start bound of
- * the site to its end bound. A star allele, for a strand that does not cross the site, is an empty
- * walk. `SiteChildren` holds what the records of a site need to know about the sites nested in it.
+ * The caller walks its sites as net handles of an `EditSnarlDecompositionOverlay`, but carries
+ * each site from pass to pass as copies: its `SiteBounds`, the bounds of the sites enclosing it
+ * (`SiteView`), and what its records need to know about the sites nested in it (`SiteChildren`).
+ * An allele of a site is a `Traversal`, a walk of handles from the start bound of the site to its
+ * end bound. A star allele, for a strand that does not cross the site, is an empty walk.
+ *
+ * TODO: Carry each site as its net handle, and ask the overlay for its bounds and its place in the
+ * tree, so that these copies are no longer needed.
  *
  * Namespace vg holds how alleles are spelled and how edit sites are made. Namespace vg::multipass
  * holds the caller's own types, and the functions that read them from a decomposition.
