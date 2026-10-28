@@ -459,13 +459,17 @@ public:
     /// let precomputed chains be added, because we want chain orientations
     /// relative to snarls to be deterministic given an order of snarls.
     /// Returns a pointer to the managed snarl copy.
-    /// Only this function and take_snarls() may add in new Snarls.
+    /// Only this function may add in new Snarls.
     const Snarl* add_snarl(const Snarl& new_snarl);
 
-    /// Move every snarl of `other` into this manager, after the snarls it already holds.
+    /// Add the given snarl to the SnarlManager, moving its contents in rather than copying them.
+    const Snarl* add_snarl(Snarl&& new_snarl);
+
+    /// Move every snarl of `other` into this manager with add_snarl(), after the snarls it already
+    /// holds.
     ///
     /// The snarls are added in the order `other` stores them. Afterwards `other` holds empty
-    /// snarls, and can only be destroyed. Like add_snarl(), this must come before finish().
+    /// snarls, and can only be destroyed.
     void take_snarls(SnarlManager& other);
     
     /// Reverses the orientation of a managed snarl.

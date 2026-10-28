@@ -898,14 +898,18 @@ void SnarlManager::flip(const Chain* chain) {
 }
     
 const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
+    return add_snarl(Snarl(new_snarl));
+}
+
+const Snarl* SnarlManager::add_snarl(Snarl&& new_snarl) {
 
     // Allocate a default SnarlRecord
     snarls.emplace_back();
     
     SnarlRecord* new_record = &snarls.back();
     
-    // Hackily copy the snarl in
-    *new_record = new_snarl;
+    // Hackily move the snarl in
+    *new_record = std::move(new_snarl);
 
     // Initialized snarl number for each record as deque is being filled
     new_record->snarl_number = (size_t)snarls.size()-1;
@@ -913,8 +917,8 @@ const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
     // TODO: Should this be a non-default SnarlRecord constructor?
 
 #ifdef debug
-    cerr << "Adding snarl " << new_snarl.start().node_id() << " " << new_snarl.start().backward() << " -> "
-         << new_snarl.end().node_id() << " " << new_snarl.end().backward() << endl;
+    cerr << "Adding snarl " << new_record->start().node_id() << " " << new_record->start().backward() << " -> "
+         << new_record->end().node_id() << " " << new_record->end().backward() << endl;
 #endif
         
     // We will set the parent and children and snarl_into and chain info when we finish().
@@ -924,13 +928,9 @@ const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
 
 void SnarlManager::take_snarls(SnarlManager& other) {
     for (SnarlRecord& other_record : other.snarls) {
-        // Append a record for the snarl, numbered by its index in `snarls`, and move the snarl
-        // into it rather than copy it. Copying its messages took most of the time of merging the
-        // managers of the components of a graph.
-        snarls.emplace_back();
-        SnarlRecord* new_record = &snarls.back();
-        *new_record = std::move(other_record.snarl);
-        new_record->snarl_number = (size_t)snarls.size()-1;
+        // Move the snarl rather than copy it. Copying its messages took most of the time of merging
+        // the managers of the components of a graph.
+        add_snarl(std::move(other_record.snarl));
     }
 }
 
