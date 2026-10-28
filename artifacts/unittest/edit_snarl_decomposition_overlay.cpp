@@ -41,7 +41,7 @@ struct NestedGraph {
         edge(7, 8);
     }
 
-    handle_t handle(nid_t id, bool reverse = false) {
+    handle_t handle(nid_t id, bool reverse = false) const {
         return graph.get_handle(id, reverse);
     }
 };

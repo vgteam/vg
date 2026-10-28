@@ -28,10 +28,10 @@ using handlegraph::SnarlDecomposition;
  * across several nodes, where the reads disagree with the graph. Every site, a snarl or an edit, is
  * a net handle, and has bounds: at each end, a node handle and an offset into it.
  *
- * Edits are leaves of the tree. Each is a child of the lowest node, chain or snarl that holds all
- * of its nodes, and `for_each_child` lists it after that element's own children. An edit is not a
- * step of any chain, so no net edges lead to it or from it. Edits may overlap each other, and may
- * run across nodes and snarls of the chain they are a child of.
+ * Edits are leaves of the tree. Each is a child of the lowest node, chain or snarl that holds the
+ * nodes of both its bounds, and `for_each_child` lists it after that element's own
+ * children. An edit is not a step of any chain, so no net edges lead to it or from it. Edits may
+ * overlap each other, and may run across nodes and snarls of the chain they are a child of.
  *
  * An edit is none of the kinds of element `SnarlDecomposition` knows: `is_snarl`, `is_chain`,
  * `is_node`, `is_sentinel` and `is_root` are all false for it, and `is_edit` is true.
@@ -61,14 +61,15 @@ public:
     /**
      * Add an edit, and return its net handle, which reads it start to end.
      *
-     * The edit becomes a child of the lowest node, chain or snarl that holds both nodes.
+     * The edit becomes a child of the lowest node, chain or snarl that holds both `start` and
+     * `end`.
      *
      * @param start The node holding the start boundary, oriented to read into the edit.
      * @param start_offset The number of bases of `start` before the start boundary.
      * @param end The node holding the end boundary, oriented to read out of the edit.
      * @param end_offset The number of bases of `end` before the end boundary.
-     * @throws std::invalid_argument If no element of the decomposition holds both nodes, or the
-     * offsets are past the ends of the nodes.
+     * @throws std::invalid_argument If no element of the decomposition holds both nodes, or an
+     * offset is past the end of its node.
      */
     net_handle_t add_edit(const handle_t& start, size_t start_offset, const handle_t& end,
                           size_t end_offset);
@@ -134,9 +135,9 @@ public:
     bool is_chain(const net_handle_t& net) const override;
     bool is_node(const net_handle_t& net) const override;
     bool is_sentinel(const net_handle_t& net) const override;
-    net_handle_t get_net(const handle_t& handle, const HandleGraph* graph) const override;
+    net_handle_t get_net(const handle_t& handle, const HandleGraph* node_graph) const override;
     /// May not be called on an edit.
-    handle_t get_handle(const net_handle_t& net, const HandleGraph* graph) const override;
+    handle_t get_handle(const net_handle_t& net, const HandleGraph* node_graph) const override;
     /// For an edit, get the element it is a child of.
     net_handle_t get_parent(const net_handle_t& child) const override;
     /// May not be called on an edit, which has no sentinels.
@@ -158,21 +159,11 @@ protected:
     bool for_each_traversal_impl(const net_handle_t& item,
                                  const std::function<bool(const net_handle_t&)>& iteratee) const override;
     /// An edit has no net edges.
-    bool follow_net_edges_impl(const net_handle_t& here, const HandleGraph* graph, bool go_left,
+    bool follow_net_edges_impl(const net_handle_t& here, const HandleGraph* node_graph,
+                               bool go_left,
                                const std::function<bool(const net_handle_t&)>& iteratee) const override;
 
 private:
-    /// Get the overlay's net handle for a net handle of the inner decomposition.
-    static net_handle_t from_inner(const net_handle_t& inner_net);
-    /// Get the inner decomposition's net handle for an overlay net handle that is not an edit.
-    static net_handle_t to_inner(const net_handle_t& net);
-    /// Get the overlay's net handle for edit number `number`, read end to start if `reverse`.
-    static net_handle_t edit_net(size_t number, bool reverse);
-    /// Get the number of the edit `net`.
-    static size_t edit_number(const net_handle_t& net);
-    /// Return true if the edit `net` is read end to start.
-    static bool edit_is_reverse(const net_handle_t& net);
-
     /// One edit, read start to end.
     struct Edit {
         handle_t start;
@@ -183,7 +174,10 @@ private:
         net_handle_t parent;
     };
 
-    /// Get a copy of the edit `net`.
+    /// Get the edit `net`, read the way `net` reads.
+    ///
+    /// Read the other way, the end boundary becomes the start. The bases before it along the
+    /// flipped node are the ones after it along the node.
     Edit edit_of(const net_handle_t& net) const;
 
     /// Get the overlay's canonical net handle for the lowest element of the inner decomposition

@@ -78,16 +78,6 @@ struct EditSite {
     vector<Traversal> travs;
     /// The spelling of each allele. REF has none, because its walk spells it.
     AlleleSequences sequences;
-    /// The node holding the first base the edit changes, read along the walk, and the number of its
-    /// bases before that base. For an insertion, which changes no base, this is the boundary just
-    /// after the base before it.
-    handle_t change_start;
-    size_t change_start_offset = 0;
-    /// The node holding the last base the edit changes, read along the walk, and the number of its
-    /// bases up to and including that base. For an insertion, this is the same boundary as
-    /// `change_start`.
-    handle_t change_end;
-    size_t change_end_offset = 0;
 };
 
 /**

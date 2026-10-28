@@ -106,8 +106,10 @@ bool EditSitePlacer::reference_reads_whole_walk(const EditCandidate& c) const {
 }
 
 net_handle_t EditSitePlacer::add_edit(const EditSite& site) const {
-    return parts.sites->add_edit(site.change_start, site.change_start_offset, site.change_end,
-                                 site.change_end_offset);
+    const HandleGraph& graph = *parts.graph;
+    // The site runs from its first base to the end of its walk.
+    return parts.sites->add_edit(site.bounds.start, bases_before_site(graph, site.bounds),
+                                 site.bounds.end, graph.get_length(site.bounds.end));
 }
 
 bool EditSitePlacer::edit_site_of(const EditCandidate& c, handle_t read_as,

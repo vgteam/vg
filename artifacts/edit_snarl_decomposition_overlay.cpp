@@ -4,6 +4,7 @@
 
 #include "edit_snarl_decomposition_overlay.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 
@@ -22,15 +23,8 @@ constexpr uint64_t REVERSE_BIT = 2;
 /// How far an edit's number is shifted up in its net handle.
 constexpr uint64_t EDIT_NUMBER_SHIFT = 2;
 
-}
-
-EditSnarlDecompositionOverlay::EditSnarlDecompositionOverlay(const SnarlDecomposition& inner,
-                                                             const HandleGraph& graph) :
-    inner(inner), graph(graph) {
-    // Nothing to do
-}
-
-net_handle_t EditSnarlDecompositionOverlay::from_inner(const net_handle_t& inner_net) {
+/// Get the overlay's net handle for a net handle of the inner decomposition.
+net_handle_t from_inner(const net_handle_t& inner_net) {
     const uint64_t value = handlegraph::as_integer(inner_net);
     if (value >> 63 != 0) {
         throw std::logic_error("EditSnarlDecompositionOverlay: an inner net handle has its top bit "
@@ -39,27 +33,48 @@ net_handle_t EditSnarlDecompositionOverlay::from_inner(const net_handle_t& inner
     return handlegraph::as_net_handle(value << 1);
 }
 
-net_handle_t EditSnarlDecompositionOverlay::to_inner(const net_handle_t& net) {
+/// Get the inner decomposition's net handle for an overlay net handle that is not an edit.
+net_handle_t to_inner(const net_handle_t& net) {
     return handlegraph::as_net_handle(handlegraph::as_integer(net) >> 1);
 }
 
-net_handle_t EditSnarlDecompositionOverlay::edit_net(size_t number, bool reverse) {
+/// Get the overlay's net handle for edit number `number`, read end to start if `reverse`.
+net_handle_t edit_net(size_t number, bool reverse) {
     return handlegraph::as_net_handle(((uint64_t)number << EDIT_NUMBER_SHIFT)
                                       | (reverse ? REVERSE_BIT : 0) | EDIT_BIT);
 }
 
-size_t EditSnarlDecompositionOverlay::edit_number(const net_handle_t& net) {
+/// Get the number of the edit `net`.
+size_t edit_number(const net_handle_t& net) {
     return handlegraph::as_integer(net) >> EDIT_NUMBER_SHIFT;
 }
 
-bool EditSnarlDecompositionOverlay::edit_is_reverse(const net_handle_t& net) {
+/// Return true if the edit `net` is read end to start.
+bool edit_is_reverse(const net_handle_t& net) {
     return (handlegraph::as_integer(net) & REVERSE_BIT) != 0;
+}
+
+}
+
+EditSnarlDecompositionOverlay::EditSnarlDecompositionOverlay(const SnarlDecomposition& inner,
+                                                             const HandleGraph& graph) :
+    inner(inner), graph(graph) {
+    // Nothing to do
 }
 
 EditSnarlDecompositionOverlay::Edit
 EditSnarlDecompositionOverlay::edit_of(const net_handle_t& net) const {
-    std::lock_guard<std::mutex> lock(edits_mutex);
-    return edits.at(edit_number(net));
+    Edit edit;
+    {
+        std::scoped_lock lock(edits_mutex);
+        edit = edits.at(edit_number(net));
+    }
+    if (!edit_is_reverse(net)) {
+        return edit;
+    }
+    return Edit{graph.flip(edit.end), graph.get_length(edit.end) - edit.end_offset,
+                graph.flip(edit.start), graph.get_length(edit.start) - edit.start_offset,
+                edit.parent};
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -98,7 +113,7 @@ net_handle_t EditSnarlDecompositionOverlay::add_edit(const handle_t& start, size
                                     "end of its node");
     }
     Edit edit{start, start_offset, end, end_offset, lowest_holder(start, end)};
-    std::lock_guard<std::mutex> lock(edits_mutex);
+    std::scoped_lock lock(edits_mutex);
     size_t number;
     if (!free_numbers.empty()) {
         number = free_numbers.back();
@@ -113,10 +128,9 @@ net_handle_t EditSnarlDecompositionOverlay::add_edit(const handle_t& start, size
 }
 
 void EditSnarlDecompositionOverlay::remove_edit(const net_handle_t& edit) {
-    std::lock_guard<std::mutex> lock(edits_mutex);
+    std::scoped_lock lock(edits_mutex);
     const size_t number = edit_number(edit);
-    auto found = children_of.find(edits.at(number).parent);
-    if (found != children_of.end()) {
+    if (auto found = children_of.find(edits.at(number).parent); found != children_of.end()) {
         std::erase(found->second, number);
         if (found->second.empty()) {
             children_of.erase(found);
@@ -127,20 +141,21 @@ void EditSnarlDecompositionOverlay::remove_edit(const net_handle_t& edit) {
 
 void EditSnarlDecompositionOverlay::remove_edits(const net_handle_t& element) {
     // Find every element at or below `element` that has edits, by walking up from each.
-    std::lock_guard<std::mutex> lock(edits_mutex);
+    std::scoped_lock lock(edits_mutex);
     const net_handle_t top = canonical(element);
-    vector<net_handle_t> emptied;
-    for (const auto& [parent, numbers] : children_of) {
-        net_handle_t here = parent;
-        while (true) {
-            if (here == top) {
-                emptied.push_back(parent);
-                break;
-            }
+    auto at_or_below_top = [&](net_handle_t here) {
+        while (here != top) {
             if (is_root(here)) {
-                break;
+                return false;
             }
             here = canonical(from_inner(inner.get_parent(to_inner(here))));
+        }
+        return true;
+    };
+    vector<net_handle_t> emptied;
+    for (const auto& [parent, numbers] : children_of) {
+        if (at_or_below_top(parent)) {
+            emptied.push_back(parent);
         }
     }
     for (const net_handle_t& parent : emptied) {
@@ -161,8 +176,7 @@ bool EditSnarlDecompositionOverlay::is_edit(const net_handle_t& net) const {
 
 handle_t EditSnarlDecompositionOverlay::get_site_start(const net_handle_t& site) const {
     if (is_edit(site)) {
-        const Edit edit = edit_of(site);
-        return edit_is_reverse(site) ? graph.flip(edit.end) : edit.start;
+        return edit_of(site).start;
     }
     // get_bound() ignores the traversal, so read the bound the traversal starts from.
     const net_handle_t inner_site = to_inner(site);
@@ -174,8 +188,7 @@ handle_t EditSnarlDecompositionOverlay::get_site_start(const net_handle_t& site)
 
 handle_t EditSnarlDecompositionOverlay::get_site_end(const net_handle_t& site) const {
     if (is_edit(site)) {
-        const Edit edit = edit_of(site);
-        return edit_is_reverse(site) ? graph.flip(edit.start) : edit.end;
+        return edit_of(site).end;
     }
     const net_handle_t inner_site = to_inner(site);
     if (inner.starts_at(inner_site) == END) {
@@ -186,20 +199,14 @@ handle_t EditSnarlDecompositionOverlay::get_site_end(const net_handle_t& site) c
 
 size_t EditSnarlDecompositionOverlay::get_site_start_offset(const net_handle_t& site) const {
     if (is_edit(site)) {
-        const Edit edit = edit_of(site);
-        // Read the other way, the end boundary becomes the start, and the bases before it along
-        // the flipped node are the ones after it along the node.
-        return edit_is_reverse(site) ? graph.get_length(edit.end) - edit.end_offset
-                                     : edit.start_offset;
+        return edit_of(site).start_offset;
     }
     return graph.get_length(get_site_start(site));
 }
 
 size_t EditSnarlDecompositionOverlay::get_site_end_offset(const net_handle_t& site) const {
     if (is_edit(site)) {
-        const Edit edit = edit_of(site);
-        return edit_is_reverse(site) ? graph.get_length(edit.start) - edit.start_offset
-                                     : edit.end_offset;
+        return edit_of(site).end_offset;
     }
     return 0;
 }
@@ -233,16 +240,16 @@ bool EditSnarlDecompositionOverlay::is_sentinel(const net_handle_t& net) const {
 }
 
 net_handle_t EditSnarlDecompositionOverlay::get_net(const handle_t& handle,
-                                                    const HandleGraph* graph) const {
-    return from_inner(inner.get_net(handle, graph));
+                                                    const HandleGraph* node_graph) const {
+    return from_inner(inner.get_net(handle, node_graph));
 }
 
 handle_t EditSnarlDecompositionOverlay::get_handle(const net_handle_t& net,
-                                                   const HandleGraph* graph) const {
+                                                   const HandleGraph* node_graph) const {
     if (is_edit(net)) {
         throw std::logic_error("EditSnarlDecompositionOverlay: get_handle on an edit");
     }
-    return inner.get_handle(to_inner(net), graph);
+    return inner.get_handle(to_inner(net), node_graph);
 }
 
 net_handle_t EditSnarlDecompositionOverlay::get_parent(const net_handle_t& child) const {
@@ -314,18 +321,13 @@ bool EditSnarlDecompositionOverlay::for_each_child_impl(
     // Copy the numbers out, so that the iteratee can add edits without the lock held.
     vector<size_t> numbers;
     {
-        std::lock_guard<std::mutex> lock(edits_mutex);
-        auto found = children_of.find(canonical(traversal));
-        if (found != children_of.end()) {
+        std::scoped_lock lock(edits_mutex);
+        if (auto found = children_of.find(canonical(traversal)); found != children_of.end()) {
             numbers = found->second;
         }
     }
-    for (size_t number : numbers) {
-        if (!iteratee(edit_net(number, false))) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(numbers,
+                               [&](size_t number) { return iteratee(edit_net(number, false)); });
 }
 
 bool EditSnarlDecompositionOverlay::for_each_traversal_impl(
@@ -340,15 +342,14 @@ bool EditSnarlDecompositionOverlay::for_each_traversal_impl(
 }
 
 bool EditSnarlDecompositionOverlay::follow_net_edges_impl(
-    const net_handle_t& here, const HandleGraph* graph, bool go_left,
+    const net_handle_t& here, const HandleGraph* node_graph, bool go_left,
     const std::function<bool(const net_handle_t&)>& iteratee) const {
     if (is_edit(here)) {
         // An edit is not a step of any chain, so no net edges lead from it.
         return true;
     }
-    return inner.follow_net_edges(to_inner(here), graph, go_left, [&](const net_handle_t& next) {
-        return iteratee(from_inner(next));
-    });
+    return inner.follow_net_edges(to_inner(here), node_graph, go_left,
+                                  [&](const net_handle_t& next) { return iteratee(from_inner(next)); });
 }
 
 }
