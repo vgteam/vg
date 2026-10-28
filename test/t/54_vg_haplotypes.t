@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 94
+plan tests 95
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -311,6 +311,24 @@ vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff -g /dev/null diploid.
 is $? 1 "sampling with mismatched GBZ and haplotype information fails"
 is $(grep -c "error.*are not compatible" log.txt) 1 "an appropriate error message is printed"
 
+# A top-level chain can contain a snarl that no walk crosses. The reference ends
+# at node 6, and node 6 and the chain 20-21-22 both enter node 10 from the same
+# side, so a walk into the snarl between 6 and 22 can only end at node 11.
+{
+    printf 'H\tVN:Z:1.1\tRS:Z:REF\n'
+    printf 'S\t%s\t%s\n' 1 GCTAAAGACAATTACATAACATACACGTCA 2 GCACGAAACTTGTTGGCCCAGTGTGAATCG \
+        3 CTTAAGGGTTAAGTAAGTGTGATGCATACG 4 CCTTTACTTGCTGTGTCCACCCCATCGGAC 5 TGGCATTTTTATTACACTCAGAAACAGAAC \
+        6 TCGGGTAATTTTGACAGGTCACGCAGAGGC 10 GCGCCCTCCTGAAGTGCGTGGACACTCGCT 11 ATGAATCTCTGATTTACCCACTCTGCCAAA \
+        20 CTCCAGCGCGGTCAGTTCCATCACCCTAAG 21 TAACCGAATAATGCGTTCGCTCTATTGACT 22 ACGACGCGCTCATTCCCTTGTCGGAGAGTT
+    printf 'L\t%s\t+\t%s\t+\t0M\n' 1 2 1 3 2 4 3 4 4 5 5 6 6 10 10 11 22 10 20 21 21 22
+    printf 'W\t%s\t%s\t%s\t0\t%s\t%s\n' REF 0 chr1 150 '>1>2>4>5>6' H1 1 c0 210 '>1>3>4>5>6>10>11' \
+        H2 1 c1 210 '>1>2>4>5>6>10>11' S1 1 c3 150 '>20>21>22>10>11'
+} > uncrossable.gfa
+vg gbwt -G uncrossable.gfa --gbz-format -g uncrossable.gbz -r uncrossable.ri
+vg index -j uncrossable.dist uncrossable.gbz
+vg haplotypes --validate -H uncrossable.hapl uncrossable.gbz
+is $? 0 "haplotype information for a chain with a snarl that no walk crosses"
+
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
 rm -f indirect.gbz direct.gbz no_ref.gbz ban_ref.gbz
@@ -332,3 +350,4 @@ rm -f auto_all.HG003.* auto_all.gam auto_all.dist
 rm -f auto_nondip.HG003.* auto_nondip.gam auto_nondip.dist
 rm -f auto_oneref.HG003.* auto_oneref.gam auto_oneref.dist
 rm -f log.txt
+rm -f uncrossable.gfa uncrossable.gbz uncrossable.ri uncrossable.dist uncrossable.hapl
