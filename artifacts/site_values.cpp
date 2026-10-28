@@ -101,12 +101,11 @@ SiteBounds oriented_bounds(const SnarlDecomposition& decomposition, const Handle
  */
 static void add_child_chain(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                             const net_handle_t& chain, SiteChildren& out,
-                            vector<ChildSite>* child_sites) {
+                            vector<net_handle_t>* child_sites) {
     const ChildChain bounds = oriented_bounds(decomposition, graph, chain);
     if (child_sites != nullptr) {
         for (const net_handle_t& child : vg::child_sites(decomposition, chain)) {
-            child_sites->push_back(
-                ChildSite{child, oriented_bounds(decomposition, graph, child), bounds});
+            child_sites->push_back(child);
         }
     }
     vector<handle_t> nodes;
@@ -139,7 +138,7 @@ static void add_child_chain(const SnarlDecomposition& decomposition, const Handl
 
 SiteChildren site_children(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                            const net_handle_t& site, const SiteBounds& as_called,
-                           vector<ChildSite>* child_sites) {
+                           vector<net_handle_t>* child_sites) {
     SiteChildren out;
     // The caller has this site as the decomposition orients it, or turned round. Compare node IDs
     // for the first, and whole handles for the second, since turning round flips the bounds as

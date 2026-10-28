@@ -163,7 +163,7 @@ public:
         /// What the records of the site need to know of its children.
         SiteChildren children;
         /// The child sites, in the order of the decomposition.
-        vector<ChildSite> sites;
+        vector<net_handle_t> sites;
     };
 
     /// Get the sites nested in `site`, which the caller has as `as_called`: its bounds as the

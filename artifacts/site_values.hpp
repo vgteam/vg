@@ -5,13 +5,13 @@
  * The types the read-likelihood caller copies a site's place in the decomposition into.
  *
  * The caller holds each site as its net handle in an `EditSnarlDecompositionOverlay`. It still
- * copies some things out of the overlay: a child site's `SiteBounds` and chain (`ChildSite`), and
- * what a site's records need to know about the sites nested in it (`SiteChildren`). An allele of a
- * site is a `Traversal`, a walk of handles from the start bound of the site to its end bound. A
- * star allele, for a strand that does not cross the site, is an empty walk.
+ * copies what a site's records need to know about the sites nested in it out of the overlay
+ * (`SiteChildren`). An allele of a site is a `Traversal`, a walk of handles from the start bound of
+ * the site to its end bound. A star allele, for a strand that does not cross the site, is an empty
+ * walk.
  *
- * TODO: Ask the overlay for a child site's bounds and chain too, so that `ChildSite` and
- * `SiteBounds` are no longer needed.
+ * TODO: Hold a chain as its net handle too, so that `ChildChain` and `SiteBounds` are no longer
+ * needed.
  *
  * Namespace vg holds how alleles are spelled and how edit sites are made. Namespace vg::multipass
  * holds the caller's own types, and the functions that read them from a decomposition.
@@ -144,15 +144,6 @@ struct SiteChildren {
     const ChildChain* entered_by(nid_t id, bool backward) const;
 };
 
-/// A site of a decomposition nested in another site.
-struct ChildSite {
-    net_handle_t net;
-    /// The bounds of the site, as the decomposition orients it.
-    SiteBounds bounds;
-    /// The chain the site is in.
-    ChildChain chain;
-};
-
 /// Get the bounds of the site or chain `net`, start to end as `decomposition` orients it,
 /// whichever way `net` traverses it.
 SiteBounds oriented_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph,
@@ -171,7 +162,7 @@ SiteBounds oriented_bounds(const SnarlDecomposition& decomposition, const Handle
  */
 SiteChildren site_children(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                            const net_handle_t& site, const SiteBounds& as_called,
-                           vector<ChildSite>* child_sites = nullptr);
+                           vector<net_handle_t>* child_sites = nullptr);
 
 /// Get the chain the site `site` is in.
 ChildChain chain_of_site(const SnarlDecomposition& decomposition, const HandleGraph& graph,

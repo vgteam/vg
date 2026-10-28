@@ -85,12 +85,13 @@ void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_un
     }
     // Make the crossing finder of each walk the first time a child's offset needs that walk.
     ChildCrossingFinders offset_finders;
-    for (const ChildSite& child : parent.nested.sites) {
+    for (const net_handle_t& child : parent.nested.sites) {
+        const ChildChain chain = chain_holding(*decomposition, *graph, child);
         // A chain the reference walk does not cross has no REF or POS for its records, so leave
         // it out unless off-reference descent is on. Everything under a chain off the reference
         // is off it too.
         bool child_off_reference = placement.no_reference;
-        if (!reference_crosses(parent, walks, child.net)) {
+        if (!reference_crosses(parent, walks, child)) {
             if (!off_reference) {
                 ++counters->skipped_no_ref;
                 continue;
@@ -104,9 +105,9 @@ void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_un
         // is still genotyped, filed and phased.
         const bool child_reported_inline =
             placement.reported_inline
-            || blocks->chain_reported_inline(*graph, inline_ctx, child.chain);
+            || blocks->chain_reported_inline(*graph, inline_ctx, chain);
 
-        const int copies = child_ploidy(walks, parent.genotype, child.net, parent.ploidy);
+        const int copies = child_ploidy(walks, parent.genotype, child, parent.ploidy);
         bool retain_only = placement.retain_only;
         if (copies <= 0) {
             ++counters->skipped_no_copy;
@@ -121,8 +122,8 @@ void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_un
         }
 
         Placed out;
-        out.site = child.net;
-        out.chain = child.chain;
+        out.site = child;
+        out.chain = chain;
         // A chain no called allele crosses takes the parent's ploidy, the most copies it can have.
         out.ploidy = copies >= 1 ? copies : parent.ploidy;
         NestingPlacement& next = out.placement;
@@ -134,12 +135,12 @@ void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_un
         // offsets add up down the tree.
         next.parent_offset =
             placement.parent_offset
-            + entry_bases_along_genotype(*decomposition, *graph, travs, parent.genotype, child.net,
+            + entry_bases_along_genotype(*decomposition, *graph, travs, parent.genotype, child,
                                          offset_finders);
         next.reported_inline = child_reported_inline;
         next.chain_key = chain_key_of(*graph, out.chain);
         bool crossing_known = true;
-        next.parent_crossing = crossing_mask(walks, child.net, &crossing_known);
+        next.parent_crossing = crossing_mask(walks, child, &crossing_known);
         next.crossing_known = crossing_known;
         next.level = placement.level + 1;
         visit(out);

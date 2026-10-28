@@ -21,8 +21,8 @@ using namespace std;
 
 /// The edit site of an off-panel candidate, as a child of the site holding it.
 struct HeldEdit {
-    /// The edit site as a child site, whose net handle is its edit in the overlay of sites.
-    ChildSite child;
+    /// The edit site's net handle, as an edit in the overlay of sites.
+    net_handle_t net;
     EditSite site;
     EditCandidate candidate;
 };

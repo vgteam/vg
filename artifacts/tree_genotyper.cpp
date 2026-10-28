@@ -380,16 +380,16 @@ DescentPolicy::Nested TreeGenotyper::with_held_edits(const DescentPolicy::Nested
     DescentPolicy::Nested out;
     out.children = nested.children;
     size_t e = 0;
-    for (const ChildSite& child : nested.sites) {
-        const nid_t child_first = std::min(graph.get_id(child.bounds.start),
-                                           graph.get_id(child.bounds.end));
+    for (const net_handle_t& child : nested.sites) {
+        const nid_t child_first = std::min(graph.get_id(parts.sites->get_site_start(child)),
+                                           graph.get_id(parts.sites->get_site_end(child)));
         for (; e < held.size() && held[e].candidate.node < child_first; ++e) {
-            out.sites.push_back(held[e].child);
+            out.sites.push_back(held[e].net);
         }
         out.sites.push_back(child);
     }
     for (; e < held.size(); ++e) {
-        out.sites.push_back(held[e].child);
+        out.sites.push_back(held[e].net);
     }
     return out;
 }
@@ -441,7 +441,7 @@ void TreeGenotyper::genotype_placed_child(const SiteCall& call, const DescentPol
     if (parts.sites->is_edit(child.site)) {
         // The child is one of the held edit sites.
         for (size_t i = 0; i < held.size(); ++i) {
-            if (held[i].child.net == child.site) {
+            if (held[i].net == child.site) {
                 edit_placed[i] = true;
                 genotype_edit_site(held[i], call.site.ref_path_name, call.ref_range(),
                                    child.ploidy, child.placement, false);
@@ -457,7 +457,8 @@ void TreeGenotyper::genotype_placed_child(const SiteCall& call, const DescentPol
 
 void TreeGenotyper::descend_top_down(const SiteCall& call) {
     const vector<Traversal>& travs = call.site.walks;
-    for (const ChildSite& child : call.nested.sites) {
+    for (const net_handle_t& child : call.nested.sites) {
+        const SiteBounds child_bounds = oriented_bounds(*parts.sites, *parts.graph, child);
         // Find, for each parent allele, the traversals of the child that agree with it. A star
         // or missing allele gets an empty set.
         ChildWalkSets child_trav_sets;
@@ -465,7 +466,7 @@ void TreeGenotyper::descend_top_down(const SiteCall& call) {
         for (int allele_idx : call.genotype) {
             if (allele_idx >= 0 && allele_idx < travs.size()) {
                 WalkSet tset = parts.candidates->find_child_walk_set(
-                    travs[allele_idx], child.bounds.start, child.bounds.end);
+                    travs[allele_idx], child_bounds.start, child_bounds.end);
                 any_real_traversals = any_real_traversals || !tset.empty();
                 child_trav_sets.push_back(std::move(tset));
             } else {
@@ -473,7 +474,7 @@ void TreeGenotyper::descend_top_down(const SiteCall& call) {
             }
         }
         if (any_real_traversals) {
-            genotype_tree(child.net, call.site.ref_path_name,
+            genotype_tree(child, call.site.ref_path_name,
                           call.ref_range(), &child_trav_sets, -1, call.placement);
         }
     }
@@ -587,7 +588,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit,
     const CandidateAlleles alleles{walks, 0, sequences};
     auto called = parts.genotyper->genotype_at(materialize(graph, bounds, alleles), ploidies,
                                                fallback_nodes_of(*parts.sites, graph,
-                                                                 edit.child.net));
+                                                                 edit.net));
     vector<int>& genotype = called.first;
     SiteScore* score = called.second.get();
     unique_ptr<SnarlCaller::CallInfo> call_info(std::move(called.second));
@@ -614,7 +615,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit,
                               + (int64_t)placement.parent_offset
                         : 0;
     unique_ptr<StagedSite> staged = stage_render_record(
-        edit.child.net, site_id, genotype, walks, 0, call_info, score,
+        edit.net, site_id, genotype, walks, 0, call_info, score,
         ReferencePlacement{.path_name = ref_path_name,
                            .offset = ref_offset,
                            .no_reference = no_ref_position,

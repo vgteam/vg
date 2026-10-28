@@ -213,7 +213,7 @@ vector<HeldEdit> EditSitePlacer::held_by(const net_handle_t& site, const SiteBou
             continue;
         }
         edit.candidate = c;
-        edit.child = ChildSite{add_edit(edit.site), edit.site.bounds, where.chain};
+        edit.net = add_edit(edit.site);
         held.push_back(std::move(edit));
     }
     return held;
@@ -304,7 +304,7 @@ void EditSitePlacer::place_free_edits(vector<EditCandidate> candidates,
             continue;
         }
         edit.candidate = c;
-        edit.child = ChildSite{add_edit(edit.site), edit.site.bounds, where.chain};
+        edit.net = add_edit(edit.site);
         genotype(edit);
     }
 }
