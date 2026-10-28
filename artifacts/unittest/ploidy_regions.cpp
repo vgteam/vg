@@ -24,6 +24,28 @@ TEST_CASE("A ploidy BED read from a stream gives each region its ploidy", "[ploi
     REQUIRE(table.region_ploidy("y", 15, 2) == 2);
 }
 
+TEST_CASE("A site is in a ploidy BED interval when the first base of its record is", "[ploidy_regions]") {
+    // [0, 50) in BED's 0-based coordinates holds VCF POS 1 to 50.
+    istringstream bed("x\t0\t50\t1\n");
+    PloidyRegions table(bed, "test BED");
+
+    SECTION("A record at POS 50 is inside the interval, and one at POS 51 is not") {
+        REQUIRE(table.ploidy_at("x", 49, 0, 2) == 1);
+        REQUIRE(table.ploidy_at("x", 50, 0, 2) == 2);
+    }
+    SECTION("The reference offset moves the site along the contig") {
+        REQUIRE(table.ploidy_at("x", 40, 9, 2) == 1);
+        REQUIRE(table.ploidy_at("x", 40, 10, 2) == 2);
+    }
+    SECTION("A subrange path is placed at its start on the contig") {
+        REQUIRE(table.ploidy_at("x[30]", 19, 0, 2) == 1);
+        REQUIRE(table.ploidy_at("x[30]", 20, 0, 2) == 2);
+    }
+    SECTION("A site before the start of the contig gets the fallback") {
+        REQUIRE(table.ploidy_at("x", 0, -5, 2) == 2);
+    }
+}
+
 TEST_CASE("Every ploidy preset parses and makes the mitochondrion haploid", "[ploidy_regions]") {
     vector<string> names = PloidyRegions::preset_names();
     REQUIRE(names == vector<string>{"chm13v2.XX", "chm13v2.XY", "grch37.b37.XX", "grch37.b37.XY",

@@ -13,6 +13,8 @@ The tree mirrors `src/`:
 - `artifacts/doc/` holds write-ups, listed in `artifacts/doc/README.md`.
 - `artifacts/scripts/` holds scripts, such as `mosaic_to_path.py`, which the call tests use to check
   a mosaic against the graph.
+- `artifacts/test/` holds command-line tests that `make test` does not run, described in
+  `artifacts/test/README.md`.
 
 Code in `src/` may include headers from here. No file here other than a `README.md` may share a
 name with a file in `src/` or `doc/`, since objects, test binaries and includes are found by name.
