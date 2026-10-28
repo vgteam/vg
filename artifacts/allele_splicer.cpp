@@ -50,7 +50,7 @@ bool AlleleSplicer::splice(const StagedSite& site, SplicedAlleles& out) const {
     int first_trav = -1;
     for (int strand = 0; strand < strands; ++strand) {
         const int trav = strand == 0 ? phase->trav_first : phase->trav_second;
-        if (trav < 0 || trav >= (int)site.travs.size() || trav == site.ref_trav_idx
+        if (trav < 0 || trav >= (int)site.alleles.walks.size() || trav == site.alleles.ref_allele
             || trav == first_trav) {
             // Spell the reference as the reference, and an allele as on its first strand.
             continue;
@@ -62,10 +62,10 @@ bool AlleleSplicer::splice(const StagedSite& site, SplicedAlleles& out) const {
             continue;
         }
         if (!changed) {
-            out.travs = site.travs;
-            out.sequences.assign(site.travs.size(), StepSequences());
-            for (size_t t = 0; t < site.travs.size(); ++t) {
-                if (const StepSequences* own = own_sequences(&site.sequences, t)) {
+            out.travs = site.alleles.walks;
+            out.sequences.assign(site.alleles.walks.size(), StepSequences());
+            for (size_t t = 0; t < site.alleles.walks.size(); ++t) {
+                if (const StepSequences* own = site.alleles.own_sequences(t)) {
                     out.sequences[t] = *own;
                 }
             }
@@ -95,14 +95,14 @@ bool AlleleSplicer::chosen_replacement(const StagedSite& child, int strand, bool
     } else {
         child_trav = strand == 0 ? phase->trav_first : phase->trav_second;
     }
-    if (child_trav < 0 || child_trav >= (int)child.travs.size()) {
+    if (child_trav < 0 || child_trav >= (int)child.alleles.walks.size()) {
         return false;
     }
     rep.inside_node = child.bounds.inside_node;
     rep.key = child.record_key;
     if (!spliced_allele(child, child_trav, strand, phase->ploidy == 1, rep.walk, rep.steps)) {
-        rep.walk = child.travs[child_trav];
-        if (const StepSequences* own = own_sequences(&child.sequences, child_trav)) {
+        rep.walk = child.alleles.walks[child_trav];
+        if (const StepSequences* own = child.alleles.own_sequences(child_trav)) {
             rep.steps = *own;
         } else {
             rep.steps.clear();
@@ -286,7 +286,7 @@ bool AlleleSplicer::spliced_allele(const StagedSite& site, int trav, int strand,
     if (kids == children.end()) {
         return false;
     }
-    const Traversal& parent_walk = site.travs[trav];
+    const Traversal& parent_walk = site.alleles.walks[trav];
     // Index where each node is first visited, which is where a child is entered.
     unordered_map<nid_t, int> first_visit;
     for (int i = (int)parent_walk.size() - 1; i >= 0; --i) {
@@ -316,7 +316,7 @@ bool AlleleSplicer::spliced_allele(const StagedSite& site, int trav, int strand,
     // Splice the routes in walk order, then make the edits of the children inside nodes on the
     // spliced walk.
     const bool routes_changed =
-        splice_routes(parent_walk, own_sequences(&site.sequences, trav), routes, walk, steps);
+        splice_routes(parent_walk, site.alleles.own_sequences(trav), routes, walk, steps);
     const bool edits_changed = apply_step_edits(step_edits_of(edits, walk), steps);
     if (!routes_changed && !edits_changed) {
         walk.clear();

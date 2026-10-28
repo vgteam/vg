@@ -158,7 +158,7 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
             return is_symbolically_reference(site, trav, ref_trav_idx);
         };
         steps.count_site = [this, &site](const vector<int>&, int ref_trav_idx) {
-            block_records.count_site(site.children, site.travs, ref_trav_idx);
+            block_records.count_site(site.children, site.alleles.walks, ref_trav_idx);
         };
     }
     steps.phase = [this, &site](const vector<int>& site_genotype,
@@ -177,14 +177,16 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
                                                 bool genotype_snarls) {
         // The blocks spell the alleles the site record spells.
         return block_records.write(graph, site.children,
-                                   spliced != nullptr ? spliced->travs : site.travs, genotype,
+                                   spliced != nullptr ? spliced->travs : site.alleles.walks,
+                                   genotype,
                                    ref_trav_idx, sample_name, output.get_translation(), record,
                                    gl_layout, genotype_snarls,
                                    [this](vcflib::Variant& line, size_t block) {
                                        finish_moved_record(line);
                                        return output.add_variant(line, block);
                                    },
-                                   spliced != nullptr ? &spliced->sequences : &site.sequences);
+                                   spliced != nullptr ? &spliced->sequences
+                                                      : &site.alleles.sequences);
     };
     steps.finish_record = [this](vcflib::Variant& record) {
         finish_moved_record(record);
@@ -424,11 +426,12 @@ void MultiPassCaller::render_retained_records() {
             // A parent spells its children's chosen alleles.
             AlleleSplicer::SplicedAlleles spliced;
             const bool is_spliced = splicer.splice(site, spliced);
-            const vector<Traversal>& spelled = is_spliced ? spliced.travs : site.travs;
+            const vector<Traversal>& spelled = is_spliced ? spliced.travs : site.alleles.walks;
             const AlleleSequences& spelled_steps =
-                is_spliced ? spliced.sequences : site.sequences;
-            output.emit_site(graph, site.bounds.start, site.bounds.end, site.travs, genotype,
-                             site.ref_trav_idx, site.call_info.get(), site.reference.path_name,
+                is_spliced ? spliced.sequences : site.alleles.sequences;
+            output.emit_site(graph, site.bounds.start, site.bounds.end, site.alleles.walks,
+                             genotype, site.alleles.ref_allele, site.call_info.get(),
+                             site.reference.path_name,
                              site.reference.offset, genotype_snarls, site.ploidy,
                              record_steps(site, is_spliced ? &spliced : nullptr),
                              // Each allele is spelled as the site holds it: by its step sequences
@@ -460,8 +463,8 @@ size_t MultiPassCaller::rederive_reported_inline() {
             return;
         }
         const BlockRecordWriter::ChainInlineContext ctx = block_records.chain_inline_context(
-            graph, parent.children, parent.travs, linker.chosen_genotype(parent),
-            parent.ref_trav_idx);
+            graph, parent.children, parent.alleles.walks, linker.chosen_genotype(parent),
+            parent.alleles.ref_allele);
         for (size_t ci : children) {
             StagedSite& child = pending[ci];
             if (child.dropped) {
@@ -524,8 +527,8 @@ static void measure_staged(const StagedSite& rec, size_t& bytes, size_t& visits,
     bytes += sizeof(StagedSite) + rec.reference.path_name.capacity()
              + rec.genotype.capacity() * sizeof(int)
              + (rec.panel_cache ? rec.panel_cache->capacity() * sizeof(int) : 0);
-    bytes += rec.travs.capacity() * sizeof(Traversal);
-    for (const Traversal& t : rec.travs) {
+    bytes += rec.alleles.walks.capacity() * sizeof(Traversal);
+    for (const Traversal& t : rec.alleles.walks) {
         visits += t.size();
         bytes += t.capacity() * sizeof(handle_t);
     }
@@ -690,16 +693,17 @@ bool MultiPassCaller::is_symbolically_reference(const StagedSite& site, int trav
                                                 int ref_trav_idx) const {
     // Only with nested calling.
     if (!nested_calling || ref_trav_idx < 0 || trav_idx < 0 ||
-        ref_trav_idx >= (int)site.travs.size() || trav_idx >= (int)site.travs.size()) {
+        ref_trav_idx >= (int)site.alleles.walks.size()
+        || trav_idx >= (int)site.alleles.walks.size()) {
         return false;
     }
     // An allele with step sequences spells something its walk does not, so sharing the
     // reference's route does not make it the reference.
-    if (own_sequences(&site.sequences, trav_idx) != nullptr
-        || own_sequences(&site.sequences, ref_trav_idx) != nullptr) {
+    if (site.alleles.own_sequences(trav_idx) != nullptr
+        || site.alleles.own_sequences(ref_trav_idx) != nullptr) {
         return false;
     }
-    return symbolically_equal(graph, site.travs[trav_idx], site.travs[ref_trav_idx],
+    return symbolically_equal(graph, site.alleles.walks[trav_idx], site.alleles.walks[ref_trav_idx],
                               site.children);
 }
 

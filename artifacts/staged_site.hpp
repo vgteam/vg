@@ -99,11 +99,7 @@ struct StagedSite {
     /// This may be the decomposition's orientation turned round.
     SiteBounds bounds;
     /// The candidate alleles.
-    vector<Traversal> travs;
-    /// The sequences of the alleles in `travs` that their walks do not spell.
-    AlleleSequences sequences;
-    /// The index in `travs` of the reference allele.
-    int ref_trav_idx = -1;
+    CandidateAlleles alleles;
     /// The sites nested in this one, for its symbolic alleles.
     SiteChildren children;
     /// The chain the site is in.

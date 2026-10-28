@@ -388,7 +388,7 @@ void TreeGenotyper::descend_nested(const SiteCall& call) {
     // it too, each in the chain its node is in.
     vector<HeldEdit> held;
     // A site that descends is staged, so its staged site holds its walks.
-    const vector<Traversal>& walks = call.staged->travs;
+    const vector<Traversal>& walks = call.staged->alleles.walks;
     if (parts.edit_source != nullptr) {
         held = placer.held_by(call.view, call.bounds, walks, call.site.ref_trav_idx);
     }
@@ -627,7 +627,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     // Put the edit site in the chain its node is in.
     staged->chain = edit.child.chain;
     staged->enclosing = enclosing;
-    staged->sequences = sequences;
+    staged->alleles.sequences = sequences;
     // A retain_only site is crossed by no called parent allele, so it is not filed yet. A site
     // with no reference position is filed anyway.
     if (top_level || no_ref_position || !placement.retain_only) {
@@ -659,8 +659,8 @@ unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
     auto rec = std::make_unique<StagedSite>();
     rec->bounds = bounds;
     rec->reference = reference;
-    rec->travs = std::move(travs);
-    rec->ref_trav_idx = ref_trav_idx;
+    rec->alleles.walks = std::move(travs);
+    rec->alleles.ref_allele = ref_trav_idx;
     rec->genotype = trav_genotype;
     rec->ploidy = ploidy;
     rec->id = site_id;

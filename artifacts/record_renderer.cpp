@@ -56,8 +56,8 @@ double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chos
     // Compare only with genotypes over the written alleles, as GL in the VCF does. Those are the
     // reference traversal and the traversals the chosen genotype names.
     set<int> emitted(called.begin(), called.end());
-    if (rec.ref_trav_idx >= 0) {
-        emitted.insert(rec.ref_trav_idx);
+    if (rec.alleles.ref_allele >= 0) {
+        emitted.insert(rec.alleles.ref_allele);
     }
     double best_other = -numeric_limits<double>::infinity();
     for (const auto& [other, ll] : score->genotype_lls) {

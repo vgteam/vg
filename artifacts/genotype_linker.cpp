@@ -85,7 +85,8 @@ bool GenotypeLinker::file(StagedSite& site, bool nested) const {
             .emitted = false,
             .unpositioned = site.reference.no_reference,
             .chain_key = placement.chain_key,
-            .freq_prior = freq_prior(site.travs, &site.sequences, site.ref_trav_idx),
+            .freq_prior =
+                freq_prior(site.alleles.walks, &site.alleles.sequences, site.alleles.ref_allele),
         });
     return true;
 }
@@ -300,8 +301,8 @@ void GenotypeLinker::place_chain(
     unordered_map<const Traversal*, ChildPlacer::ChildOffsets>& child_offsets) const {
     const size_t offset =
         parent.placement.parent_offset
-        + ChildPlacer::offset_along_genotype(*reader.graph, parent.travs, chosen_genotype(parent),
-                                             pr.bounds, child_offsets);
+        + ChildPlacer::offset_along_genotype(*reader.graph, parent.alleles.walks,
+                                             chosen_genotype(parent), pr.bounds, child_offsets);
     if (offset == pr.placement.parent_offset) {
         return;
     }
@@ -338,20 +339,21 @@ bool GenotypeLinker::chosen_pair_of_parent(const StagedSite& pr, const StagedSit
 }
 
 bool GenotypeLinker::buildable(const StagedSite& pr) {
-    if (pr.travs.empty()) {
+    if (pr.alleles.walks.empty()) {
         return false;
     }
     // `emit_variant` indexes `called_traversals[ref_trav_idx]` unchecked. A record with no
     // reference path is never emitted.
     if (!pr.reference.no_reference
-        && (pr.ref_trav_idx < 0 || (size_t)pr.ref_trav_idx >= pr.travs.size())) {
+        && (pr.alleles.ref_allele < 0
+            || (size_t)pr.alleles.ref_allele >= pr.alleles.walks.size())) {
         return false;
     }
     if (pr.genotype.empty()) {
         return false;
     }
     return std::ranges::none_of(pr.genotype, [&](int allele) {
-        return allele >= 0 && (size_t)allele >= pr.travs.size();
+        return allele >= 0 && (size_t)allele >= pr.alleles.walks.size();
     });
 }
 
@@ -369,7 +371,7 @@ bool GenotypeLinker::adopt_ploidy(StagedSite& pr, int copies, PassCounts& counts
         return false;
     }
     if (!std::ranges::all_of(rl->alt_ploidy_best, [&](int allele) {
-            return allele >= 0 && (size_t)allele < pr.travs.size();
+            return allele >= 0 && (size_t)allele < pr.alleles.walks.size();
         })) {
         return false;
     }
@@ -399,8 +401,8 @@ void GenotypeLinker::recompute_child_crossings(StagedSiteTable& sites,
         return;
     }
     vector<ChildPlacer::TraversalNodeIndex> pr_visits;
-    pr_visits.reserve(pr.travs.size());
-    for (const Traversal& t : pr.travs) {
+    pr_visits.reserve(pr.alleles.walks.size());
+    for (const Traversal& t : pr.alleles.walks) {
         pr_visits.push_back(ChildPlacer::index_traversal_nodes(*reader.graph, t));
     }
     vector<StagedSite>& pending = sites.nested();
