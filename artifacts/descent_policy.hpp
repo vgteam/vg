@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "block_records.hpp"
+#include "child_crossing_finder.hpp"
 #include "handle.hpp"
 #include "site_values.hpp"
 #include <vg/vg.pb.h>
@@ -131,85 +132,10 @@ struct NestingPlacement {
  *
  * It lists the child chains that a genotyped site's called alleles cross, each with its place in
  * the nesting tree and the ploidy to genotype it at. It reads a site's children from the snarl
- * decomposition.
- *
- * Its static members say how a parent's candidate walks cross its child sites. A walk crosses a
- * child each time it passes one of the child's boundaries (see `SiteBounds`) and later the other.
- * - For a child between two nodes, a visit to a boundary node passes the side of it that faces
- *   the child, whichever way the node is read. So the walk crosses the child when it visits one
- *   boundary node and then the other. A child whose two bounds are one node, as in a looping
- *   chain, is crossed by a second visit to that node.
- * - For a child inside one node, a visit to the node passes both of its boundaries, so every
- *   visit crosses the child once.
+ * decomposition, and finds where the site's walks cross them with `ChildCrossingFinder`.
  */
 class DescentPolicy {
 public:
-    /// The handle indices at which one walk visits each node ID, in ascending order.
-    ///
-    /// Build it once per walk per site, so that testing each child does not scan the whole walk
-    /// again.
-    using TraversalNodeIndex = unordered_map<nid_t, vector<int>>;
-    /// Build the `TraversalNodeIndex` of `walk`.
-    static TraversalNodeIndex index_traversal_nodes(const HandleGraph& graph,
-                                                    const Traversal& walk);
-
-    /// Count the times one walk crosses `child`.
-    ///
-    /// One allele crossing a chain more than once, as in a cycle or tandem duplication, crosses
-    /// it that many times.
-    static int crossings_of_child(const HandleGraph& graph, const TraversalNodeIndex& visits,
-                                  const SiteBounds& child);
-
-    /// Find the handle index at which `walk` first enters `child`, or -1 if `walk` does not cross
-    /// it.
-    static int offset_of_child(const HandleGraph& graph, const Traversal& walk,
-                               const SiteBounds& child);
-
-    /**
-     * A table of how far along one walk, in bases, each child is entered.
-     *
-     * It answers by lookup, so that a parent with many children and a long walk is not scanned
-     * once per child.
-     */
-    struct ChildOffsets {
-        /// Index `walk`, which must outlive the table.
-        ChildOffsets(const HandleGraph& graph, const Traversal& walk);
-        /// Get the length of the nodes visited before the handle `offset_of_child` gives, or -1
-        /// if that is -1.
-        ///
-        /// For a child inside nodes, add the bases of the entered node before the child.
-        int64_t base_offset(const HandleGraph& graph, const SiteBounds& child) const;
-        /// The handle indices of each node, ascending.
-        unordered_map<nid_t, vector<int>> visits_of;
-        /// The bases of the handles before each handle index. It is one longer than the walk.
-        vector<int64_t> bases_before;
-        /// The walk.
-        const Traversal* walk = nullptr;
-    };
-
-    /// Find how far along the first walk of `genotype` that crosses `child` the child is entered,
-    /// in bases, or 0 when none does.
-    ///
-    /// @param offsets A `ChildOffsets` per walk of `travs`, filled as walks are first used.
-    static size_t offset_along_genotype(
-        const HandleGraph& graph, const vector<Traversal>& travs, const vector<int>& genotype,
-        const SiteBounds& child, unordered_map<const Traversal*, ChildOffsets>& offsets);
-
-    /**
-     * Make the crossing mask of `child`, with bit i set where the walk that `visits[i]` indexes
-     * crosses it.
-     *
-     * The mask is indexed by candidate walk, since it is tested against the parent's chosen
-     * walks.
-     *
-     * @param known If not null, set to false when there are more than 64 walks, and true
-     * otherwise.
-     * @return The mask, or 0 when there are more than 64 walks.
-     */
-    static uint64_t child_crossing_mask(const HandleGraph& graph,
-                                        const vector<TraversalNodeIndex>& visits,
-                                        const SiteBounds& child, bool* known = nullptr);
-
     /// A child chain to genotype, as `place` gives it.
     struct Placed {
         /// The child.
@@ -229,7 +155,7 @@ public:
     ///
     /// Test each against the difference blocks of `blocks`, and count what descent does in
     /// `counters`. None is owned.
-    void configure(const HandleGraph* graph, const SnarlDecomposition* decomposition,
+    void configure(const HandleGraph* graph, const EditSnarlDecompositionOverlay* decomposition,
                    const BlockRecordWriter* blocks, DescentCounters* counters);
 
     /// The sites nested in a site.
@@ -294,17 +220,17 @@ public:
     /// An allele crossing a chain more than once, as in a cycle or tandem duplication, counts
     /// once, since the caller assumes ploidy 1 or 2. Such alleles are tallied in
     /// `DescentCounters::child_multi_crossing`.
-    int child_ploidy(const vector<TraversalNodeIndex>& visits, const vector<int>& genotype,
-                     const SiteBounds& child, int cap) const;
+    int child_ploidy(const vector<ChildCrossingFinder>& walks, const vector<int>& genotype,
+                     const net_handle_t& child, int cap) const;
 
 private:
     /// Return true if the reference walk of `parent`, if it has one, crosses `child`.
-    bool reference_crosses(const Parent& parent, const vector<TraversalNodeIndex>& visits,
-                           const SiteBounds& child) const;
+    bool reference_crosses(const Parent& parent, const vector<ChildCrossingFinder>& walks,
+                           const net_handle_t& child) const;
 
     const HandleGraph* graph = nullptr;
     /// Gives the children of each site.
-    const SnarlDecomposition* decomposition = nullptr;
+    const EditSnarlDecompositionOverlay* decomposition = nullptr;
     /// Says which child chains a difference block already spells.
     const BlockRecordWriter* blocks = nullptr;
     /// Tallies what descent does.

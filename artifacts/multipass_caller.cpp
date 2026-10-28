@@ -300,6 +300,7 @@ void MultiPassCaller::install_header_steps() {
 void MultiPassCaller::install_widgets() {
     const SiteReader reader{
         .graph = &graph,
+        .sites = &sites,
         .genotyper = &snarl_caller,
         .spell = [this](const Traversal& walk, const StepSequences* own) {
             return allele_sequence(graph, walk, own);

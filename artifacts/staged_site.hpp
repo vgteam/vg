@@ -212,6 +212,8 @@ private:
 struct SiteReader {
     /// The graph the sites are in.
     const PathPositionHandleGraph* graph = nullptr;
+    /// The overlay of sites that the staged sites' net handles are in.
+    const EditSnarlDecompositionOverlay* sites = nullptr;
     /// The read-likelihood genotyper that called the sites, or null where another genotyper did.
     const ReadLikelihoodSnarlCaller* genotyper = nullptr;
     /// Spells an allele, from its step sequences when not null, or else from its walk.

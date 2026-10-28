@@ -8,186 +8,18 @@
 
 namespace vg::multipass {
 
-DescentPolicy::TraversalNodeIndex DescentPolicy::index_traversal_nodes(const HandleGraph& graph,
-                                                                   const Traversal& walk) {
-    TraversalNodeIndex visits;
-    for (int i = 0; i < (int)walk.size(); ++i) {
-        visits[graph.get_id(walk[i])].push_back(i);
-    }
-    return visits;
-}
-
-int DescentPolicy::crossings_of_child(const HandleGraph& graph, const TraversalNodeIndex& visits,
-                                   const SiteBounds& child) {
-    const nid_t start = graph.get_id(child.start);
-    const nid_t end = graph.get_id(child.end);
-    if (inside_one_node(child)) {
-        // Each visit passes both of the child's boundaries.
-        auto found = visits.find(start);
-        return found == visits.end() ? 0 : (int)found->second.size();
-    }
-    // A crossing is a visit to one boundary node followed by a visit to the other. Only visits to
-    // the two boundary nodes matter, so walk their positions merged in ascending order. When both
-    // boundaries are the same node, one list plays both roles.
-    static const vector<int> none;
-    auto s = visits.find(start);
-    auto e = visits.find(end);
-    const vector<int>& sp = (s == visits.end()) ? none : s->second;
-    const vector<int>& ep = (e == visits.end() || end == start) ? none : e->second;
-    int crossings = 0;
-    // The boundary node that would complete the current crossing, or 0 outside a crossing.
-    nid_t open = 0;
-    size_t i = 0;
-    size_t j = 0;
-    while (i < sp.size() || j < ep.size()) {
-        nid_t node;
-        if (j >= ep.size() || (i < sp.size() && sp[i] <= ep[j])) {
-            node = start;
-            ++i;
-        } else {
-            node = end;
-            ++j;
-        }
-        if (open == 0 && (node == start || node == end)) {
-            open = (node == start) ? end : start;
-        } else if (open != 0 && node == open) {
-            ++crossings;
-            open = 0;
-        }
-    }
-    return crossings;
-}
-
-int DescentPolicy::offset_of_child(const HandleGraph& graph, const Traversal& walk,
-                                 const SiteBounds& child) {
-    const nid_t start = graph.get_id(child.start);
-    const nid_t end = graph.get_id(child.end);
-    if (inside_one_node(child)) {
-        // One visit is a whole crossing.
-        for (int i = 0; i < (int)walk.size(); ++i) {
-            if (graph.get_id(walk[i]) == start) {
-                return i;
-            }
-        }
-        return -1;
-    }
-    nid_t open = 0;
-    int entry = -1;
-    for (int i = 0; i < (int)walk.size(); ++i) {
-        nid_t node = graph.get_id(walk[i]);
-        if (open == 0 && (node == start || node == end)) {
-            open = (node == start) ? end : start;
-            entry = i;
-        } else if (open != 0 && node == open) {
-            // Report the entry of the first complete crossing.
-            return entry;
-        }
-    }
-    return -1;
-}
-
-DescentPolicy::ChildOffsets::ChildOffsets(const HandleGraph& graph, const Traversal& indexed)
-    : walk(&indexed) {
-    bases_before.assign(indexed.size() + 1, 0);
-    for (int i = 0; i < (int)indexed.size(); ++i) {
-        visits_of[graph.get_id(indexed[i])].push_back(i);
-        bases_before[i + 1] = bases_before[i] + (int64_t)graph.get_length(indexed[i]);
-    }
-}
-
-int64_t DescentPolicy::ChildOffsets::base_offset(const HandleGraph& graph,
-                                               const SiteBounds& child) const {
-    // Follow the rule of `offset_of_child`. The entry is the first visit to either boundary node,
-    // and it counts only if the other boundary node is visited after it.
-    const nid_t start = graph.get_id(child.start);
-    const nid_t end = graph.get_id(child.end);
-    auto start_visits = visits_of.find(start);
-    auto end_visits = visits_of.find(end);
-    if (inside_one_node(child)) {
-        // The first visit is a whole crossing, and the child starts at its base inside the node,
-        // read the way this visit reads the node.
-        if (start_visits == visits_of.end()) {
-            return -1;
-        }
-        const int visit = start_visits->second.front();
-        SiteBounds as_visited = child;
-        as_visited.start = (*walk)[visit];
-        return bases_before[visit] + (int64_t)bases_before_site(graph, as_visited);
-    }
-    const int none = numeric_limits<int>::max();
-    const int first_start = start_visits == visits_of.end() ? none : start_visits->second.front();
-    const int first_end = end_visits == visits_of.end() ? none : end_visits->second.front();
-    const int entry = min(first_start, first_end);
-    if (entry == none) {
-        return -1;
-    }
-    if (const auto& closing = first_start <= first_end ? end_visits : start_visits;
-        closing == visits_of.end()
-        || std::ranges::upper_bound(closing->second, entry) == closing->second.end()) {
-        return -1;
-    }
-    if (child.inside_node) {
-        // A child inside nodes starts at its base inside the first.
-        SiteBounds as_visited = child;
-        as_visited.start = (*walk)[entry];
-        return bases_before[entry] + (int64_t)bases_before_site(graph, as_visited);
-    }
-    return bases_before[entry];
-}
-
-size_t DescentPolicy::offset_along_genotype(
-    const HandleGraph& graph, const vector<Traversal>& travs, const vector<int>& genotype,
-    const SiteBounds& child, unordered_map<const Traversal*, ChildOffsets>& offsets) {
-    for (int allele : genotype) {
-        if (allele < 0 || allele >= (int)travs.size()) {
-            continue;
-        }
-        const Traversal* walk = &travs[allele];
-        auto found = offsets.find(walk);
-        if (found == offsets.end()) {
-            found = offsets.try_emplace(walk, graph, *walk).first;
-        }
-        const int64_t within = found->second.base_offset(graph, child);
-        if (within >= 0) {
-            return (size_t)within;
-        }
-    }
-    return 0;
-}
-
-uint64_t DescentPolicy::child_crossing_mask(const HandleGraph& graph,
-                                         const vector<TraversalNodeIndex>& visits,
-                                         const SiteBounds& child, bool* known) {
-    if (known != nullptr) {
-        *known = true;
-    }
-    if (visits.size() > 64) {
-        if (known != nullptr) {
-            *known = false;
-        }
-        return 0;
-    }
-    uint64_t mask = 0;
-    for (size_t i = 0; i < visits.size(); ++i) {
-        if (crossings_of_child(graph, visits[i], child) > 0) {
-            mask |= (uint64_t)1 << i;
-        }
-    }
-    return mask;
-}
-
-int DescentPolicy::child_ploidy(const vector<TraversalNodeIndex>& visits,
-                              const vector<int>& genotype, const SiteBounds& child,
-                              int cap) const {
+int DescentPolicy::child_ploidy(const vector<ChildCrossingFinder>& walks,
+                                const vector<int>& genotype, const net_handle_t& child,
+                                int cap) const {
     int copies = 0;
     bool capped = false;
 
     for (int allele : genotype) {
-        if (allele < 0 || allele >= (int)visits.size()) {
+        if (allele < 0 || allele >= (int)walks.size()) {
             // A star or missing allele carries no copy.
             continue;
         }
-        int crossings = crossings_of_child(*graph, visits[allele], child);
+        int crossings = (int)walks[allele].crossings(child).size();
         if (crossings > 1) {
             capped = true;
             crossings = 1;
@@ -201,7 +33,7 @@ int DescentPolicy::child_ploidy(const vector<TraversalNodeIndex>& visits,
 }
 
 void DescentPolicy::configure(const HandleGraph* new_graph,
-                            const SnarlDecomposition* new_decomposition,
+                              const EditSnarlDecompositionOverlay* new_decomposition,
                             const BlockRecordWriter* new_blocks, DescentCounters* new_counters) {
     graph = new_graph;
     decomposition = new_decomposition;
@@ -234,14 +66,14 @@ NodePlacement DescentPolicy::placement_of(nid_t id) const {
 }
 
 bool DescentPolicy::reference_crosses(const Parent& parent,
-                                    const vector<TraversalNodeIndex>& visits,
-                                    const SiteBounds& child) const {
+                                      const vector<ChildCrossingFinder>& walks,
+                                      const net_handle_t& child) const {
     if (parent.ref_trav_idx < 0 || parent.ref_trav_idx >= (int)parent.travs.size()) {
         // With no reference walk, there is nothing to test.
         return true;
     }
     const vector<int> ref_only(1, parent.ref_trav_idx);
-    return child_ploidy(visits, ref_only, child, 1) != 0;
+    return child_ploidy(walks, ref_only, child, 1) != 0;
 }
 
 void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_uncrossed,
@@ -255,20 +87,19 @@ void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_un
     // depend on the child.
     const BlockRecordWriter::ChainInlineContext inline_ctx = blocks->chain_inline_context(
         *graph, parent.nested.children, travs, parent.genotype, parent.ref_trav_idx);
-    vector<TraversalNodeIndex> trav_visits;
-    trav_visits.reserve(travs.size());
+    vector<ChildCrossingFinder> walks;
+    walks.reserve(travs.size());
     for (const Traversal& t : travs) {
-        trav_visits.push_back(index_traversal_nodes(*graph, t));
+        walks.emplace_back(*decomposition, *graph, t);
     }
-    // Index the base offsets of each walk the first time a child needs that walk.
-    unordered_map<const Traversal*, ChildOffsets> walk_offsets;
+    // Make the crossing finder of each walk the first time a child's offset needs that walk.
+    ChildCrossingFinders offset_finders;
     for (const ChildSite& child : parent.nested.sites) {
-        const SiteBounds& child_bounds = child.bounds;
         // A chain the reference walk does not cross has no REF or POS for its records, so leave
         // it out unless off-reference descent is on. Everything under a chain off the reference
         // is off it too.
         bool child_off_reference = placement.no_reference;
-        if (!reference_crosses(parent, trav_visits, child_bounds)) {
+        if (!reference_crosses(parent, walks, child.net)) {
             if (!off_reference) {
                 ++counters->skipped_no_ref;
                 continue;
@@ -284,7 +115,7 @@ void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_un
             placement.reported_inline
             || blocks->chain_reported_inline(*graph, inline_ctx, child.chain);
 
-        const int copies = child_ploidy(trav_visits, parent.genotype, child_bounds, parent.ploidy);
+        const int copies = child_ploidy(walks, parent.genotype, child.net, parent.ploidy);
         bool retain_only = placement.retain_only;
         if (copies <= 0) {
             ++counters->skipped_no_copy;
@@ -312,12 +143,12 @@ void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_un
         // offsets add up down the tree.
         next.parent_offset =
             placement.parent_offset
-            + offset_along_genotype(*graph, travs, parent.genotype, child_bounds, walk_offsets);
+            + entry_bases_along_genotype(*decomposition, *graph, travs, parent.genotype, child.net,
+                                         offset_finders);
         next.reported_inline = child_reported_inline;
         next.chain_key = chain_key_of(*graph, out.chain);
         bool crossing_known = true;
-        next.parent_crossing =
-            child_crossing_mask(*graph, trav_visits, child_bounds, &crossing_known);
+        next.parent_crossing = crossing_mask(walks, child.net, &crossing_known);
         next.crossing_known = crossing_known;
         next.level = placement.level + 1;
         visit(out);

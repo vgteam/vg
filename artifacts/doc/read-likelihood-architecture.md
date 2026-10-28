@@ -173,6 +173,7 @@ grouped by the step they serve; the driver and its walk come first.
 | | `read_likelihood_caller.hpp` | `ReadLikelihoodSnarlCaller`, which makes one site's direct call from its likelihoods at explicit ploidies, returns it as a `SiteScore`, and computes its quality fields |
 | | `edit_site_placer.hpp` | `EditSitePlacer`, which places the off-panel edit sites among the sites and adds them to the overlay |
 | | `tree_genotyper.hpp`, `descent_policy.hpp` | `TreeGenotyper`, the direct pass for one top-level site and the sites below it, and `DescentPolicy`, which lists the child chains a site's called alleles cross, each with its `NestingPlacement` |
+| | `child_crossing_finder.hpp` | `ChildCrossingFinder`, which finds where one walk of a site crosses the site's children, given as net handles in the overlay |
 | | `linkage_model.hpp`, `genotype_linker.hpp` | `LinkageModel`, the hidden Markov model over the panel; `LinkageCollector`, which holds each site's entry, runs the model over linkage chains one level at a time, and keeps each site's chosen genotype; and `GenotypeLinker`, the linkage pass, which files the staged sites with the collector and revises each nested staged site from its parent's chosen genotype |
 | | `panel_lookup.hpp`, `ploidy_regions.hpp` | `PanelLookup`, which finds the panel haplotypes that carry an allele, and `PloidyRegions`, the ploidy of each region |
 | Phasing | `phase_table.hpp` | `PhaseTable`, the chosen pair of every phased site, which the linkage pass fills and read phasing reorders |

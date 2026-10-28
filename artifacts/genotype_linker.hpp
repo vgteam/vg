@@ -149,18 +149,17 @@ private:
      *
      * @param index The index of the chain in `sites.nested()`.
      * @param chosen The phase calls of the parents at this level.
-     * @param child_offsets The child offsets of each parent traversal, filled as needed.
+     * @param crossing_finders The crossing finder of each parent traversal, filled as needed.
      */
     void revise_chain(StagedSiteTable& sites, size_t index,
                       const unordered_map<size_t, StagedSite*>& record_by_key,
                       const unordered_map<size_t, const PhaseCall*>& chosen,
-                      unordered_map<const Traversal*, DescentPolicy::ChildOffsets>& child_offsets,
+                      ChildCrossingFinders& crossing_finders,
                       PassCounts& counts);
 
     /// Move a nested chain to where it starts along the allele chosen for its parent.
     void place_chain(StagedSite& pr, const StagedSite& parent,
-                     unordered_map<const Traversal*, DescentPolicy::ChildOffsets>& child_offsets)
-        const;
+                     ChildCrossingFinders& crossing_finders) const;
 
     /// Find the traversals chosen for the parent of a nested chain, the second -1 for a haploid
     /// parent.

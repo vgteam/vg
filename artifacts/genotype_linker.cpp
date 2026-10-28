@@ -174,9 +174,9 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
     ++passes_run;
 
     unordered_map<size_t, StagedSite*> record_by_key = sites.by_key();
-    // Each parent traversal's child offsets, keyed by address. The addresses stay valid for the
-    // pass, and the traversals do not change after the direct pass.
-    unordered_map<const Traversal*, DescentPolicy::ChildOffsets> child_offsets;
+    // The crossing finder of each parent traversal, keyed by address. The addresses stay valid
+    // for the pass, and the traversals do not change after the direct pass.
+    ChildCrossingFinders crossing_finders;
 
     // Choose each level, then revise the chains of the next level from the parents just chosen.
     // Revising can add a chain at a deeper level, so `counts.levels` can grow.
@@ -191,7 +191,7 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
         for (size_t i = 0; i < pending.size(); ++i) {
             const StagedSite& pr = pending[i];
             if (pr.placement.level == level + 1 && !pr.dropped) {
-                revise_chain(sites, i, record_by_key, chosen, child_offsets, counts);
+                revise_chain(sites, i, record_by_key, chosen, crossing_finders, counts);
             }
         }
         if (model != nullptr) {
@@ -224,15 +224,14 @@ unordered_map<size_t, const GenotypeLinker::PhaseCall*> GenotypeLinker::parent_p
 void GenotypeLinker::revise_chain(
     StagedSiteTable& sites, size_t index, const unordered_map<size_t, StagedSite*>& record_by_key,
     const unordered_map<size_t, const PhaseCall*>& chosen,
-    unordered_map<const Traversal*, DescentPolicy::ChildOffsets>& child_offsets,
-    PassCounts& counts) {
+    ChildCrossingFinders& crossing_finders, PassCounts& counts) {
     StagedSite& pr = sites.nested()[index];
     const auto parent_record = record_by_key.find(pr.placement.parent_record_key);
     const StagedSite* parent =
         parent_record != record_by_key.end() ? parent_record->second : nullptr;
     if (model != nullptr && parent != nullptr) {
         // The parent was placed when its own level was revised.
-        place_chain(pr, *parent, child_offsets);
+        place_chain(pr, *parent, crossing_finders);
     }
     if (!pr.placement.crossing_known) {
         // The parent has more candidate traversals than a 64-bit crossing mask can hold. Count the
@@ -298,11 +297,11 @@ void GenotypeLinker::revise_chain(
 
 void GenotypeLinker::place_chain(
     StagedSite& pr, const StagedSite& parent,
-    unordered_map<const Traversal*, DescentPolicy::ChildOffsets>& child_offsets) const {
+    ChildCrossingFinders& crossing_finders) const {
     const size_t offset =
         parent.placement.parent_offset
-        + DescentPolicy::offset_along_genotype(*reader.graph, parent.alleles.walks,
-                                             chosen_genotype(parent), pr.bounds, child_offsets);
+        + entry_bases_along_genotype(*reader.sites, *reader.graph, parent.alleles.walks,
+                                     chosen_genotype(parent), pr.net, crossing_finders);
     if (offset == pr.placement.parent_offset) {
         return;
     }
@@ -400,17 +399,16 @@ void GenotypeLinker::recompute_child_crossings(StagedSiteTable& sites,
     if (kids == nullptr) {
         return;
     }
-    vector<DescentPolicy::TraversalNodeIndex> pr_visits;
-    pr_visits.reserve(pr.alleles.walks.size());
+    vector<ChildCrossingFinder> pr_walks;
+    pr_walks.reserve(pr.alleles.walks.size());
     for (const Traversal& t : pr.alleles.walks) {
-        pr_visits.push_back(DescentPolicy::index_traversal_nodes(*reader.graph, t));
+        pr_walks.emplace_back(*reader.sites, *reader.graph, t);
     }
     vector<StagedSite>& pending = sites.nested();
     for (size_t ci : *kids) {
         StagedSite& child = pending[ci];
         bool known = true;
-        child.placement.parent_crossing =
-            DescentPolicy::child_crossing_mask(*reader.graph, pr_visits, child.bounds, &known);
+        child.placement.parent_crossing = crossing_mask(pr_walks, child.net, &known);
         child.placement.crossing_known = known;
     }
 }
