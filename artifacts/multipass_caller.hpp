@@ -32,7 +32,6 @@
 #include "read_strand_table.hpp"
 #include "record_renderer.hpp"
 #include "round_history.hpp"
-#include "site_genotyper.hpp"
 #include "site_walker.hpp"
 #include "staged_site.hpp"
 #include "tree_genotyper.hpp"
@@ -622,9 +621,6 @@ private:
     /// Finds each site's reference path and candidate traversals. Declared after the members it
     /// reads.
     CandidateFinder candidates;
-
-    /// Genotypes each site from its reads.
-    SiteGenotyper site_genotyper;
 
     /// Tallies what nested descent did.
     mutable DescentCounters descent_counters;

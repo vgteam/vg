@@ -46,7 +46,7 @@ that enclose it in the decomposition.
 1. **Direct pass.** `SiteWalker` walks the sites of the decomposition, every top-level site in
    parallel; with a windowed read source, it batches them by node ID, so that the source's cache
    serves neighbouring sites. For each one, `TreeGenotyper::genotype` finds the site's candidate
-   alleles and reference path (`CandidateFinder`), genotypes it from its reads (`SiteGenotyper`),
+   alleles and reference path (`CandidateFinder`), genotypes it from its reads (`ReadLikelihoodSnarlCaller`),
    files it with the linkage model (`GenotypeLinker::add`), and **stages** it in the
    `StagedSiteTable`. With nested calling, `ChildPlacer` then lists the child chains the called
    alleles cross, each with its place in the nesting tree, and `TreeGenotyper` genotypes and
@@ -104,7 +104,7 @@ widgets are blue, the data structures they share are white, and the outputs are 
 ```mermaid
 flowchart TD
     walker["SiteWalker"]:::widget
-    tree["TreeGenotyper<br/>CandidateFinder, SiteGenotyper, ChildPlacer"]:::widget
+    tree["TreeGenotyper<br/>CandidateFinder, ReadLikelihoodSnarlCaller, ChildPlacer"]:::widget
     staged["StagedSiteTable<br/>StagedSite"]:::data
     linker["GenotypeLinker<br/>LinkageCollector"]:::widget
     phases["PhaseTable"]:::data
@@ -169,7 +169,7 @@ grouped by the step they serve; the driver and its walk come first.
 | Site likelihood computation | `site_read_source.hpp` | `SiteRead`, a read as a site sees it, and `SiteReadSource`, which delivers the reads of a site from a GAM or GAF file in memory, an indexed GAM file, a bgzipped GAF file through its tabix index, or a GAF-base database |
 | | `allele_likelihood.hpp` | `GraphAlignedAlleleLikelihoodCalculator`, which scores each read against each candidate allele by pairing their node visits, and `AlleleReadLikelihoods`, the resulting matrix of relative likelihoods, which computes $\mathcal{L}(G)$ for each genotype |
 | Genotyping | `candidate_finder.hpp` | `CandidateFinder`, which finds a site's reference path and candidate alleles; `FlowCaller` uses it too |
-| | `read_likelihood_caller.hpp`, `site_genotyper.hpp` | `ReadLikelihoodSnarlCaller`, which makes one site's direct call from its likelihoods and computes its quality fields, and `SiteGenotyper`, which calls it with explicit ploidies and returns a typed `SiteScore` |
+| | `read_likelihood_caller.hpp` | `ReadLikelihoodSnarlCaller`, which makes one site's direct call from its likelihoods at explicit ploidies, returns it as a `SiteScore`, and computes its quality fields |
 | | `tree_genotyper.hpp`, `child_placer.hpp` | `TreeGenotyper`, the direct pass for one top-level site and the sites below it, and `ChildPlacer`, which lists the child chains a site's called alleles cross, each with its `NestingPlacement` |
 | | `linkage_model.hpp`, `genotype_linker.hpp` | `LinkageModel`, the hidden Markov model over the panel; `LinkageCollector`, which holds each site's entry, runs the model over linkage chains one level at a time, and keeps each site's chosen genotype; and `GenotypeLinker`, the linkage pass, which files the staged sites with the collector and revises each nested staged site from its parent's chosen genotype |
 | | `panel_lookup.hpp`, `ploidy_regions.hpp` | `PanelLookup`, which finds the panel haplotypes that carry an allele, and `PloidyRegions`, the ploidy of each region |
@@ -235,7 +235,7 @@ grouped by the step they serve; the driver and its walk come first.
 | State | Written by | Read by |
 |---|---|---|
 | `StagedSite`s, in the `StagedSiteTable` | the direct pass; every linkage pass revises the nested sites' ploidy, genotype and score (the direct pass's answer at the new ploidy), crossing masks, dropped flag and offsets, and which chains a block record spells | the linkage pass, read phasing, re-genotyping, the render |
-| `SiteScore`, one per staged site: every genotype's likelihood, the quality fields, the per-read evidence, and the answer at the other ploidy | `SiteGenotyper`, in the direct pass; the linkage pass exchanges it with the other ploidy's answer; re-genotyping corrects both | the linkage pass, the later rounds, the render |
+| `SiteScore`, one per staged site: every genotype's likelihood, the quality fields, the per-read evidence, and the answer at the other ploidy | `ReadLikelihoodSnarlCaller`, in the direct pass; the linkage pass exchanges it with the other ploidy's answer; re-genotyping corrects both | the linkage pass, the later rounds, the render |
 | `LinkageCollector` entries | the direct pass (`GenotypeLinker::add`); the linkage pass retracts an entry and records it again when it changes a child's ploidy, and records a child it brings back; re-genotyping replaces the likelihoods and direct call of each corrected site's entry (`GenotypeLinker::resync`); the render records whether each site got a line and how each allele was written | the linkage pass, the render, the mosaic |
 | `PhaseTable`, the chosen pair (`PhaseCall`) of each site | every linkage pass rebuilds it; read phasing swaps pairs in place; the render freezes a copy keyed by record | the linkage pass (parents), re-genotyping (nested strands), the render, the mosaic |
 | `ReadStrandTable`: each phased site's reduced read evidence, the sites whose order read phasing reversed, and each read's strand log-odds | `ReadPhaser`; before the render, `build_lambda` sums each read's strand log-odds | re-genotyping; the render, for the anchors |
@@ -259,9 +259,8 @@ that explains them.
    visits with each allele's, and `AlleleLikelihoodParams`, its settings. The header includes
    `anchor.hpp` and `read_phasing.hpp`, because the calculator also keeps each read's evidence for
    those two modules while the read is at hand; their types can be skipped until items 8 and 10.
-4. **`read_likelihood_caller.hpp`, then `site_genotyper.hpp`.** `ReadLikelihoodSnarlCaller` turns
-   one site's matrix into a direct call, and `SiteGenotyper` gives it its ploidies and returns the
-   `SiteScore` the later passes read.
+4. **`read_likelihood_caller.hpp`.** `ReadLikelihoodSnarlCaller` turns one site's matrix into a
+   direct call at the ploidies it is given, and returns the `SiteScore` the later passes read.
 5. **`site_values.hpp`, `site_walker.hpp`, `candidate_finder.hpp`, `child_placer.hpp` and
    `tree_genotyper.hpp`.** The direct pass: how the sites are walked, how a site's candidates are
    found, how its children are placed, and how each is genotyped and staged.
@@ -307,9 +306,6 @@ candidate alleles need explaining. Unit tests are in `src/unittest/<module>.cpp`
   and `anchor.cpp`.
 - `linkage_model.hpp` holds two concepts, the model (`LinkageModel`) and the code that drives it
   over the nesting tree (`LinkageCollector`).
-- `ReadLikelihoodSnarlCaller` is a `SnarlCaller`, as vg's other genotypers are, but only
-  `SiteGenotyper` genotypes with it, and the `SnarlCaller` entry point, `genotype`, is not used.
-  The output still calls it to write its header lines and each record's fields.
 - `call_main.cpp` constructs `GraphAlignedAlleleLikelihoodCalculator` and `LinkageCollector` itself.
 - `--anchors-out` changes more than the output. It turns on the genotyping of off-reference chains,
   which adds groups and sites to read phasing, so the written phase can change, and under

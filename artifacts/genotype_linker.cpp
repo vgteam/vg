@@ -38,7 +38,7 @@ vector<int> GenotypeLinker::chosen_genotype(const StagedSite& rec) const {
 /// it moves the genotype.
 ///
 /// `genotyper` gives the GQ factor, since the share and depth discounts are its settings.
-static LinkageCollector::DirectQuality direct_quality_of(const SiteGenotyper* genotyper,
+static LinkageCollector::DirectQuality direct_quality_of(const ReadLikelihoodSnarlCaller* genotyper,
                                                          const SiteScore& score) {
     return LinkageCollector::DirectQuality{
         .explained_share = score.explained_share,

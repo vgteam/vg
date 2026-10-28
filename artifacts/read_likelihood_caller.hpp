@@ -334,6 +334,16 @@ private:
     double min_confidence = 0.0;
 };
 
+namespace multipass {
+
+/// The genotyping result of one site from the reads.
+///
+/// It holds the likelihood of every genotype at the site's ploidy, and at the other ploidy where
+/// asked for, and everything the later passes and the VCF record need.
+using SiteScore = ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo;
+
+}
+
 }
 
 #endif

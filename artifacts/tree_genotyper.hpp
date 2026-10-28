@@ -20,7 +20,7 @@
 #include "site_read_source.hpp"
 #include "ploidy_regions.hpp"
 #include "reference_path_table.hpp"
-#include "site_genotyper.hpp"
+#include "read_likelihood_caller.hpp"
 #include "staged_site.hpp"
 
 namespace vg::multipass {
@@ -45,7 +45,7 @@ public:
         /// Finds the reference path and candidate traversals of each site.
         const CandidateFinder* candidates = nullptr;
         /// Genotypes each site from its reads.
-        const SiteGenotyper* genotyper = nullptr;
+        ReadLikelihoodSnarlCaller* genotyper = nullptr;
         /// Files each site in the linkage model.
         const GenotypeLinker* linker = nullptr;
         /// Holds the staged sites.

@@ -190,7 +190,6 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
     splicer(graph, phase_table),
     off_panel(graph, this->ref_paths),
     candidates(graph, traversal_finder, this->ref_paths, allele_length_range),
-    site_genotyper(genotyper),
     record_renderer(phase_table, read_strands, linker, anchor_collector)
 {
     install_header_steps();
@@ -209,7 +208,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
         TreeGenotyper::Parts{
             .graph = &graph,
             .candidates = &candidates,
-            .genotyper = &site_genotyper,
+            .genotyper = &snarl_caller,
             .linker = &linker,
             .staged_sites = &staged_sites,
             .child_placer = &child_placer,
@@ -459,7 +458,7 @@ void MultiPassCaller::install_header_steps() {
 void MultiPassCaller::install_widgets() {
     const SiteReader reader{
         .graph = &graph,
-        .genotyper = &site_genotyper,
+        .genotyper = &snarl_caller,
         .spell = [this](const Traversal& walk, const StepSequences* own) {
             return allele_sequence(graph, walk, own);
         },

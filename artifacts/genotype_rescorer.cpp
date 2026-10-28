@@ -129,7 +129,7 @@ void write_ledger(ofstream& ledger, vector<LedgerRow>& rows) {
  * saves them in `uncorrected_lls`, and later rounds restore them. GQ is restored with them, so
  * that a GQ recomputed in an earlier round does not outlive the correction it came from.
  */
-void restore_direct_pass(SiteScore& score, const SiteGenotyper& genotyper) {
+void restore_direct_pass(SiteScore& score, const ReadLikelihoodSnarlCaller& genotyper) {
     if (score.uncorrected_lls == nullptr) {
         score.uncorrected_lls.reset(new map<vector<int>, double>(score.genotype_lls));
     } else {
@@ -147,7 +147,7 @@ struct CorrectionRound {
     /// The record keys of the sites whose strands read phasing swapped.
     const unordered_set<size_t>& phase_flips;
     /// The genotyper that recomputes GQ.
-    const SiteGenotyper& genotyper;
+    const ReadLikelihoodSnarlCaller& genotyper;
     const RegenotypeParams& params;
     /// The calibration of every read's strand log-odds.
     StrandCalibration calibration;
@@ -334,7 +334,7 @@ bool GenotypeRescorer::rescore(
     }
 
     // Only the read-likelihood genotyper makes the scores corrected here.
-    const SiteGenotyper* genotyper = reader.genotyper;
+    const ReadLikelihoodSnarlCaller* genotyper = reader.genotyper;
     size_t moved = 0;
     if (genotyper != nullptr) {
         const CorrectionRound round {lambda, site_phases, phase_flips, *genotyper,

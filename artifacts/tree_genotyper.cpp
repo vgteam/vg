@@ -839,7 +839,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
         ploidies.region_ploidy = region_ploidy;
         ploidies.also_score_other = true;
     }
-    auto called = parts.genotyper->genotype(bounds, walks, 0, ploidies, enclosing, &sequences);
+    auto called = parts.genotyper->genotype_at(bounds, walks, 0, ploidies, enclosing, &sequences);
     vector<int>& genotype = called.first;
     SiteScore* score = called.second.get();
     unique_ptr<SnarlCaller::CallInfo> call_info(std::move(called.second));
@@ -895,7 +895,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> TreeGenotyper::genotype_site(
     const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
     const Ploidies& ploidies, const vector<SiteBounds>& enclosing, SiteScore*& score) const {
-    auto called = parts.genotyper->genotype(site, travs, ref_trav_idx, ploidies, enclosing);
+    auto called = parts.genotyper->genotype_at(site, travs, ref_trav_idx, ploidies, enclosing);
     score = called.second.get();
     return make_pair(std::move(called.first),
                      unique_ptr<SnarlCaller::CallInfo>(std::move(called.second)));

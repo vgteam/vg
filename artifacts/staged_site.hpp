@@ -13,7 +13,7 @@
 #include "child_placer.hpp"
 #include "linkage_model.hpp"
 #include "panel_lookup.hpp"
-#include "site_genotyper.hpp"
+#include "read_likelihood_caller.hpp"
 #include "site_tree.hpp"
 #include "site_values.hpp"
 #include "snarl_caller.hpp"
@@ -221,7 +221,7 @@ struct SiteReader {
     /// The graph the sites are in.
     const PathPositionHandleGraph* graph = nullptr;
     /// The read-likelihood genotyper that called the sites, or null where another genotyper did.
-    const SiteGenotyper* genotyper = nullptr;
+    const ReadLikelihoodSnarlCaller* genotyper = nullptr;
     /// Spells an allele, from its step sequences when not null, or else from its walk.
     function<string(const Traversal& walk, const StepSequences* own)> spell;
 };
