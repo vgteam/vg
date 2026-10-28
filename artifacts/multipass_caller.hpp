@@ -17,6 +17,7 @@
 #include "anchor.hpp"
 #include "block_records.hpp"
 #include "candidate_finder.hpp"
+#include "allele_splicer.hpp"
 #include "child_placer.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "genotype_linker.hpp"
@@ -24,6 +25,7 @@
 #include "graph_caller.hpp"
 #include "linkage_model.hpp"
 #include "mosaic_writer.hpp"
+#include "off_panel_ledger.hpp"
 #include "panel_lookup.hpp"
 #include "phase_table.hpp"
 #include "ploidy_regions.hpp"
@@ -41,205 +43,7 @@ namespace vg::multipass {
 
 using namespace std;
 
-/**
- * A splicer that spells the alleles of a site with the chosen alleles of the sites staged under
- * it.
- *
- * A record spells each called ALT on the first strand of the site's phase that carries it. On
- * that strand, it spells every site staged under the site by its own chosen allele, recursively.
- * The splicer reads the chosen alleles from the phase table as the render has it.
- */
-class AlleleSplicer {
-public:
-    /// The alleles a site's record spells, by traversal.
-    ///
-    /// A traversal the splice did not change is left as the site has it.
-    struct SplicedAlleles {
-        vector<Traversal> travs;
-        AlleleSequences sequences;
-    };
 
-    /// One change to the sequence of one step of a spliced walk.
-    struct StepEdit {
-        /// The index of the step.
-        size_t step;
-        /// The offset in the step's sequence where the change starts.
-        size_t at;
-        /// The number of bases the change removes.
-        size_t removed;
-        /// The bases the change adds.
-        string added;
-        /// The record key of the child site that makes the change.
-        size_t key;
-    };
-
-    /// Make a splicer over `graph` that reads the chosen alleles from `phase_table`.
-    ///
-    /// Neither is owned.
-    AlleleSplicer(const HandleGraph& graph, const PhaseTable& phase_table);
-
-    /// Index the staged sites under each site of `staged_sites`.
-    ///
-    /// Index nothing unless `phasing` is on and the phase table has its render phases, since
-    /// without a phase there is no strand to splice on. The sites must not move until `clear()`.
-    void index(StagedSiteTable& staged_sites, bool phasing);
-
-    /// Forget the index.
-    void clear();
-
-    /// Return true if any staged site is indexed under the site with record key `record_key`.
-    bool has_children(size_t record_key) const;
-
-    /// Fill `out` with the alleles the record of `site` spells.
-    ///
-    /// @return False if no allele changed.
-    bool splice(const StagedSite& site, SplicedAlleles& out) const;
-
-private:
-    /// The chosen allele of one child site on one strand, as the steps that replace the parent's
-    /// visits [begin, end).
-    struct Replacement {
-        int begin;
-        int end;
-        Traversal walk;
-        StepSequences steps;
-        /// Whether the child lies inside nodes, so that its allele changes the bases of the
-        /// parent's steps rather than replacing them.
-        bool inside_node;
-        /// The record key of the child.
-        size_t key;
-    };
-
-    /**
-     * Spell allele `trav` of `site` on strand `strand` of the site's phase, with each child staged
-     * under it spelled by its chosen allele on that strand, recursively.
-     *
-     * @param haploid Whether the site has one strand, which all its one-copy children are on.
-     * @param walk Set to the spliced walk.
-     * @param steps Set to the sequence of each step of `walk`.
-     * @return False, leaving `walk` and `steps` empty, if no child changes the allele.
-     */
-    bool spliced_allele(const StagedSite& site, int trav, int strand, bool haploid,
-                        Traversal& walk, StepSequences& steps) const;
-
-    /**
-     * Make the replacement of a child site's chosen allele on one strand of its parent's walk.
-     *
-     * @param first_visit The index in `parent_walk` of the first visit to each node.
-     * @return False if the child has no chosen allele on the strand, or the parent's walk does
-     * not cross it.
-     */
-    bool chosen_replacement(const StagedSite& child, int strand, bool haploid,
-                            const Traversal& parent_walk,
-                            const unordered_map<nid_t, int>& first_visit, Replacement& rep) const;
-
-    /// Spell `parent_walk` into `walk` and `steps`, with each of `routes` in place of the visits
-    /// it covers.
-    ///
-    /// A route that overlaps one before it is skipped.
-    ///
-    /// @param own The step sequences of the parent's allele, or null if its walk spells it.
-    /// @param routes Sorted by where they begin.
-    /// @return True if any route changed the allele.
-    bool splice_routes(const Traversal& parent_walk, const StepSequences* own,
-                       const vector<Replacement>& routes, Traversal& walk,
-                       StepSequences& steps) const;
-
-    /// Find the changes that children inside nodes make to the steps of the spliced walk `walk`.
-    ///
-    /// Each child changes the bases its allele differs from its nodes in, where `walk` first
-    /// visits its first node and then the rest of its walk, read the way `walk` reads them.
-    vector<StepEdit> step_edits_of(const vector<Replacement>& edits, const Traversal& walk) const;
-
-    /// Make the edits to the sequences of the steps, right to left within each step.
-    ///
-    /// Going right to left, an edit that changes the length does not move the offsets of those
-    /// before it. An edit that overlaps one already made to its right is skipped.
-    ///
-    /// @return True if any sequence changed.
-    static bool apply_step_edits(vector<StepEdit> step_edits, StepSequences& steps);
-
-    const HandleGraph& graph;
-    /// Gives the chosen allele of each site on each strand.
-    const PhaseTable& phase_table;
-    /// The staged sites under each site, by the record key of the parent.
-    unordered_map<size_t, vector<const StagedSite*>> children;
-};
-
-/**
- * The record of what became of each off-panel edit candidate, which writes the dump and the
- * summary.
- *
- * The read source counts the candidates as it fetches reads. The direct pass files the outcome of
- * each candidate the call bar admits, from whichever thread genotyped it. Once every record is
- * written, the ledger reports the counts, and writes each candidate with its outcome to the dump,
- * placed on the reference.
- */
-class OffPanelLedger {
-public:
-    /// Make a ledger that places candidates on `graph`, on the reference paths of `ref_paths`,
-    /// shifted by their offsets.
-    ///
-    /// Neither is owned.
-    OffPanelLedger(const PathPositionHandleGraph& graph, const ReferencePathTable& ref_paths);
-
-    /// Turn off-panel detection on, for the candidates `reads` counts.
-    ///
-    /// `bar` decides which candidates become edit sites, and which edit sites are staged. With a
-    /// `dump` path, every candidate is written there at the end.
-    void configure(const SiteReadSource* reads, string dump, const EditCallBar& bar);
-
-    /// Return whether off-panel detection is on.
-    bool is_enabled() const { return candidate_source != nullptr; }
-
-    /// Start filing outcomes, from thread numbers below `threads`.
-    void open(size_t threads);
-
-    /// Get the read source that counts the candidates, or null when detection is off.
-    const SiteReadSource* source() const { return candidate_source; }
-
-    /// Get the call bar.
-    const EditCallBar& bar() const { return call_bar; }
-
-    /// Get the outcomes, for the direct pass to file into.
-    ///
-    /// @return Null before `open`.
-    EditOutcomes* outcomes() { return outcomes_filed.get(); }
-
-    /**
-     * Report what became of the candidates, and write every candidate to the dump, if there is
-     * one.
-     *
-     * Do nothing when detection is off.
-     *
-     * @param nodes_after_pass The number of nodes whose top-level edit sites were genotyped after
-     * the direct pass, for the report.
-     */
-    void write(size_t nodes_after_pass) const;
-
-private:
-    /// Report what became of the candidates.
-    void report(size_t nodes_after_pass) const;
-
-    /// Find where a node's base lies on the reference.
-    ///
-    /// @return The contig and the 1-based position of the base at forward offset `offset`, or an
-    /// empty contig when no reference path visits the node.
-    pair<string, int64_t> reference_position(nid_t node, uint32_t offset) const;
-
-    const PathPositionHandleGraph& graph;
-    /// The reference paths the candidates are placed on.
-    const ReferencePathTable& ref_paths;
-
-    /// The read source that counts the candidates, or null when detection is off.
-    const SiteReadSource* candidate_source = nullptr;
-    /// Where to write the dump, or empty for nowhere.
-    string dump_path;
-    /// Which candidates become edit sites, and which edit sites are staged.
-    EditCallBar call_bar;
-    /// What became of each candidate the call bar admitted.
-    unique_ptr<EditOutcomes> outcomes_filed;
-};
 
 /**
  * The caller for every run that genotypes from read likelihoods.
