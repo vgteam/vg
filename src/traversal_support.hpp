@@ -125,28 +125,6 @@ protected:
 };
 
 /**
- * A support finder that reports zero support everywhere, and needs no Packer.
- *
- * A caller that does not genotype from support uses it to satisfy the SupportBasedSnarlCaller
- * interface without a `vg pack` file. The read-likelihood genotyper does this when
- * GBWTTraversalFinder takes candidate alleles from haplotypes.
- *
- * A caller using it must override get_skip_allele_fn(), since the support-based version would
- * skip every allele.
- */
-class NullTraversalSupportFinder : public TraversalSupportFinder {
-public:
-    NullTraversalSupportFinder(const HandleGraph& graph, SnarlManager& snarl_manager);
-    ~NullTraversalSupportFinder() override = default;
-
-    Support get_edge_support(const edge_t& edge) const override;
-    Support get_edge_support(id_t from, bool from_reverse, id_t to, bool to_reverse) const override;
-    Support get_min_node_support(id_t node) const override;
-    Support get_avg_node_support(id_t node) const override;
-    size_t get_avg_node_mapq(id_t node) const override;
-};
-
-/**
  * Get the read support from a Packer object
  */ 
 class PackedTraversalSupportFinder : public TraversalSupportFinder {

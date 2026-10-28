@@ -2536,11 +2536,7 @@ int main_call(int argc, char** argv) {
     bool support_free = read_likelihood && pack_filename.empty();
 
     if (!pack_filename.empty() || support_free) {
-        if (support_free) {
-            // Nothing downstream consults support, so a finder that reports none stands in
-            // for a pack file.
-            support_finder.reset(new NullTraversalSupportFinder(*graph, *snarl_manager));
-        } else {
+        if (!support_free) {
             // Load our packed supports (they must have come from vg pack on graph)
             packer = unique_ptr<Packer>(new Packer(graph));
             if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
@@ -2556,12 +2552,14 @@ int main_call(int argc, char** argv) {
             }
         }
                 
-        // need to use average support when genotyping as small differences in between sample and graph
-        // will lead to spots with 0-support, espeically in and around SVs. 
-        support_finder->set_support_switch_threshold(avg_trav_threshold, avg_node_threshold);
+        if (support_finder) {
+            // need to use average support when genotyping as small differences in between sample and graph
+            // will lead to spots with 0-support, espeically in and around SVs. 
+            support_finder->set_support_switch_threshold(avg_trav_threshold, avg_node_threshold);
 
-        // upweight breakpoint edges even when taking average support otherwise
-        support_finder->set_min_bp_edge_override(expect_bp_edges);
+            // upweight breakpoint edges even when taking average support otherwise
+            support_finder->set_min_bp_edge_override(expect_bp_edges);
+        }
 
         // todo: toggle between min / average (or thresholds) via command line
         
@@ -2757,6 +2755,10 @@ int main_call(int argc, char** argv) {
             traversal_finder = unique_ptr<TraversalFinder>(gbwt_traversal_finder);
         } else {
             // Flow traversals (Yen's algorithm)
+            if (!support_finder) {
+                logger.error() << "finding candidate alleles by flow needs read support from a pack "
+                               << "file (-k)" << endl;
+            }
             
             // todo: do we ever want to toggle in min-support?
             function<double(handle_t)> node_support = [&] (handle_t h) {
