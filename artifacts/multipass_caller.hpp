@@ -120,8 +120,10 @@ public:
     void set_show_progress(bool show_progress) { this->show_progress = show_progress; }
 
     /// Make the VCF header, with the lines of the read-likelihood genotyper and of this caller.
+    /// Call it once, after the settings that add header lines (phasing, off-panel variants and
+    /// block records), since each call adds this caller's lines to the output again.
     string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                      const vector<size_t>& contig_length_overrides = {}) const;
+                      const vector<size_t>& contig_length_overrides = {});
 
     /// Set the ploidy of regions, in place of the ploidy of their contigs.
     void set_ploidy_regions(PloidyRegions regions) { ploidy_regions = std::move(regions); }
@@ -238,9 +240,6 @@ private:
     /// Give `record` the quality fields of its chosen genotype, if the linkage model moved its
     /// site's genotype (see ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).
     void finish_moved_record(vcflib::Variant& record);
-
-    /// Set the header lines this caller adds to the output: the phase set and block lines.
-    void install_header_steps();
 
     /// Write the mosaic and report the phasing, once every record exists.
     ///

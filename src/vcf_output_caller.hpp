@@ -31,7 +31,7 @@ using vg::io::AlignmentEmitter;
  * Callers add records from any thread, and the writer buffers them compressed. `write_variants`
  * adds the nesting INFO tags, sorts the records and writes them. A caller that holds a writer,
  * such as MultiPassCaller, passes its sites with its own callbacks to `emit_site` and adds its
- * header lines with `set_header_steps`.
+ * header lines with `add_format_header` and `add_info_header`.
  */
 class VCFOutputCaller {
 public:
@@ -176,17 +176,13 @@ public:
                       bool has_line)> site_filed;
     };
 
-    /// Callbacks that add a caller's lines to the VCF header. Each is empty unless the caller
-    /// needs it.
-    struct HeaderSteps {
-        /// Return FORMAT lines, which go after the nesting INFO lines.
-        function<string()> format_header;
-        /// Return INFO lines, which go after the AT line.
-        function<string()> info_header;
-    };
+    /// Add a FORMAT line, without its newline, to the header that `vcf_header` writes, after the
+    /// nesting INFO lines.
+    void add_format_header(string line);
 
-    /// Add the lines from `steps` to the header that `vcf_header` writes.
-    void set_header_steps(HeaderSteps steps);
+    /// Add an INFO line, without its newline, to the header that `vcf_header` writes, after the
+    /// AT line.
+    void add_info_header(string line);
 
     /**
      * Add the record for a called site to the output buffer, built with a caller's steps.
@@ -265,8 +261,10 @@ protected:
     void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
     
     
-    /// The callbacks that add a caller's lines to the header.
-    HeaderSteps header_steps;
+    /// The FORMAT lines a caller added to the header.
+    vector<string> format_header_lines;
+    /// The INFO lines a caller added to the header.
+    vector<string> info_header_lines;
 
     /**
      * Add a built site record to the output, or let `steps.write_blocks` write it as blocks.

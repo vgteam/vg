@@ -27,8 +27,12 @@ void VCFOutputCaller::set_ploidy_regions(PloidyRegions regions) {
     ploidy_regions = std::move(regions);
 }
 
-void VCFOutputCaller::set_header_steps(HeaderSteps steps) {
-    header_steps = std::move(steps);
+void VCFOutputCaller::add_format_header(string line) {
+    format_header_lines.push_back(std::move(line));
+}
+
+void VCFOutputCaller::add_info_header(string line) {
+    info_header_lines.push_back(std::move(line));
 }
 
 const unordered_map<nid_t, pair<string, size_t>>* VCFOutputCaller::get_translation() const {
@@ -65,12 +69,12 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     if (include_nested) {
         ss << nesting_info_headers();
     }
-    if (header_steps.format_header) {
-        ss << header_steps.format_header();
+    for (const string& line : format_header_lines) {
+        ss << line << endl;
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
-    if (header_steps.info_header) {
-        ss << header_steps.info_header();
+    for (const string& line : info_header_lines) {
+        ss << line << endl;
     }
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "

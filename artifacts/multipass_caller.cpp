@@ -32,7 +32,6 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
     candidates(graph, traversal_finder, this->ref_paths, allele_length_range),
     record_renderer(phase_table, read_strands, linker, anchor_collector)
 {
-    install_header_steps();
     install_widgets();
 }
 
@@ -109,12 +108,6 @@ unique_ptr<SiteTree> MultiPassCaller::site_tree() {
         [this](const handle_t& start, const handle_t& end) {
             return output.print_snarl(&graph, start, end);
         });
-}
-
-string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                                   const vector<size_t>& contig_length_overrides) const {
-    return output.genotyper_vcf_header(graph, contigs, contig_length_overrides,
-                                       [this](string& header) { snarl_caller.update_vcf_header(header); });
 }
 
 void MultiPassCaller::report_descent_instrumentation() const {
@@ -269,35 +262,30 @@ static const char* const SB_HEADER_LINE =
     "must group by the snarl's ID first and count each snarl once. Records without "
     "SB are unaffected: they are the only record their snarl emitted.\">";
 
-void MultiPassCaller::install_header_steps() {
-    VCFOutputCaller::HeaderSteps steps;
-    steps.format_header = [this]() {
-        stringstream ss;
-        if (emit_phasing) {
-            // FORMAT/PS is the VCF phase set, which phasing tools read. It is unrelated to INFO/PS,
-            // vg's parent-snarl field; the two are in different namespaces, so both are legal, and
-            // their descriptions say which is which.
-            ss << "##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase set: the phase of a "
-               << "genotype is comparable only with others carrying the same PS. One phase set per "
-               << "chain, so blocks are chromosome-scale -- much longer than a read-based phaser "
-               << "gives, because the phase comes from the haplotype panel rather than from reads "
-               << "spanning consecutive sites. Not the INFO/PS emitted under -A, which is a parent "
-               << "snarl pointer\">" << endl;
-        }
-        return ss.str();
-    };
-    steps.info_header = [this]() {
-        stringstream ss;
-        if (off_panel.is_enabled()) {
-            ss << OP_HEADER_LINE << endl;
-        }
-        if (block_records.is_enabled()) {
-            ss << SB_HEADER_LINE << endl;
-        }
-        return ss.str();
-    };
-    output.set_header_steps(std::move(steps));
+string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                                   const vector<size_t>& contig_length_overrides) {
+    if (emit_phasing) {
+        // FORMAT/PS is the VCF phase set, which phasing tools read. It is unrelated to INFO/PS,
+        // vg's parent-snarl field; the two are in different namespaces, so both are legal, and
+        // their descriptions say which is which.
+        output.add_format_header(
+            "##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase set: the phase of a "
+            "genotype is comparable only with others carrying the same PS. One phase set per "
+            "chain, so blocks are chromosome-scale -- much longer than a read-based phaser "
+            "gives, because the phase comes from the haplotype panel rather than from reads "
+            "spanning consecutive sites. Not the INFO/PS emitted under -A, which is a parent "
+            "snarl pointer\">");
+    }
+    if (off_panel.is_enabled()) {
+        output.add_info_header(OP_HEADER_LINE);
+    }
+    if (block_records.is_enabled()) {
+        output.add_info_header(SB_HEADER_LINE);
+    }
+    return output.genotyper_vcf_header(graph, contigs, contig_length_overrides,
+                                       [this](string& header) { snarl_caller.update_vcf_header(header); });
 }
+
 
 
 void MultiPassCaller::install_widgets() {
