@@ -14,6 +14,10 @@
 #include <bdsg/hash_graph.hpp>
 
 #include "catch.hpp"
+#include "decomposition_pair.hpp"
+#include "edit_snarl_decomposition_overlay.hpp"
+#include "integrated_snarl_finder.hpp"
+#include "nested_graph.hpp"
 #include "graph_caller.hpp"
 #include "flow_caller.hpp"
 #include "vcf_output_caller.hpp"
@@ -230,8 +234,11 @@ TEST_CASE("A site inside a node is crossed by each visit to it, and a cyclic sit
 
 TEST_CASE("The staged-site tree places each site under the sites enclosing it, once each",
           "[graph_caller]") {
-    bdsg::HashGraph graph;
-    add_numbered_nodes(graph);
+    NestedGraph nested;
+    const HandleGraph& graph = nested.graph;
+    IntegratedSnarlFinder finder(nested.graph);
+    DecompositionPair pair(nested.graph, finder);
+    EditSnarlDecompositionOverlay overlay(pair.adapter, nested.graph);
     auto bounds = [&](nid_t start, bool start_back, nid_t end, bool end_back) {
         return SiteBounds{graph.get_handle(start, start_back), graph.get_handle(end, end_back)};
     };
@@ -240,26 +247,24 @@ TEST_CASE("The staged-site tree places each site under the sites enclosing it, o
     };
     StagedSiteTable table;
     table.start(1);
-    auto stage = [&](const SiteBounds& site, const string& id, vector<SiteBounds> enclosing) {
+    auto stage = [&](const net_handle_t& net, const SiteBounds& site, const string& id) {
         StagedSite staged;
+        staged.net = net;
         staged.bounds = site;
         staged.id = id;
-        staged.enclosing = std::move(enclosing);
         table.add_top_level(std::move(staged));
     };
     // A top-level site 1..8, and inside it 2..7, staged read backward as the reference might
-    // orient it. Inside that, 3..5 is not staged, and inside 3..5 a site inside node 4 has an ID
-    // of its own.
+    // orient it. Inside that, 3..5 is not staged, and inside 3..5 an edit site inside node 4 has an
+    // ID of its own.
     const SiteBounds outer = bounds(1, false, 8, false);
-    const SiteBounds middle = bounds(2, false, 7, false);
-    const SiteBounds unstaged = bounds(3, false, 5, false);
     SiteBounds inside = bounds(4, false, 4, false);
     inside.inside_node = true;
-    stage(outer, name(outer), {});
-    stage(bounds(7, true, 2, true), "<7<2", {outer});
-    stage(inside, "4:1:G", {unstaged, middle, outer});
+    stage(find_snarl(overlay, graph, 1, 8), outer, name(outer));
+    stage(overlay.flip(find_snarl(overlay, graph, 2, 7)), bounds(7, true, 2, true), "<7<2");
+    stage(overlay.add_edit(nested.handle(4), 1, nested.handle(4), 2), inside, "4:1:G");
 
-    const StagedSiteTree tree(table, graph, name);
+    const StagedSiteTree tree(table, overlay, graph, name);
     vector<SiteTree::site_t> order;
     tree.for_each_site([&](SiteTree::site_t site) { order.push_back(site); }, true);
     // The middle site is one node, though it was staged one way round and encloses the other.

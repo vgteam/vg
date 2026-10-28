@@ -60,4 +60,12 @@ net_handle_t parent_site(const SnarlDecomposition& decomposition, const net_hand
     return decomposition.get_parent(decomposition.get_parent(site));
 }
 
+net_handle_t enclosing_site(const SnarlDecomposition& decomposition, const net_handle_t& net) {
+    net_handle_t here = decomposition.get_parent(net);
+    while (!decomposition.is_root(here) && !decomposition.is_snarl(here)) {
+        here = decomposition.get_parent(here);
+    }
+    return here;
+}
+
 }

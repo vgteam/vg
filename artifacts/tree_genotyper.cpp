@@ -135,6 +135,8 @@ struct TreeGenotyper::SiteCall {
     CandidateFinder::WalkSite site;
     /// The bounds of `site`.
     SiteBounds bounds;
+    /// The site's net handle in the overlay of sites, read the way `bounds` reads.
+    net_handle_t net;
     /// The ID of the site's records (see `StagedSite::id`).
     string id;
     /// The record key of `id`.
@@ -172,6 +174,9 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
         return false;
     }
     call.bounds = SiteBounds{call.site.start, call.site.end};
+    call.net = parts.sites->get_site_start(view.net) == call.bounds.start
+                   ? view.net
+                   : parts.sites->flip(view.net);
     // Name the site from its bounds as the candidate finder oriented them.
     call.id = parts.site_id(call.bounds);
     call.record_key = record_key_of(call.id);
@@ -298,7 +303,8 @@ bool TreeGenotyper::genotype_nested_chain(SiteCall& call) {
                         : 0;
 
     call.staged = stage_render_record(
-        call.bounds, call.id, call.genotype, std::move(call.walks), call.site.ref_trav_idx,
+        call.bounds, call.net, call.id, call.genotype, std::move(call.walks),
+        call.site.ref_trav_idx,
         trav_call_info, trav_score,
         ReferencePlacement{.path_name = call.site.ref_path_name,
                            .offset = ref_offset,
@@ -349,7 +355,8 @@ void TreeGenotyper::record_and_stage(SiteCall& call,
                                      unique_ptr<SnarlCaller::CallInfo>& trav_call_info,
                                      SiteScore* trav_score) const {
     call.staged = stage_render_record(
-        call.bounds, call.id, call.genotype, std::move(call.walks), call.site.ref_trav_idx,
+        call.bounds, call.net, call.id, call.genotype, std::move(call.walks),
+        call.site.ref_trav_idx,
         trav_call_info, trav_score,
         ReferencePlacement{.path_name = call.site.ref_path_name,
                            .offset = (int64_t)parts.ref_paths->offset_of(call.site.ref_path_name)},
@@ -615,7 +622,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
                               + (int64_t)placement.parent_offset
                         : 0;
     unique_ptr<StagedSite> staged = stage_render_record(
-        bounds, site_id, genotype, walks, 0, call_info, score,
+        bounds, edit.child.net, site_id, genotype, walks, 0, call_info, score,
         ReferencePlacement{.path_name = ref_path_name,
                            .offset = ref_offset,
                            .no_reference = no_ref_position,
@@ -626,7 +633,6 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     }
     // Put the edit site in the chain its node is in.
     staged->chain = edit.child.chain;
-    staged->enclosing = enclosing;
     staged->alleles.sequences = sequences;
     // A retain_only site is crossed by no called parent allele, so it is not filed yet. A site
     // with no reference position is filed anyway.
@@ -653,11 +659,13 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> TreeGenotyper::genotype_sit
 }
 
 unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
-        const SiteBounds& bounds, const string& site_id, const vector<int>& trav_genotype,
+        const SiteBounds& bounds, const net_handle_t& net, const string& site_id,
+        const vector<int>& trav_genotype,
         vector<Traversal> travs, int ref_trav_idx, unique_ptr<SnarlCaller::CallInfo>& call_info,
         SiteScore* score, const ReferencePlacement& reference, int ploidy) const {
     auto rec = std::make_unique<StagedSite>();
     rec->bounds = bounds;
+    rec->net = net;
     rec->reference = reference;
     rec->alleles.walks = std::move(travs);
     rec->alleles.ref_allele = ref_trav_idx;
@@ -675,7 +683,6 @@ void TreeGenotyper::fill_tree_fields(const SiteView& view, const SiteChildren& c
                                      StagedSite& site) const {
     site.children = children;
     site.chain = parts.child_placer->chain_of(view.net);
-    site.enclosing = view.enclosing;
 }
 
 }

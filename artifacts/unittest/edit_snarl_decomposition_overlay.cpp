@@ -10,6 +10,7 @@
 #include "decomposition_pair.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "integrated_snarl_finder.hpp"
+#include "nested_graph.hpp"
 #include "vg.hpp"
 
 namespace vg {
@@ -19,34 +20,6 @@ using namespace std;
 
 namespace {
 
-/// A graph of three nested snarls: 1 to 8 holds 2 to 7, which holds 3 to 5. Node 6 is the other
-/// branch of 2 to 7, and node 4 the other branch of 3 to 5.
-struct NestedGraph {
-    VG graph;
-    vector<Node*> nodes;
-
-    NestedGraph() {
-        for (const string& sequence : {"GCA", "T", "G", "CTGA", "GCA", "T", "G", "CTGA"}) {
-            nodes.push_back(graph.create_node(sequence));
-        }
-        auto edge = [&](int from, int to) { graph.create_edge(nodes[from - 1], nodes[to - 1]); };
-        edge(1, 2);
-        edge(1, 8);
-        edge(2, 3);
-        edge(2, 6);
-        edge(3, 4);
-        edge(3, 5);
-        edge(4, 5);
-        edge(5, 7);
-        edge(6, 7);
-        edge(7, 8);
-    }
-
-    handle_t handle(nid_t id, bool reverse = false) const {
-        return graph.get_handle(id, reverse);
-    }
-};
-
 /// Get the children of `parent`, canonicalized.
 vector<net_handle_t> children(const SnarlDecomposition& decomposition, const net_handle_t& parent) {
     vector<net_handle_t> out;
@@ -54,41 +27,6 @@ vector<net_handle_t> children(const SnarlDecomposition& decomposition, const net
         out.push_back(decomposition.canonical(child));
     });
     return out;
-}
-
-/// Find the snarl of `decomposition` bounded by nodes `a` and `b`, by searching down from the root.
-///
-/// The decomposition may orient the snarl either way. Return the traversal of it that starts at
-/// `a`.
-net_handle_t find_snarl(const SnarlDecomposition& decomposition, const HandleGraph& graph, nid_t a,
-                        nid_t b) {
-    net_handle_t found;
-    bool have = false;
-    function<void(const net_handle_t&)> search = [&](const net_handle_t& here) {
-        decomposition.for_each_child(here, [&](const net_handle_t& child) {
-            if (decomposition.is_snarl(child)) {
-                const nid_t start = graph.get_id(decomposition.get_handle(
-                    decomposition.get_bound(child, false, true), &graph));
-                const nid_t end = graph.get_id(decomposition.get_handle(
-                    decomposition.get_bound(child, true, false), &graph));
-                if (start == a && end == b) {
-                    found = decomposition.starts_at(child) == SnarlDecomposition::START
-                                ? child : decomposition.flip(child);
-                    have = true;
-                } else if (start == b && end == a) {
-                    found = decomposition.starts_at(child) == SnarlDecomposition::END
-                                ? child : decomposition.flip(child);
-                    have = true;
-                }
-            }
-            if (!decomposition.is_node(child)) {
-                search(child);
-            }
-        });
-    };
-    search(decomposition.get_root());
-    REQUIRE(have);
-    return found;
 }
 
 /// Run `check` against the overlay laid over each implementation of the decomposition.

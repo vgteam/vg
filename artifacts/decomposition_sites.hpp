@@ -71,6 +71,14 @@ vector<net_handle_t> child_sites(const SnarlDecomposition& decomposition, const 
  */
 net_handle_t parent_site(const SnarlDecomposition& decomposition, const net_handle_t& site);
 
+/**
+ * Get the innermost site that holds the element `net`, or a root handle if no site does.
+ *
+ * For a site, this is its parent site. It works for any element, such as an edit, whose parent
+ * need not be a chain.
+ */
+net_handle_t enclosing_site(const SnarlDecomposition& decomposition, const net_handle_t& net);
+
 }
 
 #endif

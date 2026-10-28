@@ -105,7 +105,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
 
 unique_ptr<SiteTree> MultiPassCaller::site_tree() {
     return std::make_unique<StagedSiteTree>(
-        staged_sites, graph,
+        staged_sites, sites, graph,
         [this](const SiteBounds& site) { return output.print_snarl(&graph, site.start, site.end); });
 }
 

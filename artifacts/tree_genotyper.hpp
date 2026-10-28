@@ -236,7 +236,8 @@ private:
     /// Make the `StagedSite` of a site from its walks and genotype, moving `call_info` into it.
     ///
     /// The staged site is at the top level of the nesting tree until it is given a placement.
-    unique_ptr<StagedSite> stage_render_record(const SiteBounds& bounds, const string& site_id,
+    unique_ptr<StagedSite> stage_render_record(const SiteBounds& bounds, const net_handle_t& net,
+                                               const string& site_id,
                                                const vector<int>& trav_genotype,
                                                vector<Traversal> travs, int ref_trav_idx,
                                                unique_ptr<SnarlCaller::CallInfo>& call_info,

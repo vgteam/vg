@@ -94,6 +94,8 @@ struct StagedSite {
     NestingPlacement placement;
     // The site in the graph.
 
+    /// The site's net handle in the overlay of sites, read the way `bounds` reads.
+    net_handle_t net;
     /// The bounds of the site, oriented forward along the reference path.
     ///
     /// This may be the decomposition's orientation turned round.
@@ -115,13 +117,6 @@ struct StagedSite {
     /// A site holds a child site wherever one of its child chains has two nodes, which makes an
     /// entry in `children`.
     bool is_leaf() const { return children.entries.empty(); }
-    /// The bounds of the sites enclosing this one in the decomposition, innermost first
-    /// (`SiteView::enclosing`).
-    ///
-    /// The nesting INFO tags place the site's records by them (`StagedSiteTree`). A site genotyped
-    /// as top level still has the sites around it here.
-    vector<SiteBounds> enclosing;
-
     /// Where the site is on the reference.
     ReferencePlacement reference;
 
@@ -159,7 +154,7 @@ struct StagedSite {
     /// in the next.
     bool dropped = false;
 
-    /// Get `lookup.alleles(travs, &sequences)`, computing it on the first call.
+    /// Get `lookup.alleles(alleles.walks, &alleles.sequences)`, computing it on the first call.
     ///
     /// The traversals do not change after the direct pass, so the answer is kept, which saves each
     /// re-genotyping round the GBWT lookups.
@@ -173,22 +168,23 @@ class StagedSiteTable;
 /**
  * The staged sites, and the sites enclosing them, as a `SiteTree`.
  *
- * The VCF's nesting INFO tags are computed from it. Each staged site lies under the sites in its
- * `StagedSite::enclosing`. That gives a site the decomposition does not hold, such as an edit site,
- * a place in the tree.
- * A site that is both staged and enclosing appears once.
+ * The VCF's nesting INFO tags are computed from it. Each staged site lies under the sites that
+ * hold it in the overlay of sites, which gives an edit site a place in the tree too. A site
+ * genotyped as top level still lies under the sites around it. A site that is both staged and
+ * enclosing appears once.
  *
  * A site whose ID is made from its bounds is matched to its records by its boundary visits. A site
  * with an ID of its own is matched by that ID (`id_of`).
  */
 class StagedSiteTree : public SiteTree {
 public:
-    /// Make the tree of the sites `sites` holds, in `graph`.
+    /// Make the tree of the sites `sites` holds, in `decomposition`, the overlay of sites over
+    /// `graph`.
     ///
     /// `name` makes the ID of a site from its bounds, as the records of a site the decomposition
     /// holds are named. The tree keeps none of the arguments.
-    StagedSiteTree(StagedSiteTable& sites, const HandleGraph& graph,
-                   const function<string(const SiteBounds&)>& name);
+    StagedSiteTree(StagedSiteTable& sites, const SnarlDecomposition& decomposition,
+                   const HandleGraph& graph, const function<string(const SiteBounds&)>& name);
 
     void for_each_site(const function<void(site_t)>& visit, bool in_preorder) const override;
     site_t parent_of(site_t site) const override;

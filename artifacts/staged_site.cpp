@@ -200,7 +200,8 @@ size_t StagedSiteTable::queued_count() const {
     return total_queued(queues);
 }
 
-StagedSiteTree::StagedSiteTree(StagedSiteTable& sites, const HandleGraph& graph,
+StagedSiteTree::StagedSiteTree(StagedSiteTable& sites, const SnarlDecomposition& decomposition,
+                               const HandleGraph& graph,
                                const function<string(const SiteBounds&)>& name) {
     // Make one node for each site named by its bounds, however many staged sites it encloses and
     // whether or not it was staged itself. Find it by its bounds, read either way round.
@@ -228,9 +229,14 @@ StagedSiteTree::StagedSiteTree(StagedSiteTable& sites, const HandleGraph& graph,
     };
     sites.for_each([&](StagedSite& site) {
         // Add the enclosing sites outermost first, so that each is added after its own parent.
+        vector<net_handle_t> enclosing;
+        for (net_handle_t here = enclosing_site(decomposition, site.net);
+             !decomposition.is_root(here); here = enclosing_site(decomposition, here)) {
+            enclosing.push_back(here);
+        }
         const Node* parent = nullptr;
-        for (auto it = site.enclosing.rbegin(); it != site.enclosing.rend(); ++it) {
-            parent = node_for(*it, parent);
+        for (auto it = enclosing.rbegin(); it != enclosing.rend(); ++it) {
+            parent = node_for(oriented_bounds(decomposition, graph, *it), parent);
         }
         if (site.id == name(site.bounds)) {
             node_for(site.bounds, parent);
