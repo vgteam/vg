@@ -136,7 +136,7 @@ private:
     std::mutex free_edit_mutex;
     /// The nodes whose free edit sites have been genotyped.
     unordered_set<nid_t> free_edit_nodes;
-    /// See `edit_nodes_after_pass()`.
+    /// The number of nodes whose free edit sites `genotype_top_level_edits` genotyped.
     size_t after_pass_nodes = 0;
 
     /// Append to `out` the nodes that no site holds along a reference path from `bound`.

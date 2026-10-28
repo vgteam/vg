@@ -622,9 +622,10 @@ struct SiteLocus {
     ///
     /// For a site the reference path visits, it is where the first boundary node of the site
     /// starts on that path. It is not the POS of a record, which trimming the alleles can move.
-    /// For a site that no reference path visits, it is a stand-in, taken from the position of the
-    /// parent. The difference between a stand-in and another position is a distance only within
-    /// one chain, or to the parent of the chain.
+    /// For a site that no reference path visits, it is a stand-in. The stand-in is the reference
+    /// start of the parent plus the offset of the site's chain along the parent's allele. The
+    /// difference between a stand-in and another position is a distance only within one chain, or
+    /// to the parent of the chain.
     size_t position = 0;
 };
 
@@ -721,7 +722,8 @@ public:
         /// supplies the answer through `set_allele_map`.
         bool emitted = true;
         /// Whether the site has no reference position, so that the `SiteLocus::position` it is
-        /// recorded with is a stand-in, taken from the position of its parent.
+        /// recorded with is a stand-in. The stand-in is the reference start of the parent plus
+        /// the offset of the site's chain along the parent's allele.
         bool unpositioned = false;
         /// The ID of the start node of the chain the site is in, which identifies the chain and
         /// groups its sites.

@@ -897,9 +897,9 @@ private:
     std::hash<string> sequence_hasher;
 };
 
-/// Count the short indels: those of at most `max_indel_length` bases, in two passes over the
-/// reads. The first finds the indels that at least `min_fragments` fragments carry, and the second
-/// classes what each read says about each of them with `observe_indel`.
+/// Count the short indels: those of at most `params.max_indel_length` bases, in two passes over
+/// the reads. The first finds the indels that at least `params.min_fragments` fragments carry, and
+/// the second classes what each read says about each of them with `observe_indel`.
 ///
 /// Unless they are null, the first pass also files the reads' large indels in `large_rows` and
 /// their long clips in `clip_rows`, for `count_large_indel_edits`.

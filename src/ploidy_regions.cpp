@@ -276,8 +276,9 @@ int PloidyRegions::ploidy_at(const string& ref_path_name, int64_t interval_start
     if (by_contig.empty()) {
         return fallback;
     }
-    // Compute the POS of the site's record less 1, since the BED is 0-based. Count it along the
-    // contig, adding the start of any subrange that the path name gives.
+    // Compute where the first boundary node of the site starts along the contig, as a 0-based
+    // offset to match the BED. Add the start of any subrange that the path name gives. This is
+    // the POS of the site's record less 1, before its alleles are trimmed.
     subrange_t subrange;
     Paths::strip_subrange(ref_path_name, &subrange);
     int64_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : (int64_t)subrange.first;

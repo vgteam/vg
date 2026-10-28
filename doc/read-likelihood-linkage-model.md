@@ -244,9 +244,10 @@ sites, fewer at the ends of the chain, and discards their posteriors. The window
 independently of one another. Every kept posterior therefore has the margin's number of sites on
 each side, except near the ends of the linkage chain, and approximates the posterior from decoding
 the whole chain at once. The first window of a chain below the top level starts from the state
-that the parent's Viterbi path chose at the parent site (see [Linkage chains](#linkage-chains)),
-and every later window starts from a uniform distribution. A linkage chain at ploidy 2 that
-starts from its parent's panel haplotypes is decoded as one window, whatever its length.
+that the parent's Viterbi path chose at the parent site, or from a uniform distribution where the
+parent was not phased (see [Linkage chains](#linkage-chains)). Every later window starts from a
+uniform distribution. A linkage chain at ploidy 2 that starts from its parent's panel haplotypes
+is decoded as one window, whatever its length.
 
 ## Linkage chains
 

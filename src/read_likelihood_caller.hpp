@@ -108,7 +108,8 @@ public:
         unique_ptr<AnchorSiteEvidence> anchor_evidence;
         /// The per-read phasing evidence with read phasing and no anchors, or null.
         ///
-        /// It also depends on the matrix, not on the ploidy, so it must be moved across too.
+        /// It depends on the matrix, not on the ploidy, so when the linkage pass replaces this
+        /// CallInfo with `alt_ploidy_info` it must move it across too.
         unique_ptr<PhaseReadEvidence> phase_evidence;
 
         /// Get the per-read evidence that read phasing and re-genotyping need, or null where the
@@ -302,11 +303,11 @@ public:
      * GQ is recomputed from `moved.posterior`, the linkage model's posterior of the chosen
      * genotype. It is multiplied by the GQ factor of the direct call and capped at the record's
      * GQI where it has one. GQN is recomputed from the record's GL, as the margin of the chosen
-     * genotype over the best other, divided by the achievable gap of the direct call and
-     * multiplied by its explained share. It is "." where it cannot be computed. `moved.direct`
-     * holds the factor, gap and share of the direct call. FILTER becomes `lowconf` when the new
-     * GQN is below `lowconf_threshold` and PASS otherwise; where there is no new GQN, or
-     * `lowconf_threshold` is 0, a `lowconf` FILTER becomes PASS. Every field is read as the
+     * genotype over the best other, divided by the achievable gap of the direct call, multiplied
+     * by its explained share and clamped to [-1, 1]. It is "." where it cannot be computed.
+     * `moved.direct` holds the factor, gap and share of the direct call. FILTER becomes `lowconf`
+     * when the new GQN is below `lowconf_threshold` and PASS otherwise; where there is no new GQN,
+     * or `lowconf_threshold` is 0, a `lowconf` FILTER becomes PASS. Every field is read as the
      * record's line prints it.
      *
      * Returns false, and leaves the record unchanged, if it has no FORMAT fields for `sample`.

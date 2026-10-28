@@ -660,8 +660,8 @@ bool AlleleSplicer::splice(const StagedSite& site, SplicedAlleles& out) const {
         const int trav = strand == 0 ? phase->trav_first : phase->trav_second;
         if (trav < 0 || trav >= (int)site.travs.size() || trav == site.ref_trav_idx
             || trav == first_trav) {
-            // Leave the reference allele as it is, and splice an allele that both strands carry
-            // only once, from strand 0.
+            // Leave the reference allele as it is. Where both strands carry the same allele,
+            // splice it from strand 0 alone.
             continue;
         }
         first_trav = trav;

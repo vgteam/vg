@@ -99,7 +99,7 @@ public:
     virtual void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                                const function<void(const SiteRead&)>& iteratee) const = 0;
 
-    /// Visit every read touching the ranges, as `for_each_read` does, without its index.
+    /// Visit the alignment of every read touching the ranges, once each.
     ///
     /// This is named differently rather than overloaded, since a lambda converts to either
     /// `function` type.
@@ -853,7 +853,8 @@ protected:
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
                     const function<void(Alignment&)>& iteratee) const override;
 
-    /// Fetch as `fetch_span` does, keying each read by its position in the database.
+    /// Visit every read with a mapping onto a node in any of the inclusive ranges, having applied
+    /// the filter, keyed by its position in the database.
     ///
     /// The position is the same whichever query returns the read, and increases in file order.
     size_t fetch_span_keyed(const vector<pair<nid_t, nid_t>>& ranges,
@@ -1034,8 +1035,8 @@ protected:
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
                     const function<void(Alignment&)>& iteratee) const override;
 
-    /// Fetch as `fetch_span` does, keying each read by its record's virtual file offset after it
-    /// was read.
+    /// Visit every read with a mapping onto a node in any of the inclusive ranges, having applied
+    /// the filter, keyed by its record's virtual file offset after it was read.
     ///
     /// That offset is the same whichever lookup reads the record, and increases in file order.
     size_t fetch_span_keyed(const vector<pair<nid_t, nid_t>>& ranges,

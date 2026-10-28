@@ -289,7 +289,9 @@ public:
      * Run every pass and add the records to the output's buffer, then write the anchors and the
      * mosaic and report on the passes.
      *
-     * @param recurse_type Which sites the direct pass visits, as for `SiteWalker::walk`.
+     * @param recurse_type Which sites the direct pass goes on to after the top level. It visits
+     * the children of every site (`RecurseAlways`), of every site that `TreeGenotyper::genotype`
+     * returns false for (`RecurseOnFail`), or of none (`RecurseNever`), and so on down.
      * @param after_direct_pass Runs once the direct pass is done, before the linkage pass. The
      * passes after it read only what the direct pass kept, not reads.
      */
@@ -450,9 +452,9 @@ private:
     /**
      * Phase a record's genotype from the linkage model's phase call for the site.
      *
-     * `record_steps` makes this the `phase` step of each record. The phased genotype must be a
-     * permutation of the record's own, so that phasing cannot change a genotype. A call that is
-     * not is counted as declined.
+     * Replace `gt` with the phased genotype, and return the phase set to write as PS, or -1 for
+     * none. The phased genotype must be a permutation of the record's own, so that phasing cannot
+     * change a genotype. A call that is not is counted as declined, and leaves `gt` unchanged.
      */
     int64_t phase_record_genotype(size_t record_key, const vector<int>& site_genotype,
                                   const map<int, int>& trav_to_allele, string& gt) const;

@@ -174,8 +174,8 @@ public:
     struct ChildOffsets {
         /// Index `walk`, which must outlive the table.
         ChildOffsets(const HandleGraph& graph, const Traversal& walk);
-        /// Get the length of the nodes the walk visits before it first enters `child`, at the
-        /// handle `offset_of_child` gives, or -1 if the walk does not cross `child`.
+        /// Get the length of the nodes the walk visits before it first enters `child`, or -1 if
+        /// the walk does not cross `child`.
         ///
         /// For a child inside nodes, add the bases of the entered node before the child.
         int64_t base_offset(const HandleGraph& graph, const SiteBounds& child) const;
