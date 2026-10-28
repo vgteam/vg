@@ -43,6 +43,11 @@ static string bounds_key(const HandleGraph& graph, const SiteBounds& bounds) {
                    + handle_text(graph, graph.flip(bounds.start)));
 }
 
+/// Name a chain by its boundary nodes, whichever way round it is read.
+static string bounds_key(const HandleGraph& graph, const ChildChain& chain) {
+    return bounds_key(graph, SiteBounds{chain.start, chain.end});
+}
+
 /// Describe what a site holds, independent of how either implementation orients its chains:
 /// each way in to a child site, with the node IDs of the chain it is in, smaller first.
 static string describe_children(const HandleGraph& graph, const SiteChildren& children) {

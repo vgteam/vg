@@ -10,7 +10,7 @@
  * the site to its end bound. A star allele, for a strand that does not cross the site, is an empty
  * walk.
  *
- * TODO: Hold a chain as its net handle too, so that `ChildChain` and `SiteBounds` are no longer
+ * TODO: Hold a candidate site's bounds as its net handle too, so that `SiteBounds` is no longer
  * needed.
  *
  * Namespace vg holds how alleles are spelled and how edit sites are made. Namespace vg::multipass
@@ -108,11 +108,22 @@ string edit_site_id(nid_t node, uint32_t offset, char kind, const string& alt);
 
 namespace multipass {
 
-/// A chain of sites nested in a site, as its bounds from `oriented_bounds`.
-///
-/// A chain of one site has that site's bounds. A symbolic allele names a chain by the node IDs of
-/// these bounds.
-using ChildChain = SiteBounds;
+/**
+ * A chain of sites nested in a site, as its boundary nodes.
+ *
+ * Each is read the way the decomposition orients the chain: `start` reads into the chain and `end`
+ * out of it. A chain of one site has that site's boundary nodes. A symbolic allele names a chain
+ * by their node IDs.
+ */
+struct ChildChain {
+    handle_t start;
+    handle_t end;
+};
+
+/// Get the boundary nodes of the chain `chain` of `decomposition`, as the decomposition orients
+/// the chain, whichever way `chain` traverses it.
+ChildChain chain_ends(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                      const net_handle_t& chain);
 
 /**
  * A table of the ways into the child sites of a site, and the chains those child sites are in.

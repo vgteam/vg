@@ -170,9 +170,6 @@ public:
     /// decomposition orients them, or turned round.
     Nested nested_in(const net_handle_t& site, const SiteBounds& as_called) const;
 
-    /// Get the chain `site` is in.
-    ChildChain chain_of(const net_handle_t& site) const;
-
     /// Find the place of node `id` in the decomposition (see `placement_of_node`).
     NodePlacement placement_of(nid_t id) const;
 

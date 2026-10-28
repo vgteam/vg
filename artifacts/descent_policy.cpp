@@ -48,10 +48,6 @@ DescentPolicy::Nested DescentPolicy::nested_in(const net_handle_t& site,
     return nested;
 }
 
-ChildChain DescentPolicy::chain_of(const net_handle_t& site) const {
-    return chain_of_site(*decomposition, *graph, site);
-}
-
 NodePlacement DescentPolicy::placement_of(nid_t id) const {
     return placement_of_node(*decomposition, *graph, id);
 }

@@ -102,7 +102,7 @@ SiteBounds oriented_bounds(const SnarlDecomposition& decomposition, const Handle
 static void add_child_chain(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                             const net_handle_t& chain, SiteChildren& out,
                             vector<net_handle_t>* child_sites) {
-    const ChildChain bounds = oriented_bounds(decomposition, graph, chain);
+    const ChildChain bounds = chain_ends(decomposition, graph, chain);
     if (child_sites != nullptr) {
         for (const net_handle_t& child : vg::child_sites(decomposition, chain)) {
             child_sites->push_back(child);
@@ -163,9 +163,18 @@ SiteChildren site_children(const SnarlDecomposition& decomposition, const Handle
     return out;
 }
 
+ChildChain chain_ends(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                      const net_handle_t& chain) {
+    // get_bound() ignores the traversal, so this is the start bound read in and the end bound
+    // read out.
+    return ChildChain{
+        decomposition.get_handle(decomposition.get_bound(chain, false, true), &graph),
+        decomposition.get_handle(decomposition.get_bound(chain, true, false), &graph)};
+}
+
 ChildChain chain_of_site(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                          const net_handle_t& site) {
-    return oriented_bounds(decomposition, graph, decomposition.get_parent(site));
+    return chain_ends(decomposition, graph, decomposition.get_parent(site));
 }
 
 NodePlacement placement_of_node(const SnarlDecomposition& decomposition, const HandleGraph& graph,
@@ -176,7 +185,7 @@ NodePlacement placement_of_node(const SnarlDecomposition& decomposition, const H
         decomposition.get_net(graph.get_handle(id, false), &graph));
     NodePlacement out;
     out.site = decomposition.get_parent(chain);
-    out.chain = oriented_bounds(decomposition, graph, chain);
+    out.chain = chain_ends(decomposition, graph, chain);
     return out;
 }
 
@@ -186,8 +195,8 @@ ChildChain chain_holding(const EditSnarlDecompositionOverlay& sites, const Handl
         return chain_of_site(sites, graph, net);
     }
     const handle_t start = sites.get_site_start(sites.canonical(net));
-    return oriented_bounds(sites, graph,
-                           sites.get_parent(sites.get_net(graph.forward(start), &graph)));
+    return chain_ends(sites, graph,
+                      sites.get_parent(sites.get_net(graph.forward(start), &graph)));
 }
 
 size_t chain_key_of(const HandleGraph& graph, const ChildChain& chain) {
