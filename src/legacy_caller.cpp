@@ -135,9 +135,8 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                             support_cutoff,
                                                             get_path_index,
                                                             [&](id_t id) { return support_caller.get_support_finder().get_min_node_support(id);},
-                                                            // note: because our traversal finder
-                                                            // and support caller have different
-                                                            // graphs, they can't share edge handles
+                                                            // note: because our traversal finder and support caller have
+                                                            // different graphs, they can't share edge handles
                                                             [&](edge_t edge) { return support_caller.get_support_finder().get_edge_support(
                                                                     vg_graph.get_id(edge.first), vg_graph.get_is_reverse(edge.first),
                                                                     vg_graph.get_id(edge.second), vg_graph.get_is_reverse(edge.second));});

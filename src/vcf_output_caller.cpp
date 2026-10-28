@@ -177,8 +177,7 @@ static int countAlleles(vcflib::Variant& var) {
     return alleles;
 }
 
-// this isn't from vcflib, but seems to make more sense than just returning the number of samples in
-// the file again and again
+// this isn't from vcflib, but seems to make more sense than just returning the number of samples in the file again and again
 static int countSamplesWithData(vcflib::Variant& var) {
     int samples_with_data = 0;
     for (auto s = var.samples.begin(); s != var.samples.end(); ++s) {

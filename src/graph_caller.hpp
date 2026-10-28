@@ -64,9 +64,9 @@ public:
      */
     virtual void call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type = RecurseOnFail);
 
-    /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of
-    /// each piece then make a fake snarl for each chain piece and call it.  If a fake snarl fails
-    /// to call, It's child chains will be recursed on (if selected)_
+    /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
+    /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
+    /// It's child chains will be recursed on (if selected)_
     virtual void call_top_level_chains(const HandleGraph& graph,
                                        size_t max_edges,
                                        size_t max_trivial,

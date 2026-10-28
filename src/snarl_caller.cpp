@@ -600,8 +600,6 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     double exp_depth = mean_depth;
     assert(!isnan(exp_depth));
     // The standard error is NaN for a bin of fewer than 2 values, so we clamp it to 0.
-    // genotype_likelihood does not use it, because with small bins the error of the binned
-    // coverage is too large to help.
     double depth_err = !isnan(depth_std_err) ? depth_std_err : 0.;
 
     // Single pass: find best genotype AND compute GQ/posterior values

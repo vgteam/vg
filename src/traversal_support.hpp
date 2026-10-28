@@ -148,7 +148,7 @@ public:
 
 /**
  * Get the read support from a Packer object
- */
+ */ 
 class PackedTraversalSupportFinder : public TraversalSupportFinder {
 public:
     PackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager);

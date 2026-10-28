@@ -138,8 +138,7 @@ SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, cons
         deque<Visit> left_padding;
 
         if (graph.get_is_reverse(start_handle) == graph.get_is_reverse(graph.get_handle_of_step(reference_step))) {
-            // path and handle oriented the same, we can just backtrack along the path to get
-            // previous stuff
+            // path and handle oriented the same, we can just backtrack along the path to get previous stuff
             for (step_handle_t step = graph.get_previous_step(reference_step);
                  step != graph.path_front_end(reference_path) && padding < trav_padding;
                  step = graph.get_previous_step(step)) {

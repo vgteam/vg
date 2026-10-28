@@ -616,8 +616,8 @@ protected:
     /// the greedy average-flow heuristic.
     size_t greedy_avg_threshold;
 
-    /// Return whether the nodes inside the site from `start` to `end`, without its boundary
-    /// nodes, total more than greedy_avg_threshold bp.
+    /// Return whether the snarl from start to end (not including the boundaries)
+    /// is big enough that we should use the greedy average-flow heuristic.
     bool use_greedy_avg(const handle_t& start, const handle_t& end) const;
     
 public:

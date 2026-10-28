@@ -253,8 +253,7 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     vector<SnarlTraversal> travs;
     FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
     if (flow_trav_finder != nullptr) {
-        // find the max flow traversals using specialized interface that accepts avg heurstic toggle
-        // and overlay
+        // find the max flow traversals using specialized interface that accepts avg heurstic toggle and overlay
         pair<vector<SnarlTraversal>, vector<double>> weighted_travs = flow_trav_finder->find_weighted_traversals(snarl, greedy_avg_flow, &snarl_graph);
         travs = std::move(weighted_travs.first);
            
@@ -291,14 +290,14 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     }
     // store the reference traversal information, which could be empty
     record.ref_path_name = ref_path_name;
-    // Keep the interval that the ploidy was found for, so that emit_snarl_recursive finds the
-    // same ploidy, which genotype_by_ploidy is indexed by.
+    // Keep the interval the ploidy was found over, so the record's ploidy can be found again.
     record.ref_path_interval = make_pair((int64_t)gt_ref_interval.first,
                                          (int64_t)gt_ref_interval.second);
     record.ref_trav_idx = ref_trav_idx;
 
-    // in the snarl graph, snarls a represented by a snarl end point and that's it.  here we fix up
-    // the traversals to actually embed the snarls todo: should be able to avoid copy here!
+    // in the snarl graph, snarls a represented by a snarl end point and that's it.  here we fix up the traversals
+    // to actually embed the snarls
+    // todo: should be able to avoid copy here!
     vector<SnarlTraversal> embedded_travs = travs;
     for (int i = 0; i < embedded_travs.size(); ++i) {
         SnarlTraversal& traversal = embedded_travs[i];
@@ -360,8 +359,7 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
     if (record.ref_trav_idx >= 0 && !record.genotype_by_ploidy.empty() && ploidy != 0) {
 
         if (ploidy < 0) {
-            // Find the ploidy over the interval of the record, as call_snarl_recursive did, since
-            // genotype_by_ploidy is indexed by ploidy.
+            // Use the ploidy of the record's interval, which the record was genotyped at.
             ploidy = ploidy_regions.ploidy_at(record.ref_path_name, record.ref_path_interval.first,
                                               ref_offset_of(ref_offsets, record.ref_path_name),
                                               ref_ploidy_of(ref_ploidies, record.ref_path_name));
@@ -463,8 +461,8 @@ string NestedFlowCaller::flatten_alt_allele(const string& nested_allele, int all
 #endif
                 int fallback_allele = -1;
                 if (record.genotype_by_ploidy[ploidy-1].first.empty()) {
-                    // there's no call here. but we really want to emit something, so try picking
-                    // the reference or first allele
+                    // there's no call here. but we really want to emit something, so try picking the reference
+                    // or first allele
                     if (record.ref_trav_idx >= 0) {
                         fallback_allele = record.ref_trav_idx;
                     } else if (!record.travs.empty()) {
@@ -474,10 +472,10 @@ string NestedFlowCaller::flatten_alt_allele(const string& nested_allele, int all
                 if (fallback_allele >= (int)record.travs.size()) {
                     flat_allele += "<...>";
                 } else {
-                    // todo: passing in a single ploidy simplisitic, would need to derive from the
-                    // calls when reucrising in practice, the results will nearly the same but still
-                    // needs fixing we try to get the allele from the genotype if possible, but
-                    // fallback on the fallback_allele
+                    // todo: passing in a single ploidy simplisitic, would need to derive from the calls when
+                    // reucrising
+                    // in practice, the results will nearly the same but still needs fixing
+                    // we try to get the allele from the genotype if possible, but fallback on the fallback_allele
                     int trav_allele = fallback_allele >= 0 ? fallback_allele : record.genotype_by_ploidy[ploidy-1].first[allele];
                     const SnarlTraversal& traversal = record.travs[trav_allele];
                     string nested_snarl_allele = trav_string(graph, traversal);

@@ -65,8 +65,7 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
 /// Split a string at every character in `delims`, keeping empty fields, and append the fields to
 /// `elems`.
 ///
-/// "a,,b" gives "a", "", "b", and "" gives one empty field. Fields keep their positions, as
-/// positional formats such as VCF need.
+/// "a,,b" gives "a", "", "b", and "" gives one empty field.
 std::vector<std::string>& split_delims_keep_empty(std::string_view s, std::string_view delims,
                                                   std::vector<std::string>& elems);
 

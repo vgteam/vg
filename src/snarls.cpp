@@ -635,7 +635,9 @@ const deque<Chain>& SnarlManager::chains_of(const Snarl* snarl) const {
         return root_chains;
     }
     
-    // Otherwise, go look up the child chains of this snarl. A snarl with no children has none.
+    // Otherwise, go look up the child chains of this snarl. A snarl with no children might
+    // not have a collection of children, so we make this empty collection for them to all
+    // share.
     static const deque<Chain> no_chains;
     const SnarlRecord* rec = record(snarl);
     return rec->child_chains ? *rec->child_chains : no_chains;

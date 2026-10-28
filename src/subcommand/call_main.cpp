@@ -2646,8 +2646,7 @@ int main_call(int argc, char** argv) {
             if (show_progress) logger.info() << "Computed coverage statistics" << endl;
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *support_finder, depth_index,
-                                                                //todo: qualities need to be used
-                                                                //better in conjunction with
+                                                                //todo: qualities need to be used better in conjunction with
                                                                 //expected depth.
                                                                 //packer->has_qualities());
                                                                 false);

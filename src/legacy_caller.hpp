@@ -61,8 +61,7 @@ protected:
     pair<vector<SnarlTraversal>, vector<int>> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy,
                                                                 const string& ref_path_name, pair<size_t, size_t> ref_interval) const;
     
-    /// we need the reference traversal for VCF, but if the ref is not called, the above method
-    /// won't find it.
+    /// we need the reference traversal for VCF, but if the ref is not called, the above method won't find it. 
     SnarlTraversal get_reference_traversal(const Snarl& snarl, TraversalFinder& trav_finder) const;
 
     /// re-genotype output of top_down_genotype.  it may give slightly different results as

@@ -355,8 +355,7 @@ protected:
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;
 
-    /// The ploidy of regions of the reference, which overrides the ploidy of their paths. Empty
-    /// unless the run gave a BED file of them.
+    /// The ploidy of regions of the reference, which overrides the ploidy of their paths.
     PloidyRegions ploidy_regions;
 
     // optional node translation to apply to snarl names in variant IDs

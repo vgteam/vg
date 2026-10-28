@@ -562,7 +562,7 @@ public:
                                                                        bool include_boundary_nodes) const;
         
     /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (optionally
-    /// includes Snarl's own boundary Nodes). This is site_contents for the bounds of the snarl.
+    /// includes Snarl's own boundary Nodes).
     pair<unordered_set<id_t>, unordered_set<edge_t> > deep_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                     bool include_boundary_nodes) const;
         
@@ -614,9 +614,8 @@ public:
 
     /// Run the lambda on every snarl once, on several threads, in no particular order.
     ///
-    /// After finish(), these are the snarls that for_each_snarl_preorder() visits. This opens no
-    /// nested parallel regions, so the lambda can use omp_get_thread_num() to keep per-thread
-    /// results.
+    /// This doesn't open any nested parallel regions, so the lambda can
+    /// use omp_get_thread_num() to keep per-thread results.
     void for_each_snarl_unindexed_parallel(const function<void(const Snarl*)>& lambda) const;
         
     /// Given a Snarl that we don't own (like from a Visit), find the
@@ -658,8 +657,9 @@ private:
         /// SnarlRecord does not own its children.
         vector<const Snarl*> children;
         
-        /// The chains over the child snarls, or null for a snarl with no children. Most snarls
-        /// have no children, and an empty deque would still allocate storage.
+        /// The chains over the child snarls, or null for a snarl with no children.
+        /// Since mostly snarls don't have any children, using a null pointer for them
+        /// saves space overall.
         unique_ptr<deque<Chain>> child_chains;
         
         /// This points to the parent SnarlRecord (as a snarl), or null if we
@@ -749,7 +749,7 @@ private:
     /// Orient a chain and its snarls so that the snarls agree with the chain, and at least half of
     /// them go from a lower node ID to a higher one.
     ///
-    /// This changes only the chain and its snarls, so chains can be done in parallel.
+    /// This is safe to run on multiple chains in parallel.
     void regularize_chain(const Chain* chain);
         
     // Chain computation uses these pseudo-chain-traversal functions, which
