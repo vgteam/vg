@@ -1,14 +1,14 @@
 #include <algorithm>
 #include <limits>
 
-#include "child_placer.hpp"
+#include "descent_policy.hpp"
 #include "block_records.hpp"
 #include "site_values.hpp"
 #include "symbolic_allele.hpp"
 
 namespace vg::multipass {
 
-ChildPlacer::TraversalNodeIndex ChildPlacer::index_traversal_nodes(const HandleGraph& graph,
+DescentPolicy::TraversalNodeIndex DescentPolicy::index_traversal_nodes(const HandleGraph& graph,
                                                                    const Traversal& walk) {
     TraversalNodeIndex visits;
     for (int i = 0; i < (int)walk.size(); ++i) {
@@ -17,7 +17,7 @@ ChildPlacer::TraversalNodeIndex ChildPlacer::index_traversal_nodes(const HandleG
     return visits;
 }
 
-int ChildPlacer::crossings_of_child(const HandleGraph& graph, const TraversalNodeIndex& visits,
+int DescentPolicy::crossings_of_child(const HandleGraph& graph, const TraversalNodeIndex& visits,
                                    const SiteBounds& child) {
     const nid_t start = graph.get_id(child.start);
     const nid_t end = graph.get_id(child.end);
@@ -58,7 +58,7 @@ int ChildPlacer::crossings_of_child(const HandleGraph& graph, const TraversalNod
     return crossings;
 }
 
-int ChildPlacer::offset_of_child(const HandleGraph& graph, const Traversal& walk,
+int DescentPolicy::offset_of_child(const HandleGraph& graph, const Traversal& walk,
                                  const SiteBounds& child) {
     const nid_t start = graph.get_id(child.start);
     const nid_t end = graph.get_id(child.end);
@@ -86,7 +86,7 @@ int ChildPlacer::offset_of_child(const HandleGraph& graph, const Traversal& walk
     return -1;
 }
 
-ChildPlacer::ChildOffsets::ChildOffsets(const HandleGraph& graph, const Traversal& indexed)
+DescentPolicy::ChildOffsets::ChildOffsets(const HandleGraph& graph, const Traversal& indexed)
     : walk(&indexed) {
     bases_before.assign(indexed.size() + 1, 0);
     for (int i = 0; i < (int)indexed.size(); ++i) {
@@ -95,7 +95,7 @@ ChildPlacer::ChildOffsets::ChildOffsets(const HandleGraph& graph, const Traversa
     }
 }
 
-int64_t ChildPlacer::ChildOffsets::base_offset(const HandleGraph& graph,
+int64_t DescentPolicy::ChildOffsets::base_offset(const HandleGraph& graph,
                                                const SiteBounds& child) const {
     // Follow the rule of `offset_of_child`. The entry is the first visit to either boundary node,
     // and it counts only if the other boundary node is visited after it.
@@ -135,7 +135,7 @@ int64_t ChildPlacer::ChildOffsets::base_offset(const HandleGraph& graph,
     return bases_before[entry];
 }
 
-size_t ChildPlacer::offset_along_genotype(
+size_t DescentPolicy::offset_along_genotype(
     const HandleGraph& graph, const vector<Traversal>& travs, const vector<int>& genotype,
     const SiteBounds& child, unordered_map<const Traversal*, ChildOffsets>& offsets) {
     for (int allele : genotype) {
@@ -155,7 +155,7 @@ size_t ChildPlacer::offset_along_genotype(
     return 0;
 }
 
-uint64_t ChildPlacer::child_crossing_mask(const HandleGraph& graph,
+uint64_t DescentPolicy::child_crossing_mask(const HandleGraph& graph,
                                          const vector<TraversalNodeIndex>& visits,
                                          const SiteBounds& child, bool* known) {
     if (known != nullptr) {
@@ -176,7 +176,7 @@ uint64_t ChildPlacer::child_crossing_mask(const HandleGraph& graph,
     return mask;
 }
 
-int ChildPlacer::child_ploidy(const vector<TraversalNodeIndex>& visits,
+int DescentPolicy::child_ploidy(const vector<TraversalNodeIndex>& visits,
                               const vector<int>& genotype, const SiteBounds& child,
                               int cap) const {
     int copies = 0;
@@ -200,7 +200,7 @@ int ChildPlacer::child_ploidy(const vector<TraversalNodeIndex>& visits,
     return min(copies, cap);
 }
 
-void ChildPlacer::configure(const HandleGraph* new_graph,
+void DescentPolicy::configure(const HandleGraph* new_graph,
                             const SnarlDecomposition* new_decomposition,
                             const BlockRecordWriter* new_blocks, DescentCounters* new_counters) {
     graph = new_graph;
@@ -209,14 +209,14 @@ void ChildPlacer::configure(const HandleGraph* new_graph,
     counters = new_counters;
 }
 
-ChildPlacer::Nested ChildPlacer::nested_in(const net_handle_t& site,
+DescentPolicy::Nested DescentPolicy::nested_in(const net_handle_t& site,
                                            const SiteBounds& as_called) const {
     Nested nested;
     nested.children = site_children(*decomposition, *graph, site, as_called, &nested.sites);
     return nested;
 }
 
-SiteView ChildPlacer::view_of(const SiteView& parent, const ChildSite& child) {
+SiteView DescentPolicy::view_of(const SiteView& parent, const ChildSite& child) {
     SiteView view{child.net, child.bounds, {}};
     // The sites enclosing the child are its parent, then those enclosing the parent.
     view.enclosing.reserve(parent.enclosing.size() + 1);
@@ -225,15 +225,15 @@ SiteView ChildPlacer::view_of(const SiteView& parent, const ChildSite& child) {
     return view;
 }
 
-ChildChain ChildPlacer::chain_of(const net_handle_t& site) const {
+ChildChain DescentPolicy::chain_of(const net_handle_t& site) const {
     return chain_of_site(*decomposition, *graph, site);
 }
 
-NodePlacement ChildPlacer::placement_of(nid_t id) const {
+NodePlacement DescentPolicy::placement_of(nid_t id) const {
     return placement_of_node(*decomposition, *graph, id);
 }
 
-bool ChildPlacer::reference_crosses(const Parent& parent,
+bool DescentPolicy::reference_crosses(const Parent& parent,
                                     const vector<TraversalNodeIndex>& visits,
                                     const SiteBounds& child) const {
     if (parent.ref_trav_idx < 0 || parent.ref_trav_idx >= (int)parent.travs.size()) {
@@ -244,7 +244,7 @@ bool ChildPlacer::reference_crosses(const Parent& parent,
     return child_ploidy(visits, ref_only, child, 1) != 0;
 }
 
-void ChildPlacer::place(const Parent& parent, bool off_reference, bool keep_uncrossed,
+void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_uncrossed,
                         const function<void(const Placed& child)>& visit) const {
     if (!parent.nested.children.known) {
         return;

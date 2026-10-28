@@ -67,7 +67,7 @@ static size_t replaced_length(const EditCandidate& c) {
 
 bool EditSitePlacer::walk_in_one_site(const EditCandidate& c, const NodePlacement& where) const {
     for (nid_t id : c.walk) {
-        const NodePlacement other = parts.child_placer->placement_of(id);
+        const NodePlacement other = parts.descent_policy->placement_of(id);
         if (other.enclosing.size() != where.enclosing.size()
             || (!other.enclosing.empty() && other.enclosing.front() != where.enclosing.front())) {
             return false;
@@ -213,7 +213,7 @@ vector<HeldEdit> EditSitePlacer::held_by(const SiteView& view,
     const SiteBounds view_turned = turned(graph, view.bounds);
     for (const EditCandidate& c : admitted(found)) {
         // Only the innermost site holding the node holds the edit.
-        NodePlacement where = parts.child_placer->placement_of(c.node);
+        NodePlacement where = parts.descent_policy->placement_of(c.node);
         if (where.enclosing.empty()
             || (where.enclosing.front() != view.bounds && where.enclosing.front() != view_turned)) {
             continue;
@@ -247,7 +247,7 @@ void EditSitePlacer::free_nodes_along_reference(nid_t bound, vector<nid_t>& out)
                 }
                 at = forward ? graph.get_next_step(at) : graph.get_previous_step(at);
                 const nid_t node = graph.get_id(graph.get_handle_of_step(at));
-                if (!parts.child_placer->placement_of(node).enclosing.empty()) {
+                if (!parts.descent_policy->placement_of(node).enclosing.empty()) {
                     // A site holds the node.
                     break;
                 }
@@ -295,7 +295,7 @@ void EditSitePlacer::place_free_edits(vector<EditCandidate> candidates,
     const vector<EditCandidate> chosen = admitted(candidates);
     for (size_t i = 0; i < chosen.size(); ++i) {
         const EditCandidate& c = chosen[i];
-        NodePlacement where = parts.child_placer->placement_of(c.node);
+        NodePlacement where = parts.descent_policy->placement_of(c.node);
         if (!where.enclosing.empty()) {
             // A site holds it, so that site's descent placed it, if anything did.
             continue;

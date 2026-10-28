@@ -51,7 +51,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
             .genotyper = &snarl_caller,
             .linker = &linker,
             .staged_sites = &staged_sites,
-            .child_placer = &child_placer,
+            .descent_policy = &descent_policy,
             .descent_counters = &descent_counters,
             .ploidy_regions = &ploidy_regions,
             .ref_paths = &ref_paths,
@@ -307,7 +307,7 @@ void MultiPassCaller::install_widgets() {
     };
     linker.set_site_reader(reader);
     rescorer.set_site_reader(reader);
-    child_placer.configure(&graph, &sites, &block_records, &descent_counters);
+    descent_policy.configure(&graph, &sites, &block_records, &descent_counters);
 }
 
 void MultiPassCaller::rerun_linkage_pass() {

@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "child_placer.hpp"
+#include "descent_policy.hpp"
 #include "linkage_model.hpp"
 #include "panel_lookup.hpp"
 #include "read_likelihood_caller.hpp"

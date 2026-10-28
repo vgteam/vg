@@ -7,7 +7,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "child_placer.hpp"
+#include "descent_policy.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "handle.hpp"
 #include "off_panel.hpp"
@@ -47,7 +47,7 @@ public:
     struct Parts {
         const PathPositionHandleGraph* graph = nullptr;
         /// Finds the sites that hold a node.
-        const ChildPlacer* child_placer = nullptr;
+        const DescentPolicy* descent_policy = nullptr;
         /// Off-panel detection's candidates.
         const SiteReadSource* edit_source = nullptr;
         /// What became of each candidate the call bar admits.

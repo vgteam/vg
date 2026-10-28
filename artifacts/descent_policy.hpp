@@ -1,5 +1,5 @@
-#ifndef VG_CHILD_PLACER_HPP_INCLUDED
-#define VG_CHILD_PLACER_HPP_INCLUDED
+#ifndef VG_DESCENT_POLICY_HPP_INCLUDED
+#define VG_DESCENT_POLICY_HPP_INCLUDED
 
 #include <array>
 #include <atomic>
@@ -127,7 +127,7 @@ struct NestingPlacement {
 };
 
 /**
- * A placer of child chains for nested descent.
+ * The rules for nested descent: which child chains of a genotyped site to genotype next, and how.
  *
  * It lists the child chains that a genotyped site's called alleles cross, each with its place in
  * the nesting tree and the ploidy to genotype it at. It reads a site's children from the snarl
@@ -142,7 +142,7 @@ struct NestingPlacement {
  * - For a child inside one node, a visit to the node passes both of its boundaries, so every
  *   visit crosses the child once.
  */
-class ChildPlacer {
+class DescentPolicy {
 public:
     /// The handle indices at which one walk visits each node ID, in ascending order.
     ///
@@ -253,7 +253,7 @@ public:
     /// Make the view of `child`, a site that `parent` holds.
     static SiteView view_of(const SiteView& parent, const ChildSite& child);
 
-    /// A genotyped site, as the placer needs it to place the site's children.
+    /// A genotyped site, as the policy needs it to place the site's children.
     struct Parent {
         /// The site.
         const SiteView& site;

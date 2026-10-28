@@ -21,7 +21,7 @@
 #include "graph_caller.hpp"
 #include "flow_caller.hpp"
 #include "vcf_output_caller.hpp"
-#include "child_placer.hpp"
+#include "descent_policy.hpp"
 #include "phase_table.hpp"
 #include "read_strand_table.hpp"
 #include "staged_site.hpp"
@@ -125,16 +125,16 @@ TEST_CASE("offset_of_child reports where a walk enters a chain", "[graph_caller]
     add_numbered_nodes(graph);
     const Traversal t = make_walk(graph, {1, 2, 3, 4, 5});
     SECTION("the entry index, not the exit") {
-        REQUIRE(ChildPlacer::offset_of_child(graph, t, make_child(graph, 2, 4)) == 1);
+        REQUIRE(DescentPolicy::offset_of_child(graph, t, make_child(graph, 2, 4)) == 1);
     }
     SECTION("entering from either boundary is the same crossing") {
-        REQUIRE(ChildPlacer::offset_of_child(graph, t, make_child(graph, 4, 2)) == 1);
+        REQUIRE(DescentPolicy::offset_of_child(graph, t, make_child(graph, 4, 2)) == 1);
     }
     SECTION("a chain the walk does not cross has no offset") {
-        REQUIRE(ChildPlacer::offset_of_child(graph, t, make_child(graph, 7, 9)) == -1);
+        REQUIRE(DescentPolicy::offset_of_child(graph, t, make_child(graph, 7, 9)) == -1);
     }
     SECTION("touching one boundary only is not a crossing") {
-        REQUIRE(ChildPlacer::offset_of_child(graph, t, make_child(graph, 3, 99)) == -1);
+        REQUIRE(DescentPolicy::offset_of_child(graph, t, make_child(graph, 3, 99)) == -1);
     }
 }
 
@@ -147,7 +147,7 @@ TEST_CASE("ChildOffsets gives the bases before offset_of_child's entry", "[graph
 
     // Count the bases of the handles before the entry that offset_of_child gives.
     auto expected = [&](const SiteBounds& child) -> int64_t {
-        const int entry = ChildPlacer::offset_of_child(graph, t, child);
+        const int entry = DescentPolicy::offset_of_child(graph, t, child);
         if (entry < 0) {
             return -1;
         }
@@ -160,7 +160,7 @@ TEST_CASE("ChildOffsets gives the bases before offset_of_child's entry", "[graph
 
     // Every pair of boundary nodes, including one the walk never visits (10), both orientations,
     // and a chain that starts and ends on one node.
-    const ChildPlacer::ChildOffsets offsets(graph, t);
+    const DescentPolicy::ChildOffsets offsets(graph, t);
     size_t crossing = 0;
     for (nid_t start = 1; start <= 10; ++start) {
         for (nid_t end = 1; end <= 10; ++end) {
@@ -185,17 +185,17 @@ TEST_CASE("A site inside a node is crossed by each visit to it, and a cyclic sit
     const SiteBounds cyclic = make_child(graph, 2, 2);
     REQUIRE(inside != cyclic);
     auto crossings = [&](const Traversal& walk, const SiteBounds& child) {
-        return ChildPlacer::crossings_of_child(graph, ChildPlacer::index_traversal_nodes(graph, walk),
-                                               child);
+        return DescentPolicy::crossings_of_child(
+            graph, DescentPolicy::index_traversal_nodes(graph, walk), child);
     };
 
     SECTION("one visit crosses the site inside the node, and not the cyclic site") {
         const Traversal once = make_walk(graph, {1, 2, 3});
         REQUIRE(crossings(once, inside) == 1);
         REQUIRE(crossings(once, cyclic) == 0);
-        REQUIRE(ChildPlacer::offset_of_child(graph, once, inside) == 1);
-        REQUIRE(ChildPlacer::offset_of_child(graph, once, cyclic) == -1);
-        const ChildPlacer::ChildOffsets offsets(graph, once);
+        REQUIRE(DescentPolicy::offset_of_child(graph, once, inside) == 1);
+        REQUIRE(DescentPolicy::offset_of_child(graph, once, cyclic) == -1);
+        const DescentPolicy::ChildOffsets offsets(graph, once);
         REQUIRE(offsets.base_offset(graph, inside) == 1);
         REQUIRE(offsets.base_offset(graph, cyclic) == -1);
     }
@@ -204,30 +204,30 @@ TEST_CASE("A site inside a node is crossed by each visit to it, and a cyclic sit
         REQUIRE(crossings(twice, inside) == 2);
         REQUIRE(crossings(twice, cyclic) == 1);
         // Both are entered at the first visit.
-        REQUIRE(ChildPlacer::offset_of_child(graph, twice, inside) == 1);
-        REQUIRE(ChildPlacer::offset_of_child(graph, twice, cyclic) == 1);
+        REQUIRE(DescentPolicy::offset_of_child(graph, twice, inside) == 1);
+        REQUIRE(DescentPolicy::offset_of_child(graph, twice, cyclic) == 1);
     }
     SECTION("a visit read backward crosses the site inside the node too") {
         Traversal backward = make_walk(graph, {1, 3});
         backward.insert(backward.begin() + 1, graph.get_handle(2, true));
         REQUIRE(crossings(backward, inside) == 1);
-        REQUIRE(ChildPlacer::offset_of_child(graph, backward, inside) == 1);
+        REQUIRE(DescentPolicy::offset_of_child(graph, backward, inside) == 1);
     }
     SECTION("a walk that misses the node does not cross it") {
         const Traversal missing = make_walk(graph, {1, 3, 4});
         REQUIRE(crossings(missing, inside) == 0);
-        REQUIRE(ChildPlacer::offset_of_child(graph, missing, inside) == -1);
-        REQUIRE(ChildPlacer::ChildOffsets(graph, missing).base_offset(graph, inside) == -1);
+        REQUIRE(DescentPolicy::offset_of_child(graph, missing, inside) == -1);
+        REQUIRE(DescentPolicy::ChildOffsets(graph, missing).base_offset(graph, inside) == -1);
     }
     SECTION("the crossing mask sets the bit of each walk that visits the node") {
-        const vector<ChildPlacer::TraversalNodeIndex> visits{
-            ChildPlacer::index_traversal_nodes(graph, make_walk(graph, {1, 2, 3})),
-            ChildPlacer::index_traversal_nodes(graph, make_walk(graph, {1, 3})),
-            ChildPlacer::index_traversal_nodes(graph, make_walk(graph, {1, 2, 3, 2, 5}))};
+        const vector<DescentPolicy::TraversalNodeIndex> visits{
+            DescentPolicy::index_traversal_nodes(graph, make_walk(graph, {1, 2, 3})),
+            DescentPolicy::index_traversal_nodes(graph, make_walk(graph, {1, 3})),
+            DescentPolicy::index_traversal_nodes(graph, make_walk(graph, {1, 2, 3, 2, 5}))};
         bool known = false;
-        REQUIRE(ChildPlacer::child_crossing_mask(graph, visits, inside, &known) == 0b101);
+        REQUIRE(DescentPolicy::child_crossing_mask(graph, visits, inside, &known) == 0b101);
         REQUIRE(known);
-        REQUIRE(ChildPlacer::child_crossing_mask(graph, visits, cyclic, &known) == 0b100);
+        REQUIRE(DescentPolicy::child_crossing_mask(graph, visits, cyclic, &known) == 0b100);
     }
 }
 

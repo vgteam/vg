@@ -8,7 +8,7 @@
 #include "handle.hpp"
 #include "linkage_model.hpp"
 #include "snarl_caller.hpp"
-#include "child_placer.hpp"
+#include "descent_policy.hpp"
 #include "panel_lookup.hpp"
 #include "phase_table.hpp"
 #include "staged_site.hpp"
@@ -154,12 +154,12 @@ private:
     void revise_chain(StagedSiteTable& sites, size_t index,
                       const unordered_map<size_t, StagedSite*>& record_by_key,
                       const unordered_map<size_t, const PhaseCall*>& chosen,
-                      unordered_map<const Traversal*, ChildPlacer::ChildOffsets>& child_offsets,
+                      unordered_map<const Traversal*, DescentPolicy::ChildOffsets>& child_offsets,
                       PassCounts& counts);
 
     /// Move a nested chain to where it starts along the allele chosen for its parent.
     void place_chain(StagedSite& pr, const StagedSite& parent,
-                     unordered_map<const Traversal*, ChildPlacer::ChildOffsets>& child_offsets)
+                     unordered_map<const Traversal*, DescentPolicy::ChildOffsets>& child_offsets)
         const;
 
     /// Find the traversals chosen for the parent of a nested chain, the second -1 for a haploid

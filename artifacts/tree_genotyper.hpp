@@ -13,7 +13,7 @@
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "candidate_finder.hpp"
-#include "child_placer.hpp"
+#include "descent_policy.hpp"
 #include "edit_site_placer.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "genotype_linker.hpp"
@@ -33,7 +33,7 @@ using namespace std;
  *
  * It genotypes the site from its reads, files it in the linkage model and stages it. Then it
  * genotypes the sites below it in the same way, and so on down. With nested calling, those are
- * the child chains that the called alleles cross (see `ChildPlacer`). With top-down calling, they
+ * the child chains that the called alleles cross (see `DescentPolicy`). With top-down calling, they
  * are the children, each genotyped against the traversals its parent's called alleles allow.
  *
  * Several threads may genotype different top-level sites at once.
@@ -52,7 +52,7 @@ public:
         /// Holds the staged sites.
         StagedSiteTable* staged_sites = nullptr;
         /// Lists the child chains to genotype under a site.
-        const ChildPlacer* child_placer = nullptr;
+        const DescentPolicy* descent_policy = nullptr;
         DescentCounters* descent_counters = nullptr;
         const PloidyRegions* ploidy_regions = nullptr;
         /// The reference paths, with their offsets and ploidies.
@@ -208,13 +208,13 @@ private:
     /// in memory when its edit sites are genotyped.
     ///
     /// @pre `held` is sorted by node.
-    ChildPlacer::Nested with_held_edits(const ChildPlacer::Nested& nested,
+    DescentPolicy::Nested with_held_edits(const DescentPolicy::Nested& nested,
                                         const vector<HeldEdit>& held) const;
 
-    /// Genotype one child that `ChildPlacer::place` placed under the site of `call`.
+    /// Genotype one child that `DescentPolicy::place` placed under the site of `call`.
     ///
     /// A child inside a node is one of the edit sites in `held`. Mark it in `edit_placed`.
-    void genotype_placed_child(const SiteCall& call, const ChildPlacer::Placed& child,
+    void genotype_placed_child(const SiteCall& call, const DescentPolicy::Placed& child,
                                const vector<HeldEdit>& held, vector<bool>& edit_placed);
 
     /// Genotype each child of a site against the traversals its called alleles allow.

@@ -15,7 +15,7 @@ void TreeGenotyper::configure(const Parts& parts, const Options& options) {
     this->parts = parts;
     this->options = options;
     placer.configure(EditSitePlacer::Parts{.graph = parts.graph,
-                                           .child_placer = parts.child_placer,
+                                           .descent_policy = parts.descent_policy,
                                            .edit_source = parts.edit_source,
                                            .edit_outcomes = parts.edit_outcomes,
                                            .ref_paths = parts.ref_paths,
@@ -142,7 +142,7 @@ struct TreeGenotyper::SiteCall {
     /// The record key of `id`.
     size_t record_key = 0;
     /// The sites nested in the site.
-    ChildPlacer::Nested nested;
+    DescentPolicy::Nested nested;
     /// The candidate traversals as walks, once the candidates are complete, until the staged site
     /// takes them.
     vector<Traversal> walks;
@@ -180,7 +180,7 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
     // Name the site from its bounds as the candidate finder oriented them.
     call.id = parts.site_id(call.bounds);
     call.record_key = record_key_of(call.id);
-    call.nested = parts.child_placer->nested_in(view.net, call.bounds);
+    call.nested = parts.descent_policy->nested_in(view.net, call.bounds);
 
     // A ploidy from the parent overrides the contig's or the region BED's. The region's is still
     // the number of the sample's haplotypes here, which the depth term needs.
@@ -370,10 +370,10 @@ void TreeGenotyper::record_and_stage(SiteCall& call,
     call.staged->placement = NestingPlacement();
 }
 
-ChildPlacer::Nested TreeGenotyper::with_held_edits(const ChildPlacer::Nested& nested,
+DescentPolicy::Nested TreeGenotyper::with_held_edits(const DescentPolicy::Nested& nested,
                                                    const vector<HeldEdit>& held) const {
     const PathPositionHandleGraph& graph = *parts.graph;
-    ChildPlacer::Nested out;
+    DescentPolicy::Nested out;
     out.children = nested.children;
     size_t e = 0;
     for (const ChildSite& child : nested.sites) {
@@ -399,14 +399,14 @@ void TreeGenotyper::descend_nested(const SiteCall& call) {
     if (parts.edit_source != nullptr) {
         held = placer.held_by(call.view, call.bounds, walks, call.site.ref_trav_idx);
     }
-    ChildPlacer::Nested with_edits;
+    DescentPolicy::Nested with_edits;
     if (!held.empty()) {
         with_edits = with_held_edits(call.nested, held);
     }
     vector<bool> edit_placed(held.size(), false);
     // Keep a child no called allele crosses only where the linkage pass can come back to it,
     // which needs the linkage model.
-    const ChildPlacer::Parent parent{.site = call.view,
+    const DescentPolicy::Parent parent{.site = call.view,
                                      .nested = held.empty() ? call.nested : with_edits,
                                      .record_key = call.record_key,
                                      .travs = walks,
@@ -414,9 +414,9 @@ void TreeGenotyper::descend_nested(const SiteCall& call) {
                                      .ref_trav_idx = call.site.ref_trav_idx,
                                      .ploidy = call.ploidy,
                                      .placement = call.placement};
-    parts.child_placer->place(
+    parts.descent_policy->place(
         parent, options.off_reference, parts.linker->enabled(),
-        [&](const ChildPlacer::Placed& child) {
+        [&](const DescentPolicy::Placed& child) {
             genotype_placed_child(call, child, held, edit_placed);
         });
     for (size_t i = 0; i < held.size(); ++i) {
@@ -428,7 +428,7 @@ void TreeGenotyper::descend_nested(const SiteCall& call) {
     }
 }
 
-void TreeGenotyper::genotype_placed_child(const SiteCall& call, const ChildPlacer::Placed& child,
+void TreeGenotyper::genotype_placed_child(const SiteCall& call, const DescentPolicy::Placed& child,
                                           const vector<HeldEdit>& held,
                                           vector<bool>& edit_placed) {
     if (child.placement.level < 16) {
@@ -469,7 +469,7 @@ void TreeGenotyper::descend_top_down(const SiteCall& call) {
             }
         }
         if (any_real_traversals) {
-            genotype_tree(ChildPlacer::view_of(call.view, child), call.site.ref_path_name,
+            genotype_tree(DescentPolicy::view_of(call.view, child), call.site.ref_path_name,
                           call.ref_range(), &child_trav_sets, -1, call.placement);
         }
     }
@@ -682,7 +682,7 @@ unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
 void TreeGenotyper::fill_tree_fields(const SiteView& view, const SiteChildren& children,
                                      StagedSite& site) const {
     site.children = children;
-    site.chain = parts.child_placer->chain_of(view.net);
+    site.chain = parts.descent_policy->chain_of(view.net);
 }
 
 }

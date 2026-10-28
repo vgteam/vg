@@ -18,7 +18,7 @@
 #include "block_records.hpp"
 #include "candidate_finder.hpp"
 #include "allele_splicer.hpp"
-#include "child_placer.hpp"
+#include "descent_policy.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "genotype_linker.hpp"
 #include "genotype_rescorer.hpp"
@@ -448,7 +448,7 @@ private:
     RecordRenderer record_renderer;
 
     /// Lists the child chains nested descent genotypes under each site.
-    ChildPlacer child_placer;
+    DescentPolicy descent_policy;
 
     /// Runs the direct pass for one top-level site.
     TreeGenotyper tree_genotyper;

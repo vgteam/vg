@@ -48,7 +48,7 @@ that enclose it in the decomposition.
    serves neighbouring sites. For each one, `TreeGenotyper::genotype` finds the site's candidate
    alleles and reference path (`CandidateFinder`), genotypes it from its reads (`ReadLikelihoodSnarlCaller`),
    files it with the linkage model (`GenotypeLinker::add`), and **stages** it in the
-   `StagedSiteTable`. With nested calling, `ChildPlacer` then lists the child chains the called
+   `StagedSiteTable`. With nested calling, `DescentPolicy` then lists the child chains the called
    alleles cross, each with its place in the nesting tree, and `TreeGenotyper` genotypes and
    stages each child in the same way, at both ploidy 1 and ploidy 2 when it has more than one
    candidate allele. Under the linkage model it also genotypes and stages the chains no called
@@ -81,7 +81,7 @@ Every mode is this sequence with parts switched off. Without a panel, `GenotypeL
 collector and chooses nothing: each nested chain keeps the ploidy the direct pass gave it from its
 parent's direct call, and read phasing and re-genotyping do not run. Where the linkage model runs
 but phasing is not written (`--no-phased`), the `PhaseTable` stays empty, so read phasing and
-re-genotyping do nothing, and nested calling is off. Without nested calling, `ChildPlacer` lists
+re-genotyping do nothing, and nested calling is off. Without nested calling, `DescentPolicy` lists
 no children. By default, `SiteWalker` walks the children of a top-level site that cannot be
 genotyped as top-level sites; `--all-snarls` makes it walk the children of every site, and turns
 nested calling off. `--top-down` makes `TreeGenotyper` genotype each child against the traversals
@@ -104,7 +104,7 @@ widgets are blue, the data structures they share are white, and the outputs are 
 ```mermaid
 flowchart TD
     walker["SiteWalker"]:::widget
-    tree["TreeGenotyper<br/>CandidateFinder, ReadLikelihoodSnarlCaller, ChildPlacer"]:::widget
+    tree["TreeGenotyper<br/>CandidateFinder, ReadLikelihoodSnarlCaller, DescentPolicy"]:::widget
     staged["StagedSiteTable<br/>StagedSite"]:::data
     linker["GenotypeLinker<br/>LinkageCollector"]:::widget
     phases["PhaseTable"]:::data
@@ -147,7 +147,7 @@ flowchart TD
 ```
 
 `MultiPassCaller` holds every box and calls the widgets in the order above, and some widgets
-call others they are given. `TreeGenotyper` uses the classes named in its box. `ChildPlacer` asks
+call others they are given. `TreeGenotyper` uses the classes named in its box. `DescentPolicy` asks
 `BlockRecordWriter` which chains a block record spells. `RecordRenderer` reads the chosen
 genotypes and the moved quality from `GenotypeLinker`, builds records through the output, and
 hands anchors to `AnchorCollector`. The linker, the rescorer and the renderer read each staged
@@ -172,7 +172,7 @@ grouped by the step they serve; the driver and its walk come first.
 | Genotyping | `candidate_finder.hpp` | `CandidateFinder`, which finds a site's reference path and candidate alleles; `FlowCaller` uses it too |
 | | `read_likelihood_caller.hpp` | `ReadLikelihoodSnarlCaller`, which makes one site's direct call from its likelihoods at explicit ploidies, returns it as a `SiteScore`, and computes its quality fields |
 | | `edit_site_placer.hpp` | `EditSitePlacer`, which places the off-panel edit sites among the sites and adds them to the overlay |
-| | `tree_genotyper.hpp`, `child_placer.hpp` | `TreeGenotyper`, the direct pass for one top-level site and the sites below it, and `ChildPlacer`, which lists the child chains a site's called alleles cross, each with its `NestingPlacement` |
+| | `tree_genotyper.hpp`, `descent_policy.hpp` | `TreeGenotyper`, the direct pass for one top-level site and the sites below it, and `DescentPolicy`, which lists the child chains a site's called alleles cross, each with its `NestingPlacement` |
 | | `linkage_model.hpp`, `genotype_linker.hpp` | `LinkageModel`, the hidden Markov model over the panel; `LinkageCollector`, which holds each site's entry, runs the model over linkage chains one level at a time, and keeps each site's chosen genotype; and `GenotypeLinker`, the linkage pass, which files the staged sites with the collector and revises each nested staged site from its parent's chosen genotype |
 | | `panel_lookup.hpp`, `ploidy_regions.hpp` | `PanelLookup`, which finds the panel haplotypes that carry an allele, and `PloidyRegions`, the ploidy of each region |
 | Phasing | `phase_table.hpp` | `PhaseTable`, the chosen pair of every phased site, which the linkage pass fills and read phasing reorders |
@@ -265,7 +265,7 @@ that explains them.
    those two modules while the read is at hand; their types can be skipped until items 8 and 10.
 4. **`read_likelihood_caller.hpp`.** `ReadLikelihoodSnarlCaller` turns one site's matrix into a
    direct call at the ploidies it is given, and returns the `SiteScore` the later passes read.
-5. **`site_values.hpp`, `site_walker.hpp`, `candidate_finder.hpp`, `child_placer.hpp` and
+5. **`site_values.hpp`, `site_walker.hpp`, `candidate_finder.hpp`, `descent_policy.hpp` and
    `tree_genotyper.hpp`.** The direct pass: how the sites are walked, how a site's candidates are
    found, how its children are placed, and how each is genotyped and staged.
 6. **`staged_site.hpp`.** What the direct pass keeps for each site, and the orders in which the
@@ -297,7 +297,7 @@ The `.cpp` files follow the same order, and `traversal_finder.hpp` can be read w
 candidate alleles need explaining. Unit tests are in `src/unittest/<module>.cpp` for
 `multipass_caller`, `site_walker`, `site_read_source`, `allele_likelihood` (with a second file,
 `allele_likelihood_scoring.cpp`), `read_likelihood_caller`, `linkage_model`, `read_phasing`,
-`regenotype`, `symbolic_allele` and `anchor`; `ChildPlacer` and `PhaseTable` are tested in
+`regenotype`, `symbolic_allele` and `anchor`; `DescentPolicy` and `PhaseTable` are tested in
 `graph_caller.cpp`. `test/t/18_vg_call.t` tests the whole command.
 
 ## Where the code departs from this order
