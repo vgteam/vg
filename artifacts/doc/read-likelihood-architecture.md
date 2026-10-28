@@ -165,7 +165,7 @@ grouped by the step they serve; the driver and its walk come first.
 | Driver | `multipass_caller.hpp` | `MultiPassCaller`, which holds the options and the widgets, and runs the passes in `call()` |
 | | `edit_snarl_decomposition_overlay.hpp` | `EditSnarlDecompositionOverlay`, the snarl decomposition with the edit sites laid over it as leaf children, through which the caller walks its sites |
 | | `site_walker.hpp`, `site_scheduler.hpp` | `SiteWalker`, the walk over a decomposition's sites, and the batching scheduler it shares with `GraphCaller` |
-| | `site_values.hpp` | the plain values a site is described by (`SiteView`, `SiteChildren`, `ChildSite`), and the spelling of edit sites' alleles |
+| | `site_values.hpp` | the plain values copied out of the overlay (`SiteChildren`, `ChildSite`), and the spelling of edit sites' alleles |
 | | `staged_site.hpp` | `StagedSite`, one site's result from the direct pass, and `StagedSiteTable`, which holds every staged site from the direct pass to the render |
 | Site likelihood computation | `site_read_source.hpp` | `SiteRead`, a read as a site sees it, and `SiteReadSource`, which delivers the reads of a site from a GAM or GAF file in memory, an indexed GAM file, a bgzipped GAF file through its tabix index, or a GAF-base database |
 | | `allele_likelihood.hpp` | `GraphAlignedAlleleLikelihoodCalculator`, which scores each read against each candidate allele by pairing their node visits, and `AlleleReadLikelihoods`, the resulting matrix of relative likelihoods, which computes $\mathcal{L}(G)$ for each genotype |

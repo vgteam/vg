@@ -48,15 +48,6 @@ DescentPolicy::Nested DescentPolicy::nested_in(const net_handle_t& site,
     return nested;
 }
 
-SiteView DescentPolicy::view_of(const SiteView& parent, const ChildSite& child) {
-    SiteView view{child.net, child.bounds, {}};
-    // The sites enclosing the child are its parent, then those enclosing the parent.
-    view.enclosing.reserve(parent.enclosing.size() + 1);
-    view.enclosing.push_back(parent.bounds);
-    view.enclosing.insert(view.enclosing.end(), parent.enclosing.begin(), parent.enclosing.end());
-    return view;
-}
-
 ChildChain DescentPolicy::chain_of(const net_handle_t& site) const {
     return chain_of_site(*decomposition, *graph, site);
 }
@@ -130,7 +121,7 @@ void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_un
         }
 
         Placed out;
-        out.site = view_of(parent.site, child);
+        out.site = child.net;
         out.chain = child.chain;
         // A chain no called allele crosses takes the parent's ploidy, the most copies it can have.
         out.ploidy = copies >= 1 ? copies : parent.ploidy;

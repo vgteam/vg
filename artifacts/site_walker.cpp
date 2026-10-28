@@ -75,13 +75,9 @@ private:
 
 void SiteWalker::walk(GraphCaller::RecurseType recurse_type, size_t batch_window,
                       bool show_progress,
-                      const function<bool(const SiteView&)>& call_site) const {
-    walk_site_tree<net_handle_t>(
-        DecompositionSiteForest(decomposition, graph), recurse_type, batch_window, show_progress,
-        [this, &call_site](const net_handle_t& site) {
-            return call_site(SiteView{site, oriented_bounds(decomposition, graph, site),
-                                      enclosing_sites(decomposition, graph, site)});
-        });
+                      const function<bool(const net_handle_t&)>& call_site) const {
+    walk_site_tree<net_handle_t>(DecompositionSiteForest(decomposition, graph), recurse_type,
+                                 batch_window, show_progress, call_site);
 }
 
 }

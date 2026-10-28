@@ -73,7 +73,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
 
     // The direct pass.
     walker.walk(recurse_type, snarl_batch_window, show_progress,
-                [&](const SiteView& site) { return tree_genotyper.genotype(site); });
+                [&](const net_handle_t& site) { return tree_genotyper.genotype(site); });
     if (off_panel.is_enabled()) {
         // The edit sites no site holds, from the windows the sites fetched. A window no site
         // fetched holds no site, and is not fetched for its candidates alone.

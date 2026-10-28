@@ -138,8 +138,8 @@ class DescentPolicy {
 public:
     /// A child chain to genotype, as `place` gives it.
     struct Placed {
-        /// The child.
-        SiteView site;
+        /// The child, as its net handle in the overlay of sites.
+        net_handle_t site;
         /// The chain the child belongs to.
         ChildChain chain;
         /// The ploidy to genotype it at.
@@ -176,13 +176,10 @@ public:
     /// Find the place of node `id` in the decomposition (see `placement_of_node`).
     NodePlacement placement_of(nid_t id) const;
 
-    /// Make the view of `child`, a site that `parent` holds.
-    static SiteView view_of(const SiteView& parent, const ChildSite& child);
-
     /// A genotyped site, as the policy needs it to place the site's children.
     struct Parent {
-        /// The site.
-        const SiteView& site;
+        /// The site, as its net handle in the overlay of sites.
+        net_handle_t site;
         /// The sites nested in it.
         const Nested& nested;
         /// Its record key.

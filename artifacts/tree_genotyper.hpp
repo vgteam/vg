@@ -104,7 +104,7 @@ public:
      * @return False if the site itself could not be genotyped, so that the walk can genotype its
      * children as top-level sites instead.
      */
-    bool genotype(const SiteView& site);
+    bool genotype(const net_handle_t& site);
 
     /**
      * Genotype and stage the free edit sites that the direct pass did not reach, as top-level
@@ -139,15 +139,13 @@ private:
     /**
      * Genotype one edit site, and stage it if it is called with its ALT.
      *
-     * @param enclosing The bounds of the sites enclosing the edit site, innermost first.
      * @param parent_ref_path_name The reference path of the parent, for a nested edit site.
      * @param parent_ref_interval The interval of the parent on its reference path.
      * @param ploidy_override If not negative, the ploidy to genotype at.
      * @param placement The place of the edit site in the nesting tree.
      * @param top_level Stage the site as a top-level site, rather than as a child.
      */
-    void genotype_edit_site(const HeldEdit& edit, const vector<SiteBounds>& enclosing,
-                            const string& parent_ref_path_name,
+    void genotype_edit_site(const HeldEdit& edit, const string& parent_ref_path_name,
                             pair<size_t, size_t> parent_ref_interval, int ploidy_override,
                             const NestingPlacement& placement, bool top_level);
 
@@ -167,7 +165,7 @@ private:
      * top-level site. A child in top-down calling takes its parent's.
      * @return False if the site could not be genotyped.
      */
-    bool genotype_tree(const SiteView& view, const string& parent_ref_path_name,
+    bool genotype_tree(const net_handle_t& view, const string& parent_ref_path_name,
                        pair<size_t, size_t> parent_ref_interval,
                        const ChildWalkSets* parent_child_walk_sets, int ploidy_override,
                        const NestingPlacement& placement);
@@ -228,10 +226,11 @@ private:
 
     /// Genotype one site at `ploidies`.
     ///
+    /// @param net The site, as its net handle in the overlay of sites.
     /// @param score Set to the score inside the returned call info.
     pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> genotype_site(
         const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
-        const Ploidies& ploidies, const vector<SiteBounds>& enclosing, SiteScore*& score) const;
+        const Ploidies& ploidies, const net_handle_t& net, SiteScore*& score) const;
 
     /// Make the `StagedSite` of a site from its walks and genotype, moving `call_info` into it.
     ///
@@ -243,12 +242,6 @@ private:
                                                SiteScore* score,
                                                const ReferencePlacement& reference,
                                                int ploidy) const;
-
-    /// Give a staged site what it keeps of the decomposition.
-    ///
-    /// That is the `children` that `view` holds, its chain, and the sites enclosing it.
-    void fill_tree_fields(const SiteView& view, const SiteChildren& children,
-                          StagedSite& site) const;
 
     Parts parts;
     Options options;

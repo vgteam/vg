@@ -4,14 +4,14 @@
 /** \file
  * The types the read-likelihood caller copies a site's place in the decomposition into.
  *
- * The caller walks its sites as net handles of an `EditSnarlDecompositionOverlay`, but carries
- * each site from pass to pass as copies: its `SiteBounds`, the bounds of the sites enclosing it
- * (`SiteView`), and what its records need to know about the sites nested in it (`SiteChildren`).
- * An allele of a site is a `Traversal`, a walk of handles from the start bound of the site to its
- * end bound. A star allele, for a strand that does not cross the site, is an empty walk.
+ * The caller holds each site as its net handle in an `EditSnarlDecompositionOverlay`. It still
+ * copies some things out of the overlay: a child site's `SiteBounds` and chain (`ChildSite`), and
+ * what a site's records need to know about the sites nested in it (`SiteChildren`). An allele of a
+ * site is a `Traversal`, a walk of handles from the start bound of the site to its end bound. A
+ * star allele, for a strand that does not cross the site, is an empty walk.
  *
- * TODO: Carry each site as its net handle, and ask the overlay for its bounds and its place in the
- * tree, so that these copies are no longer needed.
+ * TODO: Ask the overlay for a child site's bounds and chain too, so that `ChildSite` and
+ * `SiteBounds` are no longer needed.
  *
  * Namespace vg holds how alleles are spelled and how edit sites are made. Namespace vg::multipass
  * holds the caller's own types, and the functions that read them from a decomposition.
@@ -144,15 +144,6 @@ struct SiteChildren {
     const ChildChain* entered_by(nid_t id, bool backward) const;
 };
 
-/// A site of a decomposition, as the read-likelihood caller visits it.
-struct SiteView {
-    net_handle_t net;
-    /// The bounds of the site, as the decomposition orients it.
-    SiteBounds bounds;
-    /// The bounds of the sites enclosing the site, innermost first.
-    vector<SiteBounds> enclosing;
-};
-
 /// A site of a decomposition nested in another site.
 struct ChildSite {
     net_handle_t net;
@@ -182,10 +173,6 @@ SiteChildren site_children(const SnarlDecomposition& decomposition, const Handle
                            const net_handle_t& site, const SiteBounds& as_called,
                            vector<ChildSite>* child_sites = nullptr);
 
-/// Get the bounds of the sites enclosing `site` in `decomposition`, innermost first.
-vector<SiteBounds> enclosing_sites(const SnarlDecomposition& decomposition,
-                                   const HandleGraph& graph, const net_handle_t& site);
-
 /// Get the chain the site `site` is in.
 ChildChain chain_of_site(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                          const net_handle_t& site);
@@ -200,12 +187,6 @@ ChildChain chain_holding(const EditSnarlDecompositionOverlay& sites, const Handl
 struct NodePlacement {
     /// The innermost site that holds the node, or the decomposition's root when no site does.
     net_handle_t site;
-    /// The bounds of `site` and of the sites enclosing it, innermost first, as the decomposition
-    /// orients them.
-    ///
-    /// This is the `SiteView::enclosing` of a site placed on the node. It is empty when no site
-    /// holds the node.
-    vector<SiteBounds> enclosing;
     /// The chain the node is in.
     ///
     /// For a node that bounds sites, this is the chain of those sites. For any other node, it is

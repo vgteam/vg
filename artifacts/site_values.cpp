@@ -164,16 +164,6 @@ SiteChildren site_children(const SnarlDecomposition& decomposition, const Handle
     return out;
 }
 
-vector<SiteBounds> enclosing_sites(const SnarlDecomposition& decomposition,
-                                   const HandleGraph& graph, const net_handle_t& site) {
-    vector<SiteBounds> out;
-    for (net_handle_t parent = parent_site(decomposition, site); !decomposition.is_root(parent);
-         parent = parent_site(decomposition, parent)) {
-        out.push_back(oriented_bounds(decomposition, graph, parent));
-    }
-    return out;
-}
-
 ChildChain chain_of_site(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                          const net_handle_t& site) {
     return oriented_bounds(decomposition, graph, decomposition.get_parent(site));
@@ -188,11 +178,6 @@ NodePlacement placement_of_node(const SnarlDecomposition& decomposition, const H
     NodePlacement out;
     out.site = decomposition.get_parent(chain);
     out.chain = oriented_bounds(decomposition, graph, chain);
-    if (!decomposition.is_root(out.site)) {
-        out.enclosing.push_back(oriented_bounds(decomposition, graph, out.site));
-        const vector<SiteBounds> above = enclosing_sites(decomposition, graph, out.site);
-        out.enclosing.insert(out.enclosing.end(), above.begin(), above.end());
-    }
     return out;
 }
 

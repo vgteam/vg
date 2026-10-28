@@ -69,12 +69,12 @@ public:
      *
      * Read each one's node the way the walks of the site read it, preferring the reference walk.
      *
-     * @param view The site.
+     * @param site The site, as its net handle in the overlay of sites.
      * @param bounds The bounds the site was genotyped as.
      * @param walks The candidate walks of the site.
      * @param ref_trav_idx The index in `walks` of the reference walk.
      */
-    vector<HeldEdit> held_by(const SiteView& view, const SiteBounds& bounds,
+    vector<HeldEdit> held_by(const net_handle_t& site, const SiteBounds& bounds,
                              const vector<Traversal>& walks, int ref_trav_idx) const;
 
     /**

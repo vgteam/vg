@@ -67,7 +67,7 @@ static string describe_children(const HandleGraph& graph, const SiteChildren& ch
 static map<string, string> walk_sites(const SnarlDecomposition& decomposition,
                                       const HandleGraph& graph,
                                       GraphCaller::RecurseType recurse_type, size_t window,
-                                      const function<bool(const SiteView&)>& answer) {
+                                      const function<bool(const net_handle_t&)>& answer) {
     // What each visit saw, checked once the walk is done, since the calls run on several threads.
     struct Seen {
         string key;
@@ -80,16 +80,24 @@ static map<string, string> walk_sites(const SnarlDecomposition& decomposition,
     vector<Seen> visits;
     std::mutex lock;
     SiteWalker walker(decomposition, graph);
-    walker.walk(recurse_type, window, false, [&](const SiteView& site) {
-        const net_handle_t parent = parent_site(decomposition, site.net);
+    walker.walk(recurse_type, window, false, [&](const net_handle_t& site) {
+        const net_handle_t parent = parent_site(decomposition, site);
+        const SiteBounds bounds = oriented_bounds(decomposition, graph, site);
+        size_t enclosing = 0;
+        for (net_handle_t here = enclosing_site(decomposition, site);
+             !decomposition.is_root(here); here = enclosing_site(decomposition, here)) {
+            ++enclosing;
+        }
+        const net_handle_t innermost = enclosing_site(decomposition, site);
         Seen visit{
-            bounds_key(graph, site.bounds), site.enclosing.size(), depth(decomposition, site.net),
-            site.enclosing.empty() ? string("root") : bounds_key(graph, site.enclosing[0]),
+            bounds_key(graph, bounds), enclosing, depth(decomposition, site),
+            decomposition.is_root(innermost)
+                ? string("root")
+                : bounds_key(graph, oriented_bounds(decomposition, graph, innermost)),
             decomposition.is_root(parent) ? string("root")
                                           : bounds_key(graph, site_bounds(decomposition, graph,
                                                                           parent)),
-            describe_children(graph, site_children(decomposition, graph, site.net, site.bounds))};
-        // The view's bounds are the site's.
+            describe_children(graph, site_children(decomposition, graph, site, bounds))};
         {
             lock_guard<std::mutex> guard(lock);
             visits.push_back(std::move(visit));
@@ -149,8 +157,8 @@ static string manager_children(const DecompositionPair& pair, const Snarl* snarl
 /// Check the walk over `pair` in every mode, and against the other implementation unless the
 /// decomposition holds something the two present differently.
 static void check_walks(const DecompositionPair& pair, size_t window) {
-    auto all = [](const SiteView&) { return true; };
-    auto none = [](const SiteView&) { return false; };
+    auto all = [](const net_handle_t&) { return true; };
+    auto none = [](const net_handle_t&) { return false; };
 
     map<string, string> adapter_sites = walk_sites(pair.adapter, pair.graph,
                                                    GraphCaller::RecurseAlways, window, all);
@@ -201,17 +209,12 @@ static map<nid_t, string> node_placements(const SnarlDecomposition& decompositio
         const nid_t id = graph.get_id(handle);
         const NodePlacement place = placement_of_node(decomposition, graph, id);
         string text = "chain " + bounds_key(graph, place.chain) + " in";
-        if (place.enclosing.empty()) {
-            REQUIRE(decomposition.is_root(place.site));
+        if (decomposition.is_root(place.site)) {
             text += " root";
-        } else {
-            // The site handle and the innermost bounds name the same site.
-            REQUIRE(!decomposition.is_root(place.site));
-            REQUIRE(bounds_key(graph, oriented_bounds(decomposition, graph, place.site))
-                    == bounds_key(graph, place.enclosing.front()));
         }
-        for (const SiteBounds& site : place.enclosing) {
-            text += " " + bounds_key(graph, site);
+        for (net_handle_t here = place.site; !decomposition.is_root(here);
+             here = enclosing_site(decomposition, here)) {
+            text += " " + bounds_key(graph, oriented_bounds(decomposition, graph, here));
         }
         out[id] = text;
     });
@@ -343,7 +346,7 @@ TEST_CASE("SiteWalker visits the same sites on both implementations", "[site_wal
         check_walks(pair, 0);
         check_walks(pair, 4);
         map<string, string> sites = walk_sites(pair.adapter, graph, GraphCaller::RecurseAlways, 0,
-                                               [](const SiteView&) { return true; });
+                                               [](const net_handle_t&) { return true; });
         REQUIRE(sites.size() == 3);
         REQUIRE(sites.at("1+/8+") == "1x depth 0 in root, known 2+>2:7 7->2:7");
         REQUIRE(sites.at("2+/7+") == "1x depth 1 in 1+/8+, known 3+>3:5 5->3:5");
