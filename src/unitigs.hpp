@@ -79,12 +79,13 @@ private:
     size_t repeats = 0;
 };
 
-/// A walk in the graph whose sequence is part of the cover.
+/// A walk in the graph whose sequence is part of the cover. The sequence itself
+/// is not stored; tig_sequence() spells it from the graph.
 struct Tig {
     std::vector<handlegraph::handle_t> walk;
     /// Offset of the first base in the first node of the walk.
     size_t offset = 0;
-    std::string sequence;
+    size_t length = 0;
     /// Number of haplotype occurrences of each of its k-mers.
     size_t support = 0;
     /// Placement on the gref, as comma-separated PATH:START-END:STRAND:CIGAR
@@ -115,6 +116,20 @@ struct UnitigStatistics {
 std::vector<Tig> haplotype_unitigs(const gbwtgraph::GBWTGraph& graph, size_t k,
                                    const GrefIndex* gref = nullptr,
                                    UnitigStatistics* statistics = nullptr);
+
+/// The sequence the tig spells.
+std::string tig_sequence(const gbwtgraph::GBWTGraph& graph, const Tig& tig);
+
+/**
+ * Find the gref paths (named with the prefix) that no other path in the GBZ
+ * contains, as (name, length) pairs. Each gref path is cut from some other
+ * path, so this only happens when the GBZ has lost that source path, for
+ * example through haplotype sampling. The gref sequence then has k-mers that
+ * no remaining haplotype has, and the unitigs, which count every path in the
+ * GBWT as a haplotype, include them too.
+ */
+std::vector<std::pair<std::string, size_t>> unsupported_gref_paths(const gbwtgraph::GBZ& gbz,
+                                                                   const std::string& name_prefix);
 
 }
 

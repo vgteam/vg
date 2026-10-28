@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <functional>
 #include <stdexcept>
 
 #include <omp.h>
@@ -21,16 +22,15 @@ using gbwtgraph::GBWTGraph;
 
 //------------------------------------------------------------------------------
 
-GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) : graph(gbz.graph) {
-    const gbwt::GBWT& index = gbz.index;
-    if (graph.get_node_count() > 0) {
-        min_id = graph.min_node_id();
-        positions.resize(graph.max_node_id() - min_id + 1);
-    }
+namespace {
+
+/// Call visit(path_id, name, shift) for each GBWT path whose name starts with the
+/// prefix. The name has any subrange removed, and shift is where the subrange starts.
+void for_each_path_named(const gbwt::GBWT& index, const std::string& name_prefix,
+                         const std::function<void(gbwt::size_type, const std::string&, uint64_t)>& visit) {
     if (!index.hasMetadata() || !index.metadata.hasPathNames()) {
         return;
     }
-
     gbwtgraph::sample_name_set reference_samples = gbwtgraph::parse_reference_samples_tag(index);
     for (gbwt::size_type path_id = 0; path_id < index.metadata.paths(); path_id++) {
         // A gref copy of a generic path has no sample, so match the whole name.
@@ -42,11 +42,23 @@ GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) 
         uint64_t shift = 0;
         handlegraph::subrange_t subrange = gbwtgraph::get_path_subrange(index, path_id, sense);
         if (subrange != handlegraph::PathMetadata::NO_SUBRANGE) {
-            // Report coordinates on the full path.
             shift = subrange.first;
             name = name.substr(0, name.rfind('['));
         }
+        visit(path_id, name, shift);
+    }
+}
 
+}
+
+GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) : graph(gbz.graph) {
+    const gbwt::GBWT& index = gbz.index;
+    if (graph.get_node_count() > 0) {
+        min_id = graph.min_node_id();
+        positions.resize(graph.max_node_id() - min_id + 1);
+    }
+
+    for_each_path_named(index, name_prefix, [&](gbwt::size_type path_id, const std::string& name, uint64_t shift) {
         uint32_t rank = names.size();
         names.push_back(name);
         shifts.push_back(shift);
@@ -68,7 +80,7 @@ GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) 
             step_handles.back().push_back(handle);
             coord += graph.get_length(handle);
         }
-    }
+    });
 }
 
 const GrefIndex::Position& GrefIndex::find(nid_t id) const {
@@ -107,14 +119,6 @@ char complement(char base) {
     case 'T': return 'A';
     default: return 'N';
     }
-}
-
-std::string reverse_complement(const std::string& sequence) {
-    std::string result(sequence.rbegin(), sequence.rend());
-    for (char& base : result) {
-        base = complement(base);
-    }
-    return result;
 }
 
 /// A stretch of tig bases that lies contiguously along one gref path.
@@ -402,14 +406,8 @@ private:
         Tig tig;
         tig.walk.assign(walk.begin() + i, walk.begin() + j);
         tig.offset = first - starts[i];
+        tig.length = end - first;
         tig.support = support;
-        tig.sequence.reserve(end - first);
-        for (size_t n = i; n < j; n++) {
-            std::string_view view = graph.get_sequence_view(walk[n]);
-            size_t from = std::max(starts[n], first) - starts[n];
-            size_t to = std::min(starts[n + 1], end) - starts[n];
-            tig.sequence.append(view.substr(from, to - from));
-        }
 
         // Runs in tig coordinates.
         std::vector<GrefRun> local;
@@ -435,13 +433,13 @@ private:
             if (reverse_bases > forward_bases) {
                 flip(tig, local);
             }
-            describe(tig, local);
+            describe(tig, local, tig_sequence(graph, tig));
         }
 
         statistics.tigs++;
-        statistics.bases += tig.sequence.size();
-        statistics.kmers += tig.sequence.size() - k + 1;
-        statistics.longest = std::max(statistics.longest, tig.sequence.size());
+        statistics.bases += tig.length;
+        statistics.kmers += tig.length - k + 1;
+        statistics.longest = std::max(statistics.longest, tig.length);
         output.push_back(std::move(tig));
     }
 
@@ -450,13 +448,12 @@ private:
         for (const handle_t& handle : tig.walk) {
             walk_length += graph.get_length(handle);
         }
-        size_t length = tig.sequence.size();
+        size_t length = tig.length;
         std::reverse(tig.walk.begin(), tig.walk.end());
         for (handle_t& handle : tig.walk) {
             handle = graph.flip(handle);
         }
         tig.offset = walk_length - (tig.offset + length);
-        tig.sequence = reverse_complement(tig.sequence);
         std::reverse(runs.begin(), runs.end());
         for (GrefRun& run : runs) {
             uint64_t coord = run.last();
@@ -468,8 +465,9 @@ private:
         }
     }
 
-    /// Describe where the tig lies on the gref, as segments with CIGARs.
-    void describe(Tig& tig, const std::vector<GrefRun>& runs) {
+    /// Describe where the tig, which spells the given sequence, lies on the gref,
+    /// as segments with CIGARs.
+    void describe(Tig& tig, const std::vector<GrefRun>& runs, const std::string& sequence) {
         std::vector<Segment> segments;
         size_t position = 0;
         for (const GrefRun& run : runs) {
@@ -490,7 +488,7 @@ private:
                         if (run.is_reverse) {
                             base = complement(base);
                         }
-                        segment.add(1, std::toupper(tig.sequence[position + t]) == std::toupper(base) ? '=' : 'X');
+                        segment.add(1, std::toupper(sequence[position + t]) == std::toupper(base) ? '=' : 'X');
                     }
                 } else {
                     segment.add(deleted, 'D');
@@ -513,7 +511,7 @@ private:
             segment.next = run.is_reverse ? int64_t(run.last()) - 1 : int64_t(run.last()) + 1;
             position = run.end;
         }
-        size_t trailing = tig.sequence.size() - position;
+        size_t trailing = tig.length - position;
 
         if (segments.empty()) {
             tig.gref = "*:" + std::to_string(trailing) + "I";
@@ -588,7 +586,7 @@ std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefI
         if (a.offset != b.offset) {
             return a.offset < b.offset;
         }
-        return a.sequence.size() < b.sequence.size();
+        return a.length < b.length;
     });
 
     if (statistics != nullptr) {
@@ -603,6 +601,39 @@ std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefI
         }
     }
     return tigs;
+}
+
+std::string tig_sequence(const GBWTGraph& graph, const Tig& tig) {
+    std::string sequence;
+    sequence.reserve(tig.length);
+    size_t skip = tig.offset;
+    for (const handle_t& handle : tig.walk) {
+        std::string_view view = graph.get_sequence_view(handle);
+        size_t take = std::min(view.size() - skip, tig.length - sequence.size());
+        sequence.append(view.substr(skip, take));
+        skip = 0;
+    }
+    return sequence;
+}
+
+std::vector<std::pair<std::string, size_t>> unsupported_gref_paths(const gbwtgraph::GBZ& gbz,
+                                                                   const std::string& name_prefix) {
+    std::vector<std::pair<std::string, size_t>> result;
+    for_each_path_named(gbz.index, name_prefix, [&](gbwt::size_type path_id, const std::string& name, uint64_t) {
+        std::vector<handle_t> walk;
+        size_t length = 0;
+        for (gbwt::node_type node : gbz.index.extract(gbwt::Path::encode(path_id, false))) {
+            walk.push_back(GBWTGraph::node_to_handle(node));
+            length += gbz.graph.get_length(walk.back());
+        }
+        // The gref path is one occurrence of its own walk. A second one means some
+        // other path contains it, unless the walk is its own reverse, which is too
+        // unlikely in a real gref to be worth a slower check.
+        if (!walk.empty() && gbz.graph.bd_find(walk).size() < 2) {
+            result.emplace_back(name, length);
+        }
+    });
+    return result;
 }
 
 }

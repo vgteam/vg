@@ -96,6 +96,20 @@ int main_unitigs(int argc, char** argv) {
     gbwtgraph::GBZ gbz;
     load_gbz(gbz, graph_file, progress);
 
+    // Every path in the GBWT counts as a haplotype, gref paths included. That is harmless
+    // while each gref path is still contained in the path it was cut from.
+    auto unsupported = unsupported_gref_paths(gbz, GrefCover::gref_prefix);
+    if (!unsupported.empty()) {
+        size_t unsupported_length = 0;
+        for (const auto& path : unsupported) {
+            unsupported_length += path.second;
+        }
+        logger.warn() << unsupported.size() << " gref paths (" << unsupported_length << " bp, e.g. "
+                      << unsupported.front().first << ") are not contained in any other path, so the"
+                      << " output includes k-mers that no haplotype in " << graph_file << " has."
+                      << " Was the GBZ subsampled after vg paths -u?" << endl;
+    }
+
     unique_ptr<GrefIndex> gref;
     if (use_gref) {
         gref = make_unique<GrefIndex>(gbz, GrefCover::gref_prefix);
@@ -140,17 +154,17 @@ int main_unitigs(int argc, char** argv) {
         if (!tig.gref.empty()) {
             cout << ' ' << tig.gref;
         }
-        cout << '\n' << tig.sequence << '\n';
+        cout << '\n' << tig_sequence(gbz.graph, tig) << '\n';
 
         if (gaf.is_open()) {
             size_t path_length = 0;
-            gaf << name << '\t' << tig.sequence.size() << "\t0\t" << tig.sequence.size() << "\t+\t";
+            gaf << name << '\t' << tig.length << "\t0\t" << tig.length << "\t+\t";
             for (const handle_t& handle : tig.walk) {
                 gaf << (gbz.graph.get_is_reverse(handle) ? '<' : '>') << gbz.graph.get_id(handle);
                 path_length += gbz.graph.get_length(handle);
             }
-            gaf << '\t' << path_length << '\t' << tig.offset << '\t' << (tig.offset + tig.sequence.size())
-                << '\t' << tig.sequence.size() << '\t' << tig.sequence.size() << "\t255"
+            gaf << '\t' << path_length << '\t' << tig.offset << '\t' << (tig.offset + tig.length)
+                << '\t' << tig.length << '\t' << tig.length << "\t255"
                 << "\tsp:i:" << tig.support;
             if (!tig.gref.empty()) {
                 gaf << "\tgr:Z:" << tig.gref;
