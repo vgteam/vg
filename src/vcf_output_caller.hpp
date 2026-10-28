@@ -237,7 +237,8 @@ public:
     string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
     /// The same as above, but print the snarl as if its orientation has been flipped
     string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
-    /// Print a snarl from its two boundary visits, as the other print_snarl overloads do.
+    /// Print a snarl from its two boundary visits, as >3435<12222, or as (>3435<12222) with
+    /// `in_brackets`.
     string print_snarl(nid_t start_id, bool start_backward, nid_t end_id, bool end_backward,
                        bool in_brackets) const;
 

@@ -181,8 +181,8 @@ is "$(echo "${MC_VCF}" | wc -l | tr -d ' ')" "$(grep -vc '^#' HGSVC_rl.vcf)" "--
 
 # --read-min-mapq drops reads before they reach the model, and until now nothing exercised it:
 # it was flagged as a dead option on the strength of no test and no harness use, and it is not
-# dead -- SiteReadFilter::min_mapq is applied in both read paths. Tested the same way
-# --min-confidence is, by pushing the threshold past what the data can satisfy.
+# dead -- SiteReadFilter::min_mapq is applied in both read paths. Tested by pushing the
+# threshold past what the data can satisfy.
 #
 # The fixture's mapping qualities run 0 to 60, so a floor of 61 must leave the model no reads at
 # all. That direction is the one worth pinning: a comparison the wrong way round would keep
@@ -747,9 +747,9 @@ vg call x.vg --read-likelihood --gam sim.gam -k x.pack --insertion-nats 0.9 2>/d
 is $(if [ $(wc -l < rl_ins.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "--insertion-nats is accepted and parsed with --read-likelihood"
 rm -f rl_ins.vcf
 
-# --optimal-pairing selects the optimal read-to-allele walk over the greedy default. It is
-# read-likelihood-only for the same reason the scoring flags are, and it is off by default,
-# so the greedy path is what an unflagged run exercises -- assert both directions here.
+# --optimal-pairing selects the optimal read-to-allele walk over the greedy default. It means
+# nothing without --read-likelihood, so it is refused without it. It is off by default, so the
+# greedy path is what an unflagged run exercises -- assert both directions here.
 vg call x.vg -k x.pack --optimal-pairing 2>/dev/null >/dev/null
 is "$?" "1" "--optimal-pairing without --read-likelihood is refused"
 
@@ -1242,12 +1242,11 @@ is $(awk -F'\t' '/^H\t/ {print $3}' nest_hap.mosaic.tsv | sort -u | tr -d '\n') 
 is $(awk -F'\t' '/^H\t/ && $11 != "." {n[$3] += $11}
      END {print (n["0"] > 0 && n["1"] > 0) ? "both" : "missing"}' nest_hap.mosaic.tsv) "both" \
    "both strands account for sites with nested sites present"
-# Reference order within a strand was asserted here. WITHDRAWN, for the same two reasons as its
-# twin earlier in this file: it passes because the phasing is sorted into reference order before
-# segmentation, so it is near-tautological, and it would be WRONG for a strand traversing an
-# inversion, where walk order is not reference order. What replaces it is the contiguity assertion --
-# segments meeting at the same oriented node -- which is the property a consumer actually needs and
-# which reference order was standing in for.
+# Reference order within a strand was asserted here. WITHDRAWN, for two reasons. It passes because
+# the phasing is sorted into reference order before segmentation, so it is near-tautological. And
+# it would be WRONG for a strand traversing an inversion, where walk order is not reference order.
+# What replaces it is the contiguity assertion -- segments meeting at the same oriented node --
+# which is the property a consumer actually needs and which reference order was standing in for.
 is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; if (k==pk && $7 != pe) bad++; pk=k; pe=$8}
      END {print bad+0}' nest_hap.mosaic.tsv) "0" \
    "nested-fixture segments meet at the same oriented node too"
@@ -1276,12 +1275,13 @@ is $(awk -F'\t' '!/^#/ {n = ($5 == "." || $5 == "") ? 0 : split($5, a, ","); \
      nest_nested.vcf) "0" \
    "no nested GT names an allele the record has no ALT for"
 
-# The same invariant, on a nested haploid call that DECOMPOSES INTO BLOCKS -- which the fixture
-# above cannot reach, because its nested chain is a single SNP and a single difference is a single
-# record. Block emission asked the site's GT for a phased *pair* before looking at anything else,
-# so a haploid record fell straight through to the unphased fallback: bare "1" and PS erased,
-# losing both the strand and the phase set the unsplit record carries. 3,452 lines genome-wide,
-# from 1,517 snarls, every one of them a nested haploid call that happened to split.
+# A nested haploid record must name its strand and keep its phase set even when it DECOMPOSES
+# INTO BLOCKS -- which the fixture above cannot reach, because its nested chain is a single SNP and
+# a single difference is a single record. Block emission asked the site's GT for a phased *pair*
+# before looking at anything else, so a haploid record fell straight through to the unphased
+# fallback: bare "1" and PS erased, losing both the strand and the phase set the unsplit record
+# carries. 3,452 lines genome-wide, from 1,517 snarls, every one of them a nested haploid call that
+# happened to split.
 #
 # The chain here has two differences separated by a matched run (node 10), which is what makes two
 # blocks. Node 13 bypasses 10 so that 10 is not a cut vertex: without it the decomposition would
@@ -2008,7 +2008,7 @@ from collections import defaultdict
 # Every surviving end anchor must hold a read its own slot\047s start anchor does not -- that is the
 # criterion, checked against the output. Read NAMES shared by two alignments are excluded: a mate at
 # the start pin and a mate at the end pin look like one read reaching both, so on paired data the
-# check is confounded rather than violated. See the plan, section 9.
+# check is confounded rather than violated.
 S = defaultdict(set); E = defaultdict(set); cur = None; role = None
 in_anchor = set(); seen = {}; shared = set()
 for line in open("rl_anchors_sp.tsv"):
@@ -2283,11 +2283,11 @@ is "$(nlg_field nlg_L.vcf gref_x 8 | grep -c 'MAT=')" "1" "and says so in MAT"
 is "$(nlg_field nlg_L.vcf gref_x_1_alt 1-11)" "$(nlg_field nlg_plain.vcf gref_x_1_alt 1-11)" "the child record on the gref fragment is untouched by the merge"
 rm -f nlg.gfa nlg.pg nlg_a.gam nlg_b.gam nlg.gam nlg.pack nlg_plain.vcf nlg_L.vcf
 
-# The same shape under --read-likelihood, which reaches those chains by descent rather than by
-# --top-down.  A gref cover is what makes them reportable: the reference bypasses the insertion, so
-# without one the SNP inside it has no REF and no POS and is genotyped and thrown away.  Needs a
-# GBZ, because allele enumeration comes from the panel; the truth pair lives in a second graph so
-# the sample's own walks are not in the panel it is called against.
+# The same nodes and edges under --read-likelihood, which reaches the chain inside the insertion
+# by descent rather than by --top-down.  A gref cover is what makes it reportable: the reference
+# bypasses the insertion, so without one the SNP inside it has no REF and no POS and is genotyped
+# and thrown away.  Needs a GBZ, because allele enumeration comes from the panel; the truth pair
+# lives in a second graph so the sample's own walks are not in the panel it is called against.
 A20=$(printf 'A%.0s' $(seq 20)); C60=$(printf 'C%.0s' $(seq 60))
 A60=$(printf 'A%.0s' $(seq 60)); T20=$(printf 'T%.0s' $(seq 20))
 { printf "H\tVN:Z:1.1\n"
@@ -2553,7 +2553,7 @@ vg view -Fv nesting/nested_snp_in_del.gfa > ns.vg 2>/dev/null
 vg sim -x ns.vg -P x -n 150 -l 4 -a -s 7 > ns_het.gam 2>/dev/null
 vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 4 -a -s 8 >> ns_het.gam 2>/dev/null
 vg pack -x ns.vg -g ns_het.gam -o ns_het.pack 2>/dev/null
-# --mismap-max pinned for the reason given at the gref fixture: `vg sim` reads carry MAPQ 0.
+# --mismap-max pinned, because `vg sim` reads carry MAPQ 0, which makes e_r the cap for every read.
 vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
 
 is $(grep -v "^#" ns_rl.vcf | wc -l | tr -d ' ') "2" "nested read-likelihood emits both the parent and the child site"
@@ -2597,9 +2597,9 @@ is $(grep -c "alternatives, not a combination" ns_rl_a_nested.err | tr -d ' ') "
    "and says why"
 
 # The same graph with the reference path running BACKWARDS through it, which is the only
-# configuration that exercises resolve_site's reversed branch. nested_snp_in_del_rev.gfa is the
-# mirror of nested_snp_in_del.gfa -- identical topology and sequences, x = 6-,5-,3-,2-,1- -- so both
-# snarls (1,6) and (2,5) are reversed relative to the graph and flip_snarl rewrites them.
+# configuration that exercises resolve_site's reversed branch. nested_snp_in_del_rev.gfa has the
+# topology and sequences of nested_snp_in_del.gfa with every path reversed, x = 6-,5-,3-,2-,1-, so
+# both snarls (1,6) and (2,5) are reversed relative to the graph and flip_snarl rewrites them.
 #
 # This existed only in 26_deconstruct.t, so nothing in the calling suite ever reached the reversed
 # branch: the reverse-oriented fixtures 18_vg_call.t already used run through the support caller with
@@ -2609,7 +2609,7 @@ vg view -Fv nesting/nested_snp_in_del_rev.gfa > nsr.vg 2>/dev/null
 vg sim -x nsr.vg -P x -n 150 -l 4 -a -s 7 > nsr_het.gam 2>/dev/null
 vg sim -x nsr.vg -P 'a#2#y1#0' -n 150 -l 4 -a -s 8 >> nsr_het.gam 2>/dev/null
 vg pack -x nsr.vg -g nsr_het.gam -o nsr_het.pack 2>/dev/null
-# --mismap-max pinned, as for the forward-path fixture above.
+# --mismap-max pinned, because `vg sim` reads carry MAPQ 0, which makes e_r the cap for every read.
 vg call nsr.vg -k nsr_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam nsr_het.gam 2>nsr_rl.err > nsr_rl.vcf
 
 is $(grep -v "^#" nsr_rl.vcf | wc -l | tr -d ' ') "2" "a backwards reference path still emits both the parent and the child site"
@@ -2621,8 +2621,8 @@ is "$(sed -n 's/.*atomize: \([0-9]*\) sites where projection is inert.*/\1/p' ns
 REV_SITES=$(sed -n 's/.*resolve, \([0-9]*\) resolved as the reversal.*/\1/p' nsr_rl.err | head -1)
 is "$([ "${REV_SITES:-0}" -ge 1 ] && echo yes || echo no)" "yes" "the reversed-snarl branch is exercised end to end"
 
-# And the control: the forward twin must NOT take that branch, or the counter is measuring something
-# other than reversal.
+# And the control: ns.vg, whose reference path runs forward, must NOT take that branch, or the
+# counter is measuring something other than reversal.
 vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>ns_fwd.err >/dev/null
 is "$(sed -n 's/.*resolve, \([0-9]*\) resolved as the reversal.*/\1/p' ns_fwd.err | head -1)" "0" "a forward reference path never takes the reversed branch"
 
@@ -3273,9 +3273,9 @@ vg sim -x fx_sim.gbz -n 600 -l 40 -a -s 23 --path "T#1#chr1#0" >> fx.gam 2>/dev/
 # --linkage-scale is the decay distance in bp and defaults to 10 kb, which over 396 bp makes every
 # recombination effectively free to avoid: the model then explains the sample by flipping single
 # alleles rather than switching haplotype, and the mosaic collapses to one segment per strand. A
-# scale on the order of the site spacing is what makes this graph behave like a real contig. The
-# result is stable over 30..60.
-# --mismap-max pinned for the reason given at the gref fixture: `vg sim` reads carry MAPQ 0.
+# scale on the order of the site spacing lets the model switch haplotype between sites. The result
+# is stable over 30..60.
+# --mismap-max pinned, because `vg sim` reads carry MAPQ 0, which makes e_r the cap for every read.
 vg call fx.gbz --read-likelihood --mismap-max 0.7 --gam fx.gam -t 1 -s samp --phased --linkage-scale 40 \
     --mosaic-out fx.mosaic.tsv --progress >/dev/null 2>fx.err
 is "$?" 0 "vg call runs on the mosaic structural fixture"

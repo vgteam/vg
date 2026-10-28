@@ -51,8 +51,7 @@ bool GenotypeLinker::file(StagedSite& site, bool nested) const {
     if (model == nullptr || site.score == nullptr) {
         return false;
     }
-    // Accept what the emitter accepts, in traversal space: one or two alleles, none of them
-    // missing or a star allele.
+    // File only a genotype of one or two traversals, none of them missing or a star allele.
     const vector<int>& genotype = site.genotype;
     const size_t site_ploidy = genotype.size();
     if (site_ploidy != 1 && site_ploidy != 2) {

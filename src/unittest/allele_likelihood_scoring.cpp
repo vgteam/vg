@@ -369,8 +369,8 @@ TEST_CASE("Allele sequence between two anchors is charged, outside them is not",
 
 TEST_CASE("No read's allele preference depends on the flank's length",
           "[allele_likelihood][scoring]") {
-    // The same kind of property as the test above, across many configurations, since a greedy
-    // single-pass walk can choose a bad pairing in more than one way.
+    // Check many configurations, since a greedy single-pass walk can choose a bad pairing in more
+    // than one way.
     //
     // The invariant: rel is normalised by each read's own best allele, and lengthening a
     // node EVERY allele shares adds the same match credit to all of them. So no rel value
@@ -710,11 +710,10 @@ TEST_CASE("A read spanning a deletion is kept and prefers the deletion allele",
 
 TEST_CASE("A read entirely inside one boundary node is still dropped",
           "[allele_likelihood][scoring]") {
-    // The counterpart to the test above: widening informativeness to include
-    // boundary-to-boundary reads must not accidentally admit reads that genuinely
-    // cannot discriminate. A read sitting inside a single boundary node uses no
-    // edge inside the site and touches no interior node, so every allele explains
-    // it identically.
+    // Widening informativeness to include boundary-to-boundary reads must not
+    // accidentally admit reads that genuinely cannot discriminate. A read sitting
+    // inside a single boundary node uses no edge inside the site and touches no
+    // interior node, so every allele explains it identically.
     SnpAndDeletionSite site;
 
     Alignment inside_boundary = make_matching_alignment(site.graph, "flank", {{1, false}});

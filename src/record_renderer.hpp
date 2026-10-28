@@ -67,9 +67,11 @@ private:
     ///
     /// Where the linkage model left the call alone, this is `gq_fraction` from the direct pass. Where
     /// the model changed the call, `gq_fraction` describes the abandoned genotype, so this is the
-    /// signed margin of the chosen genotype, scaled as GQN in the VCF is (see
-    /// `ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype`). It is NaN, written as `.`,
-    /// where there was no gap to normalise or the margin cannot be recomputed.
+    /// signed phred margin of the chosen genotype over the best other genotype of the written
+    /// alleles. It is divided by the achievable gap of the direct pass, multiplied by its explained
+    /// share and clamped to [-1, 1], so that it agrees with the GQN that
+    /// `ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype` writes. It is NaN, written
+    /// as `.`, where there was no gap to normalise or the margin cannot be recomputed.
     static double anchor_gqn(const StagedSite& site, const vector<int>& chosen,
                              const LinkageCollector* model);
 

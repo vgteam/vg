@@ -14,10 +14,10 @@ namespace vg::multipass {
 using namespace std;
 
 /**
- * A walker over the sites of a snarl decomposition, which calls them as `vg call` does.
+ * A walker over the sites of a snarl decomposition.
  *
  * It calls every top-level site in parallel, then the child sites that the recursion asks for, a
- * level at a time, as `walk_site_tree` does. It hands each site to its callback as a `SiteView`.
+ * level at a time, through `walk_site_tree`. It hands each site to its callback as a `SiteView`.
  */
 class SiteWalker {
 public:

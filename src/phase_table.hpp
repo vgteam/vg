@@ -29,7 +29,7 @@ public:
         size_t key = 0;
         /// The record key of the site's parent site.
         size_t parent = 0;
-        /// The site's level, as in `PhaseCall::level`.
+        /// The level at which the linkage pass chooses the site's genotype.
         uint8_t level = 0;
     };
 

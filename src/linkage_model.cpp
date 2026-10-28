@@ -146,7 +146,7 @@ struct MutationTerms {
 };
 
 /// Return the terms for one diploid site with `n` alleles, from its genotype likelihoods
-/// `per_genotype`, scaled as `build_emission` scales them.
+/// `per_genotype`, scaled so that the best is 1.
 static MutationTerms mutation_terms(size_t n, const vector<double>& per_genotype,
                                     double mutation, double escape) {
     MutationTerms mt;
@@ -366,7 +366,8 @@ Top2 top2_of(const double* v, size_t n, size_t stride) {
 class MaxProductStep {
 public:
     /// Prepare a step from the previous site's scores `in`, with `m` haplotypes per strand and a
-    /// switch probability per strand, as in `transition_apply`.
+    /// switch probability per strand. Each strand stays on its haplotype with probability
+    /// 1 - rho + rho / m, and moves to each other one with probability rho / m.
     MaxProductStep(const vector<double>& in, size_t m, double rho_a, double rho_b)
         : in(in), m(m) {
         const double stay_a = 1.0 - rho_a + rho_a / (double)m;
@@ -520,8 +521,8 @@ static vector<size_t> allele_carriers(const LinkageModel::Site& site, size_t n_h
 /// That is at most mutation / (n - 1) of it.
 class DiploidSiteMass {
 public:
-    /// Start an empty ledger for a site with genotype likelihoods `per_genotype`, scaled as
-    /// `build_emission` scales them, decoded over `n_hap` haplotypes per strand.
+    /// Start an empty ledger for a site with genotype likelihoods `per_genotype`, scaled so that
+    /// the best is 1, decoded over `n_hap` haplotypes per strand.
     DiploidSiteMass(const LinkageModel::Site& site, const vector<double>& per_genotype,
                     size_t n_hap, double mutation, double escape)
         : site(site), per_genotype(per_genotype), n_hap(n_hap),
@@ -609,7 +610,7 @@ private:
         }
         // Mass where one strand keeps its haplotype's allele k and the other takes any allele
         // arises once for each haplotype that carries k. So the number of k's carriers acts as a
-        // frequency prior on it, and is rescaled like the multiplicity.
+        // frequency prior on it, and the mass is rescaled by carriers^(freq_prior - 1).
         const vector<size_t> carriers = allele_carriers(site, n_hap);
         for (size_t k = 0; k < n; ++k) {
             if (kept[k] <= 0.0) {
@@ -1181,10 +1182,10 @@ static vector<double> single_backward_step(const LinkageModel& model,
 /// Write a haploid site's posterior over alleles to `post`, from the mass `state_mass[a]` =
 /// alpha * beta of each haplotype, or leave `post` empty where no state explains the site.
 ///
-/// As in `DiploidSiteMass`, a state's mass is split by how its strand got its allele. The share
-/// where the strand keeps its haplotype's allele is known, and is rescaled by the allele's
-/// number of carriers, the haploid analogue of the diploid pair count, so that `freq_prior` 0
-/// means what it says. The uniform share is spread over the alleles by likelihood.
+/// A state's mass is split by how its strand got its allele, as in `DiploidSiteMass`. The share
+/// where the strand keeps its haplotype's allele goes to that allele, multiplied by the allele's
+/// number of carriers to the power `freq_prior` - 1, so that `freq_prior` 0 means what it says.
+/// The uniform share is spread over the alleles by likelihood.
 static void single_site_posterior(const LinkageModel::Site& site, const vector<double>& emission,
                                   const vector<double>& per_allele,
                                   const vector<double>& state_mass, size_t n_hap,
@@ -1301,9 +1302,8 @@ static vector<double> single_viterbi_start(const vector<double>& emission, size_
 /// `delta` at the previous one, a switch probability `rho` and the next site's `emission`. Set
 /// `back[k]` to the best predecessor of each state k.
 ///
-/// With one strand, the reduction is the textbook one: stay on the same haplotype, or jump from
-/// whichever was best. The diploid step needs leave-one-out maxima only because its two strands
-/// share one delta.
+/// With one strand, a state either stays on the same haplotype or jumps from whichever was best.
+/// The diploid step needs leave-one-out maxima only because its two strands share one delta.
 static vector<double> single_max_product_step(const vector<double>& delta, double rho,
                                               const vector<double>& emission,
                                               vector<uint32_t>& back) {

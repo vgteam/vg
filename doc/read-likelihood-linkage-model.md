@@ -243,10 +243,10 @@ chain without overlapping. A window also decodes a fixed margin of sites on each
 sites, fewer at the ends of the chain, and discards their posteriors. The windows are decoded
 independently of one another. Every kept posterior therefore has the margin's number of sites on
 each side, except near the ends of the linkage chain, and approximates the posterior from decoding
-the whole chain at once. The first window of a chain below the top level starts as
-[Linkage chains](#linkage-chains) describes, and every later window starts from a uniform
-distribution. A linkage chain at ploidy 2 that starts from its parent's panel haplotypes is
-decoded as one window, whatever its length.
+the whole chain at once. The first window of a chain below the top level starts from the state
+that the parent's Viterbi path chose at the parent site (see [Linkage chains](#linkage-chains)),
+and every later window starts from a uniform distribution. A linkage chain at ploidy 2 that
+starts from its parent's panel haplotypes is decoded as one window, whatever its length.
 
 ## Linkage chains
 

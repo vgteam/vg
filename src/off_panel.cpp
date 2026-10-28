@@ -79,9 +79,9 @@ bool forward_read_base(const Edit& e, size_t i, bool reverse, char& base) {
     return true;
 }
 
-/// Visit the aligned bases of mapping `m`, whose node has `node_len` bases, as
-/// `for_each_aligned_base` does, its first base at read offset `read_pos`. Return the read offset
-/// after the mapping.
+/// Give `visit` the node, forward offset and forward base (0 for a match) of each aligned base of
+/// mapping `m` whose quality is at least `min_q`. The node has `node_len` bases, and the mapping's
+/// first base is at read offset `read_pos`. Return the read offset after the mapping.
 ///
 /// With `node_len` 0, visit nothing.
 template<typename Visit>
@@ -409,7 +409,7 @@ public:
         return (char)toupper(graph.get_base(walk_handles[i], (size_t)(x - starts[i])));
     }
 
-    /// `base`, as the function `left_align` and `tract_end` take.
+    /// Return `base` as a `std::function`, the form `left_align` and `tract_end` take.
     const function<char(int64_t)>& base_function() const {
         return base_fn;
     }
@@ -897,8 +897,9 @@ private:
     std::hash<string> sequence_hasher;
 };
 
-/// Count the short indels: those of at most `max_indel_length` bases. Like `count_snv_edits`, it
-/// makes two passes over the reads, with the observation classes of `observe_indel`.
+/// Count the short indels: those of at most `max_indel_length` bases, in two passes over the
+/// reads. The first finds the indels that at least `min_fragments` fragments carry, and the second
+/// classes what each read says about each of them with `observe_indel`.
 ///
 /// Unless they are null, the first pass also files the reads' large indels in `large_rows` and
 /// their long clips in `clip_rows`, for `count_large_indel_edits`.

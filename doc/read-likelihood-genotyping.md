@@ -498,7 +498,7 @@ genotype, whether a block spells the chain out.
 |---|---|
 | `GT` | the settled genotype, phased where phasing ran |
 | `GL` | $\log_{10} \mathcal{L}(G)$ for every genotype of the record's alleles, in the order VCF specifies for the record's alleles |
-| `GQ` | the difference between the log-likelihoods of the direct call and the **runner-up**, the genotype with the second-highest $\mathcal{L}(G)$, in phred units. It is multiplied by the **explained share**, the fraction of reads whose best allele is in the direct call (a tied read split as for `AD`), and by the `--depth-quality` factor where that applies |
+| `GQ` | the difference between the log-likelihoods of the direct call and the **runner-up**, the genotype with the second-highest $\mathcal{L}(G)$, in phred units. It is multiplied by the **explained share**, the fraction of reads whose best allele is in the direct call (a read tied between alleles counts a fraction to each), and by the `--depth-quality` factor where that applies |
 | `GQI` | the same difference, with neither factor |
 | `GQN` | the same difference divided by the **achievable gap** (below), held at 1 or less, and multiplied by the explained share |
 | `GP` | one value: the natural log of the posterior probability of the direct call, computed from $\mathcal{L}(G)$ with a uniform prior over genotypes, and still the direct call's on a record the linkage model moved. (In the VCF specification, `GP` is a phred-scaled value per genotype.) |
@@ -588,10 +588,13 @@ not re-genotyping ran.
 #### Options that change the fields
 
 `--cluster` merges similar called ALT alleles, as `vg deconstruct --cluster` does, at sites at
-least `--cluster-min-len` long. Two alleles are merged when their similarity, as
-`vg deconstruct --cluster` measures it, is at least the value of `--cluster`. `GT` is rewritten
-for the merged alleles, their `AD` entries are summed, each merged genotype's `GL` entry is the
-largest of those it replaces, and `INFO/MAT` records the merge. It is off by default.
+least `--cluster-min-len` long. Two alleles are merged when their similarity is at least the value
+of `--cluster`. The similarity is the total length of the node visits inside the site that both
+alleles make, over the total length of those either allele makes. Against a pure deletion, which
+makes no visit inside the site, it is 1 minus the other allele's length inside the site over the
+larger of that length and the reference allele's. `GT` is rewritten for the merged alleles, their
+`AD` entries are summed, each merged genotype's `GL` entry is the largest of those it replaces,
+and `INFO/MAT` records the merge. It is off by default.
 
 `--no-share-quality` leaves the explained share out of the per-site `GQ`; `GQN` keeps it.
 `--depth-quality` multiplies the per-site `GQ` by $e^{-D_q \vert \ln \mathrm{DR} \vert}$, where
@@ -736,12 +739,12 @@ earlier in the file holds, it leaves that read out, and an off-panel anchor left
 `--anchors-reads` reads is not written. vg reports on standard error how many read placements
 and anchors it left out.
 
-A site's reads are divided among its **slots**. A slot is a strand, numbered as a field of `GT`:
-slot 0 the first allele, to the left of the `|`, and slot 1 the second. But a diploid site that is
-not phaseable pools both strands in one slot, 0, unless `--anchors-hom-split` divides its reads
-between slots 0 and 1, which then carry the same allele. A haploid site also has a single slot, 0,
-except at a site of a nested haploid chain whose `GT` is `.|a`, where it is 1. An **anchor** is one
-pin together with the reads of one slot that cross it.
+A site's reads are divided among its **slots**. A slot is a strand. Slot 0 is the strand of the
+first allele of `GT`, to the left of the `|`, and slot 1 the strand of the second. But a diploid
+site that is not phaseable pools both strands in one slot, 0, unless `--anchors-hom-split` divides
+its reads between slots 0 and 1, which then carry the same allele. A haploid site also has a single
+slot, 0, except at a site of a nested haploid chain whose `GT` is `.|a`, where it is 1. An
+**anchor** is one pin together with the reads of one slot that cross it.
 
 #### Placing reads in slots
 

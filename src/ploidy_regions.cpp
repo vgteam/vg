@@ -276,8 +276,8 @@ int PloidyRegions::ploidy_at(const string& ref_path_name, int64_t interval_start
     if (by_contig.empty()) {
         return fallback;
     }
-    // Compute POS as the record does, without the +1 that makes VCF 1-based, since the BED is
-    // 0-based.
+    // Compute the POS of the site's record less 1, since the BED is 0-based. Count it along the
+    // contig, adding the start of any subrange that the path name gives.
     subrange_t subrange;
     Paths::strip_subrange(ref_path_name, &subrange);
     int64_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : (int64_t)subrange.first;

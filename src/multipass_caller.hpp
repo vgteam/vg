@@ -269,9 +269,14 @@ public:
      *
      * It genotypes each site with `genotyper`, from the candidate traversals `traversal_finder`
      * gives. It writes the records through `output`, whose steps it sets, on the paths of
-     * `ref_paths`. `genotype_snarls` and `allele_length_range` are as for `FlowCaller`.
-     * `top_down` and `star_allele` are as described at the members of the same names. Nothing
-     * else is owned.
+     * `ref_paths`. Nothing else is owned.
+     *
+     * It skips a site unless its longest traversal is at least `allele_length_range.first` long
+     * and none is longer than `allele_length_range.second`. With `genotype_snarls` it writes every
+     * site, and trims alleles only as far as the boundary nodes, so that every sample gets the
+     * same alleles. With `top_down` it genotypes each child against the traversal sets its
+     * parent's called alleles allow. With `star_allele` it gives a parent allele that skips a
+     * child a star allele rather than a missing one.
      */
     MultiPassCaller(const PathPositionHandleGraph& graph, ReadLikelihoodSnarlCaller& genotyper,
                     const SnarlDecomposition& decomposition, VCFOutputCaller& output,
@@ -301,8 +306,8 @@ public:
     /// the limit, which is also the default.
     void set_max_snarl_edges(size_t edges) { candidates.set_max_snarl_edges(edges); }
 
-    /// Batch the parallel jobs of the direct pass by windows of this many node IDs, as
-    /// `SiteScheduler` does.
+    /// Batch the top-level sites of the direct pass into one parallel job per window of this many
+    /// node IDs (see `SiteScheduler`). At 0, each top-level site is its own job.
     void set_snarl_batching(size_t window_size) { snarl_batch_window = window_size; }
 
     /// Toggle progress messages.
@@ -350,9 +355,11 @@ public:
     /// phasing is on. This has no effect without the linkage model.
     void set_emit_phasing(bool on) { this->emit_phasing = on; }
 
-    /// Set the GQN threshold that `ReadLikelihoodSnarlCaller::set_min_confidence` sets.
+    /// Set the GQN below which a record whose GQN the linkage model recomputes gets FILTER
+    /// `lowconf`, or 0 for none.
     ///
-    /// A record whose GQN the linkage model recomputes is then marked against the same threshold.
+    /// Pass the threshold given to `ReadLikelihoodSnarlCaller::set_min_confidence`, so that these
+    /// records are marked against the same threshold as the rest.
     void set_linkage_min_confidence(double threshold) {
         this->linkage_min_confidence = threshold;
     }
@@ -441,11 +448,11 @@ private:
     bool is_symbolically_reference(const StagedSite& site, int trav_idx, int ref_trav_idx) const;
 
     /**
-     * Phase a record's genotype from the linkage model's phase call for the site, as
-     * `SiteHooks::phase` does.
+     * Phase a record's genotype from the linkage model's phase call for the site.
      *
-     * The phased genotype must be a permutation of the record's own, so that phasing cannot
-     * change a genotype. A call that is not is counted as declined.
+     * `record_steps` makes this the `phase` step of each record. The phased genotype must be a
+     * permutation of the record's own, so that phasing cannot change a genotype. A call that is
+     * not is counted as declined.
      */
     int64_t phase_record_genotype(size_t record_key, const vector<int>& site_genotype,
                                   const map<int, int>& trav_to_allele, string& gt) const;
@@ -552,19 +559,22 @@ private:
     /// child, in top-down calling.
     bool star_allele = false;
 
-    /// See set_snarl_batching.
+    /// The width, in node IDs, of the windows the direct pass batches top-level sites by, or 0
+    /// for no batching.
     size_t snarl_batch_window = 0;
 
     /// Whether to report progress to stderr.
     bool show_progress = false;
 
-    /// See set_ploidy_regions.
+    /// The ploidy of regions, in place of the ploidy of their contigs.
     PloidyRegions ploidy_regions;
 
-    /// See set_nested_calling.
+    /// Whether to genotype the child chains of each genotyped site, and write a called traversal
+    /// whose symbolic allele equals the reference traversal's as the reference allele.
     bool nested_calling = false;
 
-    /// See set_off_reference_nesting.
+    /// Whether to genotype and file chains that the reference walk does not cross, rather than
+    /// skip them.
     bool off_reference_nesting = false;
 
     /// Every phased site.
@@ -592,7 +602,8 @@ private:
     /// permutation of the phased pair.
     mutable std::atomic<size_t> phase_declined{0};
 
-    /// See set_linkage_min_confidence.
+    /// The GQN below which a record whose GQN the linkage model recomputes gets FILTER `lowconf`,
+    /// or 0 for none.
     double linkage_min_confidence = 0.0;
 
     /// Whether to write phased GT and FORMAT/PS.

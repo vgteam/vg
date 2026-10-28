@@ -917,8 +917,9 @@ const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
 
 void SnarlManager::take_snarls(SnarlManager& other) {
     for (SnarlRecord& other_record : other.snarls) {
-        // Do as add_snarl does, but move the snarl in. Copying its messages took most of the time
-        // of merging the managers of the components of a graph.
+        // Append a numbered record for the snarl, moving the snarl in where add_snarl copies it.
+        // Copying its messages took most of the time of merging the managers of the components of
+        // a graph.
         snarls.emplace_back();
         SnarlRecord* new_record = &snarls.back();
         *new_record = std::move(other_record.snarl);
@@ -1088,7 +1089,7 @@ deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snar
     unordered_set<const Snarl*> seen;
     seen.reserve(input_snarls.size());
 
-    // Step along a chain, as next_snarl() does, but without building Visit messages, which took
+    // Step along a chain without building Visit messages. Building them in next_snarl() took
     // most of the time here. From the managed snarl `here`, read backward if `backward` is set,
     // return the next managed snarl and whether it is read backward, or nullptr at the end of the
     // chain.

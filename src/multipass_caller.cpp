@@ -85,7 +85,7 @@ void OffPanelLedger::report(size_t nodes_after_pass) const {
 /// mapping quality.
 static void write_candidate_columns(ostream& out, const EditCandidate& c) {
     if (c.is_indel()) {
-        // Write an indel as VCF does, from its anchor base.
+        // Start an indel's REF and ALT with its anchor base, the base before it.
         out << c.ref << (c.kind == 'D' ? c.sequence : "") << "\t" << c.ref
             << (c.kind == 'I' ? c.sequence : "");
     } else if (c.kind == 'M') {
@@ -660,7 +660,8 @@ bool AlleleSplicer::splice(const StagedSite& site, SplicedAlleles& out) const {
         const int trav = strand == 0 ? phase->trav_first : phase->trav_second;
         if (trav < 0 || trav >= (int)site.travs.size() || trav == site.ref_trav_idx
             || trav == first_trav) {
-            // Spell the reference as the reference, and an allele as on its first strand.
+            // Leave the reference allele as it is, and splice an allele that both strands carry
+            // only once, from strand 0.
             continue;
         }
         first_trav = trav;

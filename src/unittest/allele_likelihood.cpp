@@ -223,10 +223,9 @@ TEST_CASE("Depth counts a read by the probability it came from this locus",
 
 TEST_CASE("Confident reads count as very nearly whole reads of depth",
           "[allele_likelihood]") {
-    // The counterpart to the case above: at a floor of 0.02 a well-mapped read counts as 0.98 of a
-    // read, so nothing moves at ordinary sites. The correction is relative -- it matters only where
-    // a site's mapping quality differs from its neighbourhood's, because the local rate is counted
-    // the same way.
+    // At a floor of 0.02 a well-mapped read counts as 0.98 of a read, so nothing moves at ordinary
+    // sites. The correction is relative -- it matters only where a site's mapping quality differs
+    // from its neighbourhood's, because the local rate also counts each read as 1 - e_r.
     AlleleReadLikelihoodsBuilder b(2, 0.02, 0.7);
     for (int i = 0; i < 30; ++i) {
         b.add_read({0.0, -9.0}, 0.0, "", 151);   // MAPQ high: clamped up to the floor
@@ -237,9 +236,9 @@ TEST_CASE("Confident reads count as very nearly whole reads of depth",
 
 TEST_CASE("A length-weighted mixture recovers a heterozygous deletion",
           "[allele_likelihood]") {
-    // Same shape as the max-allele case: allele 0 is a 2000 bp long allele, allele
-    // 1 a deletion leaving 300 bp. Twenty reads sit inside the deleted interval and
-    // fit only the long allele; three span the junction and fit only the deletion.
+    // Allele 0 is a 2000 bp long allele, allele 1 a deletion leaving 300 bp. Twenty
+    // reads sit inside the deleted interval and fit only the long allele; three span
+    // the junction and fit only the deletion.
     AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     for (int i = 0; i < 20; ++i) {
         builder.add_read({0.0, -30.0}, 0.02, "", 151);
@@ -372,10 +371,10 @@ TEST_CASE("Equal-length alleles are unchanged by the length weighting",
 
 TEST_CASE("A length-weighted mixture fixes heterozygous insertions too",
           "[allele_likelihood]") {
-    // The mirrored failure. Allele 1 is a 2 kb insertion; reads lying inside the
-    // inserted sequence fit only it, so under the flat mixture they argue for
-    // homozygous-ALT and the site is called 1/1. Recall metrics cannot see this
-    // because the event is still matched -- only genotype concordance shows it.
+    // Allele 1 is a 2 kb insertion; reads lying inside the inserted sequence fit
+    // only it, so under the flat mixture they argue for homozygous-ALT and the site
+    // is called 1/1. Recall metrics cannot see this because the event is still
+    // matched -- only genotype concordance shows it.
     AlleleReadLikelihoodsBuilder flat(2, 0.01, 0.1);
     for (int i = 0; i < 3; ++i) {
         flat.add_read({0.0, -30.0}, 0.02, "", 151);     // junction, reference side

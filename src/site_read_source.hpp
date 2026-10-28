@@ -382,8 +382,9 @@ protected:
     WindowedSiteReadSource(const SiteReadFilter& filter, size_t window_nodes,
                            size_t max_cached_windows);
 
-    /// Fetch as `fetch_span` does, also giving each read a key, and return how many reads the
-    /// fetch dropped for having the name and start of an earlier read.
+    /// Visit every read with a mapping onto a node in any of the inclusive ranges, having applied
+    /// the filter, with a key for each. Return how many reads the fetch dropped for having the name
+    /// and start of an earlier read.
     ///
     /// A read's key is its position in the backend's file. It is the same for a read whichever
     /// fetch returns it, so reads from several fetches can be put back in file order, once each.
@@ -422,7 +423,8 @@ protected:
 
 private:
 
-    /// One mapping of one read in a window, as the window's node index holds it.
+    /// One mapping of one read in a window, given by its node, the index of the read in the
+    /// window's `reads` and the index of the mapping in the read's path.
     struct IndexEntry {
         nid_t node = 0;
         uint32_t read = 0;
@@ -517,8 +519,9 @@ private:
     /// it, even if the cache drops it meanwhile.
     ///
     /// Unless `counted` is false, this tallies the window's read starts and counts its off-panel
-    /// candidates, if that has not been done. A wide site's fetch passes false, which leaves its
-    /// windows as if it had never fetched them.
+    /// candidates, if that has not been done. A wide site's fetch passes false, which leaves the
+    /// read starts of its windows untallied and their candidates uncounted until another query
+    /// uses them.
     shared_ptr<const CacheEntry> get_window(size_t window, bool& was_fetched,
                                             bool counted = true) const;
 
@@ -564,8 +567,9 @@ private:
     /// Visit the reads touching the merged ranges from the windows holding their nodes, as a fetch
     /// of the ranges from the backend would deliver them.
     ///
-    /// The windows are fetched whole and cached like any other, with `counted` as for
-    /// `get_window`. The reads come in file order, each once. A read with the name and start of an
+    /// The windows are fetched whole and cached like any other. Unless `counted` is false, each
+    /// window's read starts are tallied and its off-panel candidates counted, if that has not been
+    /// done. The reads come in file order, each once. A read with the name and start of an
     /// earlier one is dropped and counted in `dropped`.
     ///
     /// @return false, having visited nothing, if one of the windows' own fetches dropped a read.
@@ -768,8 +772,8 @@ private:
  *
  * vg asks gaf-base to tag each line with its position: the database row of its block (`ri`) and its
  * offset in the block (`ro`). The database keeps the order of the GAF it was built from, so this
- * position keys the reads as the file offset does in TabixGafSiteReadSource: reads from several
- * fetches can be put back in file order, once each.
+ * position increases in file order and is the same whichever query returns the read. Keyed by it,
+ * reads from several fetches can be put back in file order, once each.
  */
 class GafBaseSiteReadSource : public WindowedSiteReadSource {
 public:

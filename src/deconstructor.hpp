@@ -200,10 +200,10 @@ private:
     double cluster_threshold = 1.0;
 
     // When cluster_threshold is below 1, apply it only at sites whose core length is at least this
-    // many bp.  At 0, cluster_threshold applies at every site.  See
-    // VCFOutputCaller::allele_core_length for what "core length" means.  We measure core length
-    // rather than the raw snarl interior so that vg call and vg deconstruct, which flatten records
-    // differently, give the same set of alleles the same length.
+    // many bp.  At 0, cluster_threshold applies at every site.  The core length is the length of
+    // the longest allele once the prefix and suffix that every allele other than "*" shares are
+    // stripped.  We measure core length rather than the raw snarl interior so that vg call and vg
+    // deconstruct, which flatten records differently, give the same set of alleles the same length.
     int64_t cluster_min_allele_len = 0;
 
     // use *-alleles to represent haplotypes that span the parent site but don't

@@ -703,7 +703,7 @@ string printed_field(const vector<string>& list) {
  * reads alone support, and makes GQ <= GQI hold on every rewritten record.
  *
  * @param gqi The printed GQI, or null if the record has none.
- * @return GQ, printed as the per-site GQ is.
+ * @return GQ as the VCF prints it, truncated to a whole number and clamped to [0, 256].
  */
 string chosen_gq(const LinkageCollector::MovedQuality& moved, const string* gqi) {
     const double posterior = moved.posterior;

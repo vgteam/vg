@@ -24,9 +24,9 @@ A read that spans two phaseable sites shows directly whether their alleles lie o
 Read phasing uses such reads to re-decide the phase of each phaseable site, within the phase sets
 the panel gave. It changes phases and keeps every genotype.
 
-Read phasing takes one phase set at a time, and its phaseable sites in order of position, with the
-sites of an off-reference chain placed as the linkage model places them (see
-[Transitions](read-likelihood-linkage-model.md#transitions)).
+Read phasing takes one phase set at a time, and its phaseable sites in order of position. A site of
+an off-reference chain is placed at its parent's position plus its offset along an allele of the
+parent's chosen genotype (see [Transitions](read-likelihood-linkage-model.md#transitions)).
 
 ### What each read says
 
@@ -42,8 +42,9 @@ v_{a_k} = \frac{\lvert a_k \rvert + \bar L - 1}{\left(\lvert a_0 \rvert + \bar L
 $$
 
 where $\lvert a \rvert$ is the total sequence length of allele $a$'s walk, boundary nodes included,
-and $\bar L$ is the mean read length of
-[Depth term inputs](read-likelihood-direct-genotyping.md#depth-term-inputs). A read overlapping
+and $\bar L$ is the mean length of the reads that begin in the site's rate window, or of the site's
+own reads if none does (see
+[Depth term inputs](read-likelihood-direct-genotyping.md#depth-term-inputs)). A read overlapping
 $a$ can start at $\lvert a \rvert + \bar L - 1$ positions, so the weights estimate the share of the
 site's reads that come from each strand. `--flat-mixture` sets both to $1/2$. A read with
 $x_{rs0} + x_{rs1} = 0$ is not used at $s$. For each read used, vg keeps:

@@ -38,7 +38,8 @@ double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chos
     if (score == nullptr || score->genotype_lls.empty()) {
         return blank;
     }
-    // Scale the margin as GQN in the VCF does, so that the two agree.
+    // Divide the margin by the achievable gap of the direct pass and multiply it by its explained
+    // share, so that it agrees with GQN in the VCF.
     const LinkageCollector::DirectQuality& direct = found->second.direct;
     if (!(direct.achievable_gap > 0.0)) {
         return blank;

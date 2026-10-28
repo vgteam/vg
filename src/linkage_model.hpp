@@ -332,7 +332,7 @@ private:
 
     /// Fill `out` with posteriors over one window of a ploidy-1 chain, by forward-backward.
     ///
-    /// The states are single haplotypes. `out` is indexed as for `window_posteriors`.
+    /// The states are single haplotypes. Site `from + t` goes to `out[from + t - out_base]`.
     void window_haploid_posteriors(const vector<Site>& sites, size_t from, size_t to,
                                    vector<vector<double>>& out,
                                    const vector<double>* alpha_in = nullptr,
@@ -340,7 +340,9 @@ private:
 
     /// Return the most probable path of single haplotypes through one window of a ploidy-1 chain.
     ///
-    /// The result is indexed from `from`, and the pin works as in `window_phasing`.
+    /// The result is indexed from `from`. The state at `pin_index` is pinned to haplotype `pin`,
+    /// so that consecutive windows join without a spurious switch. `pin_index` is `(size_t)-1`
+    /// for no pin.
     vector<size_t> window_haploid_phasing(const vector<Site>& sites, size_t from, size_t to,
                                           const vector<size_t>& constraint, size_t pin_index,
                                           size_t pin,
@@ -413,11 +415,12 @@ public:
     /// held at once.
     struct Entry {
         uint32_t position = 0;
-        /// `LinkageCollector::SiteContext::freq_prior`. Placed in the padding before `chain_key`,
-        /// so it does not enlarge the entry.
+        /// The site's frequency exponent from its `SiteContext`, or negative for the model's
+        /// `freq_prior`. Placed in the padding before `chain_key`, so it does not enlarge the
+        /// entry.
         float freq_prior = -1.0f;
-        /// `LinkageCollector::SiteContext::chain_key`: identifies the site's chain, so that sites
-        /// of different chains, which have no transitions between them, are kept apart.
+        /// The ID of the start node of the site's chain, from its `SiteContext`. It keeps sites of
+        /// different chains, which have no transitions between them, apart.
         size_t chain_key = 0;
         /// The contig, as numbered by `contig_id`.
         uint32_t contig = 0;
@@ -450,10 +453,12 @@ public:
         /// Whether this site wrote a VCF line. Only then do its `allele_offset` entries mean
         /// anything.
         bool emitted = true;
-        /// This site has no reference position, so `position` is not used for distances. See
-        /// `LinkageCollector::SiteContext::unpositioned`.
+        /// Whether the site has no reference position, so that `position` is a stand-in. The
+        /// difference between a stand-in and another position is a distance only within one
+        /// chain, or to the parent of the chain.
         bool unpositioned = false;
-        /// `LinkageCollector::SiteContext::nested`.
+        /// Whether the site's chain has one copy, so that exactly one of the parent's alleles
+        /// crosses it.
         bool nested = false;
         /// For a nested site, the record key of its parent site.
         size_t parent_record_key = 0;
@@ -596,7 +601,7 @@ private:
     std::unordered_map<size_t, uint32_t> first_by_key;
     /// Record key -> the last entry carrying it, which makes appending O(1) rather than a walk.
     std::unordered_map<size_t, uint32_t> last_by_key;
-    /// See `num_duplicate_live_keys`.
+    /// How many times `add` appended an entry under a key that already had a live entry.
     size_t duplicate_live_keys = 0;
 };
 
@@ -715,8 +720,8 @@ public:
         /// `vg call` records every site before its line is written, so it passes false and
         /// supplies the answer through `set_allele_map`.
         bool emitted = true;
-        /// Whether the site has no reference position, so that `position` stands in for it, as
-        /// described at `LinkageModel::Site::unpositioned`.
+        /// Whether the site has no reference position, so that the `SiteLocus::position` it is
+        /// recorded with is a stand-in, taken from the position of its parent.
         bool unpositioned = false;
         /// The ID of the start node of the chain the site is in, which identifies the chain and
         /// groups its sites.
@@ -765,7 +770,8 @@ public:
         /// traversal-to-allele map was not yet known when the site was phased (see
         /// `set_allele_map`).
         size_t allele_first = 0;
-        /// The VCF allele on strand 1, as for `allele_first`.
+        /// The VCF allele on strand 1, or the largest `size_t` where the site's
+        /// traversal-to-allele map was not yet known when the site was phased.
         size_t allele_second = 0;
         /// The candidate traversal on strand 0, which is always known.
         ///
@@ -777,7 +783,8 @@ public:
         /// The panel haplotype strand 0 copies here, or `LinkageModel::NO_HAPLOTYPE` where none
         /// is named. The mosaic writes it, whether or not it carries the strand's allele.
         size_t hap_first = LinkageModel::NO_HAPLOTYPE;
-        /// The panel haplotype strand 1 copies here, as for `hap_first`.
+        /// The panel haplotype strand 1 copies here, or `LinkageModel::NO_HAPLOTYPE` where none
+        /// is named. The mosaic writes it, whether or not it carries the strand's allele.
         size_t hap_second = LinkageModel::NO_HAPLOTYPE;
         /// The ploidy, 1 or 2. At 1 there is one strand, and only the `_first` fields mean
         /// anything.
@@ -980,7 +987,8 @@ private:
     /// must not run while any other method does.
     EntryTable entries;
 
-    /// See `moved_quality`.
+    /// The quality of each live site whose genotype the model changed when its level was last
+    /// resolved, by record key.
     std::unordered_map<size_t, MovedQuality> moved_quality_by_record;
 
     /// What the parent's chosen pair implies about a child's chain, by `relate_to_parent`.
@@ -1015,9 +1023,10 @@ private:
         int trav_first;
         int trav_second;
         size_t ploidy;
-        /// `PhaseCall::nested_strand`.
+        /// For a nested site at ploidy 1, which of the parent's two strands carries it, 0 or 1, or
+        /// -1 otherwise.
         int nested_strand;
-        /// `PhaseCall::order_arbitrary`.
+        /// Whether nothing ordered the pair, so that the written phase is arbitrary.
         bool order_arbitrary;
         size_t phase_set;
 

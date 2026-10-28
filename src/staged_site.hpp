@@ -179,7 +179,7 @@ class StagedSiteTable;
  * The staged sites, and the sites enclosing them, as a `SiteTree`.
  *
  * The VCF's nesting INFO tags are computed from it. Each staged site lies under the sites in its
- * `StagedSite::enclosing`, so a site the decomposition does not hold is placed like one it holds.
+ * `StagedSite::enclosing`, whether or not the decomposition holds it.
  * A site that is both staged and enclosing appears once.
  *
  * A site whose ID is made from its bounds is matched to its records by its boundary visits. A site
@@ -336,7 +336,7 @@ public:
     void release_unrendered() { vector<StagedSite>().swap(held_back); }
 
 private:
-    /// See `unrendered()`.
+    /// The nested sites that `hand_off` kept out of the render queues.
     vector<StagedSite> held_back;
     /// The render queues, one per thread: the top-level sites, and after the hand-off also the
     /// nested ones that get a line of their own.

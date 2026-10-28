@@ -97,8 +97,8 @@ ChildPlacer::ChildOffsets::ChildOffsets(const HandleGraph& graph, const Traversa
 
 int64_t ChildPlacer::ChildOffsets::base_offset(const HandleGraph& graph,
                                                const SiteBounds& child) const {
-    // Follow the rule of `offset_of_child`. The entry is the first visit to either boundary node,
-    // and it counts only if the other boundary node is visited after it.
+    // The entry is the first visit to either boundary node, and it counts only if the other
+    // boundary node is visited after it. `offset_of_child` uses the same rule.
     const nid_t start = graph.get_id(child.start);
     const nid_t end = graph.get_id(child.end);
     auto start_visits = visits_of.find(start);

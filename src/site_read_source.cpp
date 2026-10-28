@@ -66,7 +66,8 @@ struct ReadHold {
         size_t bases = 0;
     };
 
-    /// One mapping of one held read, as a window's node index holds it.
+    /// One mapping of one held read, given by its node, the index of the read in `alignments` and
+    /// the index of the mapping in the read's path.
     struct Visit {
         nid_t node = 0;
         uint32_t read = 0;
@@ -111,7 +112,7 @@ struct ReadHold {
     /// A site below asks for a few of thousands of held reads, and finds them by binary search, so
     /// that its work grows with its own size rather than with the hold's.
     vector<Visit> visits;
-    /// The read offset before each mapping, for every held read end to end, as in a cached window.
+    /// The read offset before each mapping, and after the last, for every held read end to end.
     vector<uint32_t> offsets;
     /// Where each read's run of `offsets` starts, and one more entry for the end of the last.
     vector<uint32_t> offset_start;
@@ -1016,7 +1017,9 @@ bool WindowedSiteReadSource::deliver_held(const vector<pair<nid_t, nid_t>>& rang
             && !(wide && hold->all_reads && hold->exact && ranges_within(merged, hold->fetched))) {
             continue;
         }
-        // Collect the held mappings on the queried nodes, by read, as a cached window does.
+        // Collect the held mappings on the queried nodes, and sort them by read, then by mapping,
+        // so that reads are delivered in fetch order and each read's mappings form an ascending
+        // run.
         vector<pair<uint32_t, uint32_t>> hits;
         for (const auto& [first, last] : merged) {
             ReadHold::Visit probe;
@@ -1179,7 +1182,8 @@ void WindowedSiteReadSource::for_each_read_start(
 }
 
 size_t WindowedSiteReadSource::drop_cached_windows() {
-    // Take the windows under the lock and free them after it, as get_window frees what it evicts.
+    // Take the windows under the lock and free them after it. Freeing a window's reads takes long
+    // enough that other threads would queue on the lock.
     vector<shared_ptr<const CacheEntry>> entries;
     {
         std::scoped_lock guard(cache_mutex);
@@ -1756,7 +1760,8 @@ size_t TabixGafSiteReadSource::fetch_span_keyed(
         const vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
         GafFetchParser parser(graph, merged);
 
-        // Pass on each read once, as GafBaseSiteReadSource does.
+        // Pass on only the first read with each name and start. GafBaseSiteReadSource does the
+        // same.
         unordered_set<string> seen;
         auto handle_record = [&](const char* text, size_t length, bool may_touch, uint64_t record_key) {
             Alignment* aln = parser.parse(text, length, may_touch);
@@ -2326,7 +2331,8 @@ size_t GafBaseSiteReadSource::fetch_span_keyed(
         // gaf-base's position tags say where the database keeps a read, not what the read is.
         GafFetchParser parser(graph, merged, {GAF_BASE_ROW_TAG, GAF_BASE_OFFSET_TAG});
 
-        // Pass on each read once, as the tabix source does.
+        // Pass on only the first read with each name and start. TabixGafSiteReadSource does the
+        // same.
         unordered_set<string> seen;
         auto handle_record = [&](const char* text, size_t length, bool may_touch, uint64_t record_key) {
             Alignment* aln = parser.parse(text, length, may_touch);

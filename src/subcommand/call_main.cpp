@@ -838,7 +838,8 @@ int main_call(int argc, char** argv) {
     bool   gbz_paths = false;
     bool   gbz_paths_explicit = false;
     bool   enumerate_support = false;
-    // Phasing comes from the linkage model; see the check where that model is set up.
+    // Phasing comes from the linkage model. Where the model cannot run, an explicit --phased is
+    // an error, and the default is turned off.
     bool   phased_output = true;
     bool   phased_explicit = false;
     string mosaic_out;
