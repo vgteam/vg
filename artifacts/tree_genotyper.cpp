@@ -10,21 +10,17 @@
 
 namespace vg::multipass {
 
-/// Make the outcome of a candidate for the dump, saying where it was placed, or why it was not.
-static EditOutcome unplaced_outcome(const EditCandidate& c, const string& why) {
-    EditOutcome outcome;
-    outcome.node = c.node;
-    outcome.offset = c.offset;
-    outcome.alt = c.alt;
-    outcome.kind = c.kind;
-    outcome.sequence = c.sequence;
-    outcome.placed = why;
-    return outcome;
-}
 
 void TreeGenotyper::configure(const Parts& parts, const Options& options) {
     this->parts = parts;
     this->options = options;
+    placer.configure(EditSitePlacer::Parts{.graph = parts.graph,
+                                           .child_placer = parts.child_placer,
+                                           .edit_source = parts.edit_source,
+                                           .edit_outcomes = parts.edit_outcomes,
+                                           .ref_paths = parts.ref_paths,
+                                           .sites = parts.sites},
+                     options.edit_bar);
 }
 
 namespace {
@@ -82,7 +78,7 @@ bool TreeGenotyper::genotype(const SiteView& site) {
         // bound to the next site, as far as their reads come with the reads of the lower bound.
         vector<nid_t> near;
         for (nid_t bound : {first, last}) {
-            free_nodes_along_reference(bound, near);
+            placer.free_nodes_along_reference(bound, near);
         }
         for (nid_t node : near) {
             if (node != first && node != last && parts.edit_source->fetched_together(first, node)) {
@@ -364,7 +360,7 @@ void TreeGenotyper::descend_nested(const SiteCall& call) {
     // A site that descends is staged, so its staged site holds its walks.
     const vector<Traversal>& walks = call.staged->travs;
     if (parts.edit_source != nullptr) {
-        held = edits_held_by(call.view, call.bounds, walks, call.site.ref_trav_idx);
+        held = placer.held_by(call.view, call.bounds, walks, call.site.ref_trav_idx);
     }
     ChildPlacer::Nested with_edits;
     if (!held.empty()) {
@@ -392,7 +388,7 @@ void TreeGenotyper::descend_nested(const SiteCall& call) {
             // off-reference descent, or crossed by no called allele without the linkage model.
             parts.edit_outcomes->add(unplaced_outcome(held[i].candidate, "not_placed"));
         }
-        parts.sites->remove_edit(held[i].child.net);
+        placer.release(held[i]);
     }
 }
 
@@ -456,310 +452,18 @@ void TreeGenotyper::file_staged(SiteCall& call) {
     call.staged.reset();
 }
 
-vector<EditCandidate> TreeGenotyper::admitted(const vector<EditCandidate>& candidates) const {
-    // The candidates of each base, substitutions and indels separately, are consecutive. Keep one
-    // of each.
-    vector<EditCandidate> chosen;
-    for (const EditCandidate& c : candidates) {
-        if (!options.edit_bar.admits(c)) {
-            continue;
-        }
-        if (!chosen.empty() && chosen.back().node == c.node && chosen.back().offset == c.offset
-            && chosen.back().is_indel() == c.is_indel()) {
-            if (c.alt_fragments > chosen.back().alt_fragments) {
-                chosen.back() = c;
-            }
-            continue;
-        }
-        chosen.push_back(c);
-    }
-    return chosen;
-}
 
-/// Get the ALTs of an edit candidate, along the forward strand of its node.
-static vector<string> alts_of(const EditCandidate& c) {
-    switch (c.kind) {
-    case 'M':
-        return c.alts;
-    case 'S':
-        return {string(1, c.alt)};
-    case 'I':
-        return {c.sequence};
-    default:
-        return {""};
-    }
-}
 
-/// Count the bases that each ALT of an edit candidate replaces.
-static size_t replaced_length(const EditCandidate& c) {
-    switch (c.kind) {
-    case 'M':
-        return c.span;
-    case 'S':
-        return 1;
-    case 'D':
-        return c.sequence.size();
-    default:
-        return 0;
-    }
-}
 
-bool TreeGenotyper::walk_in_one_site(const EditCandidate& c, const NodePlacement& where) const {
-    for (nid_t id : c.walk) {
-        const NodePlacement other = parts.child_placer->placement_of(id);
-        if (other.enclosing.size() != where.enclosing.size()
-            || (!other.enclosing.empty() && other.enclosing.front() != where.enclosing.front())) {
-            return false;
-        }
-    }
-    return true;
-}
 
-bool TreeGenotyper::reference_reads_whole_walk(const EditCandidate& c) const {
-    const PathPositionHandleGraph& graph = *parts.graph;
-    size_t on_reference = 0;
-    // The position the next node must have on the reference, or -1 if the last node was not on
-    // it.
-    int64_t expected = -1;
-    for (nid_t id : c.walk) {
-        const handle_t h = graph.get_handle(id);
-        size_t steps = 0;
-        // The position of the node on the reference, or -2 if the reference reads it backward.
-        int64_t position = -1;
-        graph.for_each_step_on_handle(h, [&](const step_handle_t& step) {
-            const path_handle_t path = graph.get_path_handle_of_step(step);
-            if (parts.ref_paths->contains(graph.get_path_name(path))) {
-                ++steps;
-                position = graph.get_is_reverse(graph.get_handle_of_step(step))
-                               ? -2
-                               : (int64_t)graph.get_position_of_step(step);
-            }
-        });
-        if (steps > 1 || position == -2 || (expected >= 0 && steps == 1 && position != expected)) {
-            return false;
-        }
-        on_reference += steps;
-        expected = steps == 1 ? position + (int64_t)graph.get_length(h) : -1;
-    }
-    return on_reference == 0 || on_reference == c.walk.size();
-}
 
-net_handle_t TreeGenotyper::add_edit(const EditSite& site) const {
-    return parts.sites->add_edit(site.change_start, site.change_start_offset, site.change_end,
-                                 site.change_end_offset);
-}
 
-bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
-                                 const NodePlacement& where, EditSite& out) const {
-    const PathPositionHandleGraph& graph = *parts.graph;
-    vector<string> alts = alts_of(c);
-    const size_t length = replaced_length(c);
-    if (c.kind == 'S' || (c.kind == 'M' && c.walk.size() == 1)) {
-        // The edit lies inside one node. Read it as `read_as` reads the node.
-        const bool backward = graph.get_is_reverse(read_as);
-        for (string& alt : alts) {
-            alt = backward ? reverse_complement(alt) : alt;
-        }
-        out = edit_site(graph, {read_as}, backward ? c.offset + length - 1 : c.offset,
-                        backward ? graph.get_length(read_as) - c.offset - length : c.offset, length,
-                        alts);
-        return true;
-    }
-    if (graph.get_is_reverse(read_as)) {
-        return false;
-    }
-    // The record is spelled along the walk, and placed where a reference path reads the first
-    // node of the walk.
-    if (!walk_in_one_site(c, where) || !reference_reads_whole_walk(c)) {
-        return false;
-    }
-    Traversal steps;
-    for (nid_t id : c.walk) {
-        steps.push_back(graph.get_handle(id));
-    }
-    out = edit_site(graph, steps, c.offset, c.kind == 'M' ? c.offset : c.offset + 1, length, alts);
-    return true;
-}
 
-/// Find the handle a site's walks read node `node` by.
-///
-/// Prefer the reference walk, then the walks in order. If no walk visits the node, read it
-/// forward.
-static handle_t read_as_in_walks(const HandleGraph& graph, const vector<Traversal>& walks,
-                                 int ref_trav_idx, nid_t node) {
-    auto visit_in = [&](const Traversal& walk) -> const handle_t* {
-        for (const handle_t& h : walk) {
-            if (graph.get_id(h) == node) {
-                return &h;
-            }
-        }
-        return nullptr;
-    };
-    if (ref_trav_idx >= 0 && ref_trav_idx < (int)walks.size()) {
-        if (const handle_t* h = visit_in(walks[ref_trav_idx])) {
-            return *h;
-        }
-    }
-    for (size_t w = 0; w < walks.size(); ++w) {
-        if ((int)w == ref_trav_idx) {
-            continue;
-        }
-        if (const handle_t* h = visit_in(walks[w])) {
-            return *h;
-        }
-    }
-    return graph.get_handle(node);
-}
 
-/// Get the bounds `bounds` read the other way.
-static SiteBounds turned(const HandleGraph& graph, const SiteBounds& bounds) {
-    SiteBounds out = bounds;
-    out.start = graph.flip(bounds.end);
-    out.end = graph.flip(bounds.start);
-    return out;
-}
 
-vector<TreeGenotyper::HeldEdit> TreeGenotyper::edits_held_by(const SiteView& view,
-                                                             const SiteBounds& bounds,
-                                                             const vector<Traversal>& walks,
-                                                             int ref_trav_idx) const {
-    const PathPositionHandleGraph& graph = *parts.graph;
-    // Collect the nodes the walks visit.
-    vector<nid_t> nodes;
-    for (const Traversal& walk : walks) {
-        for (const handle_t& h : walk) {
-            nodes.push_back(graph.get_id(h));
-        }
-    }
-    std::sort(nodes.begin(), nodes.end());
-    nodes.erase(std::unique(nodes.begin(), nodes.end()), nodes.end());
-    vector<EditCandidate> found;
-    const nid_t start = graph.get_id(bounds.start);
-    const nid_t end = graph.get_id(bounds.end);
-    // Leave out the candidates on the bounds, which are in the parent's chain. The site's own read
-    // query counted the rest.
-    parts.edit_source->for_each_edit_candidate(nodes, [&](const EditCandidate& c) {
-        if (c.node != start && c.node != end) {
-            found.push_back(c);
-        }
-    });
-    vector<HeldEdit> held;
-    if (found.empty()) {
-        return held;
-    }
-    const SiteBounds view_turned = turned(graph, view.bounds);
-    for (const EditCandidate& c : admitted(found)) {
-        // Only the innermost site holding the node holds the edit.
-        NodePlacement where = parts.child_placer->placement_of(c.node);
-        if (where.enclosing.empty()
-            || (where.enclosing.front() != view.bounds && where.enclosing.front() != view_turned)) {
-            continue;
-        }
-        HeldEdit edit;
-        if (!edit_site_of(c, read_as_in_walks(graph, walks, ref_trav_idx, c.node), where,
-                          edit.site)) {
-            parts.edit_outcomes->add(unplaced_outcome(c, "walk_leaves_site"));
-            continue;
-        }
-        edit.candidate = c;
-        edit.child = ChildSite{add_edit(edit.site), edit.site.bounds, where.chain};
-        held.push_back(std::move(edit));
-    }
-    return held;
-}
 
-void TreeGenotyper::free_nodes_along_reference(nid_t bound, vector<nid_t>& out) const {
-    const PathPositionHandleGraph& graph = *parts.graph;
-    // Bound the work per site.
-    const size_t limit = 64;
-    graph.for_each_step_on_handle(graph.get_handle(bound), [&](const step_handle_t& step) {
-        if (!parts.ref_paths->contains(graph.get_path_name(graph.get_path_handle_of_step(step)))) {
-            return true;
-        }
-        for (bool forward : {true, false}) {
-            step_handle_t at = step;
-            for (size_t k = 0; k < limit; ++k) {
-                if (forward ? !graph.has_next_step(at) : !graph.has_previous_step(at)) {
-                    break;
-                }
-                at = forward ? graph.get_next_step(at) : graph.get_previous_step(at);
-                const nid_t node = graph.get_id(graph.get_handle_of_step(at));
-                if (!parts.child_placer->placement_of(node).enclosing.empty()) {
-                    // A site holds the node.
-                    break;
-                }
-                out.push_back(node);
-            }
-        }
-        // One reference step is enough.
-        return false;
-    });
-}
 
-void TreeGenotyper::genotype_top_level_edits(vector<EditCandidate> candidates) {
-    vector<EditCandidate> left;
-    for (EditCandidate& c : candidates) {
-        if (!free_edit_nodes.count(c.node)) {
-            left.push_back(std::move(c));
-        }
-    }
-    // Group the candidates by node, since each node's are genotyped together.
-    vector<vector<EditCandidate>> by_node;
-    for (EditCandidate& c : admitted(left)) {
-        if (by_node.empty() || by_node.back().front().node != c.node) {
-            by_node.emplace_back();
-        }
-        by_node.back().push_back(std::move(c));
-    }
-    after_pass_nodes = by_node.size();
-#pragma omp parallel for schedule(dynamic, 1)
-    for (size_t i = 0; i < by_node.size(); ++i) {
-        genotype_free_edits(by_node[i]);
-    }
-}
 
-void TreeGenotyper::genotype_free_edits(vector<EditCandidate> candidates) {
-    if (candidates.empty()) {
-        return;
-    }
-    {
-        // Genotype each node's once. A site may be visited again as the child of a failed site
-        // under RecurseOnFail.
-        std::scoped_lock lock(free_edit_mutex);
-        if (!free_edit_nodes.insert(candidates.front().node).second) {
-            return;
-        }
-    }
-    const PathPositionHandleGraph& graph = *parts.graph;
-    const vector<EditCandidate> chosen = admitted(candidates);
-    for (size_t i = 0; i < chosen.size(); ++i) {
-        const EditCandidate& c = chosen[i];
-        NodePlacement where = parts.child_placer->placement_of(c.node);
-        if (!where.enclosing.empty()) {
-            // A site holds it, so that site's descent placed it, if anything did.
-            continue;
-        }
-        // Read the node as a reference path does.
-        handle_t read_as = graph.get_handle(c.node);
-        graph.for_each_step_on_handle(read_as, [&](const step_handle_t& step) {
-            const string name = graph.get_path_name(graph.get_path_handle_of_step(step));
-            if (parts.ref_paths->contains(name)) {
-                read_as = graph.get_handle_of_step(step);
-                return false;
-            }
-            return true;
-        });
-        HeldEdit edit;
-        if (!edit_site_of(c, read_as, where, edit.site)) {
-            parts.edit_outcomes->add(unplaced_outcome(c, "walk_leaves_site"));
-            continue;
-        }
-        edit.candidate = c;
-        edit.child = ChildSite{add_edit(edit.site), edit.site.bounds, where.chain};
-        genotype_edit_site(edit, {}, "", make_pair(0, 0), -1, NestingPlacement(), true);
-        parts.sites->remove_edit(edit.child.net);
-    }
-}
 
 /// Get the ALT part of the ID of an edit candidate's site.
 ///
@@ -788,6 +492,20 @@ string TreeGenotyper::reference_through(handle_t node, const string& preferred,
         return name != preferred;
     });
     return ref_path_name;
+}
+
+void TreeGenotyper::genotype_top_level_edits(vector<EditCandidate> candidates) {
+    vector<vector<EditCandidate>> by_node = placer.group_unclaimed(std::move(candidates));
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < by_node.size(); ++i) {
+        genotype_free_edits(by_node[i]);
+    }
+}
+
+void TreeGenotyper::genotype_free_edits(vector<EditCandidate> candidates) {
+    placer.place_free_edits(std::move(candidates), [&](const HeldEdit& edit) {
+        genotype_edit_site(edit, {}, "", make_pair(0, 0), -1, NestingPlacement(), true);
+    });
 }
 
 void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBounds>& enclosing,

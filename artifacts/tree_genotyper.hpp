@@ -14,6 +14,7 @@
 #include "snarls.hpp"
 #include "candidate_finder.hpp"
 #include "child_placer.hpp"
+#include "edit_site_placer.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "genotype_linker.hpp"
 #include "off_panel.hpp"
@@ -118,17 +119,9 @@ public:
     void genotype_top_level_edits(vector<EditCandidate> candidates);
 
     /// Count the nodes whose free edit sites `genotype_top_level_edits` genotyped.
-    size_t edit_nodes_after_pass() const { return after_pass_nodes; }
+    size_t edit_nodes_after_pass() const { return placer.nodes_after_pass(); }
 
 private:
-    /// The edit site of an off-panel candidate, as a child of the site holding it.
-    struct HeldEdit {
-        /// The edit site as a child site, whose net handle is its edit in `Parts::sites`.
-        ChildSite child;
-        EditSite site;
-        EditCandidate candidate;
-    };
-
     struct SiteCall;
 
     /// Genotype and stage, as top-level sites, the free edit sites of `candidates`, all on one
@@ -136,56 +129,6 @@ private:
     ///
     /// @param candidates The off-panel candidates on one node, sorted.
     void genotype_free_edits(vector<EditCandidate> candidates);
-
-    /// Guards `free_edit_nodes`.
-    std::mutex free_edit_mutex;
-    /// The nodes whose free edit sites have been genotyped.
-    unordered_set<nid_t> free_edit_nodes;
-    /// See `edit_nodes_after_pass()`.
-    size_t after_pass_nodes = 0;
-
-    /// Append to `out` the nodes that no site holds along a reference path from `bound`.
-    ///
-    /// Go both ways, until a node a site holds, and at most a fixed number of nodes each way.
-    void free_nodes_along_reference(nid_t bound, vector<nid_t>& out) const;
-
-    /// Pick the candidates the call bar admits, one per base: the ALT the most fragments carry.
-    ///
-    /// @param candidates Sorted by node, offset, kind and ALT.
-    vector<EditCandidate> admitted(const vector<EditCandidate>& candidates) const;
-
-    /// Return true if every node of the walk of `c` lies directly in the site `where` gives.
-    bool walk_in_one_site(const EditCandidate& c, const NodePlacement& where) const;
-
-    /// Return true if the reference reads the walk of `c` forward and once, or not at all.
-    bool reference_reads_whole_walk(const EditCandidate& c) const;
-
-    /// Add the edit of `site` to `Parts::sites`, and return its net handle.
-    net_handle_t add_edit(const EditSite& site) const;
-
-    /**
-     * Make the edit site of `c` into `out`, read the way `read_as` reads its node.
-     *
-     * @param where The place of the node of `c`.
-     * @return False if the change has a walk of several nodes, or is an indel, and `read_as` is
-     * backward. Also false if the walk leaves the site that holds the node, or a reference path
-     * reads the walk only in part, backward, or more than once.
-     */
-    bool edit_site_of(const EditCandidate& c, handle_t read_as, const NodePlacement& where,
-                      EditSite& out) const;
-
-    /**
-     * List the edit sites that a site holds itself, rather than through a child site.
-     *
-     * Read each one's node the way the walks of the site read it, preferring the reference walk.
-     *
-     * @param view The site.
-     * @param bounds The bounds the site was genotyped as.
-     * @param walks The candidate walks of the site.
-     * @param ref_trav_idx The index in `walks` of the reference walk.
-     */
-    vector<HeldEdit> edits_held_by(const SiteView& view, const SiteBounds& bounds,
-                                   const vector<Traversal>& walks, int ref_trav_idx) const;
 
     /// Find the reference path through `node`, preferring `preferred`, and the position of the
     /// node on it, into `node_start`.
@@ -303,13 +246,14 @@ private:
 
     /// Give a staged site what it keeps of the decomposition.
     ///
-    /// That is the `children` that `view` holds, whether it is a leaf, its chain, and the sites
-    /// enclosing it.
+    /// That is the `children` that `view` holds, its chain, and the sites enclosing it.
     void fill_tree_fields(const SiteView& view, const SiteChildren& children,
                           StagedSite& site) const;
 
     Parts parts;
     Options options;
+    /// Places the off-panel edit sites.
+    EditSitePlacer placer;
 };
 
 }
