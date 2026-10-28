@@ -54,10 +54,7 @@ public:
 
         /// Return true if this key sorts before `other`, comparing contig, then POS, then ID, then
         /// block number.
-        bool operator<(const BufferedRecordKey& other) const {
-            return std::tie(contig, position, id, block)
-                   < std::tie(other.contig, other.position, other.id, other.block);
-        }
+        bool operator<(const BufferedRecordKey& other) const;
     };
 
     explicit VCFOutputCaller(const string& sample_name);
@@ -77,7 +74,7 @@ public:
     bool add_variant(vcflib::Variant& var, size_t block = 0) const;
 
     /// Set the ploidy of the regions of the reference that `regions` covers.
-    void set_ploidy_regions(PloidyRegions regions) { ploidy_regions = std::move(regions); }
+    void set_ploidy_regions(PloidyRegions regions);
 
     /**
      * Write the buffered records, sorted, taking the nesting INFO tags from `snarl_manager`.
@@ -190,7 +187,7 @@ public:
     };
 
     /// Add the lines from `steps` to the header that `vcf_header` writes.
-    void set_header_steps(HeaderSteps steps) { header_steps = std::move(steps); }
+    void set_header_steps(HeaderSteps steps);
 
     /**
      * Add the record for a called site to the output buffer, built with a caller's steps.
@@ -258,7 +255,7 @@ public:
     string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
 
     /// Get the node translation given to `set_translation`, or null.
-    const unordered_map<nid_t, pair<string, size_t>>* get_translation() const { return translation; }
+    const unordered_map<nid_t, pair<string, size_t>>* get_translation() const;
 
 protected:
 
@@ -269,11 +266,6 @@ protected:
     void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
     
     
-    /// Return the core length of a variant, as `vg::allele_core_length` defines it.
-    static int64_t allele_core_length(const vector<string>& alleles) {
-        return vg::allele_core_length(alleles);
-    }
-
     /// The callbacks that add a caller's lines to the header.
     HeaderSteps header_steps;
 

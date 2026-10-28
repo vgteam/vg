@@ -14,6 +14,11 @@
 
 namespace vg {
 
+SnarlManager::SnarlRecord& SnarlManager::SnarlRecord::operator=(Snarl&& other) {
+    (*(Snarl*)this) = std::move(other);
+    return *this;
+}
+
 SnarlManager SnarlFinder::find_snarls_parallel() {
     // By default, just use a single thread, unless this finder has a parallel
     // overriding implementation.

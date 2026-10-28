@@ -9,6 +9,10 @@
 
 namespace vg {
 
+void CandidateFinder::set_max_snarl_edges(size_t edges) {
+    max_snarl_edges = edges ? edges : numeric_limits<size_t>::max();
+}
+
 CandidateFinder::CandidateFinder(const PathPositionHandleGraph& graph,
                                  SiteTraversalFinder& traversal_finder,
                                  const unordered_set<string>& ref_path_set,

@@ -683,10 +683,7 @@ private:
         }
 
         /// Assign from a Snarl, moving its contents rather than copying them.
-        SnarlRecord& operator=(Snarl&& other) {
-            (*(Snarl*)this) = std::move(other);
-            return *this;
-        }
+        SnarlRecord& operator=(Snarl&& other);
     };
     
     /// Get the const SnarlRecord for a const managed snarl

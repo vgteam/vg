@@ -930,7 +930,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // leaving small variants represented exactly as they are.  With the raw snarl interior
         // instead, whether a 1bp SNP is clustered would depend on the size of the snarl that
         // contains it, and vg deconstruct would disagree with vg call, whose records are
-        // flattened.  See VCFOutputCaller::allele_core_length.
+        // flattened.  See vg::allele_core_length.
         bool do_clustering = true;
         if (cluster_min_allele_len > 0 && cluster_threshold < 1.0) {
             // The traversals that become alleles: everything get_traversal_order kept, plus the

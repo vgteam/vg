@@ -18,6 +18,23 @@
 
 namespace vg {
 
+bool VCFOutputCaller::BufferedRecordKey::operator<(const BufferedRecordKey& other) const {
+    return std::tie(contig, position, id, block)
+           < std::tie(other.contig, other.position, other.id, other.block);
+}
+
+void VCFOutputCaller::set_ploidy_regions(PloidyRegions regions) {
+    ploidy_regions = std::move(regions);
+}
+
+void VCFOutputCaller::set_header_steps(HeaderSteps steps) {
+    header_steps = std::move(steps);
+}
+
+const unordered_map<nid_t, pair<string, size_t>>* VCFOutputCaller::get_translation() const {
+    return translation;
+}
+
 VCFOutputCaller::VCFOutputCaller(const string& sample_name) : sample_name(sample_name), translation(nullptr), include_nested(false)
 {
     output_variants.resize(get_thread_count());

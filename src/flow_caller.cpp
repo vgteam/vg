@@ -79,6 +79,10 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     }
 }
 
+void FlowCaller::set_max_snarl_edges(size_t edges) {
+    candidates.set_max_snarl_edges(edges);
+}
+
 FlowCaller::~FlowCaller() {
 
 }

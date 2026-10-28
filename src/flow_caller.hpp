@@ -82,7 +82,7 @@ public:
     ///
     /// `call_top_level_snarls` then calls the children of a skipped snarl as if they were
     /// top-level snarls. Zero, the default, removes the limit.
-    void set_max_snarl_edges(size_t edges) { candidates.set_max_snarl_edges(edges); }
+    void set_max_snarl_edges(size_t edges);
 
 protected:
 

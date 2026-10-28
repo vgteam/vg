@@ -111,9 +111,7 @@ public:
     /// Skip a site with more edges than this, including those of its nested sites.
     ///
     /// Zero removes the limit, which is also the default.
-    void set_max_snarl_edges(size_t edges) {
-        max_snarl_edges = edges ? edges : numeric_limits<size_t>::max();
-    }
+    void set_max_snarl_edges(size_t edges);
 
     /**
      * Fill `site` for the site between `start`, oriented into it, and `end`, oriented out of it.
