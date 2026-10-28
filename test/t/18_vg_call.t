@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 503
+plan tests 507
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1774,6 +1774,25 @@ vg call x.gbz --read-likelihood --gam sim.gam --preset ont --no-read-phasing --t
     >/dev/null 2>rl_rg_td.err
 is "$?" "0" "and so does --preset ont with --top-down"
 rm -f rl_rg_td.err
+
+# --preset hifi is the ont settings with three changed. It must apply exactly the settings its help
+# line lists, so its calls are the calls those settings make when given one by one.
+rm -f rl_hifi_pre.err rl_hifi_pre.vcf rl_hifi_long.vcf
+vg call x.gbz --read-likelihood --phased --gam sim.gam --preset hifi --phase-min-q 0 -t 1 \
+    2>rl_hifi_pre.err | grep -v "^#" > rl_hifi_pre.vcf
+is $(grep -c "no preset handling" rl_hifi_pre.err) "0" "--preset hifi can apply every setting it lists"
+is $(if [ $(grep -c "re-genotyping" rl_hifi_pre.err) -gt 0 ]; then echo 1; else echo 0; fi) "1" \
+   "--preset hifi turns re-genotyping on"
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenotype --gap-open 1 \
+    --gap-extend 1 --mismap-min 0.05 --read-min-mapq 5 --insertion-nats -1.8 --hp-prior 0 \
+    --linkage-weight 1 --off-panel-indels 7,0.25,5 --phase-min-q 0 -t 1 2>/dev/null \
+    | grep -v "^#" > rl_hifi_long.vcf
+diff rl_hifi_pre.vcf rl_hifi_long.vcf > /dev/null
+is "$?" "0" "--preset hifi calls what its settings call when given one by one"
+is $(vg call --help 2>&1 | grep -A12 -- "--preset NAME" | tr -s ' \n' ' ' \
+     | grep -c -- "hifi: --read-phasing --regenotype --gap-open 1 --gap-extend 1 --mismap-min 0.05 --read-min-mapq 5 --insertion-nats -1.8 --hp-prior 0 --linkage-weight 1 --off-panel-indels 7,0.25,5") "1" \
+   "the --preset help lists the hifi settings"
+rm -f rl_hifi_pre.err rl_hifi_pre.vcf rl_hifi_long.vcf
 
 # The two extensions. Both are built so that temper 0 stays the identity, and that is the whole
 # design constraint: the haploid weight is the read's odds ratio CAPPED at 1 rather than its
