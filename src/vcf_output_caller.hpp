@@ -30,7 +30,7 @@ using vg::io::AlignmentEmitter;
  *
  * Callers add records from any thread, and the writer buffers them compressed. `write_variants`
  * adds the nesting INFO tags, sorts the records and writes them. A caller that holds a writer,
- * such as MultiPassCaller, passes its sites with its own callbacks to `emit_site` and adds its
+ * such as MultiPassCaller, writes each site with its own subclass of `SiteEmitter` and adds its
  * header lines with `add_format_header` and `add_info_header`.
  */
 class VCFOutputCaller {
@@ -130,50 +130,87 @@ public:
     /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
-    /// The callbacks and record ID with which a variant caller changes how `emit_variant` writes a
-    /// site's record.
-    ///
-    /// `emit_variant` calls `count_site`, `write_blocks`, `finish_record` and `site_filed` itself.
-    /// It binds the site to `same_as_reference` and `phase`, to make `SiteHooks` callbacks that
-    /// build_site_record calls, and passes `fill_info` to build_site_record as it is. It calls
-    /// `gl_layout` to get the order of the GL values, which it gives to build_site_record and
-    /// `write_blocks`. Each callback is empty unless the caller needs it.
-    struct SiteRecordSteps {
-        /// The ID of the site's records, or null to print the ID from the snarl's bounds.
-        const string* id = nullptr;
-        /// Return whether called allele `trav` is written as the reference allele, because it
-        /// takes the reference allele's route through the site.
-        function<bool(int trav, int ref_trav_idx)> same_as_reference;
+    /**
+     * The writer of one called site's record into the output.
+     *
+     * `emit` builds the site's record with build_site_record and adds it to the output. A variant
+     * caller subclasses it to say how the site's alleles are spelled, and to change parts of the
+     * record by overriding the other virtual methods, each of which does nothing by default.
+     */
+    class SiteEmitter {
+    public:
+        /// Make an emitter that adds records to `output`, which must outlive it.
+        explicit SiteEmitter(VCFOutputCaller& output);
+        virtual ~SiteEmitter() = default;
+
+        /**
+         * Build the record of `site` and add it to the output.
+         *
+         * A record with no ALT gets no line unless `site.genotype_snarls` is set. For a site with
+         * no line, keep its reference interval for its children's nesting tags.
+         *
+         * @return false only if add_variant refused a line the site wanted.
+         */
+        bool emit(const PathPositionHandleGraph& graph, const SiteToWrite& site);
+
+    protected:
+        /// Return the sequence written for traversal `trav` where it fills entry `genotype_index`
+        /// of the genotype.
+        virtual string spell(int trav, int genotype_index) = 0;
+
+        /// Return the visits of traversal `trav`.
+        virtual vector<NodeVisit> visits(int trav) = 0;
+
+        /// Return whether traversal `trav`, which is not the reference traversal, is written as
+        /// the reference allele, because it takes the reference allele's route through the site.
+        virtual bool same_as_reference(int trav, int ref_trav_idx);
+
         /// Count the site, before its record is built.
-        function<void(const vector<int>& genotype, int ref_trav_idx)> count_site;
+        virtual void count_site(const vector<int>& genotype, int ref_trav_idx);
+
         /// Phase the genotype of the record, and return the phase set to write as PS, or -1 for
         /// none.
         ///
         /// `site_genotype` is in VCF allele numbers, and `trav_to_allele` gives the VCF allele of
-        /// each traversal in the genotype. The step may replace the GT string `gt`.
-        function<int64_t(const vector<int>& site_genotype, const map<int, int>& trav_to_allele,
-                         string& gt)> phase;
-        /// Return the order in which the snarl caller wrote the GL of a call.
-        function<GLLayout(const SnarlCaller::CallInfo* call_info)> gl_layout;
-        /// Write the site as several records. Return the number of lines written, or -1 to have
-        /// the site record written instead.
-        function<int(const PathPositionHandleGraph& graph, const vector<int>& genotype,
-                     int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout,
-                     bool genotype_snarls)> write_blocks;
+        /// each traversal in the genotype. It may replace the GT string `gt`.
+        virtual int64_t phase(const vector<int>& site_genotype, const map<int, int>& trav_to_allele,
+                              string& gt);
+
+        /// Return the order in which `fill_info` writes GL. The default is i-major.
+        virtual GLLayout gl_layout();
+
+        /// Write the site as several records, and return the number of lines written, or -1 to
+        /// have the site record written instead. The default returns -1.
+        virtual int write_blocks(const PathPositionHandleGraph& graph, const vector<int>& genotype,
+                                 int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout,
+                                 bool genotype_snarls);
+
         /// Change the finished site record just before it is added to the output.
-        function<void(vcflib::Variant& record)> finish_record;
-        /// Add the caller's INFO and FORMAT fields to `variant`, in place of the snarl caller's
-        /// `update_vcf_info`.
+        virtual void finish_record(vcflib::Variant& record);
+
+        /// Add the caller's INFO and FORMAT fields to `variant`.
         ///
         /// `site_trav` gives the traversal of each VCF allele, or -1 for "*". The record has its GT
         /// and not yet its PS.
-        function<void(const vector<int>& site_trav, const vector<int>& site_genotype,
-                      vcflib::Variant& variant)> fill_info;
+        virtual void fill_info(const vector<int>& site_trav, const vector<int>& site_genotype,
+                               vcflib::Variant& variant);
+
         /// Take note of a site whose records are done. `trav_to_allele` gives the VCF allele of
         /// each called allele in the genotype, out of `traversal_count` alleles. `has_line` says
-        /// whether the site got a line.
-        function<void(const map<int, int>& trav_to_allele, size_t traversal_count,
-                      bool has_line)> site_filed;
+        /// whether the site got a line. A site written as blocks gives an empty map.
+        virtual void site_filed(const map<int, int>& trav_to_allele, size_t traversal_count,
+                                bool has_line);
+
+        /// The output the records go to.
+        VCFOutputCaller& output;
+
+    private:
+        /// Add a built site record to the output, or let `write_blocks` write it as blocks, and
+        /// tell `site_filed` how the site was filed.
+        ///
+        /// @return false only if add_variant refused a line the site wanted.
+        bool file_record(const PathPositionHandleGraph& graph, SiteRecord& record,
+                         const SiteToWrite& site, GLLayout gl_layout);
     };
 
     /// Add a FORMAT line, without its newline, to the header that `vcf_header` writes, after the
@@ -183,24 +220,6 @@ public:
     /// Add an INFO line, without its newline, to the header that `vcf_header` writes, after the
     /// AT line.
     void add_info_header(string line);
-
-    /**
-     * Add the record for a called site to the output buffer, built with a caller's steps.
-     *
-     * The site lies between `start`, oriented into it, and `end`, oriented out of it, and its
-     * called alleles are the walks `walks`. We build the record with build_site_record, and run
-     * the callbacks in `steps` along the way. `steps.fill_info` writes the INFO and FORMAT fields.
-     *
-     * @param call_info The genotyper's call info for the site, for `steps.gl_layout`.
-     * @param spell Spells allele `trav` where it fills entry `genotype_index` of the genotype.
-     * @return false only if add_variant refused a line the site wanted.
-     */
-    bool emit_site(const PathPositionHandleGraph& graph, const handle_t& start, const handle_t& end,
-                   const vector<Traversal>& walks, const vector<int>& genotype, int ref_trav_idx,
-                   const SnarlCaller::CallInfo* call_info, const string& ref_path_name,
-                   int64_t ref_offset, bool genotype_snarls, int ploidy,
-                   const SiteRecordSteps& steps,
-                   const function<string(int trav, int genotype_index)>& spell);
 
     /**
      * Add the record for a called site to the output buffer.
@@ -261,23 +280,13 @@ protected:
     void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
     
     
+    /// The writer of a site called by a SnarlCaller, which `emit_variant` uses.
+    class SnarlTraversalEmitter;
+
     /// The FORMAT lines a caller added to the header.
     vector<string> format_header_lines;
     /// The INFO lines a caller added to the header.
     vector<string> info_header_lines;
-
-    /**
-     * Add a built site record to the output, or let `steps.write_blocks` write it as blocks.
-     *
-     * A record with no ALT gets no line unless `genotype_snarls` is set. For a site with no line,
-     * keep its reference interval for its children's nesting tags. Tell `steps.site_filed` how the
-     * site was filed.
-     *
-     * @return false only if add_variant refused a line the site wanted.
-     */
-    bool file_record(const PathPositionHandleGraph& graph, SiteRecord& record,
-                     const vector<int>& genotype, int ref_trav_idx, size_t traversal_count,
-                     GLLayout gl_layout, bool genotype_snarls, const SiteRecordSteps& steps);
 
     /// Return the options build_site_record takes from this caller.
     RecordOptions record_options() const;

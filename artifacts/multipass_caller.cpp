@@ -144,82 +144,116 @@ void MultiPassCaller::report_descent_instrumentation() const {
     }
 }
 
-VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(
-    const StagedSite& site, const AlleleSplicer::SplicedAlleles* spliced) {
-    VCFOutputCaller::SiteRecordSteps steps;
-    steps.id = &site.id;
-    if (nested_calling) {
-        steps.same_as_reference = [this, &site](int trav, int ref_trav_idx) {
-            return is_symbolically_reference(site, trav, ref_trav_idx);
-        };
-        steps.count_site = [this, &site](const vector<int>&, int ref_trav_idx) {
-            block_records.count_site(site.children, site.alleles.walks, ref_trav_idx);
-        };
+class MultiPassCaller::StagedSiteEmitter : public VCFOutputCaller::SiteEmitter {
+public:
+    /// Make an emitter for the record of `site`, which reads `caller`, `graph` and `site` by
+    /// reference, so they must outlive it.
+    ///
+    /// @param spliced If not null, the alleles the site's record spells, which its blocks spell
+    /// too, and which must outlive the emitter.
+    StagedSiteEmitter(MultiPassCaller& caller, const PathPositionHandleGraph& graph,
+                      const StagedSite& site, const AlleleSplicer::SplicedAlleles* spliced) :
+        SiteEmitter(caller.output), caller(caller), graph(graph), site(site), spliced(spliced),
+        site_steps(spliced != nullptr ? AlleleSequences() : site.alleles.all_step_sequences(graph)) {
     }
-    steps.phase = [this, &site](const vector<int>& site_genotype,
-                                const map<int, int>& trav_to_allele, string& gt) {
-        return phase_record_genotype(site.record_key, site_genotype, trav_to_allele, gt);
-    };
-    // The read-likelihood genotyper writes GL in colexicographic order, and the support-based one
-    // in i-major order.
-    steps.gl_layout = [](const SnarlCaller::CallInfo* call_info) {
-        // Every call info this caller writes is the read-likelihood genotyper's.
-        return call_info != nullptr ? GLLayout::Colexicographic : GLLayout::IMajor;
-    };
-    steps.write_blocks = [this, &site, spliced](const PathPositionHandleGraph& graph,
-                                                const vector<int>& genotype, int ref_trav_idx,
-                                                const SiteRecord& record, GLLayout gl_layout,
-                                                bool genotype_snarls) {
+
+protected:
+    string spell(int trav, int) override {
+        const vector<Traversal>& spelled = spliced != nullptr ? spliced->travs : site.alleles.walks;
+        return allele_sequence(graph, spelled[trav], own_sequences(&spelled_steps(), trav));
+    }
+
+    vector<NodeVisit> visits(int trav) override {
+        return visits_of(graph, site.alleles.walks[trav]);
+    }
+
+    bool same_as_reference(int trav, int ref_trav_idx) override {
+        return caller.nested_calling && caller.is_symbolically_reference(site, trav, ref_trav_idx);
+    }
+
+    void count_site(const vector<int>&, int ref_trav_idx) override {
+        if (caller.nested_calling) {
+            caller.block_records.count_site(site.children, site.alleles.walks, ref_trav_idx);
+        }
+    }
+
+    int64_t phase(const vector<int>& site_genotype, const map<int, int>& trav_to_allele,
+                  string& gt) override {
+        return caller.phase_record_genotype(site.record_key, site_genotype, trav_to_allele, gt);
+    }
+
+    GLLayout gl_layout() override {
+        // The read-likelihood genotyper writes GL in colexicographic order, and the support-based
+        // one in i-major order. Every call info this caller writes is the read-likelihood
+        // genotyper's.
+        return site.call_info != nullptr ? GLLayout::Colexicographic : GLLayout::IMajor;
+    }
+
+    int write_blocks(const PathPositionHandleGraph&, const vector<int>& genotype,
+                     int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout,
+                     bool genotype_snarls) override {
         // The blocks spell the alleles the site record spells.
-        const AlleleSequences site_steps =
-            spliced != nullptr ? AlleleSequences() : site.alleles.all_step_sequences(graph);
-        return block_records.write(graph, site.children,
-                                   spliced != nullptr ? spliced->travs : site.alleles.walks,
-                                   genotype,
-                                   ref_trav_idx, sample_name, output.get_translation(), record,
-                                   gl_layout, genotype_snarls,
-                                   [this](vcflib::Variant& line, size_t block) {
-                                       finish_moved_record(line);
-                                       return output.add_variant(line, block);
-                                   },
-                                   spliced != nullptr ? &spliced->sequences : &site_steps);
-    };
-    steps.finish_record = [this](vcflib::Variant& record) {
-        finish_moved_record(record);
-    };
+        return caller.block_records.write(
+            graph, site.children, spliced != nullptr ? spliced->travs : site.alleles.walks,
+            genotype, ref_trav_idx, caller.sample_name, caller.output.get_translation(), record,
+            gl_layout, genotype_snarls,
+            [this](vcflib::Variant& line, size_t block) {
+                caller.finish_moved_record(line);
+                return caller.output.add_variant(line, block);
+            },
+            &spelled_steps());
+    }
+
+    void finish_record(vcflib::Variant& record) override {
+        caller.finish_moved_record(record);
+    }
+
     // A written allele's scored allele is its traversal, since the site's walks are the ones it
     // was scored with, in order. Two alleles can share a walk when one has step sequences, so
     // they are told apart by index rather than by walk.
-    steps.fill_info = [this, &site](const vector<int>& site_trav, const vector<int>& site_genotype,
-                                    vcflib::Variant& variant) {
-        snarl_caller.write_vcf_fields(site_trav, site_genotype, site.call_info.get(), sample_name,
-                                      variant);
-        if (sites.is_edit(site.net)) {
+    void fill_info(const vector<int>& site_trav, const vector<int>& site_genotype,
+                   vcflib::Variant& variant) override {
+        caller.snarl_caller.write_vcf_fields(site_trav, site_genotype, site.call_info.get(),
+                                             caller.sample_name, variant);
+        if (caller.sites.is_edit(site.net)) {
             variant.infoFlags["OP"] = true;
         }
-    };
+    }
+
     // The linkage model gets the site whether or not it has a line. A parent written as the
     // reference still has two alleles, which differ only inside its children, and the children
     // need them to know which strand carries the chain. In VCF allele numbering such a parent is
     // 0/0; only in traversal space is it heterozygous.
-    steps.site_filed = [this, &site](const map<int, int>& trav_to_allele,
-                                     size_t traversal_count, bool has_line) {
-        if (!linker.enabled()) {
+    void site_filed(const map<int, int>& trav_to_allele, size_t traversal_count,
+                    bool has_line) override {
+        if (!caller.linker.enabled()) {
             return;
         }
         // The site was recorded when it was genotyped. What remains is the traversal-to-VCF-allele
         // map, which depends on the alleles the record chose, and whether a line was written. A
         // site written as blocks gives an empty map, since each block numbers its own alleles.
-        vector<int> trav_to_allele_vec(traversal_count, -1);
-        for (const auto& kv : trav_to_allele) {
-            if (kv.first >= 0 && (size_t)kv.first < trav_to_allele_vec.size()) {
-                trav_to_allele_vec[kv.first] = kv.second;
+        vector trav_to_allele_vec(traversal_count, -1);
+        for (const auto& [trav, allele] : trav_to_allele) {
+            if (trav >= 0 && (size_t)trav < trav_to_allele_vec.size()) {
+                trav_to_allele_vec[trav] = allele;
             }
         }
-        linker.collector()->set_allele_map(site.record_key, trav_to_allele_vec, has_line);
-    };
-    return steps;
-}
+        caller.linker.collector()->set_allele_map(site.record_key, trav_to_allele_vec, has_line);
+    }
+
+private:
+    /// The step sequences of the alleles the record spells.
+    const AlleleSequences& spelled_steps() const {
+        return spliced != nullptr ? spliced->sequences : site_steps;
+    }
+
+    MultiPassCaller& caller;
+    const PathPositionHandleGraph& graph;
+    const StagedSite& site;
+    const AlleleSplicer::SplicedAlleles* spliced;
+    /// The step sequences of the site's own alleles, when they are not spliced.
+    const AlleleSequences site_steps;
+};
 
 void MultiPassCaller::finish_moved_record(vcflib::Variant& record) {
     if (!linker.enabled()) {
@@ -415,21 +449,19 @@ void MultiPassCaller::render_retained_records() {
             // A parent spells its children's chosen alleles.
             AlleleSplicer::SplicedAlleles spliced;
             const bool is_spliced = splicer.splice(site, spliced);
-            const vector<Traversal>& spelled = is_spliced ? spliced.travs : site.alleles.walks;
-            const AlleleSequences site_steps =
-                is_spliced ? AlleleSequences() : site.alleles.all_step_sequences(graph);
-            const AlleleSequences& spelled_steps = is_spliced ? spliced.sequences : site_steps;
-            output.emit_site(graph, sites.get_site_start(site.net), sites.get_site_end(site.net),
-                             site.alleles.walks, genotype, site.alleles.ref_allele,
-                             site.call_info.get(), site.reference.path_name,
-                             site.reference.offset, genotype_snarls, site.ploidy,
-                             record_steps(site, is_spliced ? &spliced : nullptr),
-                             // Each allele is spelled as the site holds it: by its step sequences
-                             // where it has them, or else by its walk.
-                             [&](int trav, int) {
-                                 return allele_sequence(graph, spelled[trav],
-                                                        own_sequences(&spelled_steps, trav));
-                             });
+            StagedSiteEmitter emitter(*this, graph, site, is_spliced ? &spliced : nullptr);
+            emitter.emit(graph, SiteToWrite{
+                                    .start = sites.get_site_start(site.net),
+                                    .end = sites.get_site_end(site.net),
+                                    .ref_path_name = site.reference.path_name,
+                                    .ref_offset = site.reference.offset,
+                                    .genotype = genotype,
+                                    .ref_trav_idx = site.alleles.ref_allele,
+                                    .traversal_count = site.alleles.walks.size(),
+                                    .ploidy = site.ploidy,
+                                    .genotype_snarls = genotype_snarls,
+                                    .id = &site.id,
+                                });
         },
         show_progress, [&]() { splicer.index(staged_sites, emit_phasing); });
     splicer.clear();

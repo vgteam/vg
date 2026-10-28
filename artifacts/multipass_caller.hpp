@@ -223,19 +223,16 @@ public:
 private:
 
     /**
-     * Make the steps the output adds to the record of `site`.
+     * The writer of the record of a staged site.
      *
-     * They do symbolic collapsing and the block count with nested calling, phasing from the
-     * linkage model, the GL layout of the read-likelihood genotyper, block records, the quality
-     * fields of a genotype the linkage model moved, and telling the linkage model the site's
-     * allele numbering. Each does nothing when its part is turned off. The steps read `site`,
-     * which must outlive them.
-     *
-     * @param spliced If not null, the alleles the site's record spells, which its blocks spell
-     * too.
+     * It spells each allele as the site holds it, by its step sequences where it has them, or
+     * else by its walk, or as spliced from the site's children's chosen alleles. It does symbolic
+     * collapsing and the block count with nested calling, phasing from the linkage model, the GL
+     * layout of the read-likelihood genotyper, block records, the quality fields of a genotype the
+     * linkage model moved, and telling the linkage model the site's allele numbering. Each does
+     * nothing when its part is turned off.
      */
-    VCFOutputCaller::SiteRecordSteps record_steps(
-        const StagedSite& site, const AlleleSplicer::SplicedAlleles* spliced = nullptr);
+    class StagedSiteEmitter;
 
     /// Give `record` the quality fields of its chosen genotype, if the linkage model moved its
     /// site's genotype (see ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).

@@ -355,36 +355,69 @@ RecordOptions VCFOutputCaller::record_options() const {
     };
 }
 
-bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
-                                   const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
-                                   const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                   const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy,
-                                   const function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)>& trav_to_string) {
-    SiteAlleles alleles;
-    alleles.spell = [&](int trav, int genotype_index) {
+/// The writer of a site called by a SnarlCaller, whose traversals are SnarlTraversals and whose
+/// INFO and FORMAT fields the SnarlCaller writes.
+class VCFOutputCaller::SnarlTraversalEmitter : public VCFOutputCaller::SiteEmitter {
+public:
+    /// Make an emitter for the record of `snarl`, which reads all the arguments by reference, so
+    /// they must outlive it.
+    ///
+    /// @param trav_to_string Spells an allele. When null, an allele is spelled as the sequence of
+    /// its traversal.
+    SnarlTraversalEmitter(VCFOutputCaller& output, const HandleGraph& graph, SnarlCaller& snarl_caller,
+                          const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                          const vector<int>& genotype, int ref_trav_idx,
+                          const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                          const function<string(const vector<SnarlTraversal>&, const vector<int>&,
+                                                int, int, int)>& trav_to_string) :
+        SiteEmitter(output), graph(graph), snarl_caller(snarl_caller), snarl(snarl),
+        called_traversals(called_traversals), genotype(genotype), ref_trav_idx(ref_trav_idx),
+        call_info(call_info), trav_to_string(trav_to_string) {
+    }
+
+protected:
+    string spell(int trav, int genotype_index) override {
         if (trav_to_string == nullptr) {
-            return trav_string(graph, called_traversals[trav]);
+            return output.trav_string(graph, called_traversals[trav]);
         }
         return trav_to_string(called_traversals, genotype, trav, genotype_index, ref_trav_idx);
-    };
-    alleles.visits = [&](int trav) {
-        return visits_of(called_traversals[trav]);
-    };
+    }
 
-    SiteHooks hooks;
-    hooks.fill_info = [&](const vector<int>& site_trav, const vector<int>& site_genotype,
-                          vcflib::Variant& variant) {
+    vector<NodeVisit> visits(int trav) override {
+        return visits_of(called_traversals[trav]);
+    }
+
+    void fill_info(const vector<int>& site_trav, const vector<int>& site_genotype,
+                   vcflib::Variant& variant) override {
         // A negative traversal number is the "*" allele, which gets an empty traversal.
         vector<SnarlTraversal> site_traversals;
         site_traversals.reserve(site_trav.size());
         for (int trav : site_trav) {
             site_traversals.push_back(trav >= 0 ? called_traversals[trav] : SnarlTraversal());
         }
-        snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name,
-                                     variant);
-    };
-    hooks.gl_layout = GLLayout::IMajor;
+        snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info,
+                                     output.sample_name, variant);
+    }
 
+private:
+    const HandleGraph& graph;
+    SnarlCaller& snarl_caller;
+    const Snarl& snarl;
+    const vector<SnarlTraversal>& called_traversals;
+    const vector<int>& genotype;
+    int ref_trav_idx;
+    const unique_ptr<SnarlCaller::CallInfo>& call_info;
+    const function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)>&
+        trav_to_string;
+};
+
+bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+                                   const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                                   const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                   const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy,
+                                   const function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)>& trav_to_string) {
+    SnarlTraversalEmitter emitter(*this, graph, snarl_caller, snarl, called_traversals, genotype,
+                                  ref_trav_idx, call_info, trav_to_string);
     const SiteToWrite site{
         .start = graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
         .end = graph.get_handle(snarl.end().node_id(), snarl.end().backward()),
@@ -396,97 +429,109 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         .ploidy = ploidy,
         .genotype_snarls = genotype_snarls,
     };
-    SiteRecord record = build_site_record(graph, site, alleles, hooks, record_options());
-    return file_record(graph, record, genotype, ref_trav_idx, called_traversals.size(),
-                       hooks.gl_layout, genotype_snarls, SiteRecordSteps());
+    return emitter.emit(graph, site);
 }
 
-bool VCFOutputCaller::emit_site(const PathPositionHandleGraph& graph, const handle_t& start,
-                                const handle_t& end, const vector<Traversal>& walks,
-                                const vector<int>& genotype, int ref_trav_idx,
-                                const SnarlCaller::CallInfo* call_info, const string& ref_path_name,
-                                int64_t ref_offset, bool genotype_snarls, int ploidy,
-                                const SiteRecordSteps& steps,
-                                const function<string(int trav, int genotype_index)>& spell) {
-    if (steps.count_site) {
-        steps.count_site(genotype, ref_trav_idx);
-    }
+VCFOutputCaller::SiteEmitter::SiteEmitter(VCFOutputCaller& output) : output(output) {
+}
+
+bool VCFOutputCaller::SiteEmitter::same_as_reference(int, int) {
+    return false;
+}
+
+void VCFOutputCaller::SiteEmitter::count_site(const vector<int>&, int) {
+    // Only a caller that keeps counts of its sites needs this.
+}
+
+int64_t VCFOutputCaller::SiteEmitter::phase(const vector<int>&, const map<int, int>&, string&) {
+    return -1;
+}
+
+GLLayout VCFOutputCaller::SiteEmitter::gl_layout() {
+    return GLLayout::IMajor;
+}
+
+int VCFOutputCaller::SiteEmitter::write_blocks(const PathPositionHandleGraph&, const vector<int>&,
+                                               int, const SiteRecord&, GLLayout, bool) {
+    return -1;
+}
+
+void VCFOutputCaller::SiteEmitter::finish_record(vcflib::Variant&) {
+    // The record is finished as build_site_record left it.
+}
+
+void VCFOutputCaller::SiteEmitter::fill_info(const vector<int>&, const vector<int>&,
+                                             vcflib::Variant&) {
+    // The record gets no INFO or FORMAT fields beyond the ones build_site_record writes.
+}
+
+void VCFOutputCaller::SiteEmitter::site_filed(const map<int, int>&, size_t, bool) {
+    // Only a caller that tracks how its sites were written needs this.
+}
+
+bool VCFOutputCaller::SiteEmitter::emit(const PathPositionHandleGraph& graph,
+                                        const SiteToWrite& site) {
+    count_site(site.genotype, site.ref_trav_idx);
 
     SiteAlleles alleles;
-    alleles.spell = spell;
-    alleles.visits = [&](int trav) {
-        return visits_of(graph, walks[trav]);
+    alleles.spell = [this](int trav, int genotype_index) {
+        return spell(trav, genotype_index);
+    };
+    alleles.visits = [this](int trav) {
+        return visits(trav);
     };
 
     SiteHooks hooks;
-    if (steps.same_as_reference) {
-        hooks.same_as_reference = [&](int trav) {
-            return steps.same_as_reference(trav, ref_trav_idx);
-        };
-    }
-    hooks.phase = steps.phase;
-    hooks.fill_info = steps.fill_info;
-    hooks.gl_layout = steps.gl_layout ? steps.gl_layout(call_info) : GLLayout::IMajor;
-
-    const SiteToWrite site{
-        .start = start,
-        .end = end,
-        .ref_path_name = ref_path_name,
-        .ref_offset = ref_offset,
-        .genotype = genotype,
-        .ref_trav_idx = ref_trav_idx,
-        .traversal_count = walks.size(),
-        .ploidy = ploidy,
-        .genotype_snarls = genotype_snarls,
-        .id = steps.id,
+    hooks.same_as_reference = [this, &site](int trav) {
+        return same_as_reference(trav, site.ref_trav_idx);
     };
-    SiteRecord record = build_site_record(graph, site, alleles, hooks, record_options());
-    return file_record(graph, record, genotype, ref_trav_idx, walks.size(), hooks.gl_layout,
-                       genotype_snarls, steps);
+    hooks.phase = [this](const vector<int>& site_genotype, const map<int, int>& trav_to_allele,
+                         string& gt) {
+        return phase(site_genotype, trav_to_allele, gt);
+    };
+    hooks.fill_info = [this](const vector<int>& site_trav, const vector<int>& site_genotype,
+                             vcflib::Variant& variant) {
+        fill_info(site_trav, site_genotype, variant);
+    };
+    hooks.gl_layout = gl_layout();
+
+    SiteRecord record = build_site_record(graph, site, alleles, hooks, output.record_options());
+    return file_record(graph, record, site, hooks.gl_layout);
 }
 
-bool VCFOutputCaller::file_record(const PathPositionHandleGraph& graph, SiteRecord& record,
-                                  const vector<int>& genotype, int ref_trav_idx,
-                                  size_t traversal_count, GLLayout gl_layout, bool genotype_snarls,
-                                  const SiteRecordSteps& steps) {
+bool VCFOutputCaller::SiteEmitter::file_record(const PathPositionHandleGraph& graph,
+                                               SiteRecord& record, const SiteToWrite& site,
+                                               GLLayout gl_layout) {
     vcflib::Variant& out_variant = record.variant;
 
     // Let the caller write the site as difference blocks. The blocks take every field they do not
     // redefine from the finished site record. A result of -1 means the caller declined, and we
     // write the site record.
-    if (steps.write_blocks) {
-        const int block_lines = steps.write_blocks(graph, genotype, ref_trav_idx, record,
-                                                   gl_layout, genotype_snarls);
-        if (block_lines >= 0) {
-            // The site has no line of its own, and each block numbers its own alleles, so there is
-            // no allele map to report.
-            if (steps.site_filed) {
-                steps.site_filed(map<int, int>(), 0, block_lines > 0);
-            }
-            return block_lines > 0;
-        }
+    if (const int block_lines = write_blocks(graph, site.genotype, site.ref_trav_idx, record,
+                                             gl_layout, site.genotype_snarls);
+        block_lines >= 0) {
+        // The site has no line of its own, and each block numbers its own alleles, so there is no
+        // allele map to report.
+        site_filed(map<int, int>(), 0, block_lines > 0);
+        return block_lines > 0;
     }
 
     // Whether the site gets a line. A site whose called traversals differ from the reference only
     // inside child chains has no ALT, and gets a line only if `genotype_snarls` asks for reference
     // calls to be written too.
-    const bool wants_line = genotype_snarls || !out_variant.alt.empty();
+    const bool wants_line = site.genotype_snarls || !out_variant.alt.empty();
     bool added = false;
     if (wants_line) {
-        if (steps.finish_record) {
-            steps.finish_record(out_variant);
-        }
-        added = add_variant(out_variant);
-    } else if (include_nested) {
+        finish_record(out_variant);
+        added = output.add_variant(out_variant);
+    } else if (output.include_nested) {
         // Keep the reference interval of a site with no line, for the RC, RS and RD of its
         // children.
-        suppressed_ref_info[omp_get_thread_num()][out_variant.id] =
+        output.suppressed_ref_info[omp_get_thread_num()][out_variant.id] =
             {out_variant.sequenceName, static_cast<size_t>(out_variant.position),
              out_variant.ref.length()};
     }
-    if (steps.site_filed) {
-        steps.site_filed(record.trav_to_allele, traversal_count, added);
-    }
+    site_filed(record.trav_to_allele, site.traversal_count, added);
     if (wants_line && !added) {
         stringstream ss;
         ss << out_variant;

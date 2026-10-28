@@ -72,8 +72,8 @@ that enclose it in the decomposition.
 4. **Render.** `MultiPassCaller` sums each read's strand log-odds for the anchors
    (`ReadStrandTable::build_lambda`) and freezes the phase (`PhaseTable::freeze_for_render`).
    `RecordRenderer::render` then hands the nested sites that get a line of their own to the render
-   queues, builds each queued site's records once, from its chosen genotype, through
-   `VCFOutputCaller::emit_variant`, and collects each site's anchors.
+   queues, builds each queued site's records once, from its chosen genotype, with a
+   `MultiPassCaller::StagedSiteEmitter`, and collects each site's anchors.
 5. **Files and reports.** Write the anchor file (`AnchorCollector`) and the mosaic
    (`MosaicWriter`), and report the linkage, phasing, mosaic and block counts.
 
@@ -288,8 +288,8 @@ that explains them.
     `vcf_output_caller.hpp` and `vcf_record.hpp`.** `symbolic_allele.hpp` compares a parent
     site's allele with the reference allele when its differences lie inside child chains, and cuts
     it into difference blocks, which `BlockRecordWriter` writes. `RecordRenderer` builds each
-    staged site's records through `VCFOutputCaller::emit_variant`, with the steps
-    `MultiPassCaller::record_steps` adds. In `vcf_output_caller.hpp`, skip what serves only vg's
+    staged site's records with a `MultiPassCaller::StagedSiteEmitter`, the caller's subclass of
+    `VCFOutputCaller::SiteEmitter`. In `vcf_output_caller.hpp`, skip what serves only vg's
     other callers.
 12. **`mosaic_writer.hpp`,** the mosaic file, and **`subcommand/call_main.cpp`,** the option table
     and how each option reaches the objects above.
