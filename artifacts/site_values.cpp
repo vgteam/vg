@@ -49,12 +49,12 @@ const ChildChain* SiteChildren::entered_by(nid_t id, bool backward) const {
     return &chains[found->second];
 }
 
-SiteBounds oriented_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                           const net_handle_t& net) {
+pair<handle_t, handle_t> oriented_ends(const SnarlDecomposition& decomposition,
+                                       const HandleGraph& graph, const net_handle_t& net) {
     // get_bound() ignores the traversal, so this is the start bound read in and the end bound
     // read out.
-    return SiteBounds{decomposition.get_handle(decomposition.get_bound(net, false, true), &graph),
-                      decomposition.get_handle(decomposition.get_bound(net, true, false), &graph)};
+    return {decomposition.get_handle(decomposition.get_bound(net, false, true), &graph),
+            decomposition.get_handle(decomposition.get_bound(net, true, false), &graph)};
 }
 
 /**
@@ -110,11 +110,11 @@ SiteChildren site_children(const SnarlDecomposition& decomposition, const Handle
     // The caller has this site as the decomposition orients it, or turned round. Compare node IDs
     // for the first, and whole handles for the second, since turning round flips the bounds as
     // well as swapping them.
-    const SiteBounds own = oriented_bounds(decomposition, graph, site);
-    const bool forward = graph.get_id(own.start) == graph.get_id(called_start)
-                         && graph.get_id(own.end) == graph.get_id(called_end);
-    const bool reversed = own.start == graph.flip(called_end)
-                          && own.end == graph.flip(called_start);
+    const auto [own_start, own_end] = oriented_ends(decomposition, graph, site);
+    const bool forward = graph.get_id(own_start) == graph.get_id(called_start)
+                         && graph.get_id(own_end) == graph.get_id(called_end);
+    const bool reversed = own_start == graph.flip(called_end)
+                          && own_end == graph.flip(called_start);
     if (!forward && !reversed) {
         return out;
     }

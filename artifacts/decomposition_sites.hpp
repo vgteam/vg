@@ -21,26 +21,6 @@ using handlegraph::net_handle_t;
 using handlegraph::SnarlDecomposition;
 
 /**
- * The two bounds of a site or chain.
- *
- * `start` reads into the site and `end` reads out of it. Most sites lie between the inward sides
- * of `start` and `end`, which can be one node, as in a looping chain. A site made from an edit in
- * the reads lies inside nodes instead (`inside_node`). Its boundaries then lie inside the nodes of
- * `start` and `end`, and are not node sides. The decomposition gives only bounds between nodes.
- */
-struct SiteBounds {
-    handle_t start;
-    handle_t end;
-    /// Whether the site's boundaries lie inside the nodes of `start` and `end`.
-    bool inside_node = false;
-    /// For a site inside nodes, the offset of its first base along the forward strand of the node
-    /// of `start`, whichever way `start` reads the node. 0 for any other site.
-    uint32_t offset = 0;
-
-    bool operator==(const SiteBounds& other) const = default;
-};
-
-/**
  * Return true if a snarl is a trivial snarl, which holds nothing to call.
  *
  * A snarl counts as trivial when it has no children and every realizable traversal of it goes

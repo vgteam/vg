@@ -20,10 +20,10 @@ namespace unittest {
 
 using namespace std;
 
-/// Get the bounds of `snarl` in `graph`.
-inline SiteBounds bounds_of(const HandleGraph& graph, const Snarl& snarl) {
-    return SiteBounds{graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
-                      graph.get_handle(snarl.end().node_id(), snarl.end().backward())};
+/// Get the nodes holding the start and end bounds of `snarl` in `graph`.
+inline pair<handle_t, handle_t> bounds_of(const HandleGraph& graph, const Snarl& snarl) {
+    return {graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
+            graph.get_handle(snarl.end().node_id(), snarl.end().backward())};
 }
 
 /// Convert a SnarlTraversal of node visits to a walk.

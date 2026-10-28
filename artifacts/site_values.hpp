@@ -10,11 +10,8 @@
  * the site to its end bound. A star allele, for a strand that does not cross the site, is an empty
  * walk.
  *
- * TODO: Hold a candidate site's bounds as its net handle too, so that `SiteBounds` is no longer
- * needed.
- *
- * Namespace vg holds how alleles are spelled and how edit sites are made. Namespace vg::multipass
- * holds the caller's own types, and the functions that read them from a decomposition.
+ * Namespace vg holds how edit sites are made. Namespace vg::multipass holds the caller's own types,
+ * and the functions that read them from a decomposition.
  */
 
 #include <utility>
@@ -119,10 +116,10 @@ struct SiteChildren {
     const ChildChain* entered_by(nid_t id, bool backward) const;
 };
 
-/// Get the bounds of the site or chain `net`, start to end as `decomposition` orients it,
-/// whichever way `net` traverses it.
-SiteBounds oriented_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                           const net_handle_t& net);
+/// Get the nodes holding the start and end bounds of the site or chain `net`, read start to end as
+/// `decomposition` orients it, whichever way `net` traverses it.
+pair<handle_t, handle_t> oriented_ends(const SnarlDecomposition& decomposition,
+                                       const HandleGraph& graph, const net_handle_t& net);
 
 /**
  * Get the `SiteChildren` of the site `site` in `decomposition`.

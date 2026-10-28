@@ -36,8 +36,8 @@ static string bounds_key(const HandleGraph& graph, const handle_t& start, const 
 
 /// Describe a site or chain by its bounds, whichever way it is read.
 static string site_key(const SnarlDecomposition& decomposition, const HandleGraph& graph, const net_handle_t& net) {
-    SiteBounds bounds = site_bounds(decomposition, graph, net);
-    return bounds_key(graph, bounds.start, bounds.end);
+    const auto [start, end] = site_bounds(decomposition, graph, net);
+    return bounds_key(graph, start, end);
 }
 
 /// Describe every site through the decomposition_sites functions, by site
@@ -45,10 +45,11 @@ static string site_key(const SnarlDecomposition& decomposition, const HandleGrap
 static map<string, string> describe_sites(const SnarlDecomposition& decomposition, const HandleGraph& graph) {
     map<string, string> descriptions;
     function<void(const net_handle_t&)> describe = [&](const net_handle_t& site) {
-        SiteBounds bounds = site_bounds(decomposition, graph, site);
-        SiteBounds flipped = site_bounds(decomposition, graph, decomposition.flip(site));
-        REQUIRE(flipped.start == graph.flip(bounds.end));
-        REQUIRE(flipped.end == graph.flip(bounds.start));
+        const auto [start, end] = site_bounds(decomposition, graph, site);
+        const auto [flipped_start, flipped_end] =
+            site_bounds(decomposition, graph, decomposition.flip(site));
+        REQUIRE(flipped_start == graph.flip(end));
+        REQUIRE(flipped_end == graph.flip(start));
 
         net_handle_t parent = parent_site(decomposition, site);
         string description = "depth " + to_string(depth(decomposition, site)) +

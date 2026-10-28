@@ -62,9 +62,9 @@ vector<nid_t> fallback_nodes_of(const EditSnarlDecompositionOverlay& sites,
     vector<nid_t> nodes;
     for (net_handle_t here = enclosing_site(sites, net); !sites.is_root(here);
          here = enclosing_site(sites, here)) {
-        const SiteBounds ancestor = oriented_bounds(sites, graph, here);
-        nodes.push_back(graph.get_id(ancestor.start));
-        nodes.push_back(graph.get_id(ancestor.end));
+        const auto [start, end] = oriented_ends(sites, graph, here);
+        nodes.push_back(graph.get_id(start));
+        nodes.push_back(graph.get_id(end));
     }
     return nodes;
 }
@@ -87,11 +87,9 @@ bool TreeGenotyper::genotype(const net_handle_t& site) {
     if (parts.edit_source != nullptr && parts.sites->is_root(enclosing_site(*parts.sites, site))) {
         // Genotype the free edit sites on the boundary nodes of this site, whose reads its own read
         // query fetched. The first site to reach a node between two sites takes it.
-        const SiteBounds site_bounds = oriented_bounds(*parts.sites, *parts.graph, site);
-        const nid_t first =
-            std::min(parts.graph->get_id(site_bounds.start), parts.graph->get_id(site_bounds.end));
-        const nid_t last =
-            std::max(parts.graph->get_id(site_bounds.start), parts.graph->get_id(site_bounds.end));
+        const auto [start, end] = oriented_ends(*parts.sites, *parts.graph, site);
+        const nid_t first = std::min(parts.graph->get_id(start), parts.graph->get_id(end));
+        const nid_t last = std::max(parts.graph->get_id(start), parts.graph->get_id(end));
         vector<nid_t> bounds{first};
         if (last != first) {
             bounds.push_back(last);
@@ -164,8 +162,8 @@ bool TreeGenotyper::genotype_tree(const net_handle_t& view, const string& parent
                                   const ChildWalkSets* parent_child_walk_sets,
                                   int ploidy_override, const NestingPlacement& placement) {
     SiteCall call{view, placement};
-    const SiteBounds view_bounds = oriented_bounds(*parts.sites, *parts.graph, view);
-    if (!parts.candidates->find(view_bounds.start, view_bounds.end, parent_ref_path_name,
+    const auto [view_start, view_end] = oriented_ends(*parts.sites, *parts.graph, view);
+    if (!parts.candidates->find(view_start, view_end, parent_ref_path_name,
                                 parent_ref_interval, parent_child_walk_sets,
                                 placement.no_reference, call.site)) {
         return false;
@@ -449,7 +447,7 @@ void TreeGenotyper::genotype_placed_child(const SiteCall& call, const DescentPol
 void TreeGenotyper::descend_top_down(const SiteCall& call) {
     const vector<Traversal>& travs = call.site.walks;
     for (const net_handle_t& child : call.nested.sites) {
-        const SiteBounds child_bounds = oriented_bounds(*parts.sites, *parts.graph, child);
+        const auto [child_start, child_end] = oriented_ends(*parts.sites, *parts.graph, child);
         // Find, for each parent allele, the traversals of the child that agree with it. A star
         // or missing allele gets an empty set.
         ChildWalkSets child_trav_sets;
@@ -457,7 +455,7 @@ void TreeGenotyper::descend_top_down(const SiteCall& call) {
         for (int allele_idx : call.genotype) {
             if (allele_idx >= 0 && allele_idx < travs.size()) {
                 WalkSet tset = parts.candidates->find_child_walk_set(
-                    travs[allele_idx], child_bounds.start, child_bounds.end);
+                    travs[allele_idx], child_start, child_end);
                 any_real_traversals = any_real_traversals || !tset.empty();
                 child_trav_sets.push_back(std::move(tset));
             } else {

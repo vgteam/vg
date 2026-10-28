@@ -26,8 +26,8 @@ public:
     }
 
     nid_t key(const net_handle_t& site) const override {
-        const SiteBounds bounds = oriented_bounds(decomposition, graph, site);
-        return std::min(graph.get_id(bounds.start), graph.get_id(bounds.end));
+        const auto [start, end] = oriented_ends(decomposition, graph, site);
+        return std::min(graph.get_id(start), graph.get_id(end));
     }
 
     void for_each_top(const function<void(const net_handle_t&)>& iteratee) const override {

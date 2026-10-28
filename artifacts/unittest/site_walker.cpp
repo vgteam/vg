@@ -37,15 +37,15 @@ static string handle_text(const HandleGraph& graph, const handle_t& handle) {
 }
 
 /// Name a site or chain by its bounds, whichever way round it is read.
-static string bounds_key(const HandleGraph& graph, const SiteBounds& bounds) {
-    return min(handle_text(graph, bounds.start) + "/" + handle_text(graph, bounds.end),
-               handle_text(graph, graph.flip(bounds.end)) + "/"
-                   + handle_text(graph, graph.flip(bounds.start)));
+static string bounds_key(const HandleGraph& graph, const pair<handle_t, handle_t>& bounds) {
+    const auto& [start, end] = bounds;
+    return min(handle_text(graph, start) + "/" + handle_text(graph, end),
+               handle_text(graph, graph.flip(end)) + "/" + handle_text(graph, graph.flip(start)));
 }
 
 /// Name a chain by its boundary nodes, whichever way round it is read.
 static string bounds_key(const HandleGraph& graph, const ChildChain& chain) {
-    return bounds_key(graph, SiteBounds{chain.start, chain.end});
+    return bounds_key(graph, make_pair(chain.start, chain.end));
 }
 
 /// Describe what a site holds, independent of how either implementation orients its chains:
@@ -87,7 +87,7 @@ static map<string, string> walk_sites(const SnarlDecomposition& decomposition,
     SiteWalker walker(decomposition, graph);
     walker.walk(recurse_type, window, false, [&](const net_handle_t& site) {
         const net_handle_t parent = parent_site(decomposition, site);
-        const SiteBounds bounds = oriented_bounds(decomposition, graph, site);
+        const pair<handle_t, handle_t> bounds = oriented_ends(decomposition, graph, site);
         size_t enclosing = 0;
         for (net_handle_t here = enclosing_site(decomposition, site);
              !decomposition.is_root(here); here = enclosing_site(decomposition, here)) {
@@ -98,12 +98,12 @@ static map<string, string> walk_sites(const SnarlDecomposition& decomposition,
             bounds_key(graph, bounds), enclosing, depth(decomposition, site),
             decomposition.is_root(innermost)
                 ? string("root")
-                : bounds_key(graph, oriented_bounds(decomposition, graph, innermost)),
+                : bounds_key(graph, oriented_ends(decomposition, graph, innermost)),
             decomposition.is_root(parent) ? string("root")
                                           : bounds_key(graph, site_bounds(decomposition, graph,
                                                                           parent)),
-            describe_children(graph, site_children(decomposition, graph, site, bounds.start,
-                                                         bounds.end))};
+            describe_children(graph, site_children(decomposition, graph, site, bounds.first,
+                                                         bounds.second))};
         {
             lock_guard<std::mutex> guard(lock);
             visits.push_back(std::move(visit));
@@ -220,7 +220,7 @@ static map<nid_t, string> node_placements(const SnarlDecomposition& decompositio
         }
         for (net_handle_t here = place.site; !decomposition.is_root(here);
              here = enclosing_site(decomposition, here)) {
-            text += " " + bounds_key(graph, oriented_bounds(decomposition, graph, here));
+            text += " " + bounds_key(graph, oriented_ends(decomposition, graph, here));
         }
         out[id] = text;
     });

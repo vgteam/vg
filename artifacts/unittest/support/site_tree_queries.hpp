@@ -19,15 +19,17 @@ using namespace std;
  *
  * @pre `net` is not the root, and does not start or end at a tip.
  */
-inline SiteBounds site_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                              const net_handle_t& net) {
+inline pair<handle_t, handle_t> site_bounds(const SnarlDecomposition& decomposition,
+                                            const HandleGraph& graph, const net_handle_t& net) {
     // get_bound() ignores the traversal, so these come out start-to-end.
-    SiteBounds bounds{decomposition.get_handle(decomposition.get_bound(net, false, true), &graph),
-                      decomposition.get_handle(decomposition.get_bound(net, true, false), &graph)};
+    const handle_t start =
+        decomposition.get_handle(decomposition.get_bound(net, false, true), &graph);
+    const handle_t end =
+        decomposition.get_handle(decomposition.get_bound(net, true, false), &graph);
     if (decomposition.starts_at(net) == SnarlDecomposition::END) {
-        bounds = {graph.flip(bounds.end), graph.flip(bounds.start)};
+        return {graph.flip(end), graph.flip(start)};
     }
-    return bounds;
+    return {start, end};
 }
 
 /// Count the sites enclosing a site. A top-level site has depth 0.

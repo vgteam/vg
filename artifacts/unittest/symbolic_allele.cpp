@@ -87,9 +87,8 @@ static SiteChildren children_of_site(const Snarl& site, const SnarlManager& mgr)
     } catch (const std::runtime_error&) {
         return SiteChildren();
     }
-    const SiteBounds bounds = bounds_of(graph, site);
-    return site_children(decomposition, graph, decomposition.get_snarl_net(managed), bounds.start,
-                         bounds.end);
+    const auto [start, end] = bounds_of(graph, site);
+    return site_children(decomposition, graph, decomposition.get_snarl_net(managed), start, end);
 }
 
 /// `t`, a traversal of `site`, in symbolic form, with the children `mgr` gives `site`.
