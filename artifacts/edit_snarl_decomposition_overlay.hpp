@@ -5,7 +5,6 @@
  * A snarl decomposition with edits laid over it.
  */
 
-#include <deque>
 #include <functional>
 #include <mutex>
 #include <unordered_map>
@@ -13,6 +12,7 @@
 
 #include <handlegraph/snarl_decomposition.hpp>
 
+#include "grow_only_array.hpp"
 #include "handle.hpp"
 
 namespace vg {
@@ -36,10 +36,11 @@ using handlegraph::SnarlDecomposition;
  * An edit is none of the kinds of element `SnarlDecomposition` knows: `is_snarl`, `is_chain`,
  * `is_node`, `is_sentinel` and `is_root` are all false for it, and `is_edit` is true.
  *
- * Adding an edit invalidates no net handle. Removing edits invalidates the net handles of exactly
- * the edits removed: a later edit can take a removed edit's number, so an old handle to it may then
- * name the new edit. Net handles of the inner decomposition's elements are never invalidated.
- * Several threads may add and remove edits at once, and read any edit no thread is removing.
+ * Edits can only be added, and are never changed, so no net handle is ever invalidated.
+ *
+ * Several threads may add edits and read the overlay at once. Reading an edit through its net
+ * handle takes no lock. Listing an element's children takes a lock, and lists the edits added
+ * before the listing began. It may or may not list an edit another thread adds during it.
  *
  * The overlay's net handles hold their content shifted up one bit, with the lowest bit telling
  * the two kinds apart: 0 for an element of the inner decomposition, whose net handle is the rest,
@@ -73,20 +74,6 @@ public:
      */
     net_handle_t add_edit(const handle_t& start, size_t start_offset, const handle_t& end,
                           size_t end_offset);
-
-    /**
-     * Remove one edit.
-     *
-     * Its net handle becomes invalid. A later edit reuses its storage.
-     */
-    void remove_edit(const net_handle_t& edit);
-
-    /**
-     * Remove the edits that are children of `element` or of anything below it.
-     *
-     * Their net handles become invalid. Later edits reuse their storage.
-     */
-    void remove_edits(const net_handle_t& element);
 
     /// Return true if `net` is an edit.
     bool is_edit(const net_handle_t& net) const;
@@ -189,15 +176,13 @@ private:
     /// The graph that `inner` decomposes.
     const HandleGraph& graph;
 
-    /// The edits, by number. A deque, so that adding an edit moves none of the others.
-    deque<Edit> edits;
-    /// The numbers of removed edits, which a new edit takes before `edits` grows.
-    vector<size_t> free_numbers;
+    /// The edits, by number.
+    GrowOnlyArray<Edit> edits;
     /// The numbers of the edits that are children of each element, by the overlay's canonical net
     /// handle for the element, in the order they were added.
     unordered_map<net_handle_t, vector<size_t>> children_of;
-    /// Guards `edits`, `free_numbers` and `children_of`.
-    mutable std::mutex edits_mutex;
+    /// Guards `children_of`.
+    mutable std::mutex children_mutex;
 };
 
 }

@@ -318,12 +318,7 @@ void EditSitePlacer::place_free_edits(vector<EditCandidate> candidates,
         edit.candidate = c;
         edit.child = ChildSite{add_edit(edit.site), edit.site.bounds, where.chain};
         genotype(edit);
-        release(edit);
     }
-}
-
-void EditSitePlacer::release(const HeldEdit& edit) const {
-    parts.sites->remove_edit(edit.child.net);
 }
 
 }

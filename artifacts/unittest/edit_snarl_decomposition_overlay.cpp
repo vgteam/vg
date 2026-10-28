@@ -2,6 +2,7 @@
 ///
 /// Unit tests for EditSnarlDecompositionOverlay, laid over both implementations of a decomposition.
 
+#include <atomic>
 #include <functional>
 #include <vector>
 
@@ -220,42 +221,35 @@ TEST_CASE("A snarl's bounds are its boundary nodes' inward sides",
     });
 }
 
-TEST_CASE("remove_edits removes the edits at and below an element, and keeps the others",
+TEST_CASE("Several threads can add edits and read them at once",
           "[edit_snarl_decomposition_overlay]") {
     NestedGraph nested;
     on_both(nested, [&](const SnarlDecomposition&, EditSnarlDecompositionOverlay& overlay) {
-        const net_handle_t middle = find_snarl(overlay, nested.graph, 2, 7);
-        const net_handle_t inside = overlay.add_edit(nested.handle(4), 0, nested.handle(4), 2);
-        const net_handle_t outside = overlay.add_edit(nested.handle(1), 0, nested.handle(1), 1);
+        const int threads = 8;
+        const int per_thread = 500;
+        vector<vector<net_handle_t>> added(threads);
+        // Each thread adds edits inside node 4, CTGA, and reads each back as it goes.
+        atomic<bool> all_read {true};
+#pragma omp parallel for num_threads(threads)
+        for (int t = 0; t < threads; ++t) {
+            for (int i = 0; i < per_thread; ++i) {
+                const size_t offset = (t + i) % 4;
+                const net_handle_t edit =
+                    overlay.add_edit(nested.handle(4), offset, nested.handle(4), offset + 1);
+                added[t].push_back(edit);
+                if (overlay.get_site_start_offset(edit) != offset) {
+                    all_read = false;
+                }
+            }
+        }
+        REQUIRE(all_read);
         const net_handle_t node4 = overlay.canonical(overlay.get_net(nested.handle(4), &nested.graph));
-        const net_handle_t node1 = overlay.canonical(overlay.get_net(nested.handle(1), &nested.graph));
-
-        overlay.remove_edits(middle);
-        REQUIRE(children(overlay, node4).empty());
-        REQUIRE(children(overlay, node1) == vector<net_handle_t>{outside});
-        // The edit that was not removed still answers through its handle.
-        REQUIRE(overlay.get_site_end_offset(outside) == 1);
-        // A new edit may take the removed one's place, and the kept one is unchanged.
-        const net_handle_t again = overlay.add_edit(nested.handle(4), 1, nested.handle(4), 3);
-        REQUIRE(children(overlay, node4) == vector<net_handle_t>{again});
-        REQUIRE(overlay.get_site_end_offset(again) == 3);
-        REQUIRE(overlay.get_site_end_offset(outside) == 1);
-        (void) inside;
-    });
-}
-
-TEST_CASE("remove_edit removes one edit and keeps its siblings",
-          "[edit_snarl_decomposition_overlay]") {
-    NestedGraph nested;
-    on_both(nested, [&](const SnarlDecomposition&, EditSnarlDecompositionOverlay& overlay) {
-        const net_handle_t first = overlay.add_edit(nested.handle(4), 0, nested.handle(4), 1);
-        const net_handle_t second = overlay.add_edit(nested.handle(4), 2, nested.handle(4), 3);
-        const net_handle_t node4 = overlay.canonical(overlay.get_net(nested.handle(4), &nested.graph));
-        overlay.remove_edit(first);
-        REQUIRE(children(overlay, node4) == vector<net_handle_t>{second});
-        REQUIRE(overlay.get_site_start_offset(second) == 2);
-        overlay.remove_edit(second);
-        REQUIRE(children(overlay, node4).empty());
+        REQUIRE(children(overlay, node4).size() == threads * per_thread);
+        for (int t = 0; t < threads; ++t) {
+            for (int i = 0; i < per_thread; ++i) {
+                REQUIRE(overlay.get_site_end_offset(added[t][i]) == (t + i) % 4 + 1);
+            }
+        }
     });
 }
 

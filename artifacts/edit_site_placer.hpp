@@ -81,7 +81,7 @@ public:
      * Place the free edit sites of `candidates`, all on one node, unless that node's were already
      * placed.
      *
-     * Call `genotype` on each, then remove its edit from the overlay of sites.
+     * Add the edit of each to the overlay of sites, and call `genotype` on it.
      */
     void place_free_edits(vector<EditCandidate> candidates,
                           const function<void(const HeldEdit& edit)>& genotype);
@@ -101,9 +101,6 @@ public:
     ///
     /// Go both ways, until a node a site holds, and at most a fixed number of nodes each way.
     void free_nodes_along_reference(nid_t bound, vector<nid_t>& out) const;
-
-    /// Remove the edit of `edit` from the overlay of sites, once it is genotyped or left out.
-    void release(const HeldEdit& edit) const;
 
 private:
     /// Pick the candidates the call bar admits, one per base: the ALT the most fragments carry.

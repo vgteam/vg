@@ -69,8 +69,8 @@ public:
         const SiteReadSource* read_source = nullptr;
         /// What became of each candidate the call bar admits. Set when `edit_source` is.
         EditOutcomes* edit_outcomes = nullptr;
-        /// The sites, with the edit sites laid over them. Each edit site is added there while it
-        /// is being placed and genotyped, and removed after.
+        /// The sites, with the edit sites laid over them. Each edit site is added there when it
+        /// is placed, and stays for the rest of the run.
         EditSnarlDecompositionOverlay* sites = nullptr;
     };
 

@@ -388,7 +388,6 @@ void TreeGenotyper::descend_nested(const SiteCall& call) {
             // off-reference descent, or crossed by no called allele without the linkage model.
             parts.edit_outcomes->add(unplaced_outcome(held[i].candidate, "not_placed"));
         }
-        placer.release(held[i]);
     }
 }
 
