@@ -2382,7 +2382,7 @@ rm -f clg.gfa clg.gbz clg.pg clg.gref.pg clg.gref.gfa clg.gref.gbz clg_clip.gfa 
 # --bottom-up had zero coverage anywhere in the suite.  It aborted on any nested graph whose
 # reference traversal crosses a child snarl, because a child-snarl Visit carries no node.
 vg view -Fv nesting/nested_snp_in_del.gfa > bu.vg
-vg sim -x bu.vg -n 30 -l 10 -a -s 1 > bu.gam
+vg sim -x bu.vg -n 30 -l 4 -a -s 1 > bu.gam
 vg pack -x bu.vg -g bu.gam -o bu.pack
 vg call bu.vg -k bu.pack -p x --bottom-up > bu.vcf 2>/dev/null
 is "$?" 0 "--bottom-up does not abort on a nested graph"
@@ -2540,7 +2540,7 @@ rm -f nested_snp.vg nested_snp.gam nested_snp.pack nested_snp.vcf
 # is a het deletion and the nested site is traversed by one haplotype.
 vg view -Fv nesting/nested_snp_in_del.gfa > ns.vg 2>/dev/null
 vg sim -x ns.vg -P x -n 150 -l 4 -a -s 7 > ns_het.gam 2>/dev/null
-vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 4 -a -s 8 >> ns_het.gam 2>/dev/null
+vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 2 -a -s 8 >> ns_het.gam 2>/dev/null
 vg pack -x ns.vg -g ns_het.gam -o ns_het.pack 2>/dev/null
 # --mismap-max pinned for the reason given at the gref fixture: `vg sim` reads carry MAPQ 0.
 vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
@@ -2596,7 +2596,7 @@ is $(grep -c "alternatives, not a combination" ns_rl_a_nested.err | tr -d ' ') "
 # collapsing off for 7.4% of a real contig's sites was therefore invisible to 304 passing tests.
 vg view -Fv nesting/nested_snp_in_del_rev.gfa > nsr.vg 2>/dev/null
 vg sim -x nsr.vg -P x -n 150 -l 4 -a -s 7 > nsr_het.gam 2>/dev/null
-vg sim -x nsr.vg -P 'a#2#y1#0' -n 150 -l 4 -a -s 8 >> nsr_het.gam 2>/dev/null
+vg sim -x nsr.vg -P 'a#2#y1#0' -n 150 -l 2 -a -s 8 >> nsr_het.gam 2>/dev/null
 vg pack -x nsr.vg -g nsr_het.gam -o nsr_het.pack 2>/dev/null
 # --mismap-max pinned, as for the forward-path fixture above.
 vg call nsr.vg -k nsr_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam nsr_het.gam 2>nsr_rl.err > nsr_rl.vcf
@@ -2624,7 +2624,7 @@ rm -f nsr.vg nsr_het.gam nsr_het.pack nsr_rl.vcf nsr_rl.err ns_fwd.err
 # reads for free, which shows up as a badly depressed GQ (38 rather than 256).
 vg sim -x ns.vg -P x -n 100 -l 4 -a -s 11 > ns_mix.gam 2>/dev/null
 vg sim -x ns.vg -P 'a#1#y0#0' -n 30 -l 4 -a -s 12 >> ns_mix.gam 2>/dev/null
-vg sim -x ns.vg -P 'a#2#y1#0' -n 100 -l 4 -a -s 13 >> ns_mix.gam 2>/dev/null
+vg sim -x ns.vg -P 'a#2#y1#0' -n 100 -l 2 -a -s 13 >> ns_mix.gam 2>/dev/null
 vg pack -x ns.vg -g ns_mix.gam -o ns_mix.pack 2>/dev/null
 # --mismap-max is pinned rather than defaulted, because every read here comes
 # straight from `vg sim` and so carries MAPQ 0. That makes e_r equal to the cap for
