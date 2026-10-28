@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include "handle.hpp"
-#include "traversal_finder.hpp"
+#include "../src/handle.hpp"
+#include "../src/traversal_finder.hpp"
 
 namespace vg {
 

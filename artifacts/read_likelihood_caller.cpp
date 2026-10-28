@@ -8,8 +8,8 @@
 #include <set>
 #include <sstream>
 
-#include "statistics.hpp"
-#include "utility.hpp"
+#include "../src/statistics.hpp"
+#include "../src/utility.hpp"
 
 namespace vg {
 

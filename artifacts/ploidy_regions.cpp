@@ -5,7 +5,7 @@
 #include <sstream>
 
 #include "ploidy_regions.hpp"
-#include "path.hpp"
+#include "../src/path.hpp"
 
 namespace vg {
 

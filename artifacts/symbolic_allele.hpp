@@ -19,7 +19,7 @@
 #include <ostream>
 #include <vector>
 
-#include "handle.hpp"
+#include "../src/handle.hpp"
 #include "site_values.hpp"
 
 namespace vg {

@@ -5,7 +5,7 @@
 
 #include <gbwt/cached_gbwt.h>
 
-#include "handle.hpp"
+#include "../src/handle.hpp"
 #include "materialized_site.hpp"
 #include "site_values.hpp"
 #include <vg/vg.pb.h>

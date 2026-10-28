@@ -2,7 +2,7 @@
 ///
 /// Unit tests for the site-calling scheduler's progress tally.
 
-#include "catch.hpp"
+#include "../../src/unittest/catch.hpp"
 #include "../site_scheduler.hpp"
 
 #include <sstream>

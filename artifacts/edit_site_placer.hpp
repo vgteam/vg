@@ -9,7 +9,7 @@
 
 #include "descent_policy.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
-#include "handle.hpp"
+#include "../src/handle.hpp"
 #include "off_panel.hpp"
 #include "reference_path_table.hpp"
 #include "site_read_source.hpp"

@@ -8,8 +8,8 @@
 
 #include <omp.h>
 
-#include "catch.hpp"
-#include "grow_only_array.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../grow_only_array.hpp"
 
 namespace vg {
 namespace unittest {

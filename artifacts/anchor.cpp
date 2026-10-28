@@ -2,7 +2,7 @@
 #include "read_phasing.hpp"
 #include "read_strand_table.hpp"
 
-#include "version.hpp"
+#include "../src/version.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -22,8 +22,8 @@
 #include <omp.h>
 
 #include "parallel_sort.hpp"
-#include "path.hpp"
-#include "utility.hpp"
+#include "../src/path.hpp"
+#include "../src/utility.hpp"
 
 namespace vg {
 

@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-#include "handle.hpp"
-#include "snarls.hpp"
+#include "../src/handle.hpp"
+#include "../src/snarls.hpp"
 #include "symbolic_allele.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 #include "vcf_record.hpp"

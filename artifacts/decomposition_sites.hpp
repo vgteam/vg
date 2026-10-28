@@ -12,7 +12,7 @@
 
 #include <handlegraph/snarl_decomposition.hpp>
 
-#include "handle.hpp"
+#include "../src/handle.hpp"
 
 namespace vg {
 

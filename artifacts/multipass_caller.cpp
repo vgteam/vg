@@ -5,7 +5,7 @@
 #include <omp.h>
 
 #include "multipass_caller.hpp"
-#include "utility.hpp"
+#include "../src/utility.hpp"
 
 namespace vg::multipass {
 

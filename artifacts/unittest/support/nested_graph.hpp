@@ -11,8 +11,8 @@
 
 #include <handlegraph/snarl_decomposition.hpp>
 
-#include "catch.hpp"
-#include "vg.hpp"
+#include "../../../src/unittest/catch.hpp"
+#include "../../../src/vg.hpp"
 
 namespace vg {
 namespace unittest {

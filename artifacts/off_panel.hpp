@@ -18,7 +18,7 @@
 
 #include <vg/vg.pb.h>
 
-#include "handle.hpp"
+#include "../src/handle.hpp"
 
 namespace vg {
 

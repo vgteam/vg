@@ -25,12 +25,12 @@
 
 #include <vg/vg.pb.h>
 
-#include "alignment_scorer.hpp"
-#include "handle.hpp"
+#include "../src/alignment_scorer.hpp"
+#include "../src/handle.hpp"
 #include "materialized_site.hpp"
 #include "site_read_source.hpp"
 #include "site_values.hpp"
-#include "snarls.hpp"
+#include "../src/snarls.hpp"
 
 #include "anchor.hpp"
 #include "read_phasing.hpp"

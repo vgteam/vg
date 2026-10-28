@@ -16,10 +16,10 @@
 #include <map>
 #include <vector>
 
-#include "catch.hpp"
-#include "anchor.hpp"
-#include "read_strand_table.hpp"
-#include "regenotype.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../anchor.hpp"
+#include "../read_strand_table.hpp"
+#include "../regenotype.hpp"
 
 namespace vg {
 namespace unittest {

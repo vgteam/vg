@@ -11,18 +11,18 @@
 #include <utility>
 #include <vector>
 
-#include "handle.hpp"
-#include "snarls.hpp"
-#include "traversal_finder.hpp"
+#include "../src/handle.hpp"
+#include "../src/snarls.hpp"
+#include "../src/traversal_finder.hpp"
 #include "anchor.hpp"
 #include "block_records.hpp"
-#include "candidate_finder.hpp"
+#include "../src/candidate_finder.hpp"
 #include "allele_splicer.hpp"
 #include "descent_policy.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "genotype_linker.hpp"
 #include "genotype_rescorer.hpp"
-#include "graph_caller.hpp"
+#include "../src/graph_caller.hpp"
 #include "linkage_model.hpp"
 #include "mosaic_writer.hpp"
 #include "off_panel_ledger.hpp"
@@ -37,7 +37,7 @@
 #include "site_walker.hpp"
 #include "staged_site.hpp"
 #include "tree_genotyper.hpp"
-#include "vcf_output_caller.hpp"
+#include "../src/vcf_output_caller.hpp"
 
 namespace vg::multipass {
 

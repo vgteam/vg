@@ -8,11 +8,11 @@
 
 #include <vector>
 
-#include "decomposition_sites.hpp"
-#include "handle.hpp"
-#include "materialized_site.hpp"
-#include "site_values.hpp"
-#include "traversal_finder.hpp"
+#include "../../decomposition_sites.hpp"
+#include "../../../src/handle.hpp"
+#include "../../materialized_site.hpp"
+#include "../../site_values.hpp"
+#include "../../../src/traversal_finder.hpp"
 #include <vg/vg.pb.h>
 
 namespace vg {

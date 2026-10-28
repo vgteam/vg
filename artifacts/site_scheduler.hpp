@@ -17,8 +17,8 @@
 
 #include <omp.h>
 
-#include "handle.hpp"
-#include "utility.hpp"
+#include "../src/handle.hpp"
+#include "../src/utility.hpp"
 
 namespace vg {
 

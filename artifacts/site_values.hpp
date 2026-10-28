@@ -19,10 +19,10 @@
 
 #include "decomposition_sites.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
-#include "handle.hpp"
+#include "../src/handle.hpp"
 #include "materialized_site.hpp"
-#include "snarls.hpp"
-#include "traversal_finder.hpp"
+#include "../src/snarls.hpp"
+#include "../src/traversal_finder.hpp"
 #include <vg/vg.pb.h>
 
 namespace vg {

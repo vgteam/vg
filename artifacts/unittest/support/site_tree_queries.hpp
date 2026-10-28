@@ -5,7 +5,7 @@
  * Queries about a site's place in a snarl decomposition that only the tests ask.
  */
 
-#include "decomposition_sites.hpp"
+#include "../../decomposition_sites.hpp"
 
 namespace vg {
 namespace unittest {

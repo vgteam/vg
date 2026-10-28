@@ -10,8 +10,8 @@
 
 #include <functional>
 
-#include "handle.hpp"
-#include "snarls.hpp"
+#include "../src/handle.hpp"
+#include "../src/snarls.hpp"
 
 namespace vg {
 

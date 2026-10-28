@@ -13,7 +13,7 @@
 #include <handlegraph/snarl_decomposition.hpp>
 
 #include "grow_only_array.hpp"
-#include "handle.hpp"
+#include "../src/handle.hpp"
 
 namespace vg {
 

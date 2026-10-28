@@ -7,8 +7,8 @@
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/overlays/path_position_overlays.hpp>
 
-#include "catch.hpp"
-#include "block_records.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../block_records.hpp"
 
 namespace vg {
 namespace unittest {

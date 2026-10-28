@@ -10,10 +10,10 @@
 
 #include <bdsg/hash_graph.hpp>
 
-#include "catch.hpp"
-#include "alignment.hpp"
-#include "off_panel.hpp"
-#include "site_values.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../../src/alignment.hpp"
+#include "../off_panel.hpp"
+#include "../site_values.hpp"
 
 namespace vg {
 namespace unittest {

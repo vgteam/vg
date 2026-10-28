@@ -1,7 +1,7 @@
 #include <algorithm>
 
 #include "edit_site_placer.hpp"
-#include "utility.hpp"
+#include "../src/utility.hpp"
 
 namespace vg::multipass {
 

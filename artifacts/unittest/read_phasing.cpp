@@ -9,8 +9,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "catch.hpp"
-#include "read_phasing.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../read_phasing.hpp"
 
 namespace vg {
 namespace unittest {

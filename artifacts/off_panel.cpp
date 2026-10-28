@@ -13,8 +13,8 @@
 
 #include <omp.h>
 
-#include "alignment.hpp"
-#include "utility.hpp"
+#include "../src/alignment.hpp"
+#include "../src/utility.hpp"
 
 namespace vg {
 

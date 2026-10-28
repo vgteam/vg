@@ -10,7 +10,7 @@
 
 #include "block_records.hpp"
 #include "child_crossing_finder.hpp"
-#include "handle.hpp"
+#include "../src/handle.hpp"
 #include "site_values.hpp"
 #include <vg/vg.pb.h>
 

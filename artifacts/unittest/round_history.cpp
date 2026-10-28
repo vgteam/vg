@@ -1,8 +1,8 @@
 /// \file round_history.cpp
 /// Tests for RoundHistory, the record of the states that re-genotyping rounds reach.
 
-#include "catch.hpp"
-#include "round_history.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../round_history.hpp"
 
 namespace vg {
 namespace unittest {

@@ -17,7 +17,7 @@
 
 #include "allele_likelihood.hpp"
 #include "linkage_model.hpp"
-#include "snarl_caller.hpp"
+#include "../src/snarl_caller.hpp"
 
 namespace vg {
 

@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "handle.hpp"
-#include "reference_path_table.hpp"
+#include "../artifacts/reference_path_table.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
 

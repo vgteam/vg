@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
-#include "catch.hpp"
-#include "ploidy_regions.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../ploidy_regions.hpp"
 
 namespace vg {
 namespace unittest {

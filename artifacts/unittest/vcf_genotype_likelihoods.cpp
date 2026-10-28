@@ -7,9 +7,9 @@
 #include <utility>
 #include <vector>
 
-#include "vcf_genotype_likelihoods.hpp"
+#include "../vcf_genotype_likelihoods.hpp"
 
-#include "catch.hpp"
+#include "../../src/unittest/catch.hpp"
 
 namespace vg {
 namespace unittest {

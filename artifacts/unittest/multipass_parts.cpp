@@ -12,19 +12,19 @@
 #include <vector>
 
 
-#include "catch.hpp"
-#include "decomposition_pair.hpp"
-#include "edit_snarl_decomposition_overlay.hpp"
-#include "integrated_snarl_finder.hpp"
-#include "nested_graph.hpp"
-#include "graph_caller.hpp"
-#include "flow_caller.hpp"
-#include "vcf_output_caller.hpp"
-#include "descent_policy.hpp"
-#include "phase_table.hpp"
-#include "read_strand_table.hpp"
-#include "staged_site.hpp"
-#include "vcf_record.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "support/decomposition_pair.hpp"
+#include "../edit_snarl_decomposition_overlay.hpp"
+#include "../../src/integrated_snarl_finder.hpp"
+#include "support/nested_graph.hpp"
+#include "../../src/graph_caller.hpp"
+#include "../../src/flow_caller.hpp"
+#include "../../src/vcf_output_caller.hpp"
+#include "../descent_policy.hpp"
+#include "../phase_table.hpp"
+#include "../read_strand_table.hpp"
+#include "../staged_site.hpp"
+#include "../vcf_record.hpp"
 
 namespace vg {
 namespace unittest {

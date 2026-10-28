@@ -3,7 +3,7 @@
 
 #include "candidate_finder.hpp"
 #include "graph_caller.hpp"
-#include "vcf_record.hpp"
+#include "../artifacts/vcf_record.hpp"
 
 //#define debug
 

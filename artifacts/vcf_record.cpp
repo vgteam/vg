@@ -7,8 +7,8 @@
 #include <stdexcept>
 
 #include "vcf_record.hpp"
-#include "path.hpp"
-#include "traversal_clusters.hpp"
+#include "../src/path.hpp"
+#include "../src/traversal_clusters.hpp"
 
 namespace vg {
 

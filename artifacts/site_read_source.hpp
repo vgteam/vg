@@ -25,9 +25,9 @@
 #include <htslib/hts.h>
 #include <htslib/tbx.h>
 
-#include "handle.hpp"
+#include "../src/handle.hpp"
 #include "off_panel.hpp"
-#include "stream_index.hpp"
+#include "../src/stream_index.hpp"
 
 namespace vg {
 

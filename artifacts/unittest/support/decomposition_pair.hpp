@@ -9,10 +9,10 @@
 
 #include <vector>
 
-#include "snarls.hpp"
-#include "snarl_distance_index.hpp"
-#include "snarl_manager_decomposition.hpp"
-#include "snarl_decomposition_fuzzer.hpp"
+#include "../../../src/snarls.hpp"
+#include "../../../src/snarl_distance_index.hpp"
+#include "../../../src/snarl_manager_decomposition.hpp"
+#include "../../../src/unittest/support/snarl_decomposition_fuzzer.hpp"
 
 namespace vg {
 namespace unittest {

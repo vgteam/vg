@@ -4,16 +4,16 @@
 /// built from the same decomposition of one graph: the caller must write the same records from
 /// either.
 
-#include "catch.hpp"
-#include "alignment_scorer.hpp"
-#include "allele_likelihood.hpp"
-#include "integrated_snarl_finder.hpp"
-#include "multipass_caller.hpp"
-#include "read_likelihood_caller.hpp"
-#include "site_read_source.hpp"
-#include "traversal_support.hpp"
-#include "vcf_output_caller.hpp"
-#include "decomposition_pair.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../../src/alignment_scorer.hpp"
+#include "../allele_likelihood.hpp"
+#include "../../src/integrated_snarl_finder.hpp"
+#include "../multipass_caller.hpp"
+#include "../read_likelihood_caller.hpp"
+#include "../site_read_source.hpp"
+#include "../../src/traversal_support.hpp"
+#include "../../src/vcf_output_caller.hpp"
+#include "support/decomposition_pair.hpp"
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/overlays/path_position_overlays.hpp>

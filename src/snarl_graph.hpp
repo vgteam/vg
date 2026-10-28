@@ -15,12 +15,10 @@
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
 #include "snarl_caller.hpp"
-#include "symbolic_allele.hpp"
 #include "region.hpp"
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
-#include "vcf_genotype_likelihoods.hpp"
 
 namespace vg {
 

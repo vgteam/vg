@@ -3,18 +3,18 @@
 /// Unit tests for the decomposition_sites functions, run on each
 /// SnarlDecomposition implementation built from the same decomposition.
 
-#include "catch.hpp"
-#include "site_tree_queries.hpp"
-#include "decomposition_sites.hpp"
-#include "handle.hpp"
-#include "vg.hpp"
-#include "integrated_snarl_finder.hpp"
-#include "snarl_manager_decomposition.hpp"
-#include "decomposition_lineup.hpp"
-#include "snarl_decomposition_fuzzer.hpp"
-#include "random_graph.hpp"
-#include "randomly_flipped_nodes.hpp"
-#include "randomness.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "support/site_tree_queries.hpp"
+#include "../decomposition_sites.hpp"
+#include "../../src/handle.hpp"
+#include "../../src/vg.hpp"
+#include "../../src/integrated_snarl_finder.hpp"
+#include "../../src/snarl_manager_decomposition.hpp"
+#include "../../src/unittest/support/decomposition_lineup.hpp"
+#include "../../src/unittest/support/snarl_decomposition_fuzzer.hpp"
+#include "../../src/unittest/support/random_graph.hpp"
+#include "../../src/unittest/support/randomly_flipped_nodes.hpp"
+#include "../../src/unittest/support/randomness.hpp"
 
 #include <bdsg/hash_graph.hpp>
 

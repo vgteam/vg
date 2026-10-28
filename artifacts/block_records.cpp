@@ -5,7 +5,7 @@
 #include <stdexcept>
 
 #include "block_records.hpp"
-#include "utility.hpp"
+#include "../src/utility.hpp"
 
 namespace vg::multipass {
 

@@ -10,9 +10,9 @@
 #include <utility>
 #include <vector>
 
-#include "handle.hpp"
-#include "snarls.hpp"
-#include "candidate_finder.hpp"
+#include "../src/handle.hpp"
+#include "../src/snarls.hpp"
+#include "../src/candidate_finder.hpp"
 #include "descent_policy.hpp"
 #include "edit_site_placer.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"

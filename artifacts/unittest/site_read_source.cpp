@@ -25,8 +25,8 @@
 
 #include <omp.h>
 
-#include "catch.hpp"
-#include "site_read_source.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../site_read_source.hpp"
 
 namespace vg {
 namespace unittest {

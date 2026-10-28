@@ -16,7 +16,7 @@
 #include "read_likelihood_caller.hpp"
 #include "site_tree.hpp"
 #include "site_values.hpp"
-#include "snarl_caller.hpp"
+#include "../src/snarl_caller.hpp"
 
 namespace vg::multipass {
 

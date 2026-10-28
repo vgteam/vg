@@ -4,10 +4,10 @@
 #include <cassert>
 #include <cmath>
 
-#include "alignment.hpp"
+#include "../src/alignment.hpp"
 #include "off_panel.hpp"
-#include "path.hpp"
-#include "statistics.hpp"
+#include "../src/path.hpp"
+#include "../src/statistics.hpp"
 
 namespace vg {
 

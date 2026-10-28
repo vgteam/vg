@@ -6,12 +6,12 @@
 #include <functional>
 #include <vector>
 
-#include "catch.hpp"
-#include "decomposition_pair.hpp"
-#include "edit_snarl_decomposition_overlay.hpp"
-#include "integrated_snarl_finder.hpp"
-#include "nested_graph.hpp"
-#include "vg.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "support/decomposition_pair.hpp"
+#include "../edit_snarl_decomposition_overlay.hpp"
+#include "../../src/integrated_snarl_finder.hpp"
+#include "support/nested_graph.hpp"
+#include "../../src/vg.hpp"
 
 namespace vg {
 namespace unittest {

@@ -7,7 +7,7 @@
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/overlays/path_position_overlays.hpp>
 
-#include "catch.hpp"
+#include "../../src/unittest/catch.hpp"
 #include "../vcf_record.hpp"
 
 namespace vg {

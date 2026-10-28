@@ -26,8 +26,8 @@
 
 #include <omp.h>
 
-#include "path.hpp"
-#include "utility.hpp"
+#include "../src/path.hpp"
+#include "../src/utility.hpp"
 
 /// The environment to hand a spawned gaf-base.
 ///

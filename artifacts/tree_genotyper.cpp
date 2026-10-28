@@ -2,7 +2,7 @@
 #include <limits>
 
 #include "tree_genotyper.hpp"
-#include "graph_caller.hpp"
+#include "../src/graph_caller.hpp"
 #include "site_values.hpp"
 #include "vcf_record.hpp"
 

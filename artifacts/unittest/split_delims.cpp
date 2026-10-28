@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "utility.hpp"
+#include "../../src/utility.hpp"
 
-#include "catch.hpp"
+#include "../../src/unittest/catch.hpp"
 
 namespace vg {
 namespace unittest {

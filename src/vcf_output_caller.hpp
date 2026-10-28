@@ -16,10 +16,9 @@
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
-#include "ploidy_regions.hpp"
-#include "vcf_genotype_likelihoods.hpp"
-#include "vcf_record.hpp"
-#include "site_tree.hpp"
+#include "../artifacts/ploidy_regions.hpp"
+#include "../artifacts/vcf_record.hpp"
+#include "../artifacts/site_tree.hpp"
 
 namespace vg {
 

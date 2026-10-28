@@ -20,8 +20,8 @@
 
 #include <bdsg/hash_graph.hpp>
 
-#include "catch.hpp"
-#include "off_panel.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../off_panel.hpp"
 
 namespace vg {
 namespace unittest {

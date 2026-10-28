@@ -10,8 +10,8 @@
 #include <vector>
 
 #include "edit_snarl_decomposition_overlay.hpp"
-#include "handle.hpp"
-#include "traversal_finder.hpp"
+#include "../src/handle.hpp"
+#include "../src/traversal_finder.hpp"
 
 namespace vg::multipass {
 

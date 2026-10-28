@@ -28,7 +28,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "handle.hpp"
+#include "../src/handle.hpp"
 #include "site_read_source.hpp"
 #include "vg/vg.pb.h"
 

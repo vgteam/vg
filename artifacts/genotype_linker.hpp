@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "handle.hpp"
+#include "../src/handle.hpp"
 #include "linkage_model.hpp"
-#include "snarl_caller.hpp"
+#include "../src/snarl_caller.hpp"
 #include "descent_policy.hpp"
 #include "panel_lookup.hpp"
 #include "phase_table.hpp"

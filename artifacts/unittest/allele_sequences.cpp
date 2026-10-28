@@ -10,9 +10,9 @@
 #include <bdsg/hash_graph.hpp>
 #include <gbwt/dynamic_gbwt.h>
 
-#include "catch.hpp"
-#include "panel_lookup.hpp"
-#include "site_values.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../panel_lookup.hpp"
+#include "../site_values.hpp"
 
 namespace vg {
 namespace unittest {

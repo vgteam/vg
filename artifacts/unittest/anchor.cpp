@@ -18,10 +18,10 @@
 
 #include <bdsg/hash_graph.hpp>
 
-#include "anchor.hpp"
-#include "catch.hpp"
-#include "snarls.hpp"
-#include "utility.hpp"
+#include "../anchor.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../../src/snarls.hpp"
+#include "../../src/utility.hpp"
 
 namespace vg {
 namespace unittest {

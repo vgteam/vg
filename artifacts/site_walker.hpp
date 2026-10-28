@@ -5,8 +5,8 @@
 
 #include <handlegraph/snarl_decomposition.hpp>
 
-#include "graph_caller.hpp"
-#include "handle.hpp"
+#include "../src/graph_caller.hpp"
+#include "../src/handle.hpp"
 #include "site_values.hpp"
 
 namespace vg::multipass {

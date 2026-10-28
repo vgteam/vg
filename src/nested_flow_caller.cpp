@@ -7,8 +7,6 @@
 #include <omp.h>
 
 #include "nested_flow_caller.hpp"
-#include "symbolic_allele.hpp"
-#include "read_likelihood_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"

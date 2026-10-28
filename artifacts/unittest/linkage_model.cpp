@@ -7,8 +7,8 @@
 #include <stdexcept>
 #include <vector>
 
-#include "catch.hpp"
-#include "linkage_model.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../linkage_model.hpp"
 
 namespace vg {
 namespace unittest {

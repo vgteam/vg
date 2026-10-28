@@ -12,8 +12,8 @@
 #include <limits>
 #include <vector>
 
-#include "allele_likelihood.hpp"
-#include "catch.hpp"
+#include "../allele_likelihood.hpp"
+#include "../../src/unittest/catch.hpp"
 
 namespace vg {
 namespace unittest {

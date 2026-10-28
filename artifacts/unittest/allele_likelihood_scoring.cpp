@@ -17,14 +17,14 @@
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/overlays/path_position_overlays.hpp>
 
-#include "allele_likelihood.hpp"
-#include "alignment_scorer.hpp"
-#include "catch.hpp"
-#include "snarl_fixtures.hpp"
-#include "site_read_source.hpp"
-#include "site_values.hpp"
-#include "snarls.hpp"
-#include "utility.hpp"
+#include "../allele_likelihood.hpp"
+#include "../../src/alignment_scorer.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "support/snarl_fixtures.hpp"
+#include "../site_read_source.hpp"
+#include "../site_values.hpp"
+#include "../../src/snarls.hpp"
+#include "../../src/utility.hpp"
 
 namespace vg {
 namespace unittest {

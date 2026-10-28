@@ -3,19 +3,19 @@
 /// Unit tests for SiteWalker and the site values it hands out, run on a SnarlManagerDecomposition
 /// and a SnarlDistanceIndex built from the same decomposition.
 
-#include "catch.hpp"
-#include "site_tree_queries.hpp"
-#include "snarl_fixtures.hpp"
-#include "decomposition_sites.hpp"
-#include "handle.hpp"
-#include "integrated_snarl_finder.hpp"
-#include "site_values.hpp"
-#include "site_walker.hpp"
-#include "vg.hpp"
-#include "decomposition_pair.hpp"
-#include "random_graph.hpp"
-#include "randomly_flipped_nodes.hpp"
-#include "randomness.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "support/site_tree_queries.hpp"
+#include "support/snarl_fixtures.hpp"
+#include "../decomposition_sites.hpp"
+#include "../../src/handle.hpp"
+#include "../../src/integrated_snarl_finder.hpp"
+#include "../site_values.hpp"
+#include "../site_walker.hpp"
+#include "../../src/vg.hpp"
+#include "support/decomposition_pair.hpp"
+#include "../../src/unittest/support/random_graph.hpp"
+#include "../../src/unittest/support/randomly_flipped_nodes.hpp"
+#include "../../src/unittest/support/randomness.hpp"
 
 #include <bdsg/hash_graph.hpp>
 

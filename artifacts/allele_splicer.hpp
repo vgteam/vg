@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "handle.hpp"
+#include "../src/handle.hpp"
 #include "phase_table.hpp"
 #include "site_values.hpp"
 #include "staged_site.hpp"

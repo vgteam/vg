@@ -11,15 +11,15 @@
 #include <omp.h>
 
 #include "mosaic_writer.hpp"
-#include "vcf_output_caller.hpp"
-#include "graph_caller.hpp"
+#include "../src/vcf_output_caller.hpp"
+#include "../src/graph_caller.hpp"
 #include "symbolic_allele.hpp"
 #include "read_likelihood_caller.hpp"
-#include "algorithms/expand_context.hpp"
-#include "annotation.hpp"
-#include "gref.hpp"
-#include "traversal_clusters.hpp"
-#include "utility.hpp"
+#include "../src/algorithms/expand_context.hpp"
+#include "../src/annotation.hpp"
+#include "../src/gref.hpp"
+#include "../src/traversal_clusters.hpp"
+#include "../src/utility.hpp"
 
 namespace vg::multipass {
 

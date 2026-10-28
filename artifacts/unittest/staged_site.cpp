@@ -2,8 +2,8 @@
 ///
 /// Unit tests for StagedSiteTable.
 
-#include "catch.hpp"
-#include "staged_site.hpp"
+#include "../../src/unittest/catch.hpp"
+#include "../staged_site.hpp"
 
 namespace vg {
 namespace unittest {
