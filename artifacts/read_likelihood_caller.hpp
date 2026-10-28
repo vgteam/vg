@@ -175,19 +175,16 @@ public:
     };
 
     /**
-     * Genotype the site `site` at `ploidies`, choosing among the alleles `traversals`.
+     * Genotype the site `site` at `ploidies`, choosing among its alleles.
      *
-     * @param ref_trav_idx The index of the reference allele in `traversals`, or -1 for none.
      * @param fallback_nodes Nodes to place the site's depth-rate window by, most preferred first,
      * when neither bound of the site is on a reference path.
-     * @param sequences Sequences to spell alleles by, in place of their walks, if given.
-     * @return The genotype, as a sorted multiset of indices into `traversals`, or empty if the
+     * @return The genotype, as a sorted multiset of indices into the site's walks, or empty if the
      * site cannot be genotyped. Also the score, which is never null.
      */
     pair<vector<int>, unique_ptr<ReadLikelihoodCallInfo>> genotype_at(
-        const SiteBounds& site, const vector<Traversal>& traversals, int ref_trav_idx,
-        const Ploidies& ploidies, const vector<nid_t>& fallback_nodes,
-        const AlleleSequences* sequences = nullptr);
+        const MaterializedSite& site, const Ploidies& ploidies,
+        const vector<nid_t>& fallback_nodes);
 
     /**
      * Write the record's fields from the scores in `call_info`: DP, BL, DR, AD, GL and the rest.

@@ -134,9 +134,10 @@ static AlleleReadLikelihoods score_site(Site& site, const vector<Alignment>& rea
     params.insertion_gap_nats = insertion_nats;
     GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
                                                       plain_scorer, params);
-    return calculator.compute(bounds_of(site.graph, site.snarl),
-                              walks_of(site.graph, site.traversals),
-                              /* top-level: nothing encloses it */ {}, ploidy);
+    return calculator.compute(
+        materialized_of(site.graph, site.snarl,
+            CandidateAlleles{walks_of(site.graph, site.traversals), 0}),
+        /* top-level: nothing encloses it */ {}, ploidy);
 }
 
 TEST_CASE("The depth rate is per haplotype, so it follows the site's ploidy",
@@ -412,10 +413,12 @@ TEST_CASE("No read's allele preference depends on the flank's length",
         GraphAlignedAlleleLikelihoodCalculator short_calc(shortf.graph, short_src, qs, ps, params);
         GraphAlignedAlleleLikelihoodCalculator long_calc(longf.graph, long_src, qs, ps, params);
         AlleleReadLikelihoods sm = short_calc.compute(
-            bounds_of(shortf.graph, shortf.snarl), walks_of(shortf.graph, shortf.traversals),
+            materialized_of(shortf.graph, shortf.snarl,
+                            CandidateAlleles{walks_of(shortf.graph, shortf.traversals), 0}),
             /* top-level: nothing encloses it */ {}, 2);
         AlleleReadLikelihoods lm = long_calc.compute(
-            bounds_of(longf.graph, longf.snarl), walks_of(longf.graph, longf.traversals),
+            materialized_of(longf.graph, longf.snarl,
+                            CandidateAlleles{walks_of(longf.graph, longf.traversals), 0}),
             /* top-level: nothing encloses it */ {}, 2);
 
         INFO("configuration " << c << (optimal_pairing ? " (optimal)" : " (greedy)"));
@@ -475,7 +478,8 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
         params.optimal_pairing = optimal_pairing;
         GraphAlignedAlleleLikelihoodCalculator calc(site.graph, src, qs, ps, params);
         AlleleReadLikelihoods m = calc.compute(
-            bounds_of(site.graph, site.snarl), walks_of(site.graph, site.traversals),
+            materialized_of(site.graph, site.snarl,
+                CandidateAlleles{walks_of(site.graph, site.traversals), 0}),
             /* top-level: nothing encloses it */ {}, 2);
 
         INFO("configuration " << c << (optimal_pairing ? " (optimal)" : " (greedy)"));
@@ -781,8 +785,8 @@ TEST_CASE("An allele with step sequences is scored against them, though it share
         params.optimal_pairing = optimal_pairing;
         GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
                                                           plain_scorer, params);
-        AlleleReadLikelihoods matrix = calculator.compute(bounds_of(site.graph, site.snarl), walks,
-                                                          {}, 2, &sequences);
+        AlleleReadLikelihoods matrix = calculator.compute(
+            materialized_of(site.graph, site.snarl, CandidateAlleles{walks, 0, sequences}), {}, 2);
         REQUIRE(matrix.num_reads() == 2);
         // Each read fits its own allele best, which it would not if both alleles were spelled by
         // their shared walk.
@@ -794,8 +798,10 @@ TEST_CASE("An allele with step sequences is scored against them, though it share
         REQUIRE(matrix.rel(0, 1) == Approx(matrix.rel(1, 0)));
 
         // Without the step sequences the two alleles are one, and no read tells them apart.
-        AlleleReadLikelihoods walks_only = calculator.compute(bounds_of(site.graph, site.snarl),
-                                                              walks, {}, 2);
+        AlleleReadLikelihoods walks_only =
+            calculator.compute(
+                materialized_of(site.graph, site.snarl,
+                    CandidateAlleles{walks, 0}), {}, 2);
         REQUIRE(walks_only.rel(1, 0) == Approx(walks_only.rel(1, 1)));
     }
 }
@@ -838,8 +844,9 @@ TEST_CASE("A complex allele is judged on the read's bases between the unchanged 
     AlleleLikelihoodParams params;
     GraphAlignedAlleleLikelihoodCalculator calculator(graph, source, qual_scorer, plain_scorer,
                                                       params);
-    AlleleReadLikelihoods matrix = calculator.compute(site.bounds, site.travs, {}, 2,
-                                                      &site.sequences);
+    const CandidateAlleles alleles = alleles_of(site);
+    AlleleReadLikelihoods matrix =
+        calculator.compute(materialized_of(graph, site, alleles), {}, 2);
     REQUIRE(matrix.num_reads() == 3);
     REQUIRE(matrix.rel(0, 0) == Approx(1.0));
     REQUIRE(matrix.rel(0, 1) < 0.01);
@@ -875,8 +882,9 @@ public:
     using GraphAlignedAlleleLikelihoodCalculator::GraphAlignedAlleleLikelihoodCalculator;
     pair<double, double> rate_and_length(const Snarl& snarl, nid_t site_node) const {
         // The site is top-level, so no site encloses it.
-        WindowReadStats stats = local_read_stats(bounds_of(graph, snarl), {},
-                                                 {{site_node, site_node}});
+        WindowReadStats stats =
+            local_read_stats(materialized_of(graph, snarl, CandidateAlleles{}), {},
+                             {{site_node, site_node}});
         return make_pair(stats.start_rate, stats.mean_read_length);
     }
 };

@@ -27,6 +27,7 @@
 
 #include "alignment_scorer.hpp"
 #include "handle.hpp"
+#include "materialized_site.hpp"
 #include "site_read_source.hpp"
 #include "site_values.hpp"
 #include "snarls.hpp"
@@ -540,23 +541,20 @@ public:
     /**
      * Make the matrix for one site.
      *
-     * Nothing in the matrix depends on the ploidy the site is then genotyped at.
+     * Nothing in the matrix depends on the ploidy the site is then genotyped at. An allele with
+     * step sequences is scored against them rather than against the nodes of its walk.
      *
-     * @param traversals The candidate alleles, in the order the caller will genotype them.
+     * @param site The site, whose alleles are in the order the caller will genotype them.
      * @param fallback_nodes Nodes to place the site's depth-rate window by, most preferred
      * first, when neither bound of the site is on a reference path.
      * @param region_ploidy The number of the sample's haplotypes in the region around the site.
      * The depth term divides the local read rate by it to get a rate per haplotype. It is the
      * site's own ploidy at a top-level site. At a nested site that only some of its parent's
      * alleles cross, it is more, since the reads counted near the site come from all of them.
-     * @param sequences The step sequences of the alleles that have them. Such an allele is scored
-     * against them rather than against the nodes of its walk.
      */
-    virtual AlleleReadLikelihoods compute(const SiteBounds& site,
-                                          const vector<Traversal>& traversals,
+    virtual AlleleReadLikelihoods compute(const MaterializedSite& site,
                                           const vector<nid_t>& fallback_nodes,
-                                          int region_ploidy,
-                                          const AlleleSequences* sequences = nullptr) = 0;
+                                          int region_ploidy) = 0;
 };
 
 /**
@@ -621,11 +619,9 @@ public:
                                            const EditAlignmentScorer& plain_scorer,
                                            const Params& params = Params());
 
-    AlleleReadLikelihoods compute(const SiteBounds& site,
-                                  const vector<Traversal>& traversals,
+    AlleleReadLikelihoods compute(const MaterializedSite& site,
                                   const vector<nid_t>& fallback_nodes,
-                                  int region_ploidy,
-                                  const AlleleSequences* sequences = nullptr) override;
+                                  int region_ploidy) override;
 
     /**
      * Place rate windows on reference paths.
@@ -862,7 +858,8 @@ protected:
      * the depth term do not depend on how the reads were supplied. It is computed once and shared
      * by the sites in it.
      */
-    WindowReadStats local_read_stats(const SiteBounds& site, const vector<nid_t>& fallback_nodes,
+    WindowReadStats local_read_stats(const MaterializedSite& site,
+                                     const vector<nid_t>& fallback_nodes,
                                      const vector<pair<nid_t, nid_t>>& site_ranges) const;
 
     /// Return the statistics of the reads in the node-ID fallback window of a site (see
@@ -906,7 +903,7 @@ protected:
      *
      * @return False if there is no such position.
      */
-    bool rate_position(const SiteBounds& site, const vector<nid_t>& fallback_nodes,
+    bool rate_position(const MaterializedSite& site, const vector<nid_t>& fallback_nodes,
                        size_t& path_index, int64_t& position) const;
 
     const PathHandleGraph& graph;

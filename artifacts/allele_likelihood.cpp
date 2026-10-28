@@ -1204,7 +1204,7 @@ void GraphAlignedAlleleLikelihoodCalculator::set_rate_reference(
     ref_window_rate.clear();
 }
 
-bool GraphAlignedAlleleLikelihoodCalculator::rate_position(const SiteBounds& site,
+bool GraphAlignedAlleleLikelihoodCalculator::rate_position(const MaterializedSite& site,
                                                           const vector<nid_t>& fallback_nodes,
                                                           size_t& path_index,
                                                           int64_t& position) const {
@@ -1341,7 +1341,7 @@ GraphAlignedAlleleLikelihoodCalculator::bucket_counts(size_t path_index, int64_t
 
 GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
 GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
-    const SiteBounds& site, const vector<nid_t>& fallback_nodes,
+    const MaterializedSite& site, const vector<nid_t>& fallback_nodes,
     const vector<pair<nid_t, nid_t>>& site_ranges) const {
 
     if (site_ranges.empty() || params.depth_ploidy <= 0) {
@@ -1513,10 +1513,8 @@ struct GraphAlignedAlleleLikelihoodCalculator::WalkChanges {
     /// The bases of each allele in the window, in a window-scored site.
     vector<string> window;
 
-    /// Compare the alleles `traversals` of `site`, with step sequences `sequences`, to their walk.
-    WalkChanges(const HandleGraph& graph, const SiteBounds& site,
-                const vector<Traversal>& traversals, const AlleleSequences* sequences,
-                const Params& params);
+    /// Compare the alleles of `site` to their walk.
+    WalkChanges(const HandleGraph& graph, const MaterializedSite& site, const Params& params);
 
     /// Return whether reads at the site need their rows changed by `adjust_row`.
     bool changes_reads() const { return !indel_alleles.empty() || window_scored; }
@@ -1595,10 +1593,11 @@ private:
 };
 
 GraphAlignedAlleleLikelihoodCalculator::WalkChanges::WalkChanges(
-    const HandleGraph& graph, const SiteBounds& site, const vector<Traversal>& traversals,
-    const AlleleSequences* sequences, const Params& params)
-    : is_indel_allele(traversals.size(), false) {
-    if (!site.inside_node || sequences == nullptr
+    const HandleGraph& graph, const MaterializedSite& site, const Params& params)
+    : is_indel_allele(site.alleles.walks.size(), false) {
+    const vector<Traversal>& traversals = site.alleles.walks;
+    const AlleleSequences* sequences = &site.alleles.sequences;
+    if (!site.bounds_inside_nodes(graph) || site.alleles.sequences.empty()
         || !std::ranges::all_of(traversals,
                                 [&](const Traversal& t) { return t == traversals.front(); })) {
         return;
@@ -1853,9 +1852,8 @@ struct GraphAlignedAlleleLikelihoodCalculator::SitePins {
     bool end_exit;
     bool inside_node;
 
-    /// Place the pins of `site`, whose alleles are `traversals` with the changes `changes`.
-    SitePins(const HandleGraph& graph, const SiteBounds& site,
-             const vector<Traversal>& traversals, const WalkChanges& changes);
+    /// Place the pins of `site`, whose alleles make the changes `changes`.
+    SitePins(const HandleGraph& graph, const MaterializedSite& site, const WalkChanges& changes);
 
     /// Describe the pins in the anchor evidence of the site.
     void describe(const HandleGraph& graph, AnchorSiteEvidence& evidence) const;
@@ -1866,19 +1864,18 @@ struct GraphAlignedAlleleLikelihoodCalculator::SitePins {
 };
 
 GraphAlignedAlleleLikelihoodCalculator::SitePins::SitePins(const HandleGraph& graph,
-                                                            const SiteBounds& site,
-                                                            const vector<Traversal>& traversals,
+                                                            const MaterializedSite& site,
                                                             const WalkChanges& changes)
     : start_handle(site.start), end_handle(site.end),
       start_pin(graph.get_is_reverse(site.start) ? 0 : (int64_t)graph.get_length(site.start)),
       end_pin(graph.get_is_reverse(site.end) ? (int64_t)graph.get_length(site.end) : 0),
-      end_exit(site.inside_node
+      end_exit(site.bounds_inside_nodes(graph)
                && changes.changed_hi == (int64_t)changes.walk_spelling.size()),
-      inside_node(site.inside_node) {
-    if (!site.inside_node || changes.changed_lo > changes.changed_hi) {
+      inside_node(site.bounds_inside_nodes(graph)) {
+    if (!inside_node || changes.changed_lo > changes.changed_hi) {
         return;
     }
-    const Traversal& walk = traversals.front();
+    const Traversal& walk = site.alleles.walks.front();
     const int64_t lo = changes.changed_lo;
     const int64_t hi = changes.changed_hi;
     start_pin = changes.pin_at(graph, walk, lo, std::max<int64_t>(lo - 1, 0), start_handle);
@@ -2093,13 +2090,12 @@ void GraphAlignedAlleleLikelihoodCalculator::score_row(
 /// A site inside nodes is made of the nodes its alleles walk, and has no boundary node. Its bounds
 /// are inside its first and last nodes, so every read on them may tell its alleles apart, and
 /// their bases all count towards the depth term.
-static void collect_site_nodes(const HandleGraph& graph, const SiteBounds& site,
-                               const vector<Traversal>& traversals,
+static void collect_site_nodes(const HandleGraph& graph, const MaterializedSite& site,
                                unordered_set<nid_t>& site_nodes,
                                unordered_set<nid_t>& boundary_nodes) {
-    if (site.inside_node) {
+    if (site.bounds_inside_nodes(graph)) {
         site_nodes.insert(graph.get_id(site.start));
-        for (const Traversal& walk : traversals) {
+        for (const Traversal& walk : site.alleles.walks) {
             for (const handle_t& h : walk) {
                 site_nodes.insert(graph.get_id(h));
             }
@@ -2232,8 +2228,8 @@ double GraphAlignedAlleleLikelihoodCalculator::mismap_probability(const Alignmen
 }
 
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
-    const SiteBounds& site, const vector<Traversal>& traversals,
-    const vector<nid_t>& fallback_nodes, int region_ploidy, const AlleleSequences* sequences) {
+    const MaterializedSite& site, const vector<nid_t>& fallback_nodes, int region_ploidy) {
+    const vector<Traversal>& traversals = site.alleles.walks;
 
     AlleleReadLikelihoodsBuilder builder(traversals.size(), params.min_mismap_prob,
                                         params.max_mismap_prob);
@@ -2243,18 +2239,18 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
 
     unordered_set<nid_t> site_nodes;
     unordered_set<nid_t> boundary_nodes;
-    collect_site_nodes(graph, site, traversals, site_nodes, boundary_nodes);
+    collect_site_nodes(graph, site, site_nodes, boundary_nodes);
     if (site_nodes.empty()) {
         return builder.build();
     }
     const vector<pair<nid_t, nid_t>> ranges = id_ranges(site_nodes);
 
-    const WalkChanges changes(graph, site, traversals, sequences, params);
+    const WalkChanges changes(graph, site, params);
     SiteAlleles alleles;
     alleles.steps.reserve(traversals.size());
     for (size_t a = 0; a < traversals.size(); ++a) {
         const StepSequences* own = changes.scored_as_walk(a) ? nullptr
-                                                             : own_sequences(sequences, a);
+                                                             : site.alleles.own_sequences(a);
         alleles.steps.push_back(get_allele_steps(traversals[a], own));
     }
     alleles.index(!params.optimal_pairing);
@@ -2266,7 +2262,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // These lengths ask how much sequence yields reads, while the unique lengths of the mixture
     // weights ask which sequence tells the alleles apart.
     const vector<size_t> depth_lengths = alleles.interior_lengths(boundary_nodes);
-    const SitePins pins(graph, site, traversals, changes);
+    const SitePins pins(graph, site, changes);
 
     // Collect the anchor evidence, if anchors are being written, with the reads in the order
     // `add_read` kept them. Give it the spelled lengths whatever the mixture setting, because the

@@ -156,11 +156,10 @@ static unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> copy_matrix
 }
 
 pair<vector<int>, unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo>>
-ReadLikelihoodSnarlCaller::genotype_at(const SiteBounds& site,
-                                       const vector<Traversal>& traversals, int ref_trav_idx,
-                                       const Ploidies& ploidies,
-                                       const vector<nid_t>& fallback_nodes,
-                                       const AlleleSequences* sequences) {
+ReadLikelihoodSnarlCaller::genotype_at(const MaterializedSite& site, const Ploidies& ploidies,
+                                       const vector<nid_t>& fallback_nodes) {
+    const vector<Traversal>& traversals = site.alleles.walks;
+    const int ref_trav_idx = site.alleles.ref_allele;
     const int ploidy = ploidies.ploidy;
     auto call_info = make_unique<ReadLikelihoodCallInfo>();
     call_info->ploidy = ploidy;
@@ -170,8 +169,7 @@ ReadLikelihoodSnarlCaller::genotype_at(const SiteBounds& site,
     }
 
     AlleleReadLikelihoods matrix = likelihood_calculator.compute(
-        site, traversals, fallback_nodes,
-        ploidies.region_ploidy > 0 ? ploidies.region_ploidy : ploidy, sequences);
+        site, fallback_nodes, ploidies.region_ploidy > 0 ? ploidies.region_ploidy : ploidy);
     fill_matrix_fields(matrix, traversals, *call_info);
     // The call info outlives the matrix, so the per-read evidence moves into it. Read phasing and
     // re-genotyping read it in the rounds, and the render builds the anchors from it.

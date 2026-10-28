@@ -66,6 +66,20 @@ vector<nid_t> fallback_nodes_of(const HandleGraph& graph, const vector<SiteBound
     return nodes;
 }
 
+/**
+ * Write out the site with bounds `bounds` and alleles `alleles`.
+ *
+ * The bounds of a site inside nodes start at its first base, given by `bounds.offset`, and end at
+ * the end of its last node.
+ */
+MaterializedSite materialize(const HandleGraph& graph, const SiteBounds& bounds,
+                             const CandidateAlleles& alleles) {
+    return MaterializedSite{
+        bounds.start,
+        bounds.inside_node ? bases_before_site(graph, bounds) : graph.get_length(bounds.start),
+        bounds.end, bounds.inside_node ? graph.get_length(bounds.end) : 0, alleles};
+}
+
 } // namespace
 
 bool TreeGenotyper::genotype(const SiteView& site) {
@@ -572,8 +586,9 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
         ploidies.region_ploidy = region_ploidy;
         ploidies.also_score_other = true;
     }
-    auto called = parts.genotyper->genotype_at(bounds, walks, 0, ploidies,
-                                               fallback_nodes_of(graph, enclosing), &sequences);
+    const CandidateAlleles alleles{walks, 0, sequences};
+    auto called = parts.genotyper->genotype_at(materialize(graph, bounds, alleles), ploidies,
+                                               fallback_nodes_of(graph, enclosing));
     vector<int>& genotype = called.first;
     SiteScore* score = called.second.get();
     unique_ptr<SnarlCaller::CallInfo> call_info(std::move(called.second));
@@ -629,7 +644,8 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> TreeGenotyper::genotype_site(
     const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
     const Ploidies& ploidies, const vector<SiteBounds>& enclosing, SiteScore*& score) const {
-    auto called = parts.genotyper->genotype_at(site, travs, ref_trav_idx, ploidies,
+    const CandidateAlleles alleles{travs, ref_trav_idx, {}};
+    auto called = parts.genotyper->genotype_at(materialize(*parts.graph, site, alleles), ploidies,
                                                fallback_nodes_of(*parts.graph, enclosing));
     score = called.second.get();
     return make_pair(std::move(called.first),

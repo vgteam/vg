@@ -122,12 +122,13 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
     if (configure) {
         configure(caller);
     }
-    auto result = caller.genotype_at(bounds_of(site.graph, site.snarl),
-                                     walks_of(site.graph, site.traversals), 0,
-                                     Ploidies{.ploidy = ploidy,
-                                              .region_ploidy = region_ploidy,
-                                              .also_score_other = also_score_other},
-                                     /* top-level: nothing encloses it */ {});
+    auto result = caller.genotype_at(
+        materialized_of(site.graph, site.snarl,
+            CandidateAlleles{walks_of(site.graph, site.traversals), 0}),
+        Ploidies{.ploidy = ploidy,
+                 .region_ploidy = region_ploidy,
+                 .also_score_other = also_score_other},
+        /* top-level: nothing encloses it */ {});
     Called out;
     out.genotype = result.first;
     out.info = std::move(result.second);
@@ -447,10 +448,10 @@ TEST_CASE("A record with a star allele still gets QUAL from the reference column
     GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
                                                       plain_scorer);
     ReadLikelihoodSnarlCaller caller(site.graph, calculator);
-    auto result = caller.genotype_at(bounds_of(site.graph, site.snarl),
-                                     walks_of(site.graph, site.traversals), 0,
-                                     Ploidies{.ploidy = 1},
-                                     /* top-level: nothing encloses it */ {});
+    auto result = caller.genotype_at(
+        materialized_of(site.graph, site.snarl,
+            CandidateAlleles{walks_of(site.graph, site.traversals), 0}),
+        Ploidies{.ploidy = 1}, /* top-level: nothing encloses it */ {});
     REQUIRE(result.first == vector<int>({1}));
     const unique_ptr<SnarlCaller::CallInfo> call_info(std::move(result.second));
 
