@@ -39,7 +39,6 @@ struct CallerSite {
     bdsg::HashGraph graph;
     Snarl snarl;
     vector<SnarlTraversal> traversals;   // 0: ref (1,2,4)  1: alt (1,3,4)  2: del (1,4)
-    unique_ptr<SnarlManager> manager;
 
     CallerSite() {
         // 60 bp of interior sequence, so ref -> deletion is a 60 bp length change.
@@ -71,9 +70,6 @@ struct CallerSite {
         traversals.push_back(make_trav({1, 2, 4}));
         traversals.push_back(make_trav({1, 3, 4}));
         traversals.push_back(make_trav({1, 4}));
-
-        vector<Snarl> snarls{snarl};
-        manager.reset(new SnarlManager(snarls.begin(), snarls.end()));
     }
 };
 
@@ -122,8 +118,7 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
     MatrixAlignmentScorer plain_scorer;
     GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
                                                       plain_scorer);
-    NullTraversalSupportFinder support(site.graph, *site.manager);
-    ReadLikelihoodSnarlCaller caller(site.graph, *site.manager, support, calculator);
+    ReadLikelihoodSnarlCaller caller(site.graph, calculator);
     if (configure) {
         configure(caller);
     }
@@ -423,8 +418,7 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     MatrixAlignmentScorer plain_scorer;
     GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
                                                       plain_scorer);
-    NullTraversalSupportFinder support(site.graph, *site.manager);
-    ReadLikelihoodSnarlCaller caller(site.graph, *site.manager, support, calculator);
+    ReadLikelihoodSnarlCaller caller(site.graph, calculator);
 
     SECTION("with the share discount") {
         caller.recompute_gq(info);
@@ -452,8 +446,7 @@ TEST_CASE("A record with a star allele still gets QUAL from the reference column
     MatrixAlignmentScorer plain_scorer;
     GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
                                                       plain_scorer);
-    NullTraversalSupportFinder support(site.graph, *site.manager);
-    ReadLikelihoodSnarlCaller caller(site.graph, *site.manager, support, calculator);
+    ReadLikelihoodSnarlCaller caller(site.graph, calculator);
     auto result = caller.genotype_at(bounds_of(site.graph, site.snarl),
                                      walks_of(site.graph, site.traversals), 0,
                                      Ploidies{.ploidy = 1},
@@ -461,11 +454,11 @@ TEST_CASE("A record with a star allele still gets QUAL from the reference column
     REQUIRE(result.first == vector<int>({1}));
     const unique_ptr<SnarlCaller::CallInfo> call_info(std::move(result.second));
 
-    // Record alleles: reference, the called alternative, and the star allele.
-    vector<SnarlTraversal> record_traversals{site.traversals[0], site.traversals[1],
-                                             SnarlTraversal()};
+    // Record alleles: reference, the called alternative, and the star allele, which was not
+    // scored.
+    const vector<int> scored_allele{0, 1, -1};
     vcflib::Variant variant;
-    caller.update_vcf_info(site.snarl, record_traversals, {1, 2}, call_info, "s", variant);
+    caller.write_vcf_fields(scored_allele, {1, 2}, call_info.get(), "s", variant);
     REQUIRE(variant.quality > 10.0);
     // GL needs every genotype of the record's alleles, so it is left out.
     REQUIRE(variant.samples["s"].count("GL") == 0);

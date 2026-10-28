@@ -25,11 +25,8 @@ static std::string fixed_decimal(double value, int digits) {
 using namespace std;
 
 ReadLikelihoodSnarlCaller::ReadLikelihoodSnarlCaller(const PathHandleGraph& graph,
-                                                     SnarlManager& snarl_manager,
-                                                     TraversalSupportFinder& support_finder,
                                                      AlleleLikelihoodCalculator& likelihood_calculator)
-    : SupportBasedSnarlCaller(graph, snarl_manager, support_finder),
-      likelihood_calculator(likelihood_calculator) {
+    : graph(graph), likelihood_calculator(likelihood_calculator) {
 }
 
 ReadLikelihoodSnarlCaller::~ReadLikelihoodSnarlCaller() = default;
@@ -99,12 +96,6 @@ void ReadLikelihoodSnarlCaller::recompute_gq(ReadLikelihoodCallInfo& info) const
 
 void ReadLikelihoodSnarlCaller::set_min_confidence(double threshold) {
     this->min_confidence = threshold;
-}
-
-pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::genotype(
-    const Snarl&, const vector<SnarlTraversal>&, int, int, const string&, pair<size_t, size_t>) {
-    throw std::logic_error("ReadLikelihoodSnarlCaller::genotype is not used; MultiPassCaller "
-                           "genotypes through genotype_at");
 }
 
 /**
@@ -394,34 +385,6 @@ const PhaseReadEvidence* ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo::read
     return pe;
 }
 
-void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
-                                               const vector<SnarlTraversal>& traversals,
-                                               const vector<int>& genotype,
-                                               const unique_ptr<CallInfo>& call_info,
-                                               const string& sample_name,
-                                               vcflib::Variant& variant) {
-    const ReadLikelihoodCallInfo* info =
-        dynamic_cast<const ReadLikelihoodCallInfo*>(call_info.get());
-    if (info == nullptr) {
-        return;
-    }
-    // Map each emitted VCF allele back to the matrix column it came from.
-    //
-    // emit_variant merged alleles with the same sequence and dropped uncalled ones, so
-    // these indices are not the ones we genotyped. Traversals that match nothing, such as
-    // the empty traversal of a star allele, stay unmapped.
-    vector<int> site_to_scored(traversals.size(), -1);
-    for (size_t s = 0; s < traversals.size(); ++s) {
-        for (size_t k = 0; k < info->scored_traversals.size(); ++k) {
-            if (same_walk(graph, traversals[s], info->scored_traversals[k])) {
-                site_to_scored[s] = (int)k;
-                break;
-            }
-        }
-    }
-    write_vcf_fields(site_to_scored, genotype, info, sample_name, variant);
-}
-
 namespace {
 
 /**
@@ -533,7 +496,7 @@ string printed_quality(double quality) {
 
 void ReadLikelihoodSnarlCaller::write_vcf_fields(const vector<int>& site_to_scored,
                                                  const vector<int>& genotype,
-                                                 const CallInfo* call_info,
+                                                 const SnarlCaller::CallInfo* call_info,
                                                  const string& sample_name,
                                                  vcflib::Variant& variant) const {
     const auto* info = dynamic_cast<const ReadLikelihoodCallInfo*>(call_info);

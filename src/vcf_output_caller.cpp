@@ -481,9 +481,17 @@ string VCFOutputCaller::snarl_caller_vcf_header(const PathHandleGraph& graph,
                                                 const vector<string>& contigs,
                                                 const vector<size_t>& contig_length_overrides,
                                                 const SnarlCaller& snarl_caller) const {
+    return genotyper_vcf_header(graph, contigs, contig_length_overrides,
+                                [&](string& header) { snarl_caller.update_vcf_header(header); });
+}
+
+string VCFOutputCaller::genotyper_vcf_header(const PathHandleGraph& graph,
+                                             const vector<string>& contigs,
+                                             const vector<size_t>& contig_length_overrides,
+                                             const function<void(string& header)>& add_genotyper_lines) const {
     string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
-    snarl_caller.update_vcf_header(header);
+    add_genotyper_lines(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
     header += "##SAMPLE=<ID=" + sample_name + ">\n";
     header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;

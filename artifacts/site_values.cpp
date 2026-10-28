@@ -4,20 +4,6 @@
 #include <algorithm>
 
 namespace vg {
-bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Traversal& walk) {
-    if ((size_t)trav.visit_size() != walk.size()) {
-        return false;
-    }
-    for (size_t i = 0; i < walk.size(); ++i) {
-        const Visit& visit = trav.visit(i);
-        if (visit.has_snarl() || visit.node_id() != graph.get_id(walk[i])
-            || visit.backward() != graph.get_is_reverse(walk[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-
 const StepSequences* own_sequences(const AlleleSequences* sequences, size_t allele) {
     if (sequences == nullptr || allele >= sequences->size() || (*sequences)[allele].empty()) {
         return nullptr;

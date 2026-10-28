@@ -2513,8 +2513,8 @@ int main_call(int argc, char** argv) {
     
     // Make a Packed Support Caller
     unique_ptr<SnarlCaller> snarl_caller;
-    // The read-likelihood genotyper, when `snarl_caller` is one.
-    ReadLikelihoodSnarlCaller* read_likelihood_caller = nullptr;
+    // The read-likelihood genotyper, which takes the place of `snarl_caller`.
+    unique_ptr<ReadLikelihoodSnarlCaller> read_likelihood_caller;
     vg::algorithms::BinnedDepthIndex depth_index;
 
     unique_ptr<Packer> packer;
@@ -2619,8 +2619,7 @@ int main_call(int argc, char** argv) {
                 graph_calculator->set_rate_reference(position_graph, rate_paths);
             }
 
-            auto rl_caller = new ReadLikelihoodSnarlCaller(*graph, *snarl_manager, *support_finder,
-                                                           *likelihood_calculator);
+            auto rl_caller = new ReadLikelihoodSnarlCaller(*graph, *likelihood_calculator);
 
             if (!dump_likelihoods_filename.empty()) {
                 likelihood_dump = make_unique<ofstream>(dump_likelihoods_filename);
@@ -2635,8 +2634,7 @@ int main_call(int argc, char** argv) {
             rl_caller->set_depth_quality(depth_quality);
             rl_caller->set_min_confidence(min_confidence);
 
-            packed_caller = rl_caller;
-            read_likelihood_caller = rl_caller;
+            read_likelihood_caller.reset(rl_caller);
         } else if (ratio_caller == false) {
             // Make a depth index
             if (show_progress) logger.info() << "Computing coverage statistics" << endl;
@@ -2663,14 +2661,15 @@ int main_call(int argc, char** argv) {
             }
             packed_caller = ratio_caller;
         }
-        if (min_allele_support >= 0) {
-            packed_caller->set_min_supports(min_allele_support, min_allele_support, min_site_support);
+        if (packed_caller != nullptr) {
+            if (min_allele_support >= 0) {
+                packed_caller->set_min_supports(min_allele_support, min_allele_support, min_site_support);
+            }
+            snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
         }
-        
-        snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
     }
 
-    if (!snarl_caller) {
+    if (!snarl_caller && !read_likelihood_caller) {
         logger.error() << "pack file (-k) is required" << endl;
     }
 

@@ -45,24 +45,20 @@ struct Ploidies {
 /**
  * A genotyper that scores every genotype of a site from its reads x alleles likelihood matrix.
  *
- * The genotyping uses no read support. It derives from SupportBasedSnarlCaller only because the
- * graph callers reach their traversal finder's support through that interface.
- *
- * VCFOutputCaller::emit_variant merges alleles with the same sequence and drops uncalled ones
- * before calling update_vcf_info, so the traversal indices it passes do not match the matrix.
- * This genotyper keeps the traversals it scored in its CallInfo, and matches each written
- * traversal to one of them node by node. A record with an allele that matches none, such as the
- * empty traversal of a star allele, is written without GL, since GL needs an entry for every
- * genotype.
+ * The genotyping uses no read support. A record can write its alleles in another order than the
+ * one they were scored in, so the caller writing it says which scored allele each written allele
+ * is (see `write_vcf_fields`). A record with an allele that was not scored, such as a star allele,
+ * is written without GL, since GL needs an entry for every genotype.
  */
-class ReadLikelihoodSnarlCaller : public SupportBasedSnarlCaller {
+class ReadLikelihoodSnarlCaller {
 public:
 
-    ReadLikelihoodSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
-                              TraversalSupportFinder& support_finder,
+    /// Make a genotyper of the sites of `graph`, from the likelihoods `likelihood_calculator`
+    /// computes. Neither is owned.
+    ReadLikelihoodSnarlCaller(const PathHandleGraph& graph,
                               AlleleLikelihoodCalculator& likelihood_calculator);
 
-    ~ReadLikelihoodSnarlCaller() override;
+    ~ReadLikelihoodSnarlCaller();
 
     /// The genotyping result of one site: the scores of its genotypes, and the fields the record
     /// is written from.
@@ -192,25 +188,6 @@ public:
         const Ploidies& ploidies, const vector<SiteBounds>& enclosing,
         const AlleleSequences* sequences = nullptr);
 
-    /// Throw, because MultiPassCaller, the one user of this genotyper, calls `genotype_at`.
-    ///
-    /// `SnarlCaller` requires it.
-    pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
-                                                     const vector<SnarlTraversal>& traversals,
-                                                     int ref_trav_idx,
-                                                     int ploidy,
-                                                     const string& ref_path_name,
-                                                     pair<size_t, size_t> ref_range) override;
-
-    /// Write the record's fields from the scores, mapping each of the written `traversals` to
-    /// the scored allele with the same walk (see `write_vcf_fields`).
-    void update_vcf_info(const Snarl& snarl,
-                         const vector<SnarlTraversal>& traversals,
-                         const vector<int>& genotype,
-                         const unique_ptr<CallInfo>& call_info,
-                         const string& sample_name,
-                         vcflib::Variant& variant) override;
-
     /**
      * Write the record's fields from the scores in `call_info`: DP, BL, DR, AD, GL and the rest.
      *
@@ -221,11 +198,11 @@ public:
      * @param genotype The genotype, in written alleles.
      */
     void write_vcf_fields(const vector<int>& scored_allele, const vector<int>& genotype,
-                          const CallInfo* call_info, const string& sample_name,
+                          const SnarlCaller::CallInfo* call_info, const string& sample_name,
                           vcflib::Variant& variant) const;
 
     /// Add the header lines of the fields this genotyper writes.
-    void update_vcf_header(string& header) const override;
+    void update_vcf_header(string& header) const;
 
     /// Write the matrix for every site to this stream as TSV. Not owned.
     void set_likelihood_dump(ostream* dump_stream);
@@ -334,6 +311,9 @@ private:
      */
     double depth_discount_of(const AlleleReadLikelihoods& matrix, const vector<int>& called,
                              int ref_trav_idx, double depth_ratio) const;
+
+    /// The graph the sites are in.
+    const PathHandleGraph& graph;
 
     /// Builds the matrix of each site.
     AlleleLikelihoodCalculator& likelihood_calculator;

@@ -25,13 +25,6 @@
 namespace vg {
 using namespace std;
 
-/// Return true if a SnarlTraversal of node visits and a walk visit the same nodes in the same
-/// orientations.
-///
-/// TODO: Remove this with `ReadLikelihoodSnarlCaller::update_vcf_info`, its one user, which the
-/// read-likelihood caller never calls.
-bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Traversal& walk);
-
 /**
  * The sequence an allele has at each node its walk visits, for an allele the graph cannot spell.
  *

@@ -218,6 +218,12 @@ public:
                                    const vector<size_t>& contig_length_overrides,
                                    const SnarlCaller& snarl_caller) const;
 
+    /// Return the VCF header of a caller whose genotyper adds its lines to the header with
+    /// `add_genotyper_lines`, as `snarl_caller_vcf_header` does with a snarl caller's.
+    string genotyper_vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                                const vector<size_t>& contig_length_overrides,
+                                const function<void(string& header)>& add_genotyper_lines) const;
+
     /// print a snarl in a consistent form like >3435<12222
     /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
     string print_snarl(const HandleGraph* grpah, const handle_t& snarl_start, const handle_t& snarl_end, bool in_brackets = false) const;

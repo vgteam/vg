@@ -272,7 +272,8 @@ unique_ptr<SiteTree> MultiPassCaller::site_tree() {
 
 string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                                    const vector<size_t>& contig_length_overrides) const {
-    return output.snarl_caller_vcf_header(graph, contigs, contig_length_overrides, snarl_caller);
+    return output.genotyper_vcf_header(graph, contigs, contig_length_overrides,
+                                       [this](string& header) { snarl_caller.update_vcf_header(header); });
 }
 
 void MultiPassCaller::report_descent_instrumentation() const {

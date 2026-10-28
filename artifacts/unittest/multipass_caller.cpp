@@ -51,7 +51,7 @@ static Alignment read_along(const HandleGraph& graph, const string& name,
 
 /// Call `graph`, whose sites `decomposition` gives, from `reads`, with the alleles of its paths,
 /// "ref" being the reference, and return the VCF.
-static string call_vcf(const PathPositionHandleGraph& graph, SnarlManager& manager,
+static string call_vcf(const PathPositionHandleGraph& graph,
                        const SnarlDecomposition& decomposition, const vector<Alignment>& reads) {
     InMemorySiteReadSource source;
     for (const Alignment& aln : reads) {
@@ -60,8 +60,7 @@ static string call_vcf(const PathPositionHandleGraph& graph, SnarlManager& manag
     QualAdjAlignmentScorer qual_scorer;
     MatrixAlignmentScorer plain_scorer;
     GraphAlignedAlleleLikelihoodCalculator calculator(graph, source, qual_scorer, plain_scorer);
-    NullTraversalSupportFinder support(graph, manager);
-    ReadLikelihoodSnarlCaller genotyper(graph, manager, support, calculator);
+    ReadLikelihoodSnarlCaller genotyper(graph, calculator);
     PathTraversalFinder traversal_finder(graph);
     VCFOutputCaller output("sample");
     MultiPassCaller caller(graph, genotyper, decomposition, output, "sample", traversal_finder,
@@ -111,8 +110,8 @@ TEST_CASE("MultiPassCaller writes the same records on both implementations",
         reads.push_back(read_along(graph, "alt" + std::to_string(i), alt_nodes));
     }
 
-    const string on_adapter = call_vcf(positioned, pair.manager, pair.adapter, reads);
-    const string on_index = call_vcf(positioned, pair.manager, pair.distance_index, reads);
+    const string on_adapter = call_vcf(positioned, pair.adapter, reads);
+    const string on_index = call_vcf(positioned, pair.distance_index, reads);
     REQUIRE(on_adapter == on_index);
 
     // The deletion is called at the innermost site, and its enclosing sites, whose alleles differ
