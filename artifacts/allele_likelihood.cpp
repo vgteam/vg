@@ -1205,7 +1205,7 @@ void GraphAlignedAlleleLikelihoodCalculator::set_rate_reference(
 }
 
 bool GraphAlignedAlleleLikelihoodCalculator::rate_position(const SiteBounds& site,
-                                                          const vector<SiteBounds>& enclosing,
+                                                          const vector<nid_t>& fallback_nodes,
                                                           size_t& path_index,
                                                           int64_t& position) const {
     if (rate_graph == nullptr || rate_paths.empty()) {
@@ -1235,14 +1235,10 @@ bool GraphAlignedAlleleLikelihoodCalculator::rate_position(const SiteBounds& sit
         });
         return found;
     };
-    // A nested site's bounds are often off the reference. Its ancestors' are not, and an ancestor
-    // lies within a window's width of the site unless it is very large.
     if (place(graph.get_id(site.start)) || place(graph.get_id(site.end))) {
         return true;
     }
-    return std::ranges::any_of(enclosing, [&](const SiteBounds& ancestor) {
-        return place(graph.get_id(ancestor.start)) || place(graph.get_id(ancestor.end));
-    });
+    return std::ranges::any_of(fallback_nodes, place);
 }
 
 GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
@@ -1345,7 +1341,7 @@ GraphAlignedAlleleLikelihoodCalculator::bucket_counts(size_t path_index, int64_t
 
 GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
 GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
-    const SiteBounds& site, const vector<SiteBounds>& enclosing,
+    const SiteBounds& site, const vector<nid_t>& fallback_nodes,
     const vector<pair<nid_t, nid_t>>& site_ranges) const {
 
     if (site_ranges.empty() || params.depth_ploidy <= 0) {
@@ -1353,7 +1349,7 @@ GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
     }
     size_t path_index = 0;
     int64_t position = 0;
-    if (!rate_position(site, enclosing, path_index, position)) {
+    if (!rate_position(site, fallback_nodes, path_index, position)) {
         ++id_fallbacks;
         return id_window_read_stats(site_ranges);
     }
@@ -2237,7 +2233,7 @@ double GraphAlignedAlleleLikelihoodCalculator::mismap_probability(const Alignmen
 
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     const SiteBounds& site, const vector<Traversal>& traversals,
-    const vector<SiteBounds>& enclosing, int region_ploidy, const AlleleSequences* sequences) {
+    const vector<nid_t>& fallback_nodes, int region_ploidy, const AlleleSequences* sequences) {
 
     AlleleReadLikelihoodsBuilder builder(traversals.size(), params.min_mismap_prob,
                                         params.max_mismap_prob);
@@ -2342,7 +2338,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // slot weights. The builder's R is the mean over this site's reads, which over-represents long
     // reads, because a long read overlaps more sites. The rate window's mean counts each read once,
     // where it begins.
-    WindowReadStats stats = local_read_stats(site, enclosing, ranges);
+    WindowReadStats stats = local_read_stats(site, fallback_nodes, ranges);
     if (stats.mean_read_length > 0.0) {
         result.set_mean_read_length(stats.mean_read_length);
     }

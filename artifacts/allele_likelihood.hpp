@@ -543,8 +543,8 @@ public:
      * Nothing in the matrix depends on the ploidy the site is then genotyped at.
      *
      * @param traversals The candidate alleles, in the order the caller will genotype them.
-     * @param enclosing The bounds of the sites enclosing `site`, innermost first. They place a
-     * site whose own bounds are off the reference.
+     * @param fallback_nodes Nodes to place the site's depth-rate window by, most preferred
+     * first, when neither bound of the site is on a reference path.
      * @param region_ploidy The number of the sample's haplotypes in the region around the site.
      * The depth term divides the local read rate by it to get a rate per haplotype. It is the
      * site's own ploidy at a top-level site. At a nested site that only some of its parent's
@@ -554,7 +554,7 @@ public:
      */
     virtual AlleleReadLikelihoods compute(const SiteBounds& site,
                                           const vector<Traversal>& traversals,
-                                          const vector<SiteBounds>& enclosing,
+                                          const vector<nid_t>& fallback_nodes,
                                           int region_ploidy,
                                           const AlleleSequences* sequences = nullptr) = 0;
 };
@@ -623,7 +623,7 @@ public:
 
     AlleleReadLikelihoods compute(const SiteBounds& site,
                                   const vector<Traversal>& traversals,
-                                  const vector<SiteBounds>& enclosing,
+                                  const vector<nid_t>& fallback_nodes,
                                   int region_ploidy,
                                   const AlleleSequences* sequences = nullptr) override;
 
@@ -862,7 +862,7 @@ protected:
      * the depth term do not depend on how the reads were supplied. It is computed once and shared
      * by the sites in it.
      */
-    WindowReadStats local_read_stats(const SiteBounds& site, const vector<SiteBounds>& enclosing,
+    WindowReadStats local_read_stats(const SiteBounds& site, const vector<nid_t>& fallback_nodes,
                                      const vector<pair<nid_t, nid_t>>& site_ranges) const;
 
     /// Return the statistics of the reads in the node-ID fallback window of a site (see
@@ -901,12 +901,12 @@ protected:
     /**
      * Find the reference path index and position that place `site` in a rate window.
      *
-     * The position is that of one of the site's bounds on a reference path, or else of one of
-     * the bounds of the innermost site of `enclosing` that has one there.
+     * The position is that of one of the site's bounds on a reference path, or else of the first
+     * of `fallback_nodes` on one.
      *
      * @return False if there is no such position.
      */
-    bool rate_position(const SiteBounds& site, const vector<SiteBounds>& enclosing,
+    bool rate_position(const SiteBounds& site, const vector<nid_t>& fallback_nodes,
                        size_t& path_index, int64_t& position) const;
 
     const PathHandleGraph& graph;

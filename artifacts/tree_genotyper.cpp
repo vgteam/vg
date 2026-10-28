@@ -50,6 +50,22 @@ struct SubtreeReadHold {
     }
 };
 
+/**
+ * Get the boundary nodes of the sites in `enclosing`, innermost site first.
+ *
+ * They place a site's depth-rate window when the site's own bounds are off the reference. A nested
+ * site's bounds often are. Its ancestors' are not, and an ancestor lies within a window's width of
+ * the site unless it is very large.
+ */
+vector<nid_t> fallback_nodes_of(const HandleGraph& graph, const vector<SiteBounds>& enclosing) {
+    vector<nid_t> nodes;
+    for (const SiteBounds& ancestor : enclosing) {
+        nodes.push_back(graph.get_id(ancestor.start));
+        nodes.push_back(graph.get_id(ancestor.end));
+    }
+    return nodes;
+}
+
 } // namespace
 
 bool TreeGenotyper::genotype(const SiteView& site) {
@@ -556,7 +572,8 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
         ploidies.region_ploidy = region_ploidy;
         ploidies.also_score_other = true;
     }
-    auto called = parts.genotyper->genotype_at(bounds, walks, 0, ploidies, enclosing, &sequences);
+    auto called = parts.genotyper->genotype_at(bounds, walks, 0, ploidies,
+                                               fallback_nodes_of(graph, enclosing), &sequences);
     vector<int>& genotype = called.first;
     SiteScore* score = called.second.get();
     unique_ptr<SnarlCaller::CallInfo> call_info(std::move(called.second));
@@ -612,7 +629,8 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> TreeGenotyper::genotype_site(
     const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
     const Ploidies& ploidies, const vector<SiteBounds>& enclosing, SiteScore*& score) const {
-    auto called = parts.genotyper->genotype_at(site, travs, ref_trav_idx, ploidies, enclosing);
+    auto called = parts.genotyper->genotype_at(site, travs, ref_trav_idx, ploidies,
+                                               fallback_nodes_of(*parts.graph, enclosing));
     score = called.second.get();
     return make_pair(std::move(called.first),
                      unique_ptr<SnarlCaller::CallInfo>(std::move(called.second)));
