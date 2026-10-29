@@ -80,13 +80,11 @@ static string join_with_commas(const vector<string>& items) {
 /// The long options that configure one subsystem of vg call, and the option that turns the
 /// subsystem on. Options of a subsystem that is off would have no effect, so we refuse them.
 struct OptionGroup {
-    /// The subsystem's name, for messages.
-    const char* subsystem;
     /// The option that turns the subsystem on, or null for options that always apply.
     const char* switch_option;
-    /// The index in the table of the group whose subsystem contains this one, or -1. A subsystem
-    /// can only be on when the one containing it is.
-    int within;
+    /// The name of the subsystem that contains this one, or null. A subsystem can only be on when
+    /// the one containing it is.
+    const char* within;
     /// Whether the subsystem is on, once all the options are parsed.
     function<bool()> on;
     vector<struct option> options;
@@ -98,41 +96,35 @@ struct OptionGroup {
  * An option is refused with the outermost subsystem that contains it and is off, since that is
  * the one to turn on first. Only the first such subsystem is reported, since logger.error() exits.
  *
- * @param explicit_options The names of the options given on the command line, without "--".
+ * @param groups The option group of each subsystem, by the subsystem's name.
+ * @param options The option numbers of the options given.
+ * @param option_name The long name of each option, by its option number.
+ * @param option_subsystem The subsystem each option configures, by its option number.
  */
 static void refuse_inactive_subsystem_options(const Logger& logger,
-                                              const vector<OptionGroup>& groups,
-                                              const vector<string>& explicit_options) {
-    for (size_t g = 0; g < groups.size(); ++g) {
-        if (groups[g].switch_option == nullptr || groups[g].on()) {
-            continue;
-        }
-        vector<string> offenders;
-        for (const string& name : explicit_options) {
-            // Find the group of the option. Group g reports it if g is the outermost subsystem
-            // around it that is off.
-            for (size_t h = 0; h < groups.size(); ++h) {
-                if (!std::ranges::any_of(groups[h].options,
-                                         [&](const struct option& o) { return name == o.name; })) {
-                    continue;
-                }
-                int outermost_off = -1;
-                for (int k = h; k >= 0; k = groups[k].within) {
-                    if (groups[k].switch_option != nullptr && !groups[k].on()) {
-                        outermost_off = k;
-                    }
-                }
-                if (outermost_off == (int)g) {
-                    offenders.push_back("--" + name);
-                }
+                                              const map<string, OptionGroup>& groups,
+                                              const unordered_set<int>& options,
+                                              const unordered_map<int, string>& option_name,
+                                              const unordered_map<int, string>& option_subsystem) {
+    // The options to refuse, by the subsystem they are refused with.
+    map<string, vector<string>> refused;
+    for (int number : options) {
+        const char* outermost_off = nullptr;
+        for (const char* subsystem = option_subsystem.at(number).c_str(); subsystem != nullptr;
+             subsystem = groups.at(subsystem).within) {
+            if (!groups.at(subsystem).on()) {
+                outermost_off = subsystem;
             }
         }
-        if (!offenders.empty()) {
-            logger.error() << join_with_commas(offenders)
-                           << (offenders.size() == 1 ? " only applies to " : " only apply to ")
-                           << groups[g].subsystem << ", which " << groups[g].switch_option
-                           << " turns on" << endl;
+        if (outermost_off != nullptr) {
+            refused[outermost_off].push_back("--" + option_name.at(number));
         }
+    }
+    for (auto& [subsystem, names] : refused) {
+        std::ranges::sort(names);
+        logger.error() << join_with_commas(names)
+                       << (names.size() == 1 ? " only applies to " : " only apply to ") << subsystem
+                       << ", which " << groups.at(subsystem).switch_option << " turns on" << endl;
     }
 }
 
@@ -1073,11 +1065,10 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_NO_MOSAIC_NESTED = 1055;
     constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
     optind = 2; // force optind past command positional argument
-    // The long options, grouped by the subsystem they configure. Every subsystem with a switch is
-    // part of the read-likelihood genotyper.
-    int read_likelihood_group = 1;
-    vector<OptionGroup> long_option_groups = {
-        {"vg call", nullptr, -1,
+    // The long options, grouped by the subsystem they configure, by its name. Every subsystem with
+    // a switch is part of the read-likelihood genotyper.
+    map<string, OptionGroup> long_option_groups = {
+        {"vg call", {nullptr, nullptr,
          [] { return true; }, {
             {"pack", required_argument, nullptr, 'k'},
             {"bias-mode", no_argument, nullptr, 'B'},
@@ -1124,8 +1115,8 @@ int main_call(int argc, char** argv) {
             {"threads", required_argument, nullptr, 't'},
             {"progress", no_argument, nullptr, OPT_PROGRESS},
             {"help", no_argument, nullptr, 'h'},
-        }},
-        {"the read-likelihood genotyper", "--read-likelihood", -1,
+        }}},
+        {"the read-likelihood genotyper", {"--read-likelihood", nullptr,
          [&] { return read_likelihood; }, {
             {"no-phased", no_argument, nullptr, OPT_NO_PHASED},
             {"gam", required_argument, nullptr, OPT_GAM},
@@ -1180,15 +1171,15 @@ int main_call(int argc, char** argv) {
             {"gaf-base", required_argument, nullptr, OPT_GAF_BASE},
             {"gaf-base-binary", required_argument, nullptr, OPT_GAF_BASE_BINARY},
             {"read-window", required_argument, nullptr, OPT_READ_WINDOW},
-        }},
-        {"off-panel variant calling", "--off-panel", read_likelihood_group,
+        }}},
+        {"off-panel variant calling", {"--off-panel", "the read-likelihood genotyper",
          [&] { return off_panel; }, {
             {"off-panel-dump", required_argument, nullptr, OPT_OFF_PANEL_DUMP},
             {"off-panel-bar", required_argument, nullptr, OPT_OFF_PANEL_BAR},
             {"off-panel-indels", required_argument, nullptr, OPT_OFF_PANEL_INDELS},
             {"off-panel-svs", no_argument, nullptr, OPT_OFF_PANEL_SVS},
-        }},
-        {"the anchor file", "--anchors-out", read_likelihood_group,
+        }}},
+        {"the anchor file", {"--anchors-out", "the read-likelihood genotyper",
          [&] { return !anchors_out.empty(); }, {
             {"no-off-ref-nesting", no_argument, nullptr, OPT_NO_OFF_REF_NESTING},
             {"anchors-hom-split", no_argument, nullptr, OPT_ANCHORS_HOM_SPLIT},
@@ -1204,17 +1195,17 @@ int main_call(int argc, char** argv) {
             {"anchors-min-q", required_argument, nullptr, OPT_ANCHORS_MIN_SCORE},
             {"anchors-keep-off-call", no_argument, nullptr, OPT_ANCHORS_KEEP_OFF_CALL},
             {"anchors-end-new", required_argument, nullptr, OPT_ANCHORS_END_PIN_MIN_NEW},
-        }},
-        {"the mosaic", "--mosaic-out", read_likelihood_group,
+        }}},
+        {"the mosaic", {"--mosaic-out", "the read-likelihood genotyper",
          [&] { return !mosaic_out.empty(); }, {
             {"mosaic-patch-gaps", no_argument, nullptr, OPT_MOSAIC_PATCH},
             {"no-mosaic-patch-gaps", no_argument, nullptr, OPT_NO_MOSAIC_PATCH},
             {"no-mosaic-nested", no_argument, nullptr, OPT_NO_MOSAIC_NESTED},
             {"mosaic-break-unexplained", no_argument, nullptr, OPT_MOSAIC_BREAK_UNEXPL},
-        }},
+        }}},
         // A preset can turn --regenotype on and --no-read-phasing then turns it off again, so we
         // check the value that will take effect.
-        {"re-genotyping", "--regenotype", read_likelihood_group,
+        {"re-genotyping", {"--regenotype", "the read-likelihood genotyper",
          [&] { return regenotype && read_phasing; }, {
             {"regeno-ceiling", required_argument, nullptr, OPT_REGENO_CEILING},
             {"regeno-haploid", no_argument, nullptr, OPT_REGENO_HAPLOID},
@@ -1223,26 +1214,29 @@ int main_call(int argc, char** argv) {
             {"regeno-passes", required_argument, nullptr, OPT_REGENO_PASSES},
             {"regeno-shuffle", no_argument, nullptr, OPT_REGENO_SHUFFLE},
             {"regeno-ledger", required_argument, nullptr, OPT_REGENO_LEDGER},
-        }},
+        }}},
     };
 
-    // getopt_long takes a single array ending in an all-zero entry. We also record each option's
-    // name by its `val`, which is unique, and its `val` by its name.
+    // getopt_long takes a single array ending in an all-zero entry. Each option has a unique
+    // option number, its `val`, which getopt_long returns for it. We record each option's name and
+    // subsystem by its number, and its number by its name.
     vector<struct option> long_options;
     unordered_map<int, string> option_name;
-    unordered_map<string, int> option_val;
-    for (const OptionGroup& group : long_option_groups) {
+    unordered_map<int, string> option_subsystem;
+    unordered_map<string, int> option_number;
+    for (const auto& [subsystem, group] : long_option_groups) {
         for (const struct option& o : group.options) {
             long_options.emplace_back(o);
             option_name[o.val] = o.name;
-            option_val[o.name] = o.val;
+            option_subsystem[o.val] = subsystem;
+            option_number[o.name] = o.val;
         }
     }
     long_options.push_back({nullptr, 0, nullptr, 0});
 
     const char* short_options = "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?";
 
-    // Set the option whose `val` is `c`, with its argument `optarg`, or null for a switch. The
+    // Set the option with option number `c`, with its argument `optarg`, or null for a switch. The
     // argument has the name of getopt's, so that the cases read as in other subcommands.
     auto apply_option = [&](int c, const char* optarg) {
         switch (c)
@@ -1703,30 +1697,26 @@ int main_call(int argc, char** argv) {
         }
     };
 
-    // The `val` of each option given on the command line, in the order first given.
-    vector<int> options_seen;
+    // The option number of each option given on the command line.
+    unordered_set<int> options_seen;
     while (true) {
         int option_index = 0;
         int c = getopt_long(argc, argv, short_options, long_options.data(), &option_index);
         if (c == -1) {
             break;
         }
-        if (std::ranges::find(options_seen, c) == options_seen.end()) {
-            options_seen.push_back(c);
-        }
+        options_seen.insert(c);
         apply_option(c, optarg);
     }
 
-    // The names of the options given on the command line, in the order first given.
-    vector<string> explicit_options;
-    for (int val : options_seen) {
-        explicit_options.push_back(option_name.at(val));
-    }
     // Return whether the command line gave the option `name`, or its "no-" form, which sets the
     // same thing. A setting the command line did not give has its default, or the preset's value.
     auto is_explicit = [&](const string& name) {
-        return std::ranges::find(explicit_options, name) != explicit_options.end()
-               || std::ranges::find(explicit_options, "no-" + name) != explicit_options.end();
+        auto given = [&](const string& option) {
+            auto number = option_number.find(option);
+            return number != option_number.end() && options_seen.contains(number->second);
+        };
+        return given(name) || given("no-" + name);
     };
 
     // Apply the preset to the settings the command line did not give.
@@ -1744,7 +1734,7 @@ int main_call(int argc, char** argv) {
         }
         for (const PresetSetting& setting : chosen->second) {
             if (!is_explicit(setting.option)) {
-                apply_option(option_val.at(setting.option), setting.value);
+                apply_option(option_number.at(setting.option), setting.value);
             }
         }
     }
@@ -2034,7 +2024,8 @@ int main_call(int argc, char** argv) {
     }
 
     // Refuse options for a subsystem that is off.
-    refuse_inactive_subsystem_options(logger, long_option_groups, explicit_options);
+    refuse_inactive_subsystem_options(logger, long_option_groups, options_seen, option_name,
+                                      option_subsystem);
 
     // Refuse or turn off the options that start from the phase the linkage model gives each site:
     // read phasing, re-genotyping and hom splitting. An option given explicitly is an error, and

@@ -605,16 +605,16 @@ is $(grep -c "mutually exclusive" gb_excl.txt) "1" "--gaf-base and --gam togethe
 vg call x.vg -k x.pack --gaf-base gb_placeholder.db -t 1 >/dev/null 2>gb_norl.txt
 is $(grep -c "only applies to the read-likelihood genotyper" gb_norl.txt) "1" "--gaf-base without --read-likelihood is refused"
 
-# The refused options are the ones outside the option table's "core" group.  Guard one of the
+# The refused options are the ones outside the option table's "vg call" group.  Guard one of the
 # --mosaic-* modifiers, and guard that a "core" option is still let through -- a check that refuses
 # everything would pass the first assertion and be useless.
 vg call x.vg -k x.pack --mosaic-patch-gaps -t 1 >/dev/null 2>mos_norl.txt
 is $(grep -c "only applies to the read-likelihood genotyper" mos_norl.txt) "1" "a --mosaic-* modifier without --read-likelihood is refused"
 
 vg call x.vg -k x.pack --gap-open 2 --optimal-pairing --mosaic-patch-gaps -t 1 >/dev/null 2>multi_norl.txt
-is "$(grep -o -- "--gap-open, --optimal-pairing, --mosaic-patch-gaps only apply" multi_norl.txt)" \
-   "--gap-open, --optimal-pairing, --mosaic-patch-gaps only apply" \
-   "several offenders are named together, in the order they were given"
+is "$(grep -o -- "--gap-open, --mosaic-patch-gaps, --optimal-pairing only apply" multi_norl.txt)" \
+   "--gap-open, --mosaic-patch-gaps, --optimal-pairing only apply" \
+   "several offenders are named together, in order by name"
 
 vg call x.vg -k x.pack --traversals -t 1 >/dev/null 2>trav_norl.txt
 is $(grep -c "only applies to the read-likelihood genotyper" trav_norl.txt) "0" "an option the table does not own is still accepted"
