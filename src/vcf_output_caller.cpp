@@ -316,18 +316,13 @@ string VCFOutputCaller::prune_header_contigs(const string& header,
 }
 
 void VCFOutputCaller::add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele, const Traversal& trav,
-                                              bool reversed, bool /*one_based*/) const {
+                                              bool reversed) const {
     vector<NodeVisit> visits;
     visits.reserve(trav.size());
     for (const handle_t& handle : trav) {
         visits.emplace_back(graph->get_id(handle), graph->get_is_reverse(handle));
     }
     vg::add_allele_path_to_info(v, allele, visits, reversed, translation);
-}
-
-void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav,
-                                              bool reversed, bool /*one_based*/) const {
-    vg::add_allele_path_to_info(v, allele, visits_of(trav), reversed, translation);
 }
 
 string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const {

@@ -263,7 +263,7 @@ public:
     /// Print a snarl from its two boundary visits, as >3435<12222, or as (>3435<12222) with
     /// `in_brackets`.
     string print_snarl(nid_t start_id, bool start_backward, nid_t end_id, bool end_backward,
-                       bool in_brackets) const;
+                       bool in_brackets = false) const;
 
     /// convert a traversal into an allele string
     string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
@@ -275,9 +275,7 @@ protected:
 
     /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
     void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,
-                                 const Traversal& trav, bool reversed, bool one_based) const;
-    /// legacy version of above
-    void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
+                                 const Traversal& trav, bool reversed) const;
     
     
     /// The writer of a site called by a SnarlCaller, which `emit_variant` uses.

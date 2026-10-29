@@ -311,7 +311,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
             int allele_no = ai_pair.second.first;
             int allele_trav_no = ai_pair.second.second;
             // update the traversal info
-            add_allele_path_to_info(graph, v, allele_no, travs[allele_trav_no], reversed, !substitution);
+            add_allele_path_to_info(graph, v, allele_no, travs[allele_trav_no], reversed);
         }
     }
 
