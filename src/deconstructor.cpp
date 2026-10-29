@@ -1125,8 +1125,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             // for its RC/RS/RD: we are the only thing standing between it and the reference, and
             // once we return there is nothing left that knows where this snarl sits.  Keeping the
             // whole record would be far too expensive, so keep just the interval.
-            suppressed_ref_info[omp_get_thread_num()][v.id] =
-                {v.sequenceName, static_cast<size_t>(v.position), v.ref.length()};
+            suppressed_ref_info[omp_get_thread_num()][v.id] = record_ref_region(v);
         }
     }
     return true;

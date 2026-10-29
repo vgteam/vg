@@ -39,6 +39,11 @@ const unordered_map<nid_t, pair<string, size_t>>* VCFOutputCaller::get_translati
     return translation;
 }
 
+Region record_ref_region(const vcflib::Variant& record) {
+    return Region{record.sequenceName, record.position,
+                  record.position + (int64_t)record.ref.length() - 1};
+}
+
 VCFOutputCaller::VCFOutputCaller(const string& sample_name) : sample_name(sample_name), translation(nullptr), include_nested(false)
 {
     output_variants.resize(get_thread_count());
@@ -634,8 +639,7 @@ bool VCFOutputCaller::SiteEmitter::file_record(const PathPositionHandleGraph& gr
         // Keep the reference interval of a site with no line, for the RC, RS and RD of its
         // children.
         output.suppressed_ref_info[omp_get_thread_num()][out_variant.id] =
-            {out_variant.sequenceName, static_cast<size_t>(out_variant.position),
-             out_variant.ref.length()};
+            record_ref_region(out_variant);
     }
     site_filed(record.trav_to_allele, site.traversal_count, added);
     if (wants_line && !added) {
@@ -908,32 +912,30 @@ index_translated_sites_by_record_name(const SiteTree& sites,
     return name_to_snarl;
 }
 
-/// Read the fields the nesting tags need from each buffered record, decompressing the buffers in
-/// parallel.
+/// Read the name of the site of each buffered record, and the stretch of the reference its REF
+/// covers, decompressing the buffers in parallel. The name is the same for every record of a site
+/// split into several.
 ///
 /// The result has one list per buffer, in the order of the buffer.
-vector<vector<NestingRecordFields>> read_nesting_record_fields(
+vector<vector<pair<string, Region>>> read_record_regions(
     const vector<vector<pair<VCFOutputCaller::BufferedRecordKey, string>>>& buffers) {
-    vector<vector<NestingRecordFields>> record_fields(buffers.size());
+    vector<vector<pair<string, Region>>> placed(buffers.size());
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t b = 0; b < buffers.size(); ++b) {
-        vector<NestingRecordFields>& fields = record_fields[b];
-        fields.reserve(buffers[b].size());
+        placed[b].reserve(buffers[b].size());
         string output_variant_string;
         for (const auto& [key, compressed] : buffers[b]) {
             output_variant_string.clear();
             int ret = zstdutil::DecompressString(compressed, output_variant_string);
             assert(ret == 0);
             vector<string> toks = split_delims(output_variant_string, "\t", 5);
-            NestingRecordFields f;
-            f.name = block_site_name(toks[2]);
-            f.ref_len = toks[3].length();
-            f.chrom = std::move(toks[0]);
-            f.pos = std::move(toks[1]);
-            fields.push_back(std::move(f));
+            int64_t position = stoll(toks[1]);
+            placed[b].emplace_back(block_site_name(toks[2]),
+                                   Region{std::move(toks[0]), position,
+                                          position + (int64_t)toks[3].length() - 1});
         }
     }
-    return record_fields;
+    return placed;
 }
 
 }
@@ -950,7 +952,7 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
     // Merge the per-thread suppressed-site intervals collected during calling.  These are sites
     // that never reached the VCF, so pass 1 below cannot see them, but a record nested under one
     // has no other way to name a reference position.
-    unordered_map<string, SuppressedRef> suppressed_ref;
+    unordered_map<string, Region> suppressed_ref;
     for (auto& buf : suppressed_ref_info) {
         for (auto& kv : buf) {
             suppressed_ref.emplace(kv.first, std::move(kv.second));
@@ -988,12 +990,13 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
     // nesting/cyclic_ref_multiple_variants.gfa) -- but both occurrences are traversals of one
     // path, so they are on the same contig and it does not matter which one wins here.
     unordered_map<string, uint32_t> chrom_of_name;
-    // The fields the indexes and the second pass read from each record, decompressed once.
-    vector<vector<NestingRecordFields>> record_fields = read_nesting_record_fields(output_variants);
+    // The site name and reference stretch of each record, decompressed once, for the indexes and
+    // the second pass.
+    vector<vector<pair<string, Region>>> placed = read_record_regions(output_variants);
     // Fill the indexes in record order.
-    for (const vector<NestingRecordFields>& fields : record_fields) {
-        for (const NestingRecordFields& f : fields) {
-            chrom_of_name.emplace(f.name, intern_chrom(f.chrom));
+    for (const vector<pair<string, Region>>& buffer : placed) {
+        for (const auto& [site_name, region] : buffer) {
+            chrom_of_name.emplace(site_name, intern_chrom(region.seq));
         }
     }
 
@@ -1006,18 +1009,15 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
 
     // pass 2) identify top-level snarls (those with no ancestors in VCF)
     // and store reference info only for them
-    struct RefInfo {
-        string chrom;
-        size_t pos;
-        size_t ref_len;
-    };
     // Keyed by snarl name, then by (chrom, pos), because a snarl ID can carry more than one
     // record: a cyclic reference emits two, both with the same ID (see
     // nesting/cyclic_ref_multiple_variants.gfa, which gives two <5<1 records at POS 20 and 44).
-    // A plain name -> RefInfo map was last-write-wins, so both records were handed the
+    // A plain name -> interval map was last-write-wins, so both records were handed the
     // surviving one's interval and the record at POS 20 reported RS=44.  The inner map is
     // ordered so that picking begin() is deterministic regardless of thread scheduling.
-    unordered_map<string, map<pair<string, size_t>, size_t>> top_level_ref_info;
+    //
+    // The inner map gives the end of each record's reference stretch by its contig and start.
+    unordered_map<string, map<pair<string, int64_t>, int64_t>> top_level_ref_info;
 
     // Helper to check if a snarl is top-level (no ancestors in VCF)
     auto is_top_level = [&](const string& name) {
@@ -1036,21 +1036,23 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
 
     // Find the records whose sites are top level, in parallel. Then store their reference
     // intervals in record order.
+    // Whether the site of each record is top level, by buffer.
+    vector<vector<bool>> top_level(placed.size());
 #pragma omp parallel for schedule(dynamic, 1)
-    for (size_t b = 0; b < record_fields.size(); ++b) {
-        for (NestingRecordFields& f : record_fields[b]) {
-            f.top_level = is_top_level(f.name);
+    for (size_t b = 0; b < placed.size(); ++b) {
+        for (const auto& [site_name, region] : placed[b]) {
+            top_level[b].push_back(is_top_level(site_name));
         }
     }
-    for (const vector<NestingRecordFields>& fields : record_fields) {
-        for (const NestingRecordFields& f : fields) {
-            if (f.top_level) {
-                top_level_ref_info[f.name][make_pair(f.chrom, static_cast<size_t>(stoul(f.pos)))] =
-                    f.ref_len;
+    for (size_t b = 0; b < placed.size(); ++b) {
+        for (size_t i = 0; i < placed[b].size(); ++i) {
+            if (top_level[b][i]) {
+                const auto& [site_name, region] = placed[b][i];
+                top_level_ref_info[site_name][make_pair(region.seq, region.start)] = region.end;
             }
         }
     }
-    vector<vector<NestingRecordFields>>().swap(record_fields);
+    vector<vector<pair<string, Region>>>().swap(placed);
 
     // determine the tags from the index
     //
@@ -1199,7 +1201,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
                 ref_source = &top_level_name;
             }
             bool have_ref = true;
-            RefInfo top_ref;
+            // The stretch of the reference to report, 1-based and end-inclusive.
+            Region top_ref;
             if (ref_source == nullptr) {
                 if (!GrefCover::is_gref_name(toks[0])) {
                     // Not on a gref fragment, so our own interval is already a position a reader
@@ -1208,12 +1211,13 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
                     // repoint every such record on a reference contig at a site LV and CH say it
                     // has no ancestor in.  The records that need the reach are the fragments
                     // below, which have no usable coordinate of their own.
-                    top_ref = {toks[0], static_cast<size_t>(stoul(toks[1])), toks[3].length()};
+                    int64_t position = stoll(toks[1]);
+                    top_ref = {toks[0], position, position + (int64_t)toks[3].length() - 1};
                 } else {
                     auto sup_it = suppressed_name.empty() ? suppressed_ref.end()
                                                           : suppressed_ref.find(suppressed_name);
                     if (sup_it != suppressed_ref.end()) {
-                        top_ref = {sup_it->second.chrom, sup_it->second.pos, sup_it->second.ref_len};
+                        top_ref = sup_it->second;
                     } else {
                         have_ref = false;
                     }
@@ -1233,9 +1237,9 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
                 top_ref = {chosen->first.first, chosen->first.second, chosen->second};
             }
             if (have_ref) {
-                nesting_tags += ";RC=" + top_ref.chrom;
-                nesting_tags += ";RS=" + std::to_string(top_ref.pos);
-                nesting_tags += ";RD=" + std::to_string(top_ref.pos + top_ref.ref_len);
+                nesting_tags += ";RC=" + top_ref.seq;
+                nesting_tags += ";RS=" + std::to_string(top_ref.start);
+                nesting_tags += ";RD=" + std::to_string(top_ref.end + 1);
             }
 
             // rewrite the output string using the updated info toks

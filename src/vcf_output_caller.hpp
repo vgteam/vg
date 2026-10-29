@@ -25,6 +25,10 @@ namespace vg {
 using namespace std;
 using vg::io::AlignmentEmitter;
 
+/// Return the stretch of the reference that the REF of `record` covers, 1-based and end-inclusive,
+/// as VCF POS is.
+Region record_ref_region(const vcflib::Variant& record);
+
 /**
  * Writer of a sorted VCF, which variant callers inherit from or hold.
  *
@@ -367,12 +371,7 @@ protected:
     /// Keyed by snarl name as print_snarl() spells it, which is how record IDs and chrom_of_name
     /// are keyed too.  One buffer per thread, like output_variants, merged in
     /// update_nesting_info_tags().
-    struct SuppressedRef {
-        string chrom;
-        size_t pos;
-        size_t ref_len;
-    };
-    mutable vector<unordered_map<string, SuppressedRef>> suppressed_ref_info;
+    mutable vector<unordered_map<string, Region>> suppressed_ref_info;
 
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;
