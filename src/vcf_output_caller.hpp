@@ -68,12 +68,18 @@ public:
                               const vector<size_t>& contig_length_overrides) const;
 
     /**
-     * Add a record to the output buffer, as difference block `block` of its site.
+     * Add a record to the output.
      *
+     * A hidden record is not written. The writer keeps only its ID and the stretch of the
+     * reference its REF covers, so that a record nested inside it can still be placed on the
+     * reference when the nesting tags are computed.
+     *
+     * @param block The number of the difference block of its site that the record holds, or 0
+     * for a record of a whole site. Two blocks of one site share an ID and can share a POS.
      * @return false, without adding the record, if its line is longer than
      * `max_vcf_line_length`.
      */
-    bool add_variant(vcflib::Variant& var, size_t block = 0) const;
+    bool add_variant(vcflib::Variant& var, size_t block = 0, bool hidden = false) const;
 
     /**
      * Write the buffered records, sorted, taking the nesting INFO tags from `snarl_manager`.
@@ -317,17 +323,6 @@ protected:
     /// A vcflib::Variant is too big to keep in memory for every record.
     mutable vector<vector<pair<BufferedRecordKey, string>>> output_variants;
 
-    /// Reference interval of a site that was visited but not emitted, because every traversal
-    /// through it was the reference (or absent) and so it had no variant to report.  Such a site
-    /// is invisible to the RC/RS/RD walk, which only sees sites that reached the VCF, and a record
-    /// nested under one would otherwise have no reference coordinate to point at.  Common in gref
-    /// graphs, where the parent of an island of non-reference sequence is often a large snarl that
-    /// only the reference and its own gref copy span.
-    ///
-    /// Keyed by snarl name as `site_name` spells it, which is how record IDs and chrom_of_name
-    /// are keyed too.  One buffer per thread, like output_variants, merged in
-    /// update_nesting_info_tags().
-    mutable vector<unordered_map<string, Region>> suppressed_ref_info;
 
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;
@@ -349,6 +344,16 @@ protected:
 
     // prevent giant variants
     static const int64_t max_vcf_line_length = 2000000000;
+
+private:
+    /// The reference interval of each hidden record, by its ID, one table per thread like
+    /// `output_variants`.
+    ///
+    /// A hidden record is one of a site that had no variant to report. A record nested under such
+    /// a site may have no other reference coordinate to point its RC, RS and RD at. This is
+    /// common in gref graphs, where the parent of an island of non-reference sequence is often a
+    /// large snarl that only the reference and its own gref copy span.
+    mutable vector<unordered_map<string, Region>> suppressed_ref_info;
 };
 
 }

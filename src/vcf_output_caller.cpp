@@ -91,7 +91,14 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
 }
 
 
-bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block) const {
+bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block, bool hidden) const {
+    if (hidden) {
+        // Only the nesting tags read a hidden record.
+        if (include_nested) {
+            suppressed_ref_info[omp_get_thread_num()][var.id] = record_ref_region(var);
+        }
+        return true;
+    }
     var.setVariantCallFile(output_vcf);
     stringstream ss;
     ss << var;
@@ -603,29 +610,22 @@ bool VCFOutputCaller::SiteEmitter::file_record(const PathPositionHandleGraph& gr
         return block_lines > 0;
     }
 
-    // Whether the site gets a line. A record with no ALT gets one only if `genotype_snarls` asks
-    // for reference calls to be written too.
-    const bool wants_line = genotype_snarls || !out_variant.alt.empty();
-    bool added = false;
-    if (wants_line) {
+    // A record with no ALT is hidden, unless `genotype_snarls` asks for reference calls to be
+    // written too.
+    bool hidden = !genotype_snarls && out_variant.alt.empty();
+    if (!hidden) {
         finish_record(out_variant);
-        added = output.add_variant(out_variant);
-    } else if (output.include_nested) {
-        // Keep the reference interval of a site with no line, for the RC, RS and RD of its
-        // children.
-        output.suppressed_ref_info[omp_get_thread_num()][out_variant.id] =
-            record_ref_region(out_variant);
     }
-    site_filed(record.trav_to_allele, site.traversal_count, added);
-    if (wants_line && !added) {
+    bool added = output.add_variant(out_variant, 0, hidden);
+    site_filed(record.trav_to_allele, site.traversal_count, added && !hidden);
+    if (!added) {
         stringstream ss;
         ss << out_variant;
         cerr << "Warning [vg call]: Skipping variant at " << out_variant.sequenceName << ":" << out_variant.position
              << " with ID=" << out_variant.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
              << VCFOutputCaller::max_vcf_line_length << endl;
     }
-    // Return false only when add_variant refused a line the site wanted.
-    return wants_line ? added : true;
+    return added;
 }
 
 string VCFOutputCaller::snarl_caller_vcf_header(const PathHandleGraph& graph,
