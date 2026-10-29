@@ -4,6 +4,7 @@
 #include "tree_genotyper.hpp"
 #include "../src/graph_caller.hpp"
 #include "site_values.hpp"
+#include "symbolic_allele.hpp"
 #include "vcf_record.hpp"
 
 //#define debug
@@ -214,14 +215,15 @@ static void place_in_tree(StagedSite& staged, const NestingPlacement& placement)
 
 bool TreeGenotyper::genotype_nested_chain(SiteCall& call) {
     call.walks = call.site.walks;
+    const vector<int> group_of = group_walks(call);
     unique_ptr<SnarlCaller::CallInfo> trav_call_info;
     SiteScore* trav_score = nullptr;
     // Score the other ploidy too, since the linkage pass can revise the ploidy of a nested chain.
     std::tie(call.genotype, trav_call_info) = genotype_site(
-        call.site.start, call.site.end, call.walks, call.site.ref_trav_idx,
+        call,
         Ploidies{.ploidy = call.ploidy, .region_ploidy = call.region_ploidy,
                  .also_score_other = true},
-        call.net, trav_score);
+        trav_score, group_of.empty() ? nullptr : &group_of);
     assert(call.genotype.empty() || call.genotype.size() == call.ploidy);
 
     const NestingPlacement& placement = call.placement;
@@ -275,11 +277,12 @@ void TreeGenotyper::record_nested_chain(SiteCall& call) const {
 
 bool TreeGenotyper::genotype_top_level_site(SiteCall& call) {
     call.walks = call.site.walks;
+    const vector<int> group_of = group_walks(call);
     unique_ptr<SnarlCaller::CallInfo> trav_call_info;
     SiteScore* trav_score = nullptr;
     std::tie(call.genotype, trav_call_info) = genotype_site(
-        call.site.start, call.site.end, call.walks, call.site.ref_trav_idx,
-        Ploidies{.ploidy = call.ploidy}, call.net, trav_score);
+        call, Ploidies{.ploidy = call.ploidy}, trav_score,
+        group_of.empty() ? nullptr : &group_of);
     assert(call.genotype.empty() || call.genotype.size() == call.ploidy);
     record_and_stage(call, trav_call_info, trav_score);
     return call.genotype.size() == (size_t)call.ploidy;
@@ -537,16 +540,24 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit,
 }
 
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> TreeGenotyper::genotype_site(
-    const handle_t& start, const handle_t& end, const vector<Traversal>& travs, int ref_trav_idx,
-    const Ploidies& ploidies, const net_handle_t& net, SiteScore*& score) const {
-    const CandidateAlleles alleles{travs, ref_trav_idx, {}};
+    const SiteCall& call, const Ploidies& ploidies, SiteScore*& score,
+    const vector<int>* group_of) const {
+    const CandidateAlleles alleles{call.walks, call.site.ref_trav_idx, {}};
     // A snarl's bounds lie on the inward sides of its boundary nodes.
-    const MaterializedSite site{start, parts.graph->get_length(start), end, 0, alleles};
-    auto called = parts.genotyper->genotype_at(site, ploidies,
-                                               fallback_nodes_of(*parts.sites, *parts.graph, net));
-    score = called.second.get();
-    return make_pair(std::move(called.first),
-                     unique_ptr<SnarlCaller::CallInfo>(std::move(called.second)));
+    const MaterializedSite site{call.site.start, parts.graph->get_length(call.site.start),
+                                call.site.end, 0, alleles};
+    auto [genotype, site_score] = parts.genotyper->genotype_at(
+        site, ploidies, fallback_nodes_of(*parts.sites, *parts.graph, call.net), group_of);
+    score = site_score.get();
+    return make_pair(std::move(genotype),
+                     unique_ptr<SnarlCaller::CallInfo>(std::move(site_score)));
+}
+
+vector<int> TreeGenotyper::group_walks(const SiteCall& call) const {
+    if (!options.group_candidates) {
+        return {};
+    }
+    return candidate_groups(*parts.graph, call.walks, call.nested.children);
 }
 
 unique_ptr<StagedSite> TreeGenotyper::stage_render_record(

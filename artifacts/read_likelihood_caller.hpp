@@ -76,8 +76,11 @@ public:
         /// The ploidy this site was genotyped at.
         int ploidy = 2;
 
-        /// The ln P(reads | G) of every genotype scored, by the sorted multiset of its allele
-        /// indices.
+        /// The ln likelihood of every genotype scored, by the sorted multiset of its allele
+        /// indices. Without groups it is ln P(reads | G). Where groups of the alleles choose the
+        /// genotype, it is the score of the genotype's multiset of groups, less the shortfall of
+        /// its ln P(reads | G) from the best in that multiset. GL, GQ, GP, QUAL, the linkage model
+        /// and re-genotyping read it.
         map<vector<int>, double> genotype_lls;
         /// The best genotype at the other ploidy (2 for a site genotyped at ploidy 1, and 1
         /// otherwise), as traversal indices. Empty unless requested with
@@ -180,12 +183,15 @@ public:
      *
      * @param fallback_nodes Nodes to place the site's depth-rate window by, most preferred first,
      * when neither bound of the site is on a reference path.
+     * @param group_of If not null, the group of each of the site's alleles, from
+     * `candidate_groups`. The groups then choose the genotype, and the alleles choose within the
+     * chosen groups.
      * @return The genotype, as a sorted multiset of indices into the site's walks, or empty if the
      * site cannot be genotyped. Also the score, which is never null.
      */
     pair<vector<int>, unique_ptr<ReadLikelihoodCallInfo>> genotype_at(
         const MaterializedSite& site, const Ploidies& ploidies,
-        const vector<nid_t>& fallback_nodes);
+        const vector<nid_t>& fallback_nodes, const vector<int>* group_of = nullptr);
 
     /**
      * Write the record's fields from the scores in `call_info`: DP, BL, DR, AD, GL and the rest.
@@ -301,10 +307,14 @@ private:
      *
      * @param ref_trav_idx The index of the reference allele, or -1 for none.
      * @param trav_count The number of candidate alleles.
+     * @param group_of If not null, the group of each allele. The groups then choose the genotype,
+     * and the alleles choose within the chosen groups. `genotype_lls` holds the scores they choose
+     * by.
      * @return The best genotype, or empty if no genotype was scored.
      */
     vector<int> call_at_ploidy(const AlleleReadLikelihoods& matrix, int ploidy, int ref_trav_idx,
-                               size_t trav_count, ReadLikelihoodCallInfo& info) const;
+                               size_t trav_count, ReadLikelihoodCallInfo& info,
+                               const vector<int>* group_of) const;
 
     /**
      * Get the depth discount of the called genotype `called`, or 1.0 where it does not apply.

@@ -80,6 +80,9 @@ public:
         /// With nested calling, also genotype child chains the reference does not cross, with no
         /// line.
         bool off_reference = false;
+        /// Whether groups of each site's walks, from `candidate_groups`, choose its genotype. The
+        /// walks then choose within the chosen groups.
+        bool group_candidates = false;
         /// Which off-panel candidates become edit sites, and which edit sites are staged.
         EditCallBar edit_bar;
     };
@@ -204,16 +207,18 @@ private:
     /// site.
     void file_staged(SiteCall& call);
 
-    /// Genotype one site at `ploidies`.
+    /// Genotype the site of `call` at `ploidies`, choosing among `SiteCall::walks`.
     ///
-    /// @param start The start bound of the site, as the candidate finder oriented it.
-    /// @param end The end bound of the site, as the candidate finder oriented it.
-    /// @param net The site, as its net handle in the overlay of sites.
     /// @param score Set to the score inside the returned call info.
+    /// @param group_of If not null, the group of each of the walks. The groups then choose the
+    /// genotype, and the walks choose within the chosen groups.
     pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> genotype_site(
-        const handle_t& start, const handle_t& end, const vector<Traversal>& travs,
-        int ref_trav_idx, const Ploidies& ploidies, const net_handle_t& net,
-        SiteScore*& score) const;
+        const SiteCall& call, const Ploidies& ploidies, SiteScore*& score,
+        const vector<int>* group_of = nullptr) const;
+
+    /// Return the `candidate_groups` of the walks of `call` if `Options::group_candidates` is set,
+    /// and nothing otherwise.
+    vector<int> group_walks(const SiteCall& call) const;
 
     /// Make the `StagedSite` of a site from its walks and genotype, moving `call_info` into it.
     ///

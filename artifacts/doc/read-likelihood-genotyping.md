@@ -222,6 +222,14 @@ Direct genotyping computes the site likelihood $\mathcal{L}(G)$ of every genotyp
 made from the site's candidate alleles. It is described in
 [read-likelihood-direct-genotyping.md](read-likelihood-direct-genotyping.md). The genotype with the
 highest $\mathcal{L}(G)$ is the site's direct call.
+Where the site's candidate alleles have groups (see
+[Choosing among alleles that differ inside child chains](#choosing-among-alleles-that-differ-inside-child-chains)),
+the [grouped likelihood](read-likelihood-direct-genotyping.md#groups-of-alleles)
+$\tilde{\mathcal{L}}(G)$ takes the place of $\mathcal{L}(G)$ here, in the [VCF fields](#vcf-fields),
+in the linkage model and in [re-genotyping](#re-genotyping-from-the-phase), whose corrections are
+added to it. `GQN` then divides a difference in $\ln \tilde{\mathcal{L}}(G)$ by the achievable gap
+of $\mathcal{L}(G)$, which takes no account of the groups (see
+[Normalised quality](#normalised-quality)).
 
 A tie, as when every read fits the tied genotypes equally well, goes to the homozygous reference
 genotype if it is one of the tied genotypes. Otherwise it goes to the tied genotype that comes
@@ -364,6 +372,18 @@ these cases:
   and, under [`--regenotype`](#re-genotyping-from-the-phase), their genotypes.
 - When the reference paths include a [gRef fragment](#graph). A chain on a gRef fragment then gets
   records, with the fragment as their contig.
+
+### Choosing among alleles that differ inside child chains
+
+Several candidate alleles of a site can take one route and differ only inside a child chain. The
+reads that fit the route are then split among those alleles, so a genotype of alleles that take
+other routes can fit the reads better. With `--group-candidates`, off by default, vg groups the
+candidate alleles of each site that differ only inside child chains: two alleles share a group when
+their [symbolic forms](#reporting-each-difference-once) are equal. The groups then choose the site's
+genotype, and the alleles choose within the chosen groups, by the
+[grouped likelihood](read-likelihood-direct-genotyping.md#groups-of-alleles). Grouping does not
+depend on nested calling: under `--no-nested`, the site's records report the differences inside its
+child chains from the alleles chosen within the groups.
 
 ## Phasing
 
@@ -846,7 +866,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Mixture weights](read-likelihood-direct-genotyping.md#mixture-weights) | `--flat-mixture` |
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
-| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
+| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
 | [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
 | [Phasing](#phasing) | `--phased`, `--no-phased`, `--read-phasing`, `--no-read-phasing`, `--phase-min-q`, `--phase-coherence`, `--phase-coh-rounds`, `--phase-break`, `--phase-relink`, `--phase-hang`, `--phase-prior`, `--phase-cap` |
 | [Re-genotyping](#re-genotyping-from-the-phase) | `--regenotype`, `--no-regenotype`, `--regeno-temper`, `--regeno-ceiling`, `--regeno-passes`, `--regeno-haploid`, `--no-regeno-haploid`, `--regeno-ledger` |

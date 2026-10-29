@@ -67,6 +67,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
         TreeGenotyper::Options{
             .nested_calling = nested_calling,
             .off_reference = off_reference_nesting,
+            .group_candidates = group_candidates,
             .edit_bar = off_panel.bar(),
         });
 

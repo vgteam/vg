@@ -152,6 +152,10 @@ public:
     /// linkage model and gets anchors.
     void set_off_reference_nesting(bool on) { off_reference_nesting = on; }
 
+    /// Set whether groups of each site's walks, from `candidate_groups`, choose its genotype. The
+    /// walks then choose within the chosen groups.
+    void set_group_candidates(bool on) { group_candidates = on; }
+
     /// Write one record per difference block between the reference and the symbolic allele of
     /// each called strand, instead of one record per site.
     void set_atomize_blocks(bool on) { block_records.set_enabled(on); }
@@ -408,6 +412,9 @@ private:
     /// Whether to genotype and file chains that the reference walk does not cross, rather than
     /// skip them.
     bool off_reference_nesting = false;
+
+    /// Whether groups of each site's walks, from `candidate_groups`, choose its genotype.
+    bool group_candidates = false;
 
     /// Every phased site.
     ///

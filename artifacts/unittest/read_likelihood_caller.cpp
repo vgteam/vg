@@ -7,7 +7,12 @@
 /// fields. GQ is multiplied by the explained share and by the depth discount. The tests also
 /// check the keys of the genotype likelihoods.
 
+#include <algorithm>
 #include <cmath>
+#include <functional>
+#include <limits>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -20,6 +25,7 @@
 #include "../read_likelihood_caller.hpp"
 #include "../site_read_source.hpp"
 #include "../../src/snarls.hpp"
+#include "../../src/statistics.hpp"
 #include "../../src/traversal_support.hpp"
 #include "../../src/utility.hpp"
 
@@ -113,7 +119,8 @@ struct Called {
 /// caller's settings first.
 Called call_site(CallerSite& site, const vector<Alignment>& reads,
                  const function<void(ReadLikelihoodSnarlCaller&)>& configure = nullptr,
-                 int ploidy = 2, int region_ploidy = 0, bool also_score_other = false) {
+                 int ploidy = 2, int region_ploidy = 0, bool also_score_other = false,
+                 const vector<int>* group_of = nullptr) {
     InMemorySiteReadSource source;
     for (const Alignment& aln : reads) {
         source.add(aln);
@@ -126,20 +133,234 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
     if (configure) {
         configure(caller);
     }
-    auto result = caller.genotype_at(
+    auto [genotype, call_info] = caller.genotype_at(
         materialized_of(site.graph, site.snarl,
             CandidateAlleles{walks_of(site.graph, site.traversals), 0}),
         Ploidies{.ploidy = ploidy,
                  .region_ploidy = region_ploidy,
                  .also_score_other = also_score_other},
-        /* top-level: nothing encloses it */ {});
+        /* top-level: nothing encloses it */ {}, group_of);
     Called out;
-    out.genotype = result.first;
-    out.info = std::move(result.second);
+    out.genotype = genotype;
+    out.info = std::move(call_info);
     if (out.info != nullptr) {
         out.gq_factor = caller.gq_factor(*out.info);
     }
     return out;
+}
+
+/// Build the matrix that `call_site` genotypes `site` from at ploidy 2, from `reads`.
+AlleleReadLikelihoods aligned_matrix(const CallerSite& site, const vector<Alignment>& reads) {
+    InMemorySiteReadSource source;
+    for (const Alignment& aln : reads) {
+        source.add(aln);
+    }
+    QualAdjAlignmentScorer qual_scorer;
+    MatrixAlignmentScorer plain_scorer;
+    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
+                                                      plain_scorer);
+    return calculator.compute(
+        materialized_of(site.graph, site.snarl,
+            CandidateAlleles{walks_of(site.graph, site.traversals), 0}),
+        /* top-level: nothing encloses it */ {}, 2);
+}
+
+/// A calculator that gives every site the matrix that `make` builds.
+class GivenMatrix : public AlleleLikelihoodCalculator {
+public:
+    explicit GivenMatrix(function<AlleleReadLikelihoods()> make) : make(std::move(make)) {}
+
+    AlleleReadLikelihoods compute(const MaterializedSite&, const vector<nid_t>&,
+                                  int) override {
+        return make();
+    }
+
+private:
+    function<AlleleReadLikelihoods()> make;
+};
+
+/**
+ * Return a function that builds a matrix of reads that each fit a set of alleles.
+ *
+ * Each entry of `reads` is a set of alleles and a number of reads. Each of those reads fits every
+ * allele of the set equally, and every other allele e^20 times worse. Every read has e_r 0.02.
+ * With `lengths`, the mixture is weighted by the length of each allele, for reads of 100 bp.
+ */
+function<AlleleReadLikelihoods()> reads_fitting(size_t alleles,
+                                               const vector<pair<set<int>, int>>& reads,
+                                               const vector<size_t>& lengths = {}) {
+    return [alleles, reads, lengths]() {
+        AlleleReadLikelihoodsBuilder builder(alleles, 0.02);
+        builder.set_allele_lengths(lengths);
+        int named = 0;
+        for (const auto& [fits, count] : reads) {
+            vector ln(alleles, -20.0);
+            for (int a : fits) {
+                ln[a] = 0.0;
+            }
+            for (int i = 0; i < count; ++i) {
+                builder.add_read(ln, 1e-6, "r" + std::to_string(named++),
+                                 lengths.empty() ? 0 : 100);
+            }
+        }
+        return builder.build();
+    };
+}
+
+/// Genotype a site whose matrix `make` builds, with `group_of` as the groups of its alleles.
+///
+/// Every walk of the site is the SNP walk of `CallerSite`, since the matrix alone decides the
+/// genotype. Walk 0 is the reference.
+Called call_matrix(const function<AlleleReadLikelihoods()>& make, int ploidy,
+                   const vector<int>* group_of) {
+    CallerSite site;
+    GivenMatrix calculator(make);
+    ReadLikelihoodSnarlCaller caller(site.graph, calculator);
+    const size_t alleles = make().num_alleles();
+    auto [genotype, call_info] = caller.genotype_at(
+        materialized_of(site.graph, site.snarl,
+            CandidateAlleles{
+                vector<Traversal>(alleles, walks_of(site.graph, site.traversals)[1]), 0}),
+        Ploidies{.ploidy = ploidy}, /* top-level: nothing encloses it */ {}, group_of);
+    Called out;
+    out.genotype = genotype;
+    out.info = std::move(call_info);
+    out.gq_factor = caller.gq_factor(*out.info);
+    return out;
+}
+
+/// Return the best shared score of `genotypes` less their best own score, with the depth term when
+/// `with_depth` is true.
+double gain_of(const AlleleReadLikelihoods& matrix, const vector<vector<int>>& genotypes,
+               const vector<int>& group_of, bool with_depth) {
+    double shared = -numeric_limits<double>::infinity();
+    double own = -numeric_limits<double>::infinity();
+    for (const auto& [genotype, ll] : matrix.score_genotypes(genotypes, &group_of, with_depth)) {
+        shared = max(shared, ll);
+    }
+    for (const auto& [genotype, ll] : matrix.score_genotypes(genotypes, nullptr, with_depth)) {
+        own = max(own, ll);
+    }
+    return shared - own;
+}
+
+/// Return the sorted multiset of the groups `group_of` gives the alleles of `genotype`.
+vector<int> groups_of(vector<int> genotype, const vector<int>& group_of) {
+    for (int& allele : genotype) {
+        allele = group_of[allele];
+    }
+    std::ranges::sort(genotype);
+    return genotype;
+}
+
+/// The best shared and own scores among the genotypes of a multiset of groups, and the first
+/// genotype in VCF GL order with each.
+struct MultisetBest {
+    double shared;
+    double own;
+    vector<int> by_shared;
+    vector<int> by_own;
+};
+
+/// Return the MultisetBest of each multiset of groups at `ploidy`, with or without the depth term.
+map<vector<int>, MultisetBest> best_by_multiset(const AlleleReadLikelihoods& matrix, int ploidy,
+                                                const vector<int>& group_of, bool with_depth) {
+    const auto genotypes = AlleleReadLikelihoods::enumerate_genotypes(matrix.num_alleles(), ploidy);
+    const auto own = matrix.score_genotypes(genotypes, nullptr, with_depth);
+    const auto shared = matrix.score_genotypes(genotypes, &group_of, with_depth);
+    map<vector<int>, MultisetBest> best;
+    for (size_t i = 0; i < own.size(); ++i) {
+        const vector<int>& genotype = own[i].first;
+        MultisetBest& b = best.try_emplace(groups_of(genotype, group_of), shared[i].second,
+                                           own[i].second, genotype, genotype)
+                              .first->second;
+        if (shared[i].second > b.shared) {
+            b.shared = shared[i].second;
+            b.by_shared = genotype;
+        }
+        if (own[i].second > b.own) {
+            b.own = own[i].second;
+            b.by_own = genotype;
+        }
+    }
+    return best;
+}
+
+/**
+ * Return the gain of the multiset `plus`, taken over genotypes grown from best genotypes one copy
+ * smaller.
+ *
+ * For each group g of two or more alleles that `plus` holds at least twice, `plus` less one copy of
+ * g is a multiset in `reads`. Its best genotype by shared score and its best by own score, each
+ * with any one allele of g added, are among the genotypes the gain is taken over.
+ *
+ * @param reads The MultisetBest of each multiset one copy smaller than `plus`, without the depth
+ * term.
+ */
+double gain_above(const AlleleReadLikelihoods& matrix, const vector<int>& group_of,
+                  const map<vector<int>, MultisetBest>& reads, const vector<int>& plus) {
+    vector<vector<int>> extended;
+    for (int g : plus) {
+        if (std::ranges::count(group_of, g) < 2 || std::ranges::count(plus, g) < 2) {
+            continue;
+        }
+        vector<int> less = plus;
+        less.erase(std::ranges::find(less, g));
+        const MultisetBest& from = reads.at(less);
+        for (int allele = 0; allele < (int)group_of.size(); ++allele) {
+            if (group_of[allele] != g) {
+                continue;
+            }
+            for (const vector<int>& start : {from.by_shared, from.by_own}) {
+                extended.push_back(start);
+                extended.back().push_back(allele);
+                std::ranges::sort(extended.back());
+            }
+        }
+    }
+    return gain_of(matrix, extended, group_of, false);
+}
+
+/**
+ * Return the score of every genotype of `matrix` at `ploidy` when the groups `group_of` choose.
+ *
+ * A multiset of groups scores its shared score, the best ln likelihood of its genotypes with each
+ * read taking its best relative likelihood within each group. With `charge`, it scores that less
+ * the largest drop in its gain, shared less own score, that one more copy of one of its groups of
+ * two or more alleles brings. Each genotype scores the score of its multiset less its shortfall
+ * from the best genotype of the multiset. The gains, and the best genotypes they start from, come
+ * from the scores without the depth term. `gain_above` gives the gain of a multiset at
+ * `ploidy` + 1.
+ */
+map<vector<int>, double> group_scores(const AlleleReadLikelihoods& matrix, int ploidy,
+                                      const vector<int>& group_of, bool charge) {
+    const auto best = best_by_multiset(matrix, ploidy, group_of, true);
+    const auto reads = best_by_multiset(matrix, ploidy, group_of, false);
+    map<vector<int>, double> scores;
+    for (const auto& [genotype, ll] : matrix.score_genotypes(ploidy)) {
+        const vector<int> groups = groups_of(genotype, group_of);
+        const MultisetBest& b = best.at(groups);
+        const MultisetBest& r = reads.at(groups);
+        double drop = 0.0;
+        for (int group : groups) {
+            if (charge && std::ranges::count(group_of, group) > 1) {
+                vector<int> plus = groups;
+                plus.push_back(group);
+                std::ranges::sort(plus);
+                drop = max(drop, (r.shared - r.own) - gain_above(matrix, group_of, reads, plus));
+            }
+        }
+        scores[genotype] = b.shared - drop - (b.own - ll);
+    }
+    return scores;
+}
+
+/// Require each genotype of `called` to score as `expected` gives.
+void require_scores(const Called& called, const map<vector<int>, double>& expected) {
+    REQUIRE(called.info->genotype_lls.size() == expected.size());
+    for (const auto& [genotype, ll] : expected) {
+        REQUIRE(called.info->genotype_lls.at(genotype) == Approx(ll));
+    }
 }
 
 }  // namespace
@@ -347,6 +568,255 @@ TEST_CASE("Haploid sites are genotyped with one allele and still get a quality",
     REQUIRE(called.genotype[0] == 1);
     REQUIRE(called.info->gq >= 0.0);
     REQUIRE(called.info->gq <= called.info->gq_undiscounted + 1e-9);
+}
+
+TEST_CASE("Groups of a site's walks choose its genotype from aligned reads",
+          "[read_likelihood_caller][group_candidates]") {
+    // The reference and the SNP walk form one group, and the deletion a group of its own. In a
+    // graph, `candidate_groups` joins two walks that differ only inside a child chain. The
+    // haplotypes are the reference and the SNP, and a few reads fit the deletion.
+    // Sharing lets one copy of the group carry the reads of both its walks, beside a copy of the
+    // deletion. One more copy of the group takes over the reads of the SNP walk, so the multiset
+    // of the group and the deletion is charged, and the groups call the reference and the SNP.
+    CallerSite site;
+    vector<Alignment> reads;
+    for (int i = 0; i < 6; ++i) {
+        reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 2, 4}));
+    }
+    for (int i = 0; i < 4; ++i) {
+        reads.push_back(matching_read(site.graph, "s" + std::to_string(i), {1, 3, 4}));
+    }
+    for (int i = 0; i < 3; ++i) {
+        reads.push_back(matching_read(site.graph, "d" + std::to_string(i), {1, 4}));
+    }
+    const vector group_of{0, 0, 1};
+
+    Called walks = call_site(site, reads);
+    Called groups = call_site(site, reads, nullptr, 2, 0, false, &group_of);
+    REQUIRE(walks.genotype == vector<int>({0, 1}));
+    REQUIRE(groups.genotype == vector<int>({0, 1}));
+    REQUIRE(groups.info->gq > 0.0);
+    // Without the charge, the group and the deletion would score above two copies of the group.
+    const AlleleReadLikelihoods matrix = aligned_matrix(site, reads);
+    const auto uncharged = group_scores(matrix, 2, group_of, false);
+    REQUIRE(uncharged.at({0, 2}) > uncharged.at({0, 1}));
+    require_scores(groups, group_scores(matrix, 2, group_of, true));
+    // Genotypes with the same multiset of groups keep the differences between their likelihoods
+    // from the walks.
+    const auto gap = [](const Called& c) {
+        return c.info->genotype_lls.at({0, 1}) - c.info->genotype_lls.at({0, 0});
+    };
+    REQUIRE(gap(groups) == Approx(gap(walks)));
+}
+
+TEST_CASE("Groups choose the genotype where one haplotype is a mosaic of a group's walks",
+          "[read_likelihood_caller][group_candidates]") {
+    // Walks 0 to 8 form group 0, and walks 9 and 10 are groups of their own. One haplotype is a
+    // mosaic of the nine walks of group 0: each of its reads fits one of them. The other haplotype
+    // is walk 10. Its reads fit walk 10, or walks 9 and 10, and some of them fit walk 9 alone.
+    // No one walk explains the mosaic, so the walks alone call 9 and 10. Group 0 explains it.
+    const auto make = reads_fitting(
+        11, {{{0}, 4}, {{1}, 3}, {{2}, 3}, {{3}, 3}, {{4}, 3}, {{5}, 3}, {{6}, 3}, {{7}, 3},
+             {{8}, 3}, {{9}, 6}, {{10}, 10}, {{9, 10}, 10}});
+    const vector group_of{0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2};
+
+    Called walks = call_matrix(make, 2, nullptr);
+    Called groups = call_matrix(make, 2, &group_of);
+    REQUIRE(walks.genotype == vector<int>({9, 10}));
+    // Within group 0, walk 0 has the most reads.
+    REQUIRE(groups.genotype == vector<int>({0, 10}));
+    // A second copy of group 0 lets the own score explain the reads of one more of its nine walks,
+    // but lowers the mixture weight of every copy from 1/2 to 1/3. The own score loses more than it
+    // gains, so the gain from sharing does not drop, and no multiset of group 0 and another group
+    // is charged.
+    const auto uncharged = group_scores(make(), 2, group_of, false);
+    REQUIRE(groups.info->genotype_lls.at({0, 10}) == Approx(uncharged.at({0, 10})));
+    REQUIRE(groups.info->genotype_lls.at({3, 9}) == Approx(uncharged.at({3, 9})));
+    require_scores(groups, group_scores(make(), 2, group_of, true));
+    // Genotypes with the same multiset of groups keep the differences between their likelihoods
+    // from the walks.
+    const auto gap = [](const Called& c) {
+        return c.info->genotype_lls.at({0, 10}) - c.info->genotype_lls.at({1, 10});
+    };
+    REQUIRE(gap(groups) == Approx(gap(walks)));
+}
+
+TEST_CASE("One copy of a group cannot carry the reads of two haplotypes",
+          "[read_likelihood_caller][group_candidates]") {
+    // Walks 0 and 1 are 1,000 bp long and form one group. Walk 2 is a deletion of them, with a
+    // group of its own. The haplotypes are walks 0 and 1, and a few reads fit the deletion. With
+    // the deletion, a copy of the group takes nearly all the weight of the mixture. Sharing would
+    // let that one copy carry the reads of both walks, and fit the deletion's reads as well.
+    const auto make = reads_fitting(3, {{{0}, 20}, {{1}, 20}, {{2}, 5}}, {1000, 1000, 0});
+    const vector group_of{0, 0, 1};
+
+    const auto uncharged = group_scores(make(), 2, group_of, false);
+    REQUIRE(uncharged.at({0, 2}) > uncharged.at({0, 1}));
+    // A second copy of the group takes over the reads of the second walk, so the copy with the
+    // deletion is charged, and two copies of the group win.
+    Called groups = call_matrix(make, 2, &group_of);
+    REQUIRE(groups.genotype == vector<int>({0, 1}));
+    REQUIRE(groups.info->genotype_lls.at({0, 2}) < uncharged.at({0, 2}) - 10.0);
+    // Two copies of the deletion hold no group of two or more walks, so they are not charged.
+    REQUIRE(groups.info->genotype_lls.at({2, 2}) == uncharged.at({2, 2}));
+    // GL and GQ come from the charged scores. GQ before its discounts is the phred-scaled gap
+    // between the two best of them.
+    require_scores(groups, group_scores(make(), 2, group_of, true));
+    vector<double> lls;
+    for (const auto& [genotype, ll] : groups.info->genotype_lls) {
+        lls.push_back(ll);
+    }
+    std::ranges::sort(lls, std::greater<>());
+    REQUIRE(groups.info->gq_undiscounted
+            == Approx(logprob_to_phred(lls[1]) - logprob_to_phred(lls[0])));
+}
+
+TEST_CASE("A haploid copy of a group is charged against two copies of it",
+          "[read_likelihood_caller][group_candidates]") {
+    // Walks 0 and 1 form one group, and walk 2 is a group of its own. At ploidy 1, sharing lets
+    // one copy of the group carry the reads of both its walks, which outnumber the reads of walk
+    // 2. A diploid genotype of the group explains them with two walks, so the haploid copy is
+    // charged, and walk 2 wins.
+    const auto make = reads_fitting(3, {{{0}, 10}, {{1}, 10}, {{2}, 16}});
+    const vector group_of{0, 0, 1};
+
+    const auto uncharged = group_scores(make(), 1, group_of, false);
+    REQUIRE(uncharged.at({0}) > uncharged.at({2}));
+    Called groups = call_matrix(make, 1, &group_of);
+    REQUIRE(groups.genotype == vector<int>({2}));
+    require_scores(groups, group_scores(make(), 1, group_of, true));
+}
+
+TEST_CASE("Where a site's walks form one group, the walks alone choose its genotype",
+          "[read_likelihood_caller][group_candidates]") {
+    // Every genotype has the one multiset of groups, so the groups have nothing to choose between.
+    const auto make = reads_fitting(3, {{{0}, 10}, {{1}, 10}, {{2}, 3}});
+    const vector group_of{0, 0, 0};
+
+    Called walks = call_matrix(make, 2, nullptr);
+    Called groups = call_matrix(make, 2, &group_of);
+    REQUIRE(groups.genotype == walks.genotype);
+    REQUIRE(groups.info->genotype_lls == walks.info->genotype_lls);
+}
+
+TEST_CASE("A multiset of groups is charged from the fit of its reads, without the depth term",
+          "[read_likelihood_caller][group_candidates]") {
+    // Walks 0 and 1 form one group, and are 1,000 and 20,000 bp long. Walk 2 is a deletion, with a
+    // group of its own. Many reads fit both walks of the group. With the depth term, the shared
+    // score could take whichever walk of the group has the length that best fits the number of
+    // reads, and the own score could not.
+    const vector<size_t> lengths{1000, 20000, 0};
+    const auto plain =
+        reads_fitting(3, {{{0}, 40}, {{1}, 40}, {{2}, 30}, {{0, 1}, 100}}, lengths);
+    const auto with_depth = [&plain, &lengths]() {
+        AlleleReadLikelihoods matrix = plain();
+        matrix.set_depth_context(lengths, 0.01, 100, 0.1);
+        return matrix;
+    };
+    const vector group_of{0, 0, 1};
+    REQUIRE(with_depth().uses_depth_term());
+
+    // Return the charge on each genotype: its score before the charge less its score.
+    const auto charges = [&](const function<AlleleReadLikelihoods()>& make) {
+        const Called called = call_matrix(make, 2, &group_of);
+        map<vector<int>, double> charge;
+        for (const auto& [genotype, ll] : group_scores(make(), 2, group_of, false)) {
+            charge[genotype] = ll - called.info->genotype_lls.at(genotype);
+        }
+        return charge;
+    };
+    const auto without = charges(plain);
+    const auto with = charges(with_depth);
+    REQUIRE(without.at({0, 2}) > 1.0);
+    for (const auto& [genotype, charge] : without) {
+        REQUIRE(with.at(genotype) == Approx(charge).margin(1e-6));
+    }
+    require_scores(call_matrix(with_depth, 2, &group_of),
+                   group_scores(with_depth(), 2, group_of, true));
+    // With the depth term, the gain of the group and the deletion would differ by more than a nat.
+    const vector<vector<int>> group_and_deletion{{0, 2}, {1, 2}};
+    REQUIRE(std::abs(gain_of(with_depth(), group_and_deletion, group_of, true)
+                     - gain_of(with_depth(), group_and_deletion, group_of, false))
+            > 1.0);
+}
+
+TEST_CASE("One more copy of a group is added to the best genotypes of the multiset",
+          "[read_likelihood_caller][group_candidates]") {
+    // Walks 0, 1 and 2 form group 0, and walk 3 is a group of its own. Reads fit walks 0 and 1,
+    // walks 0 and 2, walk 1, walk 2, and walk 3. Walks 0, 1 and 2 are 300, 200 and 100 bp long.
+    // Walk 0 is the longest, so a copy of group 0 has the most weight in the mixture as walk 0, and
+    // the best genotypes by shared score have no ties.
+    const auto make = reads_fitting(
+        4, {{{0, 1}, 10}, {{0, 2}, 10}, {{1}, 6}, {{2}, 6}, {{3}, 10}}, {300, 200, 100, 100});
+    const vector group_of{0, 0, 0, 1};
+    const AlleleReadLikelihoods matrix = make();
+    const auto gain = [&](const vector<vector<int>>& genotypes) {
+        return gain_of(matrix, genotypes, group_of, false);
+    };
+
+    // Walks 0 and 3 are the best genotype of group 0 and walk 3 by both scores.
+    for (const vector<int>* groups : {static_cast<const vector<int>*>(nullptr), &group_of}) {
+        const auto scored = matrix.score_genotypes({{0, 3}, {1, 3}, {2, 3}}, groups);
+        REQUIRE(scored[0].second > scored[1].second);
+        REQUIRE(scored[0].second > scored[2].second);
+    }
+    // With one more copy of group 0, the best genotype by own score holds walks 1, 2 and 3. Adding
+    // a walk to walks 0 and 3 cannot give that genotype, so the gain over the genotypes made by
+    // adding a walk is larger than the gain over every genotype, and the charge is smaller.
+    const double before = gain({{0, 3}, {1, 3}, {2, 3}});
+    const double extended = gain({{0, 0, 3}, {0, 1, 3}, {0, 2, 3}});
+    const double every = gain({{0, 0, 3}, {0, 1, 3}, {0, 2, 3}, {1, 1, 3}, {1, 2, 3}, {2, 2, 3}});
+    REQUIRE(extended > every + 1.0);
+    REQUIRE(before - extended > 1.0);
+
+    // The charge on walks 0 and 3 is the gain before the extra copy less the gain over the
+    // genotypes made by adding a walk.
+    const Called groups = call_matrix(make, 2, &group_of);
+    const auto uncharged = group_scores(make(), 2, group_of, false);
+    REQUIRE(uncharged.at({0, 3}) - groups.info->genotype_lls.at({0, 3})
+            == Approx(before - extended));
+    require_scores(groups, group_scores(make(), 2, group_of, true));
+}
+
+TEST_CASE("Tied best genotypes of a multiset go to the first in VCF order",
+          "[read_likelihood_caller][group_candidates]") {
+    // Walks 0, 1 and 2 form group 0, and walk 3 is a group of its own. Reads fit walk 0, walk 1,
+    // walk 2, walks 0 and 2, walks 1 and 2, and walk 3. At ploidy 1, every walk of group 0 has the
+    // same shared score without the depth term, so walk 0 is the best genotype of group 0 by that
+    // score. Walk 2 fits the most reads, so it is the best by own score. The walks have different
+    // lengths, so their depth terms differ, and the tie must still go to walk 0.
+    const vector<size_t> lengths{2000, 3000, 8500, 3000};
+    const auto make = [&lengths]() {
+        AlleleReadLikelihoods matrix = reads_fitting(
+            4, {{{0}, 10}, {{1}, 10}, {{2}, 6}, {{0, 2}, 6}, {{1, 2}, 6}, {{3}, 30}})();
+        matrix.set_depth_context(lengths, 0.01, 100, 0.1);
+        return matrix;
+    };
+    const vector group_of{0, 0, 0, 1};
+    const AlleleReadLikelihoods matrix = make();
+    REQUIRE(matrix.uses_depth_term());
+    const vector<vector<int>> group{{0}, {1}, {2}};
+    const auto shared = matrix.score_genotypes(group, &group_of, false);
+    const auto own = matrix.score_genotypes(group, nullptr, false);
+    REQUIRE(shared[1].second == shared[0].second);
+    REQUIRE(shared[2].second == shared[0].second);
+    REQUIRE(own[2].second > own[0].second);
+    REQUIRE(own[2].second > own[1].second);
+
+    // With two copies of group 0, walks 0 and 1 are the best genotype by own score. Adding a walk
+    // to walk 0 gives it, and adding a walk to walk 2 does not, so the charge on group 0 depends on
+    // starting from walk 0 as well as from walk 2.
+    const double before = gain_of(matrix, group, group_of, false);
+    const double extended =
+        gain_of(matrix, {{0, 0}, {0, 1}, {0, 2}, {1, 2}, {2, 2}}, group_of, false);
+    const double from_own = gain_of(matrix, {{0, 2}, {1, 2}, {2, 2}}, group_of, false);
+    REQUIRE(from_own > extended + 1.0);
+    REQUIRE(before - extended > 1.0);
+
+    const Called groups = call_matrix(make, 1, &group_of);
+    const auto uncharged = group_scores(matrix, 1, group_of, false);
+    REQUIRE(uncharged.at({2}) - groups.info->genotype_lls.at({2}) == Approx(before - extended));
+    require_scores(groups, group_scores(matrix, 1, group_of, true));
 }
 
 TEST_CASE("A nested site's depth rate is per haplotype of the region, not of the site",

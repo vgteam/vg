@@ -609,6 +609,9 @@ void help_call(char** argv) {
          << "                            not as part of the enclosing snarl's alleles [on]" << endl
          << "      --no-nested           report variation inside nested snarls as part of" << endl
          << "                            the enclosing snarl's alleles" << endl
+         << "      --group-candidates    choose a snarl's genotype over groups of its" << endl
+         << "                            alleles that differ only inside nested snarls," << endl
+         << "                            then the alleles within the chosen groups [off]" << endl
          << "      --atomize-blocks      write one record per separate difference between" << endl
          << "                            a called allele and the reference, rather than one" << endl
          << "                            per snarl [on]" << endl
@@ -902,6 +905,7 @@ int main_call(int argc, char** argv) {
     // Both on by default, and turned off below where they cannot apply.
     bool atomize_blocks = true;
     bool nested_calling = true;
+    bool group_candidates = false;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -1017,6 +1021,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_OFF_PANEL_INDELS = 1117;
     constexpr int OPT_OFF_PANEL_SVS = 1118;
     constexpr int OPT_NO_OFF_PANEL = 1119;
+    constexpr int OPT_GROUP_CANDIDATES = 1121;
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
@@ -1163,6 +1168,7 @@ int main_call(int argc, char** argv) {
             {"enumerate-support", no_argument, nullptr, OPT_ENUMERATE_SUPPORT},
             {"nested", no_argument, nullptr, OPT_NESTED},
             {"no-nested", no_argument, nullptr, OPT_NO_NESTED},
+            {"group-candidates", no_argument, nullptr, OPT_GROUP_CANDIDATES},
             {"atomize-blocks", no_argument, nullptr, OPT_ATOMIZE_BLOCKS},
             {"no-atomize-blocks", no_argument, nullptr, OPT_NO_ATOMIZE_BLOCKS},
             {"phased", no_argument, nullptr, OPT_PHASED},
@@ -1581,6 +1587,9 @@ int main_call(int argc, char** argv) {
         case OPT_NO_NESTED:
             nested_calling = false;
 
+            break;
+        case OPT_GROUP_CANDIDATES:
+            group_candidates = true;
             break;
         case OPT_NO_PHASED:
             phased_output = false;
@@ -3089,6 +3098,7 @@ int main_call(int argc, char** argv) {
     }
 
     if (multipass_caller != nullptr) {
+        multipass_caller->set_group_candidates(group_candidates);
         multipass_caller->set_show_progress(show_progress);
     } else {
         graph_caller->set_show_progress(show_progress);
