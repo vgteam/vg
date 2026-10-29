@@ -107,12 +107,13 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     block_records.report();
 }
 
-unique_ptr<SiteTree> MultiPassCaller::site_tree() {
-    return std::make_unique<StagedSiteTree>(
-        staged_sites, sites, graph,
-        [this](const handle_t& start, const handle_t& end) {
-            return site_name(graph, start, end, output.translation());
-        });
+string MultiPassCaller::record_id_of_site(const net_handle_t& site) const {
+    if (sites.is_edit(site)) {
+        auto found = edit_record_ids.find(sites.canonical(site));
+        return found != edit_record_ids.end() ? found->second : string();
+    }
+    return site_name(graph, sites.get_site_start(site), sites.get_site_end(site),
+                     output.translation());
 }
 
 void MultiPassCaller::report_descent_instrumentation() const {
@@ -468,6 +469,11 @@ void MultiPassCaller::render_retained_records() {
             rendered_sites = staged_sites.by_key();
         });
     rendered_sites.clear();
+    staged_sites.for_each([&](StagedSite& site) {
+        if (sites.is_edit(site.net)) {
+            edit_record_ids.emplace(sites.canonical(site.net), site.id);
+        }
+    });
     splicer.clear();
     staged_sites.release_unrendered();
 }

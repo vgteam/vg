@@ -107,10 +107,16 @@ public:
     /// changed.
     SiteEmitter& emitter() { return site_emitter; }
 
-    /// Get the tree of the sites `call` wrote records for, and of the sites enclosing them.
+    /// Get the sites this caller called: those of the snarl decomposition it was given, and the
+    /// edit sites laid over it.
+    const EditSnarlDecompositionOverlay& site_decomposition() const { return sites; }
+
+    /// Return the ID of the records of a site of `site_decomposition()`, read the way `site`
+    /// traverses it.
     ///
-    /// The output's nesting INFO tags are computed from it. It is valid while this caller exists.
-    unique_ptr<SiteTree> site_tree();
+    /// A snarl is named from its boundary nodes. An edit site has an ID of its own, or none
+    /// (an empty ID) if `call` wrote no record for it.
+    string record_id_of_site(const net_handle_t& site) const;
 
     /// Do not genotype a site with more edges than this, including those of nested sites.
     ///
@@ -376,6 +382,9 @@ private:
 
     /// The staged sites the render writes, by record key, while it runs.
     unordered_map<size_t, StagedSite*> rendered_sites;
+
+    /// The record ID of each edit site the render wrote, by its canonical net handle.
+    unordered_map<net_handle_t, string> edit_record_ids;
 
     /// The sample the records are for.
     string sample_name;

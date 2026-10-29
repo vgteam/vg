@@ -42,7 +42,11 @@ public:
 
     // deconstruct the entire graph to cout.
     // Not even a little bit thread safe.
+    //
+    // With `include_nested`, `nesting_sites` must be the snarls of `snarl_manager` as a snarl
+    // decomposition, which the nesting INFO tags are read from.
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
+                     const SnarlDecomposition* nesting_sites,
                      bool include_nested,
                      int context_jaccard_window,
                      bool untangle_traversals,

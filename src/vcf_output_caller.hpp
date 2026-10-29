@@ -17,12 +17,14 @@
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
 #include "../artifacts/vcf_record.hpp"
-#include "../artifacts/site_tree.hpp"
+#include <handlegraph/snarl_decomposition.hpp>
 
 namespace vg {
 
 using namespace std;
 using vg::io::AlignmentEmitter;
+using handlegraph::net_handle_t;
+using handlegraph::SnarlDecomposition;
 
 /// Return the stretch of the reference that the REF of `record` covers, 1-based and end-inclusive,
 /// as VCF POS is.
@@ -82,20 +84,21 @@ public:
     bool add_variant(vcflib::Variant& var, size_t block = 0, bool hidden = false) const;
 
     /**
-     * Write the buffered records, sorted, taking the nesting INFO tags from `snarl_manager`.
+     * Write the records, sorted, and empty the buffer.
      *
-     * This empties the buffer, so it can be called once. `snarl_manager` may be null if nested
-     * output is off.
-     */
-    void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
-
-    /**
-     * Write the buffered records, sorted, taking the nesting INFO tags from the tree of sites.
+     * With nesting on, each record first gets the nesting INFO tags, which say where its site
+     * lies in the snarl tree `sites` and where to find it on the reference. A record is matched
+     * to its site by its ID, so `record_id_of_site` must give each snarl's ID as its records
+     * carry it. When nesting is off, `sites` may be null.
      *
-     * This empties the buffer, so it can be called once. `sites` may be null if nested output is
-     * off.
+     * @param graph The graph of `sites`, which the default record IDs read node IDs from. It
+     * may be null when `record_id_of_site` is given or nesting is off.
+     * @param record_id_of_site Returns the record ID of a snarl of `sites`, read the way the
+     * net handle traverses it. When empty, a snarl is named from its boundary nodes.
      */
-    void write_variants(ostream& out_stream, const SiteTree* sites);
+    void write_variants(ostream& out_stream, const SnarlDecomposition* sites = nullptr,
+                        const HandleGraph* graph = nullptr,
+                        const function<string(const net_handle_t&)>& record_id_of_site = {});
 
     /// Run vcffixup from vcflib
     void vcf_fixup(vcflib::Variant& var) const;
@@ -169,9 +172,10 @@ protected:
     // false, so the released VCFs carried the wrong one.
     static string nesting_info_headers();
 
-    /// Add the nesting INFO tags (LV, CH, PS, RC, RS, RD) to every buffered record, from the tree
-    /// of sites.
-    void update_nesting_info_tags(const SiteTree& sites);
+    /// Add the nesting INFO tags (LV, CH, PS, RC, RS, RD) to every buffered record, from the snarl
+    /// tree `sites`, whose sites have the record IDs `record_id_of_site` gives.
+    void update_nesting_info_tags(const SnarlDecomposition& sites,
+                                  const function<string(const net_handle_t&)>& record_id_of_site);
     
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;

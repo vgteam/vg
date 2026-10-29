@@ -1,11 +1,13 @@
 /// \file multipass_parts.cpp
-/// Tests for the parts of the read-likelihood caller that sort buffered VCF records, nest staged
-/// sites, and phase reads and nested sites.
+/// Tests for the parts of the read-likelihood caller that sort buffered VCF records, give records
+/// their nesting tags, and phase reads and nested sites.
 ///
 /// Records sharing a position are rare in real output, so the order of ties is checked here.
 
 #include <algorithm>
 #include <cmath>
+#include <sstream>
+#include <map>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -25,6 +27,7 @@
 #include "../read_strand_table.hpp"
 #include "../staged_site.hpp"
 #include "../vcf_record.hpp"
+#include "../../src/utility.hpp"
 
 namespace vg {
 namespace unittest {
@@ -94,63 +97,102 @@ TEST_CASE("The buffered record order is total, so two runs cannot disagree", "[g
     }
 }
 
-TEST_CASE("The staged-site tree places each site under the sites enclosing it, once each",
+namespace {
+
+/// Return a record on contig "chr" at `position` with ID `id` and REF `ref`, called 0/1.
+vcflib::Variant nesting_record(const string& id, int64_t position, const string& ref) {
+    vcflib::Variant record;
+    record.sequenceName = "chr";
+    record.position = position;
+    record.id = id;
+    record.ref = ref;
+    record.alt = {"A"};
+    record.alleles = {ref, "A"};
+    record.filter = "PASS";
+    record.info["AT"] = {">1", ">2"};
+    record.format = {"GT"};
+    record.samples["sample"]["GT"] = {"0/1"};
+    return record;
+}
+
+/// Return the INFO fields of each record line of a VCF body, by the record's ID.
+map<string, map<string, string>> info_by_id(const string& vcf) {
+    map<string, map<string, string>> fields;
+    stringstream lines(vcf);
+    string line;
+    while (getline(lines, line)) {
+        vector<string> columns = split_delims(line, "\t");
+        for (const string& field : split_delims(columns.at(7), ";")) {
+            size_t equals = field.find('=');
+            fields[columns.at(2)][field.substr(0, equals)] =
+                equals == string::npos ? "" : field.substr(equals + 1);
+        }
+    }
+    return fields;
+}
+
+}
+
+TEST_CASE("The nesting tags place each record under the records of the sites around it",
           "[graph_caller]") {
     NestedGraph nested;
     const HandleGraph& graph = nested.graph;
     IntegratedSnarlFinder finder(nested.graph);
     DecompositionPair pair(nested.graph, finder);
     EditSnarlDecompositionOverlay overlay(pair.adapter, nested.graph);
-    auto name = [&](const handle_t& start, const handle_t& end) {
-        return site_name(graph, start, end, nullptr, false);
-    };
-    StagedSiteTable table;
-    table.start(1);
-    auto stage = [&](const net_handle_t& net, const string& id) {
-        StagedSite staged;
-        staged.net = net;
-        staged.id = id;
-        table.add_top_level(std::move(staged));
-    };
-    // A top-level site 1..8, and inside it 2..7, staged read backward as the reference might
-    // orient it. Inside that, 3..5 is not staged, and inside 3..5 an edit site inside node 4 has an
-    // ID of its own.
-    stage(find_snarl(overlay, graph, 1, 8), name(nested.handle(1), nested.handle(8)));
-    stage(overlay.flip(find_snarl(overlay, graph, 2, 7)), "<7<2");
-    stage(overlay.add_edit(nested.handle(4), 1, nested.handle(4), 2), "4:1:G");
-
-    const StagedSiteTree tree(table, overlay, graph, name);
-    vector<SiteTree::site_t> order;
-    tree.for_each_site([&](SiteTree::site_t site) { order.push_back(site); }, true);
-    // The middle site is one node, though it was staged one way round and encloses the other.
-    REQUIRE(order.size() == 4);
-    for (size_t i = 0; i < order.size(); ++i) {
-        const SiteTree::site_t parent = tree.parent_of(order[i]);
-        // Preorder: each site comes after the site enclosing it.
-        REQUIRE((parent == nullptr
-                 || std::find(order.begin(), order.begin() + i, parent) != order.begin() + i));
-    }
-    SiteTree::site_t own = nullptr;
-    for (SiteTree::site_t site : order) {
-        if (tree.id_of(site) != nullptr) {
-            REQUIRE(own == nullptr);
-            own = site;
+    // An edit site inside node 4, which lies inside 3..5, inside 2..7, inside 1..8.
+    const net_handle_t edit = overlay.add_edit(nested.handle(4), 1, nested.handle(4), 2);
+    auto record_id_of_site = [&](const net_handle_t& site) {
+        if (overlay.is_edit(site)) {
+            return string("4:1:G");
         }
-    }
-    REQUIRE(own != nullptr);
-    REQUIRE(*tree.id_of(own) == "4:1:G");
-    // Its ancestors, innermost first, are named by their boundary visits. The middle site keeps
-    // the orientation it was first added in, which the nesting tags read either way round.
-    vector<string> ancestors;
-    for (SiteTree::site_t site = tree.parent_of(own); site != nullptr; site = tree.parent_of(site)) {
-        REQUIRE(tree.id_of(site) == nullptr);
-        const SiteEnds ends = tree.ends_of(site);
-        ancestors.push_back(site_name(ends.start_id, ends.start_backward, ends.end_id,
-                                      ends.end_backward, nullptr, false));
-    }
-    REQUIRE(ancestors == vector<string>({">3>5", "<7<2", ">1>8"}));
-}
+        return site_name(graph, overlay.get_site_start(site), overlay.get_site_end(site), nullptr,
+                         false);
+    };
+    REQUIRE(record_id_of_site(edit) == "4:1:G");
 
+    VCFOutputCaller output("sample");
+    output.set_nested(true);
+    output.genotyper_vcf_header(nested.graph, {"chr"}, {100}, [](string&) {});
+    // The top-level site, the middle site written read backward, and the edit site. The site
+    // 3..5 between the edit and the middle site has no record.
+    vcflib::Variant top = nesting_record(">1>8", 3, "ATGCTGAGCATG");
+    vcflib::Variant middle = nesting_record("<7<2", 4, "TGCTGAG");
+    vcflib::Variant inner = nesting_record("4:1:G", 7, "T");
+    REQUIRE(output.add_variant(top));
+    REQUIRE(output.add_variant(middle));
+    REQUIRE(output.add_variant(inner));
+
+    stringstream vcf;
+    output.write_variants(vcf, &overlay, &graph, record_id_of_site);
+    map<string, map<string, string>> info = info_by_id(vcf.str());
+    REQUIRE(info.size() == 3);
+
+    // The top-level record has no parent, and is its own place on the reference.
+    REQUIRE(info[">1>8"]["LV"] == "0");
+    REQUIRE(info[">1>8"]["CH"] == "0");
+    REQUIRE_FALSE(info[">1>8"].contains("PS"));
+    REQUIRE(info[">1>8"]["RC"] == "chr");
+    REQUIRE(info[">1>8"]["RS"] == "3");
+    REQUIRE(info[">1>8"]["RD"] == "15");
+
+    // The middle record is found though it is written read backward.
+    REQUIRE(info["<7<2"]["LV"] == "1");
+    REQUIRE(info["<7<2"]["CH"] == "0");
+    REQUIRE(info["<7<2"]["PS"] == ">1>8");
+    REQUIRE(info["<7<2"]["RC"] == "chr");
+    REQUIRE(info["<7<2"]["RS"] == "3");
+    REQUIRE(info["<7<2"]["RD"] == "15");
+
+    // The edit's record is found by its own ID. Its parent is the nearest site around it with a
+    // record, and it is placed on the reference where the top-level record is.
+    REQUIRE(info["4:1:G"]["LV"] == "2");
+    REQUIRE(info["4:1:G"]["CH"] == "0");
+    REQUIRE(info["4:1:G"]["PS"] == "<7<2");
+    REQUIRE(info["4:1:G"]["RC"] == "chr");
+    REQUIRE(info["4:1:G"]["RS"] == "3");
+    REQUIRE(info["4:1:G"]["RD"] == "15");
+}
 
 TEST_CASE("A strand from another phase set is NaN in the anchor path, and no strand is 0",
           "[graph_caller]") {

@@ -1479,6 +1479,7 @@ void Deconstructor::deconstruct_graph_top_down(SnarlManager* snarl_manager) {
  * Convenience wrapper function for deconstruction of multiple paths.
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
+                                const SnarlDecomposition* nesting_sites,
                                 bool include_nested,
                                 int context_jaccard_window,
                                 bool untangle_traversals,
@@ -1539,7 +1540,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     cout << patched_header << endl;
 
     // write variants in sorted order
-    write_variants(cout, snarl_manager);
+    write_variants(cout, nesting_sites, graph);
 }
 
 }

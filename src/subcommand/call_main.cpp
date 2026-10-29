@@ -2889,16 +2889,30 @@ int main_call(int argc, char** argv) {
     unique_ptr<LinkageCollector> linkage_collector;
     vector<size_t> linkage_sequence_to_haplotype;
 
+    // Write the nesting INFO tags (such as LV and PS) with -A, --top-down or --bottom-up, and
+    // when off-reference chains are genotyped. A record on a gref fragment contig lies inside a
+    // non-reference allele, and only these tags say so.
+    bool nesting_tags = all_snarls || top_down || bottom_up || off_ref_nesting;
+    // The snarl tree the nesting tags are read from, for a caller other than the read-likelihood
+    // one, which has its own. It is made now so that a unary snarl is refused before calling.
+    unique_ptr<SnarlManagerDecomposition> nesting_sites;
+    if (nesting_tags && !gaf_output && multipass_caller == nullptr) {
+        try {
+            nesting_sites.reset(new SnarlManagerDecomposition(*snarl_manager, *graph));
+        } catch (const std::invalid_argument&) {
+            // The view throws only on a unary snarl, which only the cactus snarl finder makes.
+            logger.error() << "the snarls include a unary snarl, which the nesting INFO tags "
+                           << "cannot place; find the snarls with vg snarls -A integrated, which "
+                           << "makes none" << endl;
+        }
+    }
+
     string header;
     if (!gaf_output) {
         // Init The VCF       
         VCFOutputCaller* vcf_caller = vcf_out;
         assert(vcf_caller != nullptr);
-        // Write the nesting INFO tags (such as LV and PS) with -A, --top-down or --bottom-up, and
-        // when off-reference chains are genotyped. A record on a gref fragment contig lies inside
-        // a non-reference allele, and only these tags say so.
-        vcf_caller->set_nested(all_snarls || top_down || bottom_up
-                               || off_ref_nesting);
+        vcf_caller->set_nested(nesting_tags);
         if (multipass_caller != nullptr) {
             multipass_caller->set_off_reference_nesting(off_ref_nesting);
         }
@@ -3163,11 +3177,15 @@ int main_call(int argc, char** argv) {
         cout << vcf_caller->prune_header_contigs(header, vcf_caller->get_output_contigs()) << flush;
         if (show_progress) logger.info() << "Writing VCF Variants" << endl;
         if (multipass_caller != nullptr) {
-            // The read-likelihood caller places each record in the tree of the sites it staged.
-            const unique_ptr<SiteTree> sites = multipass_caller->site_tree();
-            vcf_caller->write_variants(cout, sites.get());
+            // The read-likelihood caller places each record among the sites it called, which
+            // include its edit sites.
+            vcf_caller->write_variants(
+                cout, &multipass_caller->site_decomposition(), graph,
+                [&](const net_handle_t& site) {
+                    return multipass_caller->record_id_of_site(site);
+                });
         } else {
-            vcf_caller->write_variants(cout, snarl_manager.get());
+            vcf_caller->write_variants(cout, nesting_sites.get(), graph);
         }
         if (show_progress) logger.info() << "VCF complete" << endl;        
     }

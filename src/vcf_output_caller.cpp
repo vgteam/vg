@@ -109,20 +109,23 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block, bool hidde
     return true;
 }
 
-void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* snarl_manager) {
-    assert(include_nested == false || snarl_manager != nullptr);
-    if (snarl_manager == nullptr) {
-        write_variants(out_stream, (const SiteTree*)nullptr);
-    } else {
-        const SnarlManagerSiteTree sites(*snarl_manager);
-        write_variants(out_stream, &sites);
-    }
-}
-
-void VCFOutputCaller::write_variants(ostream& out_stream, const SiteTree* sites) {
-    assert(include_nested == false || sites != nullptr);
+void VCFOutputCaller::write_variants(
+    ostream& out_stream, const SnarlDecomposition* sites, const HandleGraph* graph,
+    const function<string(const net_handle_t&)>& record_id_of_site) {
     if (include_nested) {
-        update_nesting_info_tags(*sites);
+        assert(sites != nullptr);
+        if (record_id_of_site) {
+            update_nesting_info_tags(*sites, record_id_of_site);
+        } else {
+            // Name each snarl from its boundary nodes, read the way the snarl is traversed.
+            assert(graph != nullptr);
+            update_nesting_info_tags(*sites, [&](const net_handle_t& net) {
+                bool backward = sites->starts_at(net) == SnarlDecomposition::END;
+                handle_t start = sites->get_handle(sites->get_bound(net, backward, true), graph);
+                handle_t end = sites->get_handle(sites->get_bound(net, !backward, false), graph);
+                return site_name(*graph, start, end, node_translation, false);
+            });
+        }
     }
     vector<pair<BufferedRecordKey, string>> all_variants;
     // Reserve room for every record at once, rather than growing for each buffer.
@@ -353,150 +356,118 @@ string VCFOutputCaller::nesting_info_headers() {
 
 namespace {
 
-/// Table from the boundary visits of a site to the name of its record in the VCF.
-using NameOfEnds = unordered_map<SiteEnds, const string*>;
-
-/// Return the name of a site's record: its own ID, or else its boundary visits as `site_name`
-/// prints them.
-string record_name_of_site(const SiteTree& sites, SiteTree::site_t site,
-                           const NodeTranslation* translation) {
-    if (const string* id = sites.id_of(site)) {
-        return *id;
-    }
-    const SiteEnds e = sites.ends_of(site);
-    return site_name(e.start_id, e.start_backward, e.end_id, e.end_backward, translation, false);
+/// Return true if `net` is a site: a snarl, or an element that is none of the kinds a
+/// SnarlDecomposition knows, such as an edit in an EditSnarlDecompositionOverlay.
+bool is_site(const SnarlDecomposition& sites, const net_handle_t& net) {
+    return sites.is_snarl(net)
+           || !(sites.is_chain(net) || sites.is_node(net) || sites.is_sentinel(net)
+                || sites.is_root(net));
 }
 
-/// Return the name the record of a site has when the site is read in the other orientation.
-///
-/// A site with an ID has that name in both orientations.
-string flipped_record_name_of_site(const SiteTree& sites, SiteTree::site_t site,
-                                   const NodeTranslation* translation) {
-    if (const string* id = sites.id_of(site)) {
-        return *id;
+/// Return the site that `net` lies directly inside, or a root handle if none does.
+net_handle_t parent_site(const SnarlDecomposition& sites, const net_handle_t& net) {
+    net_handle_t here = sites.get_parent(net);
+    while (!sites.is_root(here) && !sites.is_snarl(here)) {
+        here = sites.get_parent(here);
     }
-    const SiteEnds e = sites.ends_of(site);
-    return site_name(e.end_id, !e.end_backward, e.start_id, !e.start_backward, translation, false);
+    return here;
 }
 
-/// Read the boundary visits of a site back from an untranslated record name like ">12<17".
+/// Call `visit` on `top`, if it is a site, and on each site inside it, each before the sites
+/// inside it.
 ///
-/// Return false for a name that printing the visits read from it would not give back, so that a
-/// name and a pair of visits correspond one to one.
-bool read_record_name_ends(const string& name, SiteEnds& ends) {
-    if (name.size() < 4 || (name[0] != '<' && name[0] != '>')) {
-        return false;
+/// A site other than a snarl has no children. Any other element, even a node, can have a site as
+/// a child, so the search goes into every one.
+void for_each_site_in(const SnarlDecomposition& sites, const net_handle_t& top,
+                      const function<void(const net_handle_t&)>& visit) {
+    // The elements left to search, the next one last.
+    vector<net_handle_t> stack{top};
+    vector<net_handle_t> children;
+    while (!stack.empty()) {
+        net_handle_t here = stack.back();
+        stack.pop_back();
+        if (is_site(sites, here)) {
+            visit(here);
+            if (!sites.is_snarl(here)) {
+                continue;
+            }
+        }
+        children.clear();
+        sites.for_each_child(here, [&](const net_handle_t& child) {
+            children.push_back(child);
+        });
+        stack.insert(stack.end(), children.rbegin(), children.rend());
     }
-    const size_t middle = name.find_first_of("<>", 1);
-    if (middle == string::npos || middle < 2 || middle + 1 >= name.size()) {
-        return false;
-    }
-    const char* text = name.data();
-    auto start = std::from_chars(text + 1, text + middle, ends.start_id);
-    auto end = std::from_chars(text + middle + 1, text + name.size(), ends.end_id);
-    if (start.ec != std::errc() || start.ptr != text + middle
-        || end.ec != std::errc() || end.ptr != text + name.size()) {
-        return false;
-    }
-    ends.start_backward = name[0] == '<';
-    ends.end_backward = name[middle] == '<';
-    return site_name(ends.start_id, ends.start_backward, ends.end_id, ends.end_backward, nullptr,
-                     false) == name;
 }
 
-/// Call `match` on each record name in `chrom_of_name` that an untranslated site has.
+/// Call `visit` on every site of `sites`.
 ///
-/// A site with an ID matches by its ID. Any other site matches by its boundary visits, first in
-/// its own orientation and then flipped, since a caller can write a site either way round.
-template<typename Match>
-void for_each_record_name_of_site(const SiteTree& sites, SiteTree::site_t site,
-                                  const unordered_map<string, uint32_t>& chrom_of_name,
-                                  const NameOfEnds& name_of_ends, Match&& match) {
-    if (const string* id = sites.id_of(site)) {
-        if (auto named = chrom_of_name.find(*id); named != chrom_of_name.end()) {
-            match(named->first);
+/// With `in_preorder`, call it on this thread, on each site before the sites inside it. Otherwise
+/// call it on several threads, one child of the root at a time, in any order.
+void for_each_site(const SnarlDecomposition& sites,
+                   const function<void(const net_handle_t&)>& visit, bool in_preorder) {
+    vector<net_handle_t> tops;
+    sites.for_each_child(sites.get_root(), [&](const net_handle_t& child) {
+        tops.push_back(child);
+    });
+    if (in_preorder) {
+        for (const net_handle_t& top : tops) {
+            for_each_site_in(sites, top, visit);
         }
         return;
     }
-    const SiteEnds e = sites.ends_of(site);
-    if (auto own = name_of_ends.find(e); own != name_of_ends.end()) {
-        match(*own->second);
-    }
-    if (auto flipped = name_of_ends.find(SiteEnds{e.end_id, !e.end_backward, e.start_id,
-                                                  !e.start_backward});
-        flipped != name_of_ends.end()) {
-        match(*flipped->second);
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < tops.size(); ++i) {
+        for_each_site_in(sites, tops[i], visit);
     }
 }
 
-/// Map each record name in `chrom_of_name` to the untranslated site that has it.
+/// Map each record name in `chrom_of_name` to the site that has it.
 ///
-/// Each name is read back into boundary visits once, and the sites are matched by their visits,
-/// which is much faster than printing both names of every site. Where two sites have one name,
-/// the name goes to the one that the preorder visits last.
-unordered_map<string, SiteTree::site_t>
-index_untranslated_sites_by_record_name(const SiteTree& sites,
-                                        const unordered_map<string, uint32_t>& chrom_of_name) {
-    unordered_map<string, SiteTree::site_t> name_to_snarl;
-    name_to_snarl.reserve(chrom_of_name.size());
-    NameOfEnds name_of_ends;
-    name_of_ends.reserve(chrom_of_name.size());
-    for (const auto& [name, chrom] : chrom_of_name) {
-        if (SiteEnds ends; read_record_name_ends(name, ends)) {
-            name_of_ends.try_emplace(ends, &name);
+/// A site's record can be written in either orientation, so each site is looked up by the ID of
+/// its record read both ways round. Where two sites have one name, the name goes to the one that
+/// the preorder visits last.
+unordered_map<string, net_handle_t>
+index_sites_by_record_name(const SnarlDecomposition& sites,
+                           const unordered_map<string, uint32_t>& chrom_of_name,
+                           const function<string(const net_handle_t&)>& record_id_of_site) {
+    auto for_each_name = [&](const net_handle_t& site, const auto& match) {
+        string name = record_id_of_site(site);
+        string flipped_name = record_id_of_site(sites.flip(site));
+        if (auto named = chrom_of_name.find(name); named != chrom_of_name.end()) {
+            match(named->first);
         }
-    }
+        if (flipped_name != name) {
+            if (auto named = chrom_of_name.find(flipped_name); named != chrom_of_name.end()) {
+                match(named->first);
+            }
+        }
+    };
     // Match the sites on several threads, each into a list of its own. The matches depend on the
     // order of the sites only if two different sites match one name, and then we match again in
     // preorder.
-    vector<vector<pair<const string*, SiteTree::site_t>>> found(max(1, omp_get_max_threads()));
-    sites.for_each_site([&](SiteTree::site_t snarl) {
+    vector<vector<pair<const string*, net_handle_t>>> found(max(1, omp_get_max_threads()));
+    for_each_site(sites, [&](const net_handle_t& site) {
         auto& mine = found[omp_get_thread_num()];
-        for_each_record_name_of_site(sites, snarl, chrom_of_name, name_of_ends,
-                                     [&](const string& name) {
-            mine.emplace_back(&name, snarl);
-        });
+        for_each_name(site, [&](const string& name) { mine.emplace_back(&name, site); });
     }, false);
+    unordered_map<string, net_handle_t> name_to_snarl;
+    name_to_snarl.reserve(chrom_of_name.size());
     bool ambiguous = false;
     for (const auto& thread_found : found) {
-        for (const auto& [name, snarl] : thread_found) {
-            auto [placed, inserted] = name_to_snarl.try_emplace(*name, snarl);
-            if (!inserted && placed->second != snarl) {
+        for (const auto& [name, site] : thread_found) {
+            auto [placed, inserted] = name_to_snarl.try_emplace(*name, site);
+            if (!inserted && placed->second != site) {
                 ambiguous = true;
             }
         }
     }
     if (ambiguous) {
         name_to_snarl.clear();
-        sites.for_each_site([&](SiteTree::site_t snarl) {
-            for_each_record_name_of_site(sites, snarl, chrom_of_name, name_of_ends,
-                                         [&](const string& name) {
-                name_to_snarl[name] = snarl;
-            });
+        for_each_site(sites, [&](const net_handle_t& site) {
+            for_each_name(site, [&](const string& name) { name_to_snarl[name] = site; });
         }, true);
     }
-    return name_to_snarl;
-}
-
-/// Map each record name in `chrom_of_name` to the site that has it, under a node translation.
-///
-/// Translated names are not node IDs, so each site's names are printed and looked up.
-unordered_map<string, SiteTree::site_t>
-index_translated_sites_by_record_name(const SiteTree& sites,
-                                      const unordered_map<string, uint32_t>& chrom_of_name,
-                                      const NodeTranslation* translation) {
-    unordered_map<string, SiteTree::site_t> name_to_snarl;
-    name_to_snarl.reserve(chrom_of_name.size());
-    sites.for_each_site([&](SiteTree::site_t snarl) {
-        if (string snarl_name = record_name_of_site(sites, snarl, translation);
-            chrom_of_name.contains(snarl_name)) {
-            name_to_snarl[std::move(snarl_name)] = snarl;
-        }
-        if (string flipped_name = flipped_record_name_of_site(sites, snarl, translation);
-            chrom_of_name.contains(flipped_name)) {
-            name_to_snarl[std::move(flipped_name)] = snarl;
-        }
-    }, true);
     return name_to_snarl;
 }
 
@@ -528,13 +499,13 @@ vector<vector<pair<string, Region>>> read_record_regions(
 
 }
 
-void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
+void VCFOutputCaller::update_nesting_info_tags(
+    const SnarlDecomposition& sites,
+    const function<string(const net_handle_t&)>& record_id_of_site) {
 
-    auto name_of = [&](SiteTree::site_t site) {
-        return record_name_of_site(sites, site, node_translation);
-    };
-    auto flipped_name_of = [&](SiteTree::site_t site) {
-        return flipped_record_name_of_site(sites, site, node_translation);
+    auto name_of = [&](const net_handle_t& site) { return record_id_of_site(site); };
+    auto flipped_name_of = [&](const net_handle_t& site) {
+        return record_id_of_site(sites.flip(site));
     };
 
     // Merge the per-thread suppressed-site intervals collected during calling.  These are sites
@@ -590,10 +561,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
 
     // Index the sites by the names of their records. Only names in the VCF are looked up, so only
     // they are indexed.
-    unordered_map<string, SiteTree::site_t> name_to_snarl =
-        node_translation == nullptr
-            ? index_untranslated_sites_by_record_name(sites, chrom_of_name)
-            : index_translated_sites_by_record_name(sites, chrom_of_name, node_translation);
+    unordered_map<string, net_handle_t> name_to_snarl =
+        index_sites_by_record_name(sites, chrom_of_name, record_id_of_site);
 
     // pass 2) identify top-level snarls (those with no ancestors in VCF)
     // and store reference info only for them
@@ -611,8 +580,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
     auto is_top_level = [&](const string& name) {
         auto it = name_to_snarl.find(name);
         if (it == name_to_snarl.end()) return true; // not found, treat as top-level
-        SiteTree::site_t snarl = it->second;
-        while ((snarl = sites.parent_of(snarl))) {
+        net_handle_t snarl = it->second;
+        while (!sites.is_root(snarl = parent_site(sites, snarl))) {
             string cur_name = name_of(snarl);
             string flipped_name = flipped_name_of(snarl);
             if (chrom_of_name.contains(cur_name) || chrom_of_name.contains(flipped_name)) {
@@ -673,11 +642,10 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
         // chrom_index is complete after pass 1, so this lookup always hits.
         uint32_t my_chrom_id = chrom_index.at(my_chrom);
         uint32_t prev_chrom_id = my_chrom_id;
-        SiteTree::site_t snarl = name_to_snarl.at(name);
+        net_handle_t snarl = name_to_snarl.at(name);
 
-        assert(snarl != nullptr);
         // walk up the snarl tree
-        while ((snarl = sites.parent_of(snarl))) {
+        while (!sites.is_root(snarl = parent_site(sites, snarl))) {
             string cur_name = name_of(snarl);
 
             // Since it is possible that the snarl is actually flipped in the vcf, check for the

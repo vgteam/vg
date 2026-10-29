@@ -2,7 +2,6 @@
 #define VG_STAGED_SITE_HPP_INCLUDED
 
 #include <cstdint>
-#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -14,7 +13,6 @@
 #include "linkage_model.hpp"
 #include "panel_lookup.hpp"
 #include "read_likelihood_caller.hpp"
-#include "site_tree.hpp"
 #include "site_values.hpp"
 #include "../src/snarl_caller.hpp"
 
@@ -167,50 +165,6 @@ struct StagedSite {
     /// sites under it. The render sets them while it writes the site's records, and then
     /// frees them.
     optional<SplicedAlleles> spliced;
-};
-
-class StagedSiteTable;
-
-/**
- * The staged sites, and the sites enclosing them, as a `SiteTree`.
- *
- * The VCF's nesting INFO tags are computed from it. Each staged site lies under the sites that
- * hold it in the overlay of sites, which gives an edit site a place in the tree too. A site
- * genotyped as top level still lies under the sites around it. A site that is both staged and
- * enclosing appears once.
- *
- * A site whose ID is made from its bounds is matched to its records by its boundary visits. A site
- * with an ID of its own is matched by that ID (`id_of`).
- */
-class StagedSiteTree : public SiteTree {
-public:
-    /// Make the tree of the sites `sites` holds, in `decomposition`, the overlay of sites over
-    /// `graph`.
-    ///
-    /// `name` makes the ID of a site from its bounds, as the records of a site the decomposition
-    /// holds are named. The tree keeps none of the arguments.
-    StagedSiteTree(StagedSiteTable& sites, const EditSnarlDecompositionOverlay& decomposition,
-                   const HandleGraph& graph,
-                   const function<string(const handle_t& start, const handle_t& end)>& name);
-
-    void for_each_site(const function<void(site_t)>& visit, bool in_preorder) const override;
-    site_t parent_of(site_t site) const override;
-    SiteEnds ends_of(site_t site) const override;
-    const string* id_of(site_t site) const override;
-
-private:
-    /// One site of the tree.
-    struct Node {
-        SiteEnds ends;
-        /// The site's ID where it is not printed from `ends`, or empty.
-        string id;
-        /// The site enclosing this one, or null.
-        const Node* parent = nullptr;
-    };
-    /// The sites, each after the site enclosing it, so that this order is a preorder.
-    ///
-    /// It is a deque so that a site's address does not move as sites are added.
-    deque<Node> nodes;
 };
 
 /// The sources the passes read for what a staged site does not hold.

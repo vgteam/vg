@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../deconstructor.hpp"
+#include "../snarl_manager_decomposition.hpp"
 #include "../gref.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../gbwtgraph_helper.hpp"
@@ -446,6 +447,19 @@ int main_deconstruct(int argc, char** argv) {
     CALLGRIND_START_INSTRUMENTATION;
 #endif
 
+    // The nesting INFO tags of a nested run read the snarls as a snarl decomposition.
+    unique_ptr<SnarlManagerDecomposition> nesting_sites;
+    if (all_snarls) {
+        try {
+            nesting_sites.reset(new SnarlManagerDecomposition(*snarl_manager, *graph));
+        } catch (const std::invalid_argument&) {
+            // The view throws only on a unary snarl, which only the cactus snarl finder makes.
+            logger.error() << "the snarls include a unary snarl, which the nesting INFO tags "
+                           << "cannot place; find the snarls with vg snarls -A integrated, which "
+                           << "makes none" << endl;
+        }
+    }
+
     // Deconstruct
     Deconstructor dd;
     if (show_progress) {
@@ -453,7 +467,7 @@ int main_deconstruct(int argc, char** argv) {
     }
     dd.set_translation(translation.get());
     dd.set_nested(all_snarls);
-    dd.deconstruct(refpaths, graph, snarl_manager.get(),
+    dd.deconstruct(refpaths, graph, snarl_manager.get(), nesting_sites.get(),
                    all_snarls,
                    context_jaccard_window,
                    untangle_traversals,

@@ -44,7 +44,7 @@ struct Bubble {
 /// Return the data lines `output` writes, split into columns.
 vector<vector<string>> written_lines(VCFOutputCaller& output) {
     stringstream out;
-    output.write_variants(out, (const SnarlManager*)nullptr);
+    output.write_variants(out);
     vector<vector<string>> lines;
     string line;
     while (getline(out, line)) {
