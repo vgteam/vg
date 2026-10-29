@@ -197,8 +197,12 @@ public:
         virtual void finish_record(vcflib::Variant& record);
 
         /// Take note of a site whose records are done. `trav_to_allele` gives the VCF allele of
-        /// each called allele in the genotype, out of `traversal_count` alleles. `has_line` says
-        /// whether the site got a line. A site written as blocks gives an empty map.
+        /// each called traversal, of the site's `traversal_count` traversals, and `has_line` says
+        /// whether the site got a line.
+        ///
+        /// If `write_blocks` split the site into several records, each record numbers its own
+        /// alleles, so `trav_to_allele` is empty and `traversal_count` is 0. `has_line` then says
+        /// whether any of those records got a line.
         virtual void site_filed(const map<int, int>& trav_to_allele, size_t traversal_count,
                                 bool has_line);
 
