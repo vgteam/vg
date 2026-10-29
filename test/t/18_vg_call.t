@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 189
+plan tests 191
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -268,12 +268,35 @@ is $(grep -v "^#" nest_hap.vcf | awk '$2 == 30' | cut -f10 | cut -d: -f1) "1|0" 
 is $(grep -v "^#" nest_hap.vcf | awk '$2 == 51' | cut -f10 | cut -d: -f1) ".|1" \
    "the nested haploid record names the strand its parent leaves the chain on"
 
+# Groups of a site's walks choose its genotype by default: walks that differ only inside child
+# chains share a group. The sample carries the insertion >2>10..13>5 on both strands, which differ
+# inside it at node 11 or 12, and the SNP at node 7 or 8 on one strand. The walks through the
+# insertion share a group, though the reference does not cross its chain, and so do the walks that
+# differ only at the SNP. The reads have no MAPQ, so each may be mismapped.
+vg gbwt -G nesting/deletion_over_insertion_and_snp.gfa --gbz-format -g nest_off.gbz --set-reference GRCh 2>/dev/null
+vg sim -x nest_off.gbz -n 200 -l 60 -a -s 71 --path "p1#0#chr1#0" > nest_off.gam 2>/dev/null
+vg sim -x nest_off.gbz -n 200 -l 60 -a -s 73 --path "p1#1#chr1#0" >> nest_off.gam 2>/dev/null
+# Each record as POS:number of ALTs:GT, with the GT's two alleles sorted, since either strand order
+# is the same call.
+calls_of() {
+  grep -v '^#' "$1" | awk -F'\t' '{split($10, a, ":"); split(a[1], g, "|");
+                                   printf "%s:%s:%s ", $2, split($5, b, ","), (g[1] < g[2] ? g[1] "|" g[2] : g[2] "|" g[1])}'
+}
+vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp 2>/dev/null > nest_off.vcf
+is "$(calls_of nest_off.vcf)" "47:2:1|2 71:1:0|1 " \
+   "by default groups of walks call both insertion alleles, and the SNP on one strand"
+vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp --no-group-candidates \
+    2>/dev/null > nest_off_walks.vcf
+is "$(calls_of nest_off_walks.vcf)" "29:1:0|1 47:1:.|1 71:1:.|1 " \
+   "with --no-group-candidates the walks alone choose, and call the deletion on one strand"
+
 rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 \
       callrl_nopack.vcf callrl_nopack_z.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf \
       rl_t1.vcf rl_t4.vcf rl_link_off.vcf rl_link_default.vcf \
       rl_default.vcf rl_mosaic.tsv rl_paths.gaf rl_graph.gfa rl_expand.txt \
       rl_anchors.tsv rl_anchors.vcf rl_anchors.err \
-      nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt
+      nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt \
+      nest_off.gbz nest_off.gam nest_off.vcf nest_off_walks.vcf
 
 
 # subpath test
