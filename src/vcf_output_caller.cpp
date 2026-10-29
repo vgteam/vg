@@ -23,10 +23,6 @@ bool VCFOutputCaller::BufferedRecordKey::operator<(const BufferedRecordKey& othe
            < std::tie(other.contig, other.position, other.id, other.block);
 }
 
-void VCFOutputCaller::set_ploidy_regions(PloidyRegions regions) {
-    ploidy_regions = std::move(regions);
-}
-
 void VCFOutputCaller::add_format_header(string line) {
     format_header_lines.push_back(std::move(line));
 }

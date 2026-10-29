@@ -16,7 +16,6 @@
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
-#include "../artifacts/ploidy_regions.hpp"
 #include "../artifacts/vcf_record.hpp"
 #include "../artifacts/site_tree.hpp"
 
@@ -75,9 +74,6 @@ public:
      * `max_vcf_line_length`.
      */
     bool add_variant(vcflib::Variant& var, size_t block = 0) const;
-
-    /// Set the ploidy of the regions of the reference that `regions` covers.
-    void set_ploidy_regions(PloidyRegions regions);
 
     /**
      * Write the buffered records, sorted, taking the nesting INFO tags from `snarl_manager`.
@@ -375,9 +371,6 @@ protected:
 
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;
-
-    /// The ploidy of regions of the reference, which overrides the ploidy of their paths.
-    PloidyRegions ploidy_regions;
 
     // optional node translation to apply to snarl names in variant IDs
     const unordered_map<nid_t, pair<string, size_t>>* translation;

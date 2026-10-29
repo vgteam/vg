@@ -2794,17 +2794,12 @@ int main_call(int argc, char** argv) {
         multipass_caller != nullptr ? multipass_output.get()
                                     : dynamic_cast<VCFOutputCaller*>(graph_caller.get());
 
-    // Give the per-region ploidy, if any, to the caller that writes the records.
+    // Give the per-region ploidy, if any, to the caller.
     if (ploidy_regions.has_value()) {
         if (multipass_caller != nullptr) {
             multipass_caller->set_ploidy_regions(std::move(*ploidy_regions));
-        } else if (vcf_out != nullptr) {
-            vcf_out->set_ploidy_regions(std::move(*ploidy_regions));
         } else {
-            cerr << "error [vg call]: "
-                 << (ploidy_preset.has_value() ? "--ploidy-preset" : "--ploidy-bed")
-                 << " needs a caller that emits VCF" << endl;
-            return 1;
+            graph_caller->set_ploidy_regions(std::move(*ploidy_regions));
         }
     }
 

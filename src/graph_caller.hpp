@@ -19,6 +19,7 @@
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
+#include "../artifacts/ploidy_regions.hpp"
 #include "../artifacts/site_scheduler.hpp"
 
 namespace vg {
@@ -80,6 +81,10 @@ public:
     /// 0 gives one job per snarl.
     void set_snarl_batching(size_t window_size);
 
+    /// Set the ploidy of the regions of the reference that `regions` covers, in place of the
+    /// ploidy of their paths.
+    void set_ploidy_regions(PloidyRegions regions);
+
 protected:
 
     /// Break up a chain into bits that we want to call using size heuristics
@@ -99,6 +104,9 @@ protected:
 
     /// Toggle progress messages
     bool show_progress;
+
+    /// The ploidy of regions of the reference, which overrides the ploidy of their paths.
+    PloidyRegions ploidy_regions;
 };
 
 static void flip_snarl(Snarl& snarl) {

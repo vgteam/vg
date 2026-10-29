@@ -34,6 +34,10 @@ void GraphCaller::set_snarl_batching(size_t window_size) {
     snarl_batch_window = window_size;
 }
 
+void GraphCaller::set_ploidy_regions(PloidyRegions regions) {
+    ploidy_regions = std::move(regions);
+}
+
 namespace {
 
 /**
