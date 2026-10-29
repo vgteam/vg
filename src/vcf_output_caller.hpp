@@ -155,27 +155,29 @@ public:
         /// Return the visits of traversal `trav`.
         virtual vector<NodeVisit> visits(int trav) = 0;
 
-        // Decisions about the record.
+        // Decisions about the site.
 
-        /// Return whether traversal `trav`, which is not the reference traversal, is written as
-        /// the reference allele, because it takes the reference allele's route through the site.
-        /// By default no other traversal is.
+        /// Return whether traversal `trav`, which is not the reference traversal, should be
+        /// treated as the same as the reference allele, because it takes the reference allele's
+        /// route through the site. By default no other traversal should be.
         virtual bool same_as_reference(int trav, int ref_trav_idx);
 
-        /// Phase the genotype of the record, and return the phase set to write as PS, or -1 for
-        /// none.
+        /// Decide how the genotype should be phased. Return the phase set it should be in, or -1
+        /// for none, and replace the GT string `gt` with the phased one if it should be phased.
         ///
         /// `site_genotype` is in VCF allele numbers, and `trav_to_allele` gives the VCF allele of
-        /// each traversal in the genotype. It may replace the GT string `gt`. By default the
-        /// genotype stays unphased, with no PS.
+        /// each traversal in the genotype. By default the genotype should stay unphased, in no
+        /// phase set.
         virtual int64_t phase(const vector<int>& site_genotype, const map<int, int>& trav_to_allele,
                               string& gt);
 
-        /// Return the order in which `fill_info` writes GL. By default it is i-major.
+        /// Return the order in which the GL values that `fill_info` adds should be read. By default
+        /// they should be read in i-major order.
         virtual GLLayout gl_layout();
 
-        /// Write the site as several records, and return the number of lines written, or -1 to
-        /// have the site record written instead. By default the site record is written.
+        /// Decide whether the site should be split into several records. If it should, write them
+        /// and return the number of lines written. If it should not, return -1, and the site gets
+        /// one record. By default the site should not be split.
         virtual int write_blocks(const PathPositionHandleGraph& graph, const vector<int>& genotype,
                                  int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout);
 
