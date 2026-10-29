@@ -761,37 +761,8 @@ void VCFOutputCaller::scan_snarl(const string& allele_string, const function<voi
 
 namespace {
 
-/// Hash a site's boundary visits.
-struct SiteEndsHash {
-    size_t operator()(const SiteEnds& e) const {
-        size_t h = std::hash<nid_t>()(e.start_id);
-        h ^= std::hash<nid_t>()(e.end_id) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
-        return h ^ ((size_t)e.start_backward << 1) ^ (size_t)e.end_backward;
-    }
-};
-
-/// Compare two sites' boundary visits.
-struct SiteEndsEqual {
-    bool operator()(const SiteEnds& a, const SiteEnds& b) const {
-        return a.start_id == b.start_id && a.end_id == b.end_id
-               && a.start_backward == b.start_backward && a.end_backward == b.end_backward;
-    }
-};
-
 /// Table from the boundary visits of a site to the name of its record in the VCF.
-using NameOfEnds = unordered_map<SiteEnds, const string*, SiteEndsHash, SiteEndsEqual>;
-
-/// The fields of one buffered record that the nesting tags are computed from.
-struct NestingRecordFields {
-    /// The name of the record's site, the same for every difference block of the site.
-    string name;
-    string chrom;
-    /// The POS column, as text.
-    string pos;
-    size_t ref_len = 0;
-    /// Whether no ancestor of the site has a record.
-    bool top_level = false;
-};
+using NameOfEnds = unordered_map<SiteEnds, const string*>;
 
 /// Return the name of a site's record: its own ID, or else its boundary visits as `site_name`
 /// prints them.

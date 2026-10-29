@@ -11,6 +11,7 @@
 #include <functional>
 
 #include "../src/handle.hpp"
+#include "../src/hash_map.hpp"
 #include "../src/snarls.hpp"
 
 namespace vg {
@@ -23,6 +24,8 @@ struct SiteEnds {
     bool start_backward;
     nid_t end_id;
     bool end_backward;
+
+    bool operator==(const SiteEnds& other) const = default;
 };
 
 /// The sites of a graph, nested in one another.
@@ -64,6 +67,19 @@ public:
 
 private:
     const SnarlManager& manager;
+};
+
+}
+
+namespace std {
+
+/// Hash a site's boundary visits.
+template<>
+struct hash<vg::SiteEnds> {
+    size_t operator()(const vg::SiteEnds& ends) const {
+        return hash<tuple<vg::nid_t, bool, vg::nid_t, bool>>()(
+            make_tuple(ends.start_id, ends.start_backward, ends.end_id, ends.end_backward));
+    }
 };
 
 }
