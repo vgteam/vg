@@ -9,7 +9,6 @@
 #include "vcf_record.hpp"
 #include "../src/path.hpp"
 #include "../src/traversal_clusters.hpp"
-#include "../src/vcf_output_caller.hpp"
 
 namespace vg {
 
@@ -30,6 +29,23 @@ bool visits_to_walk(const HandleGraph& graph, const vector<NodeVisit>& visits, T
     return true;
 }
 
+/// Return the GT text of an unphased genotype in VCF allele numbers, with "." for
+/// MISSING_ALLELE_MARKER.
+string unphased_gt_text(const vector<int>& site_genotype) {
+    stringstream vcf_gt;
+    for (size_t i = 0; i < site_genotype.size(); ++i) {
+        if (site_genotype[i] == MISSING_ALLELE_MARKER) {
+            vcf_gt << ".";
+        } else {
+            vcf_gt << site_genotype[i];
+        }
+        if (i != site_genotype.size() - 1) {
+            vcf_gt << "/";
+        }
+    }
+    return vcf_gt.str();
+}
+
 namespace {
 
 /// Parse a VCF FORMAT value, or return false if it is not a number.
@@ -46,23 +62,6 @@ bool parse_vcf_double(const string& field, double& value) {
         // std::stod throws std::invalid_argument or std::out_of_range.
         return false;
     }
-}
-
-/// Return the GT text of an unphased genotype in VCF allele numbers, with "." for
-/// MISSING_ALLELE_MARKER.
-string unphased_gt_text(const vector<int>& site_genotype) {
-    stringstream vcf_gt;
-    for (size_t i = 0; i < site_genotype.size(); ++i) {
-        if (site_genotype[i] == MISSING_ALLELE_MARKER) {
-            vcf_gt << ".";
-        } else {
-            vcf_gt << site_genotype[i];
-        }
-        if (i != site_genotype.size() - 1) {
-            vcf_gt << "/";
-        }
-    }
-    return vcf_gt.str();
 }
 
 /// Return the order in which to cluster the called ALTs, deepest first.
@@ -289,8 +288,8 @@ int64_t allele_core_length(const vector<string>& alleles) {
     return (int64_t)(max_len - prefix - suffix);
 }
 
-bool merge_similar_alleles(const PathPositionHandleGraph& graph, size_t allele_count,
-                           const function<bool(size_t allele, Traversal& walk)>& allele_walk,
+bool merge_similar_alleles(const PathPositionHandleGraph& graph,
+                           const vector<vector<NodeVisit>>& allele_visits,
                            vector<int>& site_genotype, const string& sample_name,
                            vcflib::Variant& out_variant, GLLayout gl_layout, double threshold,
                            int64_t min_len) {
@@ -322,12 +321,12 @@ bool merge_similar_alleles(const PathPositionHandleGraph& graph, size_t allele_c
     // record with no ALT, which the caller would drop, turning a het call into no call.
     vector<Traversal> alt_travs;
     vector<int> alt_to_allele;
-    for (size_t i = 1; i < allele_count; ++i) {
+    for (size_t i = 1; i < allele_visits.size(); ++i) {
         if (!called_alts.contains((int)i)) {
             continue;
         }
         Traversal trav;
-        if (!allele_walk(i, trav)) {
+        if (!visits_to_walk(graph, allele_visits[i], trav)) {
             continue;
         }
         alt_travs.push_back(std::move(trav));
@@ -346,7 +345,7 @@ bool merge_similar_alleles(const PathPositionHandleGraph& graph, size_t allele_c
     // for it, cluster_traversals scores pairs alone, which can only merge less.
     Traversal ref_trav;
     const Traversal* site_ref_trav = nullptr;
-    if (allele_count > 0 && allele_walk(0, ref_trav)) {
+    if (!allele_visits.empty() && visits_to_walk(graph, allele_visits[0], ref_trav)) {
         site_ref_trav = &ref_trav;
     }
     vector<pair<double, int64_t>> cluster_info;
@@ -640,100 +639,6 @@ string site_name(nid_t start_node_id, bool start_backward, nid_t end_node_id, bo
     return name;
 }
 
-namespace {
-
-/**
- * The alleles of a record as they are numbered, before they are written into it.
- *
- * Traversals that spell the same sequence share one allele. The reference allele is number 0.
- */
-struct AlleleNumbering {
-    /// For each allele sequence, its VCF allele number.
-    map<string, int> allele_to_gt;
-    /// For each VCF allele, the traversal it is spelled from, or -1 for the "*" placeholder.
-    vector<int> site_trav;
-};
-
-/// Number the reference allele and the alleles of the called genotype.
-///
-/// Fill in `record.genotype` and `record.trav_to_allele` to match.
-///
-/// `spell` spells a traversal where it fills an entry of the genotype, and `same_as_reference`
-/// says whether a traversal other than the reference one is written as the reference allele.
-AlleleNumbering number_called_alleles(const CalledSite& site,
-                                      const function<string(int, int)>& spell,
-                                      const function<bool(int)>& same_as_reference,
-                                      SiteRecord& record) {
-    const vector<int>& genotype = site.genotype;
-    const int ref_trav_idx = site.ref_trav_idx;
-    vector<int>& site_genotype = record.genotype;
-    map<int, int>& trav_to_allele = record.trav_to_allele;
-
-    AlleleNumbering numbering;
-    numbering.site_trav = {ref_trav_idx};
-    numbering.allele_to_gt[record.variant.ref] = 0;
-    trav_to_allele[ref_trav_idx] = 0;
-    // The number of the "*" allele, once a genotype entry needs it.
-    int star_allele_idx = -1;
-    for (int i = 0; i < genotype.size(); ++i) {
-        if (genotype[i] == STAR_ALLELE_MARKER) {
-            if (star_allele_idx < 0) {
-                star_allele_idx = numbering.allele_to_gt.size();
-                numbering.allele_to_gt["*"] = star_allele_idx;
-                numbering.site_trav.push_back(-1);
-            }
-            site_genotype.push_back(star_allele_idx);
-        } else if (genotype[i] == MISSING_ALLELE_MARKER) {
-            site_genotype.push_back(MISSING_ALLELE_MARKER);
-        } else if (genotype[i] == ref_trav_idx
-                   || same_as_reference(genotype[i])) {
-            // A traversal that differs from the reference only inside child sites is written as
-            // the reference here, and the records of the child sites report the differences.
-            site_genotype.push_back(0);
-            trav_to_allele[genotype[i]] = 0;
-        } else {
-            if (string allele_string = spell(genotype[i], i);
-                numbering.allele_to_gt.contains(allele_string)) {
-                site_genotype.push_back(numbering.allele_to_gt[allele_string]);
-            } else {
-                numbering.site_trav.push_back(genotype[i]);
-                site_genotype.push_back(numbering.allele_to_gt.size());
-                numbering.allele_to_gt[allele_string] = site_genotype.back();
-            }
-            trav_to_allele[genotype[i]] = site_genotype.back();
-        }
-    }
-    return numbering;
-}
-
-/// Add up to `max_uncalled_alleles` alleles that were not called, in order of their sequences.
-///
-/// This lets a reference call written anyway show what else the site holds. Ordering by sequence
-/// makes the choice deterministic.
-void add_uncalled_alleles(const CalledSite& site, const function<string(int, int)>& spell,
-                          size_t max_uncalled_alleles, AlleleNumbering& numbering) {
-    map<string, int> allele_map;
-    for (int i = 0; i < site.traversal_count; ++i) {
-        // TODO: Is this the right genotype index? It only affects alleles that were not called.
-        string allele_string = spell(i, max(0, (int)site.genotype.size() - 1));
-        if (!allele_map.contains(allele_string)) {
-            allele_map[allele_string] = i;
-        }
-    }
-    // Consider the first `max_uncalled_alleles` sequences, including any already numbered.
-    size_t considered = 0;
-    for (const auto& [allele_string, trav] : allele_map) {
-        if (considered == max_uncalled_alleles) {
-            break;
-        }
-        ++considered;
-        if (!numbering.allele_to_gt.contains(allele_string)) {
-            numbering.allele_to_gt[allele_string] = numbering.allele_to_gt.size();
-            numbering.site_trav.push_back(trav);
-        }
-    }
-}
-
 /// Set the contig, position and ID of a record for `site`.
 void place_record(const PathPositionHandleGraph& graph, const CalledSite& site,
                   const NodeTranslation* translation, SiteRecord& record) {
@@ -786,106 +691,6 @@ void add_star_for_missing(vcflib::Variant& out_variant, const vector<int>& site_
     if (ad_it != out_variant.samples[sample_name].end()) {
         ad_it->second.emplace_back("0");
     }
-}
-
-}
-
-// The record building of VCFOutputCaller::SiteEmitter lives here, with the helpers it uses.
-SiteRecord VCFOutputCaller::SiteEmitter::build_record(const PathPositionHandleGraph& graph,
-                                                      const CalledSite& site,
-                                                      GLLayout layout) {
-    const vector<int>& genotype = site.genotype;
-    const auto spell_trav = [this](int trav, int genotype_index) {
-        return spell(trav, genotype_index);
-    };
-    const int ref_trav_idx = site.ref_trav_idx;
-
-    SiteRecord record;
-    vcflib::Variant& out_variant = record.variant;
-    vector<int>& site_genotype = record.genotype;
-
-    // Spell REF as the strand that carries the reference allele sees it, if one does.
-    auto ref_gt_it = std::ranges::find(genotype, ref_trav_idx);
-    out_variant.ref = spell(ref_trav_idx,
-                            ref_gt_it != genotype.end() ? ref_gt_it - genotype.begin() : 0);
-
-    AlleleNumbering numbering = number_called_alleles(
-        site, spell_trav,
-        [&](int trav) { return same_as_reference(trav, ref_trav_idx); }, record);
-    if (genotype_snarls && numbering.site_trav.size() <= 1) {
-        add_uncalled_alleles(site, spell_trav, output.max_uncalled_alleles, numbering);
-    }
-    const vector<int>& site_trav = numbering.site_trav;
-    const map<string, int>& allele_to_gt = numbering.allele_to_gt;
-
-    out_variant.alt.resize(allele_to_gt.size() - 1);
-    out_variant.alleles.resize(allele_to_gt.size());
-    out_variant.info["AT"].resize(allele_to_gt.size());
-    for (const auto& [allele_string, allele_number] : allele_to_gt) {
-#ifdef debug
-        cerr << "allele " << allele_string << " -> gt " << allele_number << endl;
-#endif
-        if (allele_number > 0) {
-            out_variant.alt[allele_number - 1] = allele_string;
-        }
-        out_variant.alleles[allele_number] = allele_string;
-        const int trav = site_trav.at(allele_number);
-        vg::add_allele_path_to_info(out_variant, allele_number,
-                                trav >= 0 ? visits(trav) : vector<NodeVisit>(), false,
-                                output.translation);
-    }
-
-    place_record(graph, site, output.translation, record);
-    out_variant.filter = "PASS";
-    out_variant.updateAlleleIndexes();
-
-    out_variant.format.emplace_back("GT");
-    auto& genotype_vector = out_variant.samples[output.sample_name]["GT"];
-    genotype_vector.push_back(!genotype.empty() ? unphased_gt_text(site_genotype)
-                                                : no_call_gt_text(site.ploidy));
-
-    // Phase the genotype here, where `trav_to_allele` maps traversals to the alleles of this
-    // record.
-    int64_t phase_set_to_write = -1;
-    if (!genotype.empty()) {
-        phase_set_to_write = phase(site_genotype, record.trav_to_allele, genotype_vector[0]);
-    }
-
-    fill_info(site_trav, site_genotype, out_variant);
-
-    // Put PS last in FORMAT.
-    if (phase_set_to_write >= 0) {
-        out_variant.format.emplace_back("PS");
-        out_variant.samples[output.sample_name]["PS"].push_back(std::to_string(phase_set_to_write));
-    }
-
-    // When genotyping snarls, trim the alleles only as far as the boundary nodes, so that every
-    // sample gets the same alleles.
-    int64_t flatten_len_s = 0;
-    int64_t flatten_len_e = 0;
-    if (genotype_snarls) {
-        flatten_len_s = graph.get_length(site.start);
-        assert(flatten_len_s >= 0);
-        flatten_len_e = graph.get_length(site.end);
-    }
-    vg::flatten_common_allele_ends(out_variant, true, flatten_len_e);
-    vg::flatten_common_allele_ends(out_variant, false, flatten_len_s);
-
-    // Merge near-identical called ALTs, turning 1/2 into 1/1. This comes after the caller's
-    // fields, so the genotyper saw every candidate, and after trimming, so that the surviving
-    // allele keeps the string, POS and REF it has without merging. Merging never empties ALT.
-    record.alleles_merged = merge_similar_alleles(
-        graph, site_trav.size(),
-        [&](size_t allele, Traversal& walk) {
-            const int trav = site_trav[allele];
-            return visits_to_walk(graph, trav >= 0 ? visits(trav) : vector<NodeVisit>(), walk);
-        },
-        site_genotype, output.sample_name, out_variant, layout, output.allele_merge_threshold,
-        output.allele_merge_min_len);
-
-    add_star_for_missing(out_variant, site_genotype, output.sample_name);
-
-    return record;
 }
 
 string block_site_name(const string& id) {

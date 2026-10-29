@@ -130,13 +130,13 @@ int64_t allele_core_length(const vector<string>& alleles);
  * and DP. It rewrites the fields with an entry per allele (the alleles, AT, AD, GL, GT and MAD)
  * and records the merge in INFO/MAT.
  *
- * `allele_walk` gives allele `a` of the `allele_count` alleles as handles, or returns false for an
- * allele that is to be left alone. Alleles are merged when their walks are at least `threshold`
+ * `allele_visits` gives the visits of each allele, empty for "*". An allele whose visits make
+ * no walk (see visits_to_walk) is left alone. Alleles are merged when their walks are at least `threshold`
  * similar, and only in a variant whose core length is at least `min_len`. `gl_layout` is the order
  * in which the caller wrote GL, which cannot be recovered from the record.
  */
-bool merge_similar_alleles(const PathPositionHandleGraph& graph, size_t allele_count,
-                           const function<bool(size_t allele, Traversal& walk)>& allele_walk,
+bool merge_similar_alleles(const PathPositionHandleGraph& graph,
+                           const vector<vector<NodeVisit>>& allele_visits,
                            vector<int>& site_genotype, const string& sample_name,
                            vcflib::Variant& out_variant, GLLayout gl_layout, double threshold,
                            int64_t min_len);
@@ -182,6 +182,23 @@ struct SiteRecord {
     /// Whether similar alleles were merged.
     bool alleles_merged;
 };
+
+/// Return the GT text of an unphased genotype in VCF allele numbers, with "." for
+/// MISSING_ALLELE_MARKER.
+string unphased_gt_text(const vector<int>& site_genotype);
+
+/// Return the GT text of a genotype with no call: `ploidy` "." separated by "/".
+string no_call_gt_text(int ploidy);
+
+/// Set the contig, position and ID of a record for `site`.
+void place_record(const PathPositionHandleGraph& graph, const CalledSite& site,
+                  const NodeTranslation* translation, SiteRecord& record);
+
+/// Add "*" as the ALT of a record whose genotype has "." and no ALT, so that it is valid VCF.
+///
+/// This happens where a strand of the parent does not visit a nested site.
+void add_star_for_missing(vcflib::Variant& out_variant, const vector<int>& site_genotype,
+                          const string& sample_name);
 
 /// Return the ID of the site a record belongs to.
 ///

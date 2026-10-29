@@ -1075,8 +1075,8 @@ int main_call(int argc, char** argv) {
     optind = 2; // force optind past command positional argument
     // The long options, grouped by the subsystem they configure. Every subsystem with a switch is
     // part of the read-likelihood genotyper.
-    const int READ_LIKELIHOOD_GROUP = 1;
-    const vector<OptionGroup> long_option_groups = {
+    int read_likelihood_group = 1;
+    vector<OptionGroup> long_option_groups = {
         {"vg call", nullptr, -1,
          [] { return true; }, {
             {"pack", required_argument, nullptr, 'k'},
@@ -1181,14 +1181,14 @@ int main_call(int argc, char** argv) {
             {"gaf-base-binary", required_argument, nullptr, OPT_GAF_BASE_BINARY},
             {"read-window", required_argument, nullptr, OPT_READ_WINDOW},
         }},
-        {"off-panel variant calling", "--off-panel", READ_LIKELIHOOD_GROUP,
+        {"off-panel variant calling", "--off-panel", read_likelihood_group,
          [&] { return off_panel; }, {
             {"off-panel-dump", required_argument, nullptr, OPT_OFF_PANEL_DUMP},
             {"off-panel-bar", required_argument, nullptr, OPT_OFF_PANEL_BAR},
             {"off-panel-indels", required_argument, nullptr, OPT_OFF_PANEL_INDELS},
             {"off-panel-svs", no_argument, nullptr, OPT_OFF_PANEL_SVS},
         }},
-        {"the anchor file", "--anchors-out", READ_LIKELIHOOD_GROUP,
+        {"the anchor file", "--anchors-out", read_likelihood_group,
          [&] { return !anchors_out.empty(); }, {
             {"no-off-ref-nesting", no_argument, nullptr, OPT_NO_OFF_REF_NESTING},
             {"anchors-hom-split", no_argument, nullptr, OPT_ANCHORS_HOM_SPLIT},
@@ -1205,7 +1205,7 @@ int main_call(int argc, char** argv) {
             {"anchors-keep-off-call", no_argument, nullptr, OPT_ANCHORS_KEEP_OFF_CALL},
             {"anchors-end-new", required_argument, nullptr, OPT_ANCHORS_END_PIN_MIN_NEW},
         }},
-        {"the mosaic", "--mosaic-out", READ_LIKELIHOOD_GROUP,
+        {"the mosaic", "--mosaic-out", read_likelihood_group,
          [&] { return !mosaic_out.empty(); }, {
             {"mosaic-patch-gaps", no_argument, nullptr, OPT_MOSAIC_PATCH},
             {"no-mosaic-patch-gaps", no_argument, nullptr, OPT_NO_MOSAIC_PATCH},
@@ -1214,7 +1214,7 @@ int main_call(int argc, char** argv) {
         }},
         // A preset can turn --regenotype on and --no-read-phasing then turns it off again, so we
         // check the value that will take effect.
-        {"re-genotyping", "--regenotype", READ_LIKELIHOOD_GROUP,
+        {"re-genotyping", "--regenotype", read_likelihood_group,
          [&] { return regenotype && read_phasing; }, {
             {"regeno-ceiling", required_argument, nullptr, OPT_REGENO_CEILING},
             {"regeno-haploid", no_argument, nullptr, OPT_REGENO_HAPLOID},
@@ -1240,7 +1240,7 @@ int main_call(int argc, char** argv) {
     }
     long_options.push_back({nullptr, 0, nullptr, 0});
 
-    const char* const short_options = "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?";
+    const char* short_options = "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?";
 
     // Set the option whose `val` is `c`, with its argument `optarg`, or null for a switch. The
     // argument has the name of getopt's, so that the cases read as in other subcommands.

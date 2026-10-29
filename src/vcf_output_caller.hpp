@@ -223,10 +223,23 @@ public:
         /// sequence become one allele. Where the genotype has an allele marker, the record has
         /// "*" or ".", and a genotype with "." and no ALT gets "*" as its ALT, so that the record
         /// is valid VCF.
-        ///
-        /// It is defined in artifacts/vcf_record.cpp, with the record-building helpers it uses.
         SiteRecord build_record(const PathPositionHandleGraph& graph, const CalledSite& site,
                                 GLLayout layout);
+
+        /// Number the reference allele and the alleles of the called genotype of `site`, whose
+        /// REF is already in `record`. Traversals that spell the same sequence share one allele,
+        /// and the reference allele is number 0.
+        ///
+        /// Fill the empty `allele_to_gt` with the VCF allele number of each allele sequence, and
+        /// the empty `site_trav` with the traversal each VCF allele is spelled from, or -1 for
+        /// "*". Fill in `record.genotype` and `record.trav_to_allele` to match.
+        void number_called_alleles(const CalledSite& site, SiteRecord& record,
+                                   map<string, int>& allele_to_gt, vector<int>& site_trav);
+
+        /// Add up to the output's `max_uncalled_alleles` alleles of `site` that were not called,
+        /// in order of their sequences, to `allele_to_gt` and `site_trav`.
+        void add_uncalled_alleles(const CalledSite& site, map<string, int>& allele_to_gt,
+                                  vector<int>& site_trav);
 
         /// Add a built site record to the output, or let `write_blocks` write it as blocks, and
         /// tell `site_filed` how the site was filed.
