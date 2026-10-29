@@ -523,10 +523,8 @@ struct PresetSetting {
 /// The settings of each --preset, by preset name.
 ///
 /// help_call lists these and main_call applies them, so the help lists exactly the settings
-/// applied. The values for `ont` were fitted to Oxford Nanopore reads. Those for `hifi` were fitted
-/// to PacBio HiFi reads (HG002, Revio): they are `ont`'s, except that a gap where the read has bases
-/// the allele lacks lowers the read's log-likelihood instead of raising it, no homopolymer prior is
-/// used, and the linkage weight is half the default.
+/// applied. The values for `ont` were fitted to Oxford Nanopore reads, and those for `hifi` to
+/// PacBio HiFi reads (HG002, Revio).
 static const vector<pair<string, vector<PresetSetting>>> PRESETS = {
     {"ont", {{"read-phasing", nullptr}, {"regenotype", nullptr}, {"gap-open", "1"},
              {"gap-extend", "1"}, {"mismap-min", "0.05"}, {"read-min-mapq", "5"},
@@ -1203,8 +1201,8 @@ int main_call(int argc, char** argv) {
             {"no-mosaic-nested", no_argument, nullptr, OPT_NO_MOSAIC_NESTED},
             {"mosaic-break-unexplained", no_argument, nullptr, OPT_MOSAIC_BREAK_UNEXPL},
         }}},
-        // A preset can turn --regenotype on and --no-read-phasing then turns it off again, so we
-        // check the value that will take effect.
+        // Re-genotyping needs read phasing, so it is off without it, even where a preset turned it
+        // on.
         {"re-genotyping", {"--regenotype", "the read-likelihood genotyper",
          [&] { return regenotype && read_phasing; }, {
             {"regeno-ceiling", required_argument, nullptr, OPT_REGENO_CEILING},
@@ -1864,8 +1862,8 @@ int main_call(int argc, char** argv) {
     if (cluster_min_len_set && cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
         logger.warn() << "--cluster-min-len has no effect without -L (cluster threshold < 1.0)" << endl;
     }
-    // -L merges alleles as VCFOutputCaller::emit_variant writes each record, and neither the VCF
-    // genotyper (-v) nor GAF output writes records through it.
+    // -L merges alleles as a SiteEmitter builds each record, and neither the VCF genotyper (-v) nor
+    // GAF output builds records with one.
     if (cluster_threshold < 1.0 && !vcf_filename.empty()) {
         logger.error() << "-L/--cluster cannot be used when genotyping a VCF (-v)" << endl;
     }
@@ -2872,7 +2870,7 @@ int main_call(int argc, char** argv) {
         // filter with the same threshold.
         multipass_caller->set_linkage_min_confidence(min_confidence);
     }
-    // Block emission splits up the records of nested calling, so it needs nested calling. The
+    // --atomize-blocks splits up the records of nested calling, so it needs nested calling. The
     // checks that depend only on the options were made before the graph was loaded.
     if (atomize_blocks) {
         if (!nested_calling) {

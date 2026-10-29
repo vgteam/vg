@@ -29,9 +29,9 @@ using vg::io::AlignmentEmitter;
  * Writer of a sorted VCF, which variant callers inherit from or hold.
  *
  * Callers add records from any thread, and the writer buffers them compressed. `write_variants`
- * adds the nesting INFO tags, sorts the records and writes them. A caller that holds a writer,
- * such as MultiPassCaller, writes each site with its own subclass of `SiteEmitter` and adds its
- * header lines with `add_format_header` and `add_info_header`.
+ * adds the nesting INFO tags, sorts the records and writes them. A caller that holds a writer
+ * writes each site with its own subclass of `SiteEmitter`, and adds its header lines with
+ * `add_format_header` and `add_info_header`.
  */
 class VCFOutputCaller {
 public:
@@ -130,16 +130,16 @@ public:
     public:
         /// Make an emitter that adds records to `output`, which must outlive it.
         ///
-        /// @param genotype_snarls Write the record even for a reference call, with alleles that
-        /// were not called added, and trim the alleles only as far as the site's boundary nodes.
+        /// @param genotype_snarls Whether to write the record even for a reference call, with
+        /// alleles that were not called added, and to trim the alleles only as far as the site's
+        /// boundary nodes.
         SiteEmitter(VCFOutputCaller& output, bool genotype_snarls);
         virtual ~SiteEmitter() = default;
 
         /**
          * Build the record of `site` and add it to the output.
          *
-         * A record with no ALT gets no line unless `genotype_snarls` is set. For a site with
-         * no line, keep its reference interval for its children's nesting tags.
+         * A record with no ALT gets no line unless `genotype_snarls` is set.
          *
          * @return false only if add_variant refused a line the site wanted.
          */
@@ -148,8 +148,8 @@ public:
     protected:
         // The alleles, which every subclass gives.
 
-        /// Return the sequence written for traversal `trav` where it fills entry `genotype_index`
-        /// of the genotype.
+        /// Return the sequence of traversal `trav` where it fills entry `genotype_index` of the
+        /// genotype.
         virtual string spell(int trav, int genotype_index) = 0;
 
         /// Return the visits of traversal `trav`.
@@ -234,8 +234,8 @@ public:
         void add_uncalled_alleles(const CalledSite& site, map<string, int>& allele_to_gt,
                                   vector<int>& site_trav);
 
-        /// Add a built site record to the output, or let `write_blocks` write it as blocks, and
-        /// tell `site_filed` how the site was filed.
+        /// Add a built site record to the output, unless `write_blocks` split the site into several
+        /// records, and tell `site_filed` how the site was filed.
         ///
         /// @return false only if add_variant refused a line the site wanted.
         bool file_record(const PathPositionHandleGraph& graph, SiteRecord& record,
@@ -253,8 +253,8 @@ public:
     /**
      * Add the record for a called site to the output buffer.
      *
-     * We build the record with a SiteEmitter, from the called traversals and the snarl caller's
-     * INFO and FORMAT fields.
+     * The record has the called traversals as its alleles and the snarl caller's INFO and FORMAT
+     * fields.
      *
      * @param trav_to_string Spells an allele. When null, an allele is spelled as the sequence of
      * its traversal.
@@ -276,8 +276,8 @@ public:
                                    const vector<size_t>& contig_length_overrides,
                                    const SnarlCaller& snarl_caller) const;
 
-    /// Return the VCF header of a caller whose genotyper adds its lines to the header with
-    /// `add_genotyper_lines`, as `snarl_caller_vcf_header` does with a snarl caller's.
+    /// Return the VCF header of a caller whose genotyper adds its own lines to the header with
+    /// `add_genotyper_lines`.
     string genotyper_vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                                 const vector<size_t>& contig_length_overrides,
                                 const function<void(string& header)>& add_genotyper_lines) const;

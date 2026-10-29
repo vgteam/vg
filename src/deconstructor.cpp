@@ -926,11 +926,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // If cluster_threshold is below 1 and cluster_min_allele_len is above 0, skip clustering at
         // sites whose core length is below cluster_min_allele_len.  The core length is the length
         // of the longest allele once the prefix and suffix common to every allele are stripped.
-        // This lets the clustering be SV-only (50bp matches the standard SV size cutoff) while
-        // leaving small variants represented exactly as they are.  With the raw snarl interior
-        // instead, whether a 1bp SNP is clustered would depend on the size of the snarl that
-        // contains it, and vg deconstruct would disagree with vg call, whose records are
-        // flattened.  See vg::allele_core_length.
+        // This lets the clustering apply to structural variants only.
         bool do_clustering = true;
         if (cluster_min_allele_len > 0 && cluster_threshold < 1.0) {
             // The traversals that become alleles: everything get_traversal_order kept, plus the

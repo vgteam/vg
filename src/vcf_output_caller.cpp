@@ -467,7 +467,8 @@ SiteRecord VCFOutputCaller::SiteEmitter::build_record(const PathPositionHandleGr
                                                       const CalledSite& site, GLLayout layout) {
     SiteRecord record;
 
-    // Spell REF as the strand that carries the reference allele sees it, if one does.
+    // Spell REF at a genotype entry that holds the reference traversal, if there is one, since
+    // spelling can depend on the entry.
     auto ref_gt_it = std::ranges::find(site.genotype, site.ref_trav_idx);
     record.variant.ref = spell(site.ref_trav_idx, ref_gt_it != site.genotype.end()
                                                       ? ref_gt_it - site.genotype.begin()
@@ -565,8 +566,7 @@ void VCFOutputCaller::SiteEmitter::number_called_alleles(const CalledSite& site,
             record.genotype.push_back(MISSING_ALLELE_MARKER);
         } else if (site.genotype[i] == site.ref_trav_idx
                    || same_as_reference(site.genotype[i], site.ref_trav_idx)) {
-            // A traversal that differs from the reference only inside child sites is written as
-            // the reference here, and the records of the child sites report the differences.
+            // A traversal that should be treated as the reference allele gets allele 0.
             record.genotype.push_back(0);
             record.trav_to_allele[site.genotype[i]] = 0;
         } else {
@@ -613,21 +613,18 @@ bool VCFOutputCaller::SiteEmitter::file_record(const PathPositionHandleGraph& gr
                                                GLLayout gl_layout) {
     vcflib::Variant& out_variant = record.variant;
 
-    // Let the caller write the site as difference blocks. The blocks take every field they do not
-    // redefine from the finished site record. A result of -1 means the caller declined, and we
-    // write the site record.
+    // Let the subclass split the site into several records. A result of -1 means it did not, and
+    // the site gets one record.
     if (const int block_lines = write_blocks(graph, site.genotype, site.ref_trav_idx, record,
                                              gl_layout);
         block_lines >= 0) {
-        // The site has no line of its own, and each block numbers its own alleles, so there is no
-        // allele map to report.
+        // Each of the records numbers its own alleles, so there is no allele map to report.
         site_filed(map<int, int>(), 0, block_lines > 0);
         return block_lines > 0;
     }
 
-    // Whether the site gets a line. A site whose called traversals differ from the reference only
-    // inside child chains has no ALT, and gets a line only if `genotype_snarls` asks for reference
-    // calls to be written too.
+    // Whether the site gets a line. A record with no ALT gets one only if `genotype_snarls` asks
+    // for reference calls to be written too.
     const bool wants_line = genotype_snarls || !out_variant.alt.empty();
     bool added = false;
     if (wants_line) {

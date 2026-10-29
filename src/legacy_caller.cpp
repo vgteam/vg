@@ -162,8 +162,8 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                               ref_offset_of(ref_offsets, path_name),
                                               ref_ploidy_of(ref_ploidies, path_name));
         if (ploidy == 0) {
-            // The sample has no copy of this region. So the site gets no record, and its children
-            // are not called instead.
+            // The sample has no copy of this region, so the site gets no record and its children
+            // are not called.
             was_called = true;
         } else {
             std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
