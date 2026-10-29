@@ -70,7 +70,7 @@ int main_unitigs(int argc, char** argv) {
             use_gref = true;
             break;
         case 'g':
-            gaf_file = optarg;
+            gaf_file = ensure_writable(logger, optarg);
             break;
         case 't':
             set_thread_count(logger, optarg);

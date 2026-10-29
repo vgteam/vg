@@ -31,6 +31,7 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
     - [`vg depth`](#depth): calculate path coverage depth or aggregate alignment coverage Also see [vg pack](#pack)
     - [`vg pack`](#pack): convert alignments to a compact coverage index. Used with [vg call](#call)
     - [`vg primers`](#primers): filter primers based on variation in a graph. [wiki page](https://github.com/vgteam/vg/wiki/Primer-Filter)
+    - [`vg unitigs`](#unitigs): cover the haplotype k-mers of a graph with walks, for scanning with linear tools. Use with [vg lift](#lift)
 - **Working with read alignments**
     - [`vg augment`](#augment): embed alignments into a graph.
     - [`vg filter`](#filter): filter alignments by properties.
@@ -61,6 +62,7 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
 - **Conversion between formats**
     - [`vg convert`](#convert): convert between handle graph formats and GFA, and between alignment formats.
     - [`vg inject`](#inject): project alignments on a linear reference onto a graph (bam/sam/cram->gam/gaf).
+    - [`vg lift`](#lift): lift BED features on a [unitig](#unitigs) cover or on paths to the graph, the gref and every path.
     - [`vg paths`](#paths): extract a fasta from a graph. [wiki page](https://github.com/vgteam/vg/wiki/Linear-references-and-vg)
     - [`vg surject`](#surject): project alignments on a graph onto a linear reference (gam/gaf->bam/sam/cram).
     - [`vg vectorize`](#vectorize): export GAM alignments to other vector formats.

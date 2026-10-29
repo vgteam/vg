@@ -7,6 +7,7 @@
 #include <queue>
 #include <limits>
 #include <iomanip>
+#include <cctype>
 
 //#define debug
 
@@ -1683,6 +1684,257 @@ void GrefCover::write_gref_segments(ostream& os) {
            << (ref_end + ref_offset) << "\t"
            << top_snarl_id << "\n";
     }
+}
+
+
+//------------------------------------------------------------------------------
+
+using gbwtgraph::GBWTGraph;
+
+GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) : graph(gbz.graph) {
+    if (graph.get_node_count() > 0) {
+        min_id = graph.min_node_id();
+        positions.resize(graph.max_node_id() - min_id + 1);
+    }
+
+    for_each_path_start(gbz.index, [&](gbwt::size_type path_id, const std::string& name, uint64_t start) {
+        if (name.compare(0, name_prefix.size(), name_prefix) != 0) {
+            return;
+        }
+        uint32_t rank = paths.size();
+        paths.push_back({ name, start, PathSteps(graph, path_id) });
+        for (const PathSteps::Step& step : paths.back().steps.steps()) {
+            Position& position = positions[graph.get_id(step.handle) - min_id];
+            if (position.path == NO_PATH) {
+                position.path = rank;
+                position.is_reverse = graph.get_is_reverse(step.handle);
+                position.offset = step.start;
+            } else {
+                // The gref should be node-disjoint. Keep the first visit.
+                repeats++;
+            }
+        }
+    });
+
+    // Find each path by the names vg paths gives a path with a subrange,
+    // NAME[START] and NAME[START-END], and by NAME alone where it is unique.
+    std::unordered_map<std::string, size_t> name_counts;
+    for (const Path& path : paths) {
+        name_counts[path.name]++;
+    }
+    for (uint32_t rank = 0; rank < paths.size(); rank++) {
+        const Path& path = paths[rank];
+        if (name_counts[path.name] == 1) {
+            path_ranks[path.name] = rank;
+        }
+        if (path.shift > 0) {
+            std::string start = std::to_string(path.shift);
+            path_ranks[path.name + '[' + start + ']'] = rank;
+            path_ranks[path.name + '[' + start + '-' + std::to_string(path.shift + path_length(rank)) + ']'] = rank;
+        }
+    }
+}
+
+const GrefIndex::Position& GrefIndex::find(nid_t id) const {
+    static const Position nowhere;
+    if (id < min_id || size_t(id - min_id) >= positions.size()) {
+        return nowhere;
+    }
+    return positions[id - min_id];
+}
+
+uint64_t GrefIndex::path_length(uint32_t path) const {
+    return paths[path].steps.length();
+}
+
+uint32_t GrefIndex::find_path(const std::string& name) const {
+    auto found = path_ranks.find(name);
+    return found == path_ranks.end() ? NO_PATH : found->second;
+}
+
+WalkInterval GrefIndex::interval(uint32_t path, uint64_t start, uint64_t end) const {
+    return paths[path].steps.interval(start, end);
+}
+
+char GrefIndex::base(uint32_t path, uint64_t coord) const {
+    return paths[path].steps.base(graph, coord);
+}
+
+uint64_t GrefIndex::total_length() const {
+    uint64_t total = 0;
+    for (uint32_t path = 0; path < paths.size(); path++) {
+        total += path_length(path);
+    }
+    return total;
+}
+
+std::vector<GrefIndex::Run> GrefIndex::runs(const WalkInterval& interval) const {
+    std::vector<Run> result;
+    size_t node_start = 0;
+    for (const handle_t& handle : interval.walk) {
+        size_t node_length = graph.get_length(handle);
+        const Position& position = find(graph.get_id(handle));
+        // Walk coordinates of the bases of the interval on this node.
+        size_t from = std::max(node_start, interval.offset);
+        size_t to = std::min(node_start + node_length, interval.offset + interval.length);
+        if (position.path != NO_PATH && from < to) {
+            bool is_reverse = (graph.get_is_reverse(handle) != position.is_reverse);
+            uint64_t coord = is_reverse ? position.offset + node_length - 1 - (from - node_start)
+                                        : position.offset + (from - node_start);
+            from -= interval.offset;
+            to -= interval.offset;
+            if (!result.empty() && result.back().end == from && result.back().path == position.path &&
+                result.back().is_reverse == is_reverse && result.back().coord_at(from) == coord) {
+                result.back().end = to;
+            } else {
+                result.push_back({ from, to, position.path, is_reverse, coord });
+            }
+        }
+        node_start += node_length;
+    }
+    return result;
+}
+
+namespace {
+
+char complement(char base) {
+    switch (std::toupper(base)) {
+    case 'A': return 'T';
+    case 'C': return 'G';
+    case 'G': return 'C';
+    case 'T': return 'A';
+    default: return 'N';
+    }
+}
+
+/// A placement of part of an interval on one gref path.
+struct Segment {
+    uint32_t path;
+    bool is_reverse;
+    uint64_t low, high;
+    /// Path coordinate the next base would have if there were no edit.
+    int64_t next;
+    std::vector<std::pair<size_t, char>> cigar;
+
+    void add(size_t length, char op) {
+        if (length == 0) {
+            return;
+        }
+        if (!cigar.empty() && cigar.back().second == op) {
+            cigar.back().first += length;
+        } else {
+            cigar.emplace_back(length, op);
+        }
+    }
+};
+
+}
+
+GrefPlacement GrefIndex::place(const WalkInterval& interval) const {
+    GrefPlacement placement;
+    std::vector<Run> runs = this->runs(interval);
+    for (const Run& run : runs) {
+        (run.is_reverse ? placement.reverse_bases : placement.forward_bases) += run.end - run.begin;
+    }
+    placement.along_one_path = (runs.size() == 1 && runs.front().begin == 0 && runs.front().end == interval.length);
+    // Only bases between two runs can be substitutions, which need the bases
+    // to compare with the gref.
+    std::string sequence;
+    if (runs.size() > 1) {
+        sequence = interval.sequence(graph);
+    }
+
+    std::vector<Segment> segments;
+    size_t position = 0;
+    for (const Run& run : runs) {
+        size_t inserted = run.begin - position;
+        bool continues = false;
+        int64_t deleted = 0;
+        if (!segments.empty() && segments.back().path == run.path && segments.back().is_reverse == run.is_reverse) {
+            deleted = run.is_reverse ? segments.back().next - int64_t(run.coord) : int64_t(run.coord) - segments.back().next;
+            continues = (deleted >= 0);
+        }
+        if (continues) {
+            Segment& segment = segments.back();
+            if (inserted == size_t(deleted)) {
+                // A substitution: compare the bases.
+                for (size_t t = 0; t < inserted; t++) {
+                    int64_t coord = run.is_reverse ? segment.next - int64_t(t) : segment.next + int64_t(t);
+                    char gref_base = base(run.path, coord);
+                    if (run.is_reverse) {
+                        gref_base = complement(gref_base);
+                    }
+                    segment.add(1, std::toupper(sequence[position + t]) == std::toupper(gref_base) ? '=' : 'X');
+                }
+            } else {
+                segment.add(deleted, 'D');
+                segment.add(inserted, 'I');
+            }
+        } else {
+            if (!segments.empty()) {
+                // Bases between placements on different paths go with the earlier one.
+                segments.back().add(inserted, 'I');
+            }
+            segments.push_back({ run.path, run.is_reverse, run.coord, run.coord, 0, {} });
+            if (segments.size() == 1) {
+                segments.back().add(inserted, 'I');
+            }
+        }
+        Segment& segment = segments.back();
+        segment.add(run.end - run.begin, '=');
+        segment.low = std::min({ segment.low, run.coord, run.last() });
+        segment.high = std::max({ segment.high, run.coord, run.last() });
+        segment.next = run.is_reverse ? int64_t(run.last()) - 1 : int64_t(run.last()) + 1;
+        position = run.end;
+    }
+    size_t trailing = interval.length - position;
+
+    if (segments.empty()) {
+        placement.text = "*:" + std::to_string(trailing) + "I";
+        return placement;
+    }
+    segments.back().add(trailing, 'I');
+    placement.path = segments.front().path;
+    placement.coord = segments.front().low;
+    for (Segment& segment : segments) {
+        if (segment.is_reverse) {
+            // CIGARs are in path order.
+            std::reverse(segment.cigar.begin(), segment.cigar.end());
+        }
+        if (!placement.text.empty()) {
+            placement.text += ',';
+        }
+        uint64_t shift = path_shift(segment.path) + 1;
+        placement.text += path_name(segment.path) + ':' + std::to_string(segment.low + shift) + '-' +
+                          std::to_string(segment.high + shift) + ':' + (segment.is_reverse ? '-' : '+') + ':';
+        for (const auto& op : segment.cigar) {
+            placement.text += std::to_string(op.first) + op.second;
+        }
+    }
+    return placement;
+}
+
+std::vector<std::pair<std::string, size_t>> unsupported_gref_paths(const gbwtgraph::GBZ& gbz,
+                                                                   const std::string& name_prefix) {
+    std::vector<std::pair<std::string, size_t>> result;
+    for_each_path_start(gbz.index, [&](gbwt::size_type path_id, const std::string& name, uint64_t) {
+        if (name.compare(0, name_prefix.size(), name_prefix) != 0) {
+            return;
+        }
+        std::vector<handle_t> walk;
+        size_t length = 0;
+        for (gbwt::node_type node : gbz.index.extract(gbwt::Path::encode(path_id, false))) {
+            walk.push_back(GBWTGraph::node_to_handle(node));
+            length += gbz.graph.get_length(walk.back());
+        }
+        // The gref path is one occurrence of its own walk. A second one means some
+        // other path contains it, unless the walk is its own reverse, which is too
+        // unlikely in a real gref to be worth a slower check.
+        if (!walk.empty() && gbz.graph.bd_find(walk).size() < 2) {
+            result.emplace_back(name, length);
+        }
+    });
+    return result;
 }
 
 }

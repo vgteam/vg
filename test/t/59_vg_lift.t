@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 16
+plan tests 23
 
 # A triallelic SNP with the haplotypes stored as W lines at offset 1000 of contig c,
 # as Minigraph-Cactus stores haplotype fragments
@@ -78,6 +78,36 @@ vg lift -u lift.plain.gaf -a lift.plain.asm.bed lift.plain.gbz lift.plain.bed > 
 is "$(grep -c 'gr:Z:' lift.plain.out.gaf)" "0" "features on a plain cover have no gref placement"
 
 is "$(awk 'END { print NR }' lift.plain.asm.bed)" "4" "features on a plain cover are lifted to every path that visits them"
+
+# Path to path: features on paths, in full-path coordinates
+printf 'x\t80\t120\tspan\t0\t+\ns#1#c\t1080\t1120\tfromA\t0\t-\n' > lift.paths.bed
+vg lift -a lift.paths.exact.bed lift.gbz lift.paths.bed > /dev/null
+is "$(awk '$4 == "span"' lift.paths.exact.bed | cut -f 1-3)" "$(printf 'x\t80\t120')" "a feature across a SNP has only its own exact place"
+
+vg lift -m 0.9 -a lift.paths.lift.bed lift.gbz lift.paths.bed > /dev/null
+is "$(awk '$4 == "span" { print $1, $2, $3, $6, $NF }' lift.paths.lift.bed | tr '\n' ';')" "x 80 120 + 1;s#1#c 1080 1120 + 0.975;s#2#c 1080 1120 + 0.975;" "a liftover reaches the haplotypes with a SNP, at their contig coordinates"
+
+is "$(awk '$4 == "fromA" && $1 == "x" { print $2, $3, $6 }' lift.paths.lift.bed)" "80 120 -" "a feature on a haplotype contig lifts to the reference on its strand"
+
+vg lift -m 0.9 -b -a lift.paths.blocks.bed lift.gbz lift.paths.bed > /dev/null
+is "$(awk '$4 == "span" && $1 == "s#1#c" { print $7, $8, $10, $11, $12 }' lift.paths.blocks.bed)" "1080 1120 2 20,19, 0,21," "blocks leave out the SNP base"
+
+printf 's#1#c\t10\t20\tbefore\n' > lift.outside.bed
+vg lift lift.gbz lift.outside.bed 2>&1 > /dev/null | grep -q "1 features on paths are not within one fragment"
+is $? 0 "a feature outside the fragments of its path is skipped with a warning"
+
+# A 50 bp insertion on the haplotypes, after base 70 of x
+vg gbwt -G nesting/core_ins50.gfa --gbz-format -g lift.ins.gbz
+printf 'x\t50\t110\twide\n' > lift.ins.bed
+vg lift -m 0.9 -b -a lift.ins.blocks.bed lift.ins.gbz lift.ins.bed > /dev/null
+is "$(awk '$1 == "hapA" { print $2, $3, $10, $11, $12, $NF }' lift.ins.blocks.bed)" "50 160 2 20,40, 0,70, 1" "a liftover spans an insertion shorter than the feature"
+
+printf 'x\t60\t100\tnarrow\n' > lift.ins.bed
+vg lift -m 0.7 -a lift.ins.lift.bed lift.ins.gbz lift.ins.bed > /dev/null
+is "$(awk '$1 == "hapA" { print $2, $3, $NF }' lift.ins.lift.bed)" "120 150 0.75" "an insertion longer than the feature splits it"
+
+rm -f lift.paths.bed lift.paths.exact.bed lift.paths.lift.bed lift.paths.blocks.bed lift.outside.bed
+rm -f lift.ins.gbz lift.ins.bed lift.ins.blocks.bed lift.ins.lift.bed
 
 rm -f lift.gfa lift.gref.vg lift.gref.gfa lift.gbz lift.tigs.gaf lift.tigs.fa lift.bed lift.gaf lift.asm.bed
 rm -f lift.place.txt lift.feature.txt lift.support.txt lift.s1.bed lift.t1.bed lift.t4.bed lift.t1.gaf lift.t4.gaf

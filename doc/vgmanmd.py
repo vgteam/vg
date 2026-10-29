@@ -9,9 +9,9 @@ cmds = ['align', 'annotate', 'augment', 'autoindex', 'bench-dist-query',
         'cluster', 'combine', 'construct', 'convert', 'deconstruct', 'depth',
         'describe', 'dotplot', 'filter', 'find', 'gamcompare', 'gampcompare',
         'gamsort', 'gbwt', 'giraffe', 'haplotypes', 'help', 'ids',
-        'index', 'inject', 'map', 'mask', 'minimizer', 'mod', 'mpmap',
+        'index', 'inject', 'lift', 'map', 'mask', 'minimizer', 'mod', 'mpmap',
         'pack', 'paths', 'primers', 'prune', 'rna', 'sim', 'simplify', 'snarls',
-        'stats', 'surject', 'test', 'trace', 'validate', 'vectorize', 'version',
+        'stats', 'surject', 'test', 'trace', 'unitigs', 'validate', 'vectorize', 'version',
         'view', 'zipcode'
 ]
 cmds.sort()
