@@ -5,11 +5,14 @@
 
 #include "feature_lift.hpp"
 
+#include <gbwtgraph/utils.h>
+
 #include <algorithm>
 #include <istream>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <tuple>
 
 #include <omp.h>
 
@@ -103,6 +106,10 @@ int compare_intervals(const WalkInterval& a, const WalkInterval& b) {
 
 }
 
+bool PathCoordinate::operator<(const PathCoordinate& other) const {
+    return std::tie(rank, start, end, is_reverse) < std::tie(other.rank, other.start, other.end, other.is_reverse);
+}
+
 GraphFeature make_graph_feature(const GBWTGraph& graph, const GrefIndex* gref,
                                 WalkInterval interval, std::vector<std::string> fields) {
     GraphFeature result;
@@ -131,6 +138,15 @@ GraphFeature make_graph_feature(const GBWTGraph& graph, const GrefIndex* gref,
         }
     }
 
+    // Gref paths come first in the priority order, and their ranks are their
+    // places in the gref.
+    if (result.placement.along_one_path) {
+        uint32_t path = result.placement.path;
+        uint64_t start = gref->path_shift(path) + result.placement.coord;
+        result.coordinate = PathCoordinate { gref->path_name(path), path, start, start + result.interval.length,
+                                             result.placement.reverse_bases > 0 };
+    }
+
     // The GBWT holds every path in both orientations, so this counts visits in
     // either orientation. Leave out the gref path that the interval lies
     // along, if any, because a gref path is a copy of part of another path.
@@ -150,7 +166,8 @@ void Cover::add_tigs(std::istream& gaf, const std::function<bool(const std::stri
     std::string line;
     std::string name;
     while (std::getline(gaf, line)) {
-        if (line.empty() || line[0] == '#') {
+        // GAF header lines start with @.
+        if (line.empty() || line[0] == '@' || line[0] == '#') {
             continue;
         }
         name = line.substr(0, line.find('\t'));
@@ -184,6 +201,43 @@ WalkInterval Cover::interval(const std::string& name, size_t start, size_t end) 
         return gref->interval(gref->find_path(name), start, end);
     }
     return tigs.at(name).subinterval(graph, start, end);
+}
+
+//------------------------------------------------------------------------------
+
+PathPriority::PathPriority(const gbwtgraph::GBZ& gbz, const std::vector<std::string>& prefixes,
+                           const std::string& gref_prefix, size_t first_rank) {
+    const gbwt::GBWT& index = gbz.index;
+    gbwtgraph::sample_name_set reference_samples = gbwtgraph::parse_reference_samples_tag(index);
+    // Sort keys: the group (a prefix, reference paths, the rest), then the name.
+    std::vector<std::pair<size_t, std::string>> keys;
+    std::unordered_map<std::string, size_t> groups;
+    for_each_path_start(index, [&](gbwt::size_type path_id, const std::string& name, uint64_t) {
+        if (name.compare(0, gref_prefix.size(), gref_prefix) == 0 || groups.count(name)) {
+            return;
+        }
+        size_t group = prefixes.size() + 1;
+        for (size_t i = 0; i < prefixes.size(); i++) {
+            if (name.compare(0, prefixes[i].size(), prefixes[i]) == 0) {
+                group = i;
+                break;
+            }
+        }
+        if (group > prefixes.size() &&
+            gbwtgraph::get_path_sense(index, path_id, reference_samples) == handlegraph::PathSense::REFERENCE) {
+            group = prefixes.size();
+        }
+        groups[name] = group;
+        keys.emplace_back(group, name);
+    });
+    std::sort(keys.begin(), keys.end());
+    for (size_t i = 0; i < keys.size(); i++) {
+        ranks[keys[i].second] = first_rank + i;
+    }
+}
+
+size_t PathPriority::rank(const std::string& name) const {
+    return ranks.at(name);
 }
 
 //------------------------------------------------------------------------------

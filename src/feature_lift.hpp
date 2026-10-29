@@ -23,6 +23,9 @@
  * A place is a liftover when a path visits enough of the walk's bases, in
  * order. Liftovers suit long features, such as genes, which haplotypes rarely
  * share whole.
+ *
+ * Each feature also gets a path coordinate (see PathCoordinate), which names it
+ * exactly as an interval on one path that carries it.
  */
 
 #include "gref.hpp"
@@ -63,6 +66,32 @@ struct BedFeature {
 std::vector<BedFeature> read_bed_features(std::istream& in);
 
 /**
+ * A feature's path coordinate: its interval on the first path, in priority
+ * order, that carries it whole.
+ *
+ * Gref paths come first in the order, so a feature that lies along one is
+ * named there. A feature off the gref is named on the first reference or
+ * assembly path that carries it (see PathPriority). Paths keep their
+ * coordinates when a graph is clipped, filtered or sampled, so these names
+ * hold across such graphs while the naming path is in them. No two graph
+ * intervals share a path coordinate.
+ */
+struct PathCoordinate {
+    /// The path, named as for_each_path_start() names it.
+    std::string path;
+    /// Place of the path in the priority order.
+    size_t rank = 0;
+    /// Coordinates on the full path.
+    uint64_t start = 0;
+    uint64_t end = 0;
+    /// True if the feature reads the path in reverse.
+    bool is_reverse = false;
+
+    /// Return true if this coordinate comes first in the priority order.
+    bool operator<(const PathCoordinate& other) const;
+};
+
+/**
  * A feature in the graph.
  *
  * It is a walk interval and the BED fields that describe it. A stranded
@@ -77,6 +106,9 @@ struct GraphFeature {
     /// Number of visits to the interval, in either orientation, by paths other
     /// than gref paths.
     size_t support = 0;
+    /// The path coordinate. make_graph_feature() gives one to a feature along
+    /// a gref path; others get theirs from the paths that carry them.
+    std::optional<PathCoordinate> coordinate;
 
     /// Return true if the feature has a strand.
     bool is_stranded() const;
@@ -89,10 +121,32 @@ struct GraphFeature {
  * A stranded feature is oriented along its strand, which reverses the interval
  * if the strand is "-". A feature without a strand takes the orientation with
  * the most bases on forward gref strands. On a tie, it takes the orientation
- * whose walk sorts first. The gref may be null.
+ * whose walk sorts first. The gref may be null. A feature along one gref path
+ * gets its path coordinate there.
  */
 GraphFeature make_graph_feature(const gbwtgraph::GBWTGraph& graph, const GrefIndex* gref,
                                 WalkInterval interval, std::vector<std::string> fields);
+
+/**
+ * The priority order of the paths that name features off the gref.
+ *
+ * Paths whose names start with the given prefixes come first, in the order of
+ * the prefixes. Then come reference paths, and then the rest. Each group is in
+ * name order. All ranks come after those of the gref paths.
+ */
+class PathPriority {
+public:
+    /// Rank the paths of the GBZ other than gref paths, starting at first_rank.
+    PathPriority(const gbwtgraph::GBZ& gbz, const std::vector<std::string>& prefixes,
+                 const std::string& gref_prefix, size_t first_rank);
+
+    /// Return the rank of the path with this name, as for_each_path_start()
+    /// names it. Requires a ranked path.
+    size_t rank(const std::string& name) const;
+
+private:
+    std::unordered_map<std::string, size_t> ranks;
+};
 
 /**
  * A directory of the sequences of a cover.

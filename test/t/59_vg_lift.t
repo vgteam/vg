@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 23
+plan tests 30
 
 # A triallelic SNP with the haplotypes stored as W lines at offset 1000 of contig c,
 # as Minigraph-Cactus stores haplotype fragments
@@ -34,9 +34,9 @@ is $? 0 "vg lift runs on a cover of gref paths and junction tigs"
 
 is "$(awk 'END { print NR }' lift.gaf)" "4" "copies of a feature on several cover sequences are kept once"
 
-is "$(grep -c $'\tsp:i:3\tgr:Z:gref_x:93-97:+:5=\tan:Z:g5$' lift.gaf)" "1" "a feature on the gref is placed at its gref coordinates"
+is "$(grep -c $'\tsp:i:3\tgr:Z:gref_x:93-97:+:5=\tpc:Z:gref_x:93-97:+\tan:Z:g5$' lift.gaf)" "1" "a feature on the gref is placed at its gref coordinates, which are also its path coordinate"
 
-is "$(grep -c $'<6<4<2\t.*\tgr:Z:gref_x:99-103:-:2=1X2=\tan:Z:snpA$' lift.gaf)" "1" "a feature on the - strand of a tig is lifted to the reverse walk, with the SNP as a substitution"
+is "$(grep -c $'<6<4<2\t.*\tgr:Z:gref_x:99-103:-:2=1X2=\tpc:Z:s#1#c:1099-1103:-\tan:Z:snpA$' lift.gaf)" "1" "a feature on the - strand of a tig is lifted to the reverse walk, with the SNP as a substitution"
 
 is "$(awk '$4 == "g5"' lift.asm.bed | cut -f 1-3,6 | sort | tr '\t\n' ' ;')" "s#1#c 1092 1097 +;s#2#c 1092 1097 +;x 92 97 +;" "a haplotype place is on its contig, past the fragment's offset"
 
@@ -58,6 +58,23 @@ vg lift -u lift.tigs.gaf -t 1 -a lift.t1.bed lift.gbz lift.bed > lift.t1.gaf
 vg lift -u lift.tigs.gaf -t 4 -a lift.t4.bed lift.gbz lift.bed > lift.t4.gaf
 cmp -s lift.t1.gaf lift.t4.gaf && cmp -s lift.t1.bed lift.t4.bed
 is $? 0 "the output does not depend on the thread count"
+
+# Path coordinates: a feature on the gref and on tigs, features off the gref on tigs, and
+# features on a path, along the gref and off it
+cp lift.bed lift.names.input.bed
+printf 'u2\t9\t11\tcg\nx\t95\t105\talonggref\ns#1#c\t1098\t1103\toffgref\n' >> lift.names.input.bed
+vg lift -u lift.tigs.gaf -c lift.names.bed lift.gbz lift.names.input.bed > lift.names.gaf 2> lift.names.err
+is "$(grep -c $'\tpc:Z:s#2#c:1100-1101:+\tan:Z:cg$' lift.names.gaf)" "1" "a feature off the gref is named on the path that carries it, in contig coordinates"
+
+is "$(grep -c $'\tpc:Z:gref_x:96-105:+\tan:Z:alonggref$' lift.names.gaf)" "1" "a feature read from a path along the gref is named on the gref"
+
+is "$(grep -c $'\tpc:Z:s#1#c:1099-1103:+\tan:Z:offgref$' lift.names.gaf) $(grep -c . lift.names.err)" "1 0" "a feature read from a path off the gref is named on a path that carries it"
+
+is "$(cut -f 1-4 lift.names.bed | tr '\t\n' ' ;')" "gref_x 0 5 .;gref_x 92 97 g5;gref_x 95 105 alonggref;s#1#c 1098 1103 offgref;s#1#c 1098 1103 snpA;s#2#c 1098 1103 snpB;s#2#c 1099 1101 cg;" "the canonical BED has each feature once, at its path coordinate, in priority order"
+
+grep -v '^@' lift.tigs.gaf > lift.tigs.noheader.gaf
+vg lift -u lift.tigs.noheader.gaf lift.gbz lift.names.input.bed 2> /dev/null | cmp -s - lift.names.gaf
+is $? 0 "a tig GAF without a header gives the same output"
 
 printf 'u99\t0\t5\n' > lift.unknown.bed
 vg lift -u lift.tigs.gaf lift.gbz lift.unknown.bed > /dev/null 2>&1
@@ -106,8 +123,16 @@ printf 'x\t60\t100\tnarrow\n' > lift.ins.bed
 vg lift -m 0.7 -a lift.ins.lift.bed lift.ins.gbz lift.ins.bed > /dev/null
 is "$(awk '$1 == "hapA" { print $2, $3, $NF }' lift.ins.lift.bed)" "120 150 0.75" "an insertion longer than the feature splits it"
 
+printf 'x\t0\t10\tshared\n' > lift.shared.bed
+is "$(vg lift lift.ins.gbz lift.shared.bed | grep -o 'pc:Z:[^[:space:]]*') $(vg lift -P x lift.ins.gbz lift.shared.bed | grep -o 'pc:Z:[^[:space:]]*')" "pc:Z:hapA:1-10:+ pc:Z:x:1-10:+" "a feature carried by several paths is named on the first in priority order"
+
+vg unitigs -k 11 -g lift.ins.tigs.gaf lift.ins.gbz > /dev/null
+vg lift -u lift.ins.tigs.gaf lift.gbz lift.bed 2>&1 > /dev/null | grep -q "not compatible"
+is $? 0 "tigs of another graph are rejected"
+
 rm -f lift.paths.bed lift.paths.exact.bed lift.paths.lift.bed lift.paths.blocks.bed lift.outside.bed
-rm -f lift.ins.gbz lift.ins.bed lift.ins.blocks.bed lift.ins.lift.bed
+rm -f lift.ins.gbz lift.ins.bed lift.ins.blocks.bed lift.ins.lift.bed lift.ins.tigs.gaf
+rm -f lift.names.input.bed lift.names.bed lift.names.gaf lift.names.err lift.tigs.noheader.gaf lift.shared.bed
 
 rm -f lift.gfa lift.gref.vg lift.gref.gfa lift.gbz lift.tigs.gaf lift.tigs.fa lift.bed lift.gaf lift.asm.bed
 rm -f lift.place.txt lift.feature.txt lift.support.txt lift.s1.bed lift.t1.bed lift.t4.bed lift.t1.gaf lift.t4.gaf

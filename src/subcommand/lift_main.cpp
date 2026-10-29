@@ -30,10 +30,22 @@ void help_lift(char** argv) {
          << endl
          << "Each feature gets an ID (f1, f2, ...) and a GAF record with that query name," << endl
          << "its graph walk, and the tags sp:i: (visits of the whole walk by paths other" << endl
-         << "than gref paths), gr:Z: (gref placement, see vg unitigs) and an:Z: (BED name)." << endl
+         << "than gref paths), gr:Z: (gref placement, see vg unitigs), pc:Z: (path" << endl
+         << "coordinate) and an:Z: (BED name)." << endl
+         << endl
+         << "The path coordinate names a feature exactly, as PATH:START-END:STRAND on the" << endl
+         << "first path, in priority order, that carries the whole feature: the gref path" << endl
+         << "it lies along, else a reference or assembly path. Paths keep their" << endl
+         << "coordinates in clipped, filtered and sampled graphs, and no two places in the" << endl
+         << "graph share one. Naming a feature off the gref takes a pass over all paths." << endl
          << endl
          << "options:" << endl
          << "  -u, --tigs FILE         GAF of the tigs, from vg unitigs -g" << endl
+         << "  -c, --canonical FILE    write each feature once to FILE as BED at its path" << endl
+         << "                          coordinate, in priority order, with the columns of -a" << endl
+         << "  -P, --priority PREFIX   name features off the gref on paths whose name starts" << endl
+         << "                          with PREFIX first (may repeat, first given first);" << endl
+         << "                          then come reference paths, then the rest by name" << endl
          << "  -a, --assemblies FILE   write each place where a path visits a feature to FILE" << endl
          << "                          as BED on the full path: the feature's name, score" << endl
          << "                          and strand (., 0 and . if it has none), any further" << endl
@@ -60,6 +72,8 @@ int main_lift(int argc, char** argv) {
     }
 
     string tigs_file;
+    string canonical_file;
+    vector<string> priority_prefixes;
     string assemblies_file;
     vector<string> path_prefixes;
     double min_match = 0;
@@ -71,6 +85,8 @@ int main_lift(int argc, char** argv) {
     while (true) {
         static struct option long_options[] = {
             {"tigs", required_argument, 0, 'u'},
+            {"canonical", required_argument, 0, 'c'},
+            {"priority", required_argument, 0, 'P'},
             {"assemblies", required_argument, 0, 'a'},
             {"min-match", required_argument, 0, 'm'},
             {"blocks", no_argument, 0, 'b'},
@@ -81,13 +97,19 @@ int main_lift(int argc, char** argv) {
             {0, 0, 0, 0}
         };
         int option_index = 0;
-        c = getopt_long(argc, argv, "u:a:m:bQ:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "u:c:P:a:m:bQ:t:ph?", long_options, &option_index);
         if (c == -1) {
             break;
         }
         switch (c) {
         case 'u':
             tigs_file = require_exists(logger, optarg);
+            break;
+        case 'c':
+            canonical_file = ensure_writable(logger, optarg);
+            break;
+        case 'P':
+            priority_prefixes.push_back(optarg);
             break;
         case 'a':
             assemblies_file = ensure_writable(logger, optarg);
@@ -126,6 +148,11 @@ int main_lift(int argc, char** argv) {
     gbwtgraph::GBZ gbz;
     load_gbz(gbz, graph_file, progress);
     const gbwtgraph::GBWTGraph& graph = gbz.graph;
+
+    if (!tigs_file.empty()) {
+        // Tigs from another graph would name the wrong walks.
+        require_compatible_reference(tigs_file, nullptr, &gbz, false);
+    }
 
     GrefIndex gref(gbz, GrefCover::gref_prefix);
     const GrefIndex* gref_pointer = gref.path_count() > 0 ? &gref : nullptr;
@@ -224,12 +251,116 @@ int main_lift(int argc, char** argv) {
     auto feature_id = [](size_t i) {
         return "f" + to_string(i + 1);
     };
+    // Write BED columns 4 to 6 (name, score and strand) for a place of the
+    // feature. The place reads the feature in reverse if is_reverse is set.
+    auto write_name_score_strand = [](ostream& out, const GraphFeature& feature, bool is_reverse) {
+        const vector<string>& fields = feature.fields;
+        out << '\t' << (fields.size() > 0 ? fields[0] : ".") << '\t' << (fields.size() > 1 ? fields[1] : "0") << '\t';
+        if (feature.is_stranded()) {
+            out << (is_reverse ? '-' : '+');
+        } else {
+            out << '.';
+        }
+    };
+    // Write the feature's BED columns from the 7th on, then its ID.
+    auto write_rest = [&](ostream& out, size_t i) {
+        const vector<string>& fields = features[i].fields;
+        for (size_t j = BED_STRAND_FIELD + 1; j < fields.size(); j++) {
+            out << '\t' << fields[j];
+        }
+        out << '\t' << feature_id(i);
+    };
+
+    // One pass over the paths other than gref paths finds the places for -a and
+    // names the features off the gref. Naming uses every path, whatever -Q says.
+    size_t unnamed = 0;
+    for (const GraphFeature& feature : features) {
+        unnamed += !feature.coordinate;
+    }
+    if (unnamed > 0 || !assemblies_file.empty()) {
+        PathPriority priority(gbz, priority_prefixes, GrefCover::gref_prefix, gref.path_count());
+        ofstream out;
+        if (!assemblies_file.empty()) {
+            out.open(assemblies_file);
+            if (!out) {
+                logger.error() << "could not open " << assemblies_file << " for writing" << endl;
+            }
+        }
+        auto is_gref = [&](const string& name) {
+            return name.compare(0, GrefCover::gref_prefix.size(), GrefCover::gref_prefix) == 0;
+        };
+        auto selected = [&](const string& name) {
+            if (path_prefixes.empty()) {
+                return true;
+            }
+            for (const string& prefix : path_prefixes) {
+                if (name.compare(0, prefix.size(), prefix) == 0) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        size_t written = 0;
+        auto visit = [&](const string& name, const vector<PathOccurrence>& places) {
+            bool write = out.is_open() && selected(name);
+            size_t rank = priority.rank(name);
+            for (const PathOccurrence& place : places) {
+                GraphFeature& feature = features[place.feature];
+                size_t length = feature.interval.length;
+                // A place that holds the whole feature in one block is a path that carries it.
+                if (place.matched == length && place.blocks.size() == 1 && place.end - place.start == length) {
+                    PathCoordinate here { name, rank, place.start, place.end, place.is_reverse };
+                    if (!feature.coordinate || here < *feature.coordinate) {
+                        feature.coordinate = std::move(here);
+                    }
+                }
+                if (!write) {
+                    continue;
+                }
+                out << name << '\t' << place.start << '\t' << place.end;
+                write_name_score_strand(out, feature, place.is_reverse);
+                if (blocks) {
+                    out << '\t' << place.start << '\t' << place.end << "\t0\t" << place.blocks.size() << '\t';
+                    for (const auto& block : place.blocks) {
+                        out << (block.second - block.first) << ',';
+                    }
+                    out << '\t';
+                    for (const auto& block : place.blocks) {
+                        out << (block.first - place.start) << ',';
+                    }
+                }
+                write_rest(out, place.feature);
+                if (min_match > 0) {
+                    out << '\t' << double(place.matched) / length;
+                }
+                out << '\n';
+                written++;
+            }
+        };
+        auto not_gref = [&](const string& name) {
+            return !is_gref(name);
+        };
+        if (min_match > 0) {
+            for_each_path_liftover(gbz, features, min_match, not_gref, visit);
+        } else {
+            for_each_path_occurrences(gbz, features, not_gref, visit);
+        }
+        if (progress && out.is_open()) {
+            cerr << "[vg lift] " << written << " places on paths" << endl;
+        }
+    }
+
     for (size_t i = 0; i < features.size(); i++) {
         const GraphFeature& feature = features[i];
         write_gaf_columns(cout, graph, feature_id(i), feature.interval);
         cout << "\tsp:i:" << feature.support;
         if (!feature.placement.text.empty()) {
             cout << "\tgr:Z:" << feature.placement.text;
+        }
+        if (feature.coordinate) {
+            const PathCoordinate& place = *feature.coordinate;
+            cout << "\tpc:Z:" << place.path << ':' << (place.start + 1) << '-' << place.end << ':'
+                 << (place.is_reverse ? '-' : '+');
         }
         if (!feature.fields.empty()) {
             cout << "\tan:Z:" << feature.fields.front();
@@ -238,68 +369,35 @@ int main_lift(int argc, char** argv) {
     }
     cout.flush();
 
-    if (assemblies_file.empty()) {
-        return 0;
-    }
-    ofstream out(assemblies_file);
-    if (!out) {
-        logger.error() << "could not open " << assemblies_file << " for writing" << endl;
-    }
-    auto include = [&](const string& name) {
-        if (name.compare(0, GrefCover::gref_prefix.size(), GrefCover::gref_prefix) == 0) {
-            return false;
+    if (!canonical_file.empty()) {
+        ofstream out(canonical_file);
+        if (!out) {
+            logger.error() << "could not open " << canonical_file << " for writing" << endl;
         }
-        if (path_prefixes.empty()) {
-            return true;
-        }
-        for (const string& prefix : path_prefixes) {
-            if (name.compare(0, prefix.size(), prefix) == 0) {
-                return true;
+        vector<size_t> order;
+        for (size_t i = 0; i < features.size(); i++) {
+            if (features[i].coordinate) {
+                order.push_back(i);
             }
         }
-        return false;
-    };
-    size_t written = 0;
-    auto write_places = [&](const string& name, const vector<PathOccurrence>& places) {
-        for (const PathOccurrence& place : places) {
-            const GraphFeature& feature = features[place.feature];
-            const vector<string>& fields = feature.fields;
-            out << name << '\t' << place.start << '\t' << place.end
-                << '\t' << (fields.size() > 0 ? fields[0] : ".")
-                << '\t' << (fields.size() > 1 ? fields[1] : "0") << '\t';
-            if (feature.is_stranded()) {
-                out << (place.is_reverse ? '-' : '+');
-            } else {
-                out << '.';
-            }
-            if (blocks) {
-                out << '\t' << place.start << '\t' << place.end << "\t0\t" << place.blocks.size() << '\t';
-                for (const auto& block : place.blocks) {
-                    out << (block.second - block.first) << ',';
-                }
-                out << '\t';
-                for (const auto& block : place.blocks) {
-                    out << (block.first - place.start) << ',';
-                }
-            }
-            for (size_t j = BED_STRAND_FIELD + 1; j < fields.size(); j++) {
-                out << '\t' << fields[j];
-            }
-            out << '\t' << feature_id(place.feature);
-            if (min_match > 0) {
-                out << '\t' << double(place.matched) / feature.interval.length;
-            }
+        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+            return *features[a].coordinate < *features[b].coordinate;
+        });
+        for (size_t i : order) {
+            const PathCoordinate& place = *features[i].coordinate;
+            out << place.path << '\t' << place.start << '\t' << place.end;
+            write_name_score_strand(out, features[i], place.is_reverse);
+            write_rest(out, i);
             out << '\n';
         }
-        written += places.size();
-    };
-    if (min_match > 0) {
-        for_each_path_liftover(gbz, features, min_match, include, write_places);
-    } else {
-        for_each_path_occurrences(gbz, features, include, write_places);
     }
-    if (progress) {
-        cerr << "[vg lift] " << written << " places on paths" << endl;
+    size_t nameless = 0;
+    for (const GraphFeature& feature : features) {
+        nameless += !feature.coordinate;
+    }
+    if (nameless > 0) {
+        logger.warn() << nameless << " features are not carried whole by any path, so they have no path coordinate"
+                      << endl;
     }
 
     return 0;

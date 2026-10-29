@@ -7,19 +7,27 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 22
+plan tests 24
 
 # canonical_kmers K FASTA...: every canonical k-mer of the sequences (the smaller of the
 # k-mer and its reverse complement), one per line.  The test graphs have random sequence,
-# so k-mers that are equal as sequences are also the same graph positions.
+# so k-mers that are equal as sequences are also the same graph positions.  It writes no
+# files, because diff runs two copies of it at once.
 canonical_kmers() {
     local k=$1
     shift
     cat "$@" | awk '/^>/ { if (seq != "") print seq; seq = ""; next } { seq = seq $0 } END { if (seq != "") print seq }' \
-        | awk -v k=$k '{ for (i = 1; i <= length($0) - k + 1; i++) print substr($0, i, k) }' > kmers.fwd
-    rev kmers.fwd | tr ACGT TGCA > kmers.rev
-    paste kmers.fwd kmers.rev | awk '{ print ($1 < $2) ? $1 : $2 }'
-    rm -f kmers.fwd kmers.rev
+        | awk -v k=$k 'BEGIN { c["A"] = "T"; c["C"] = "G"; c["G"] = "C"; c["T"] = "A" }
+            {
+                for (i = 1; i <= length($0) - k + 1; i++) {
+                    s = substr($0, i, k)
+                    r = ""
+                    for (j = k; j >= 1; j--) {
+                        r = r c[substr(s, j, 1)]
+                    }
+                    print (s < r) ? s : r
+                }
+            }'
 }
 
 # Plain unitigs on a graph with a triallelic SNP and no gref
@@ -37,7 +45,9 @@ is $? 0 "the unitigs contain exactly the k-mers of the paths"
 
 is "$(canonical_kmers 11 snp.tigs.fa | sort | uniq -d | awk 'END { print NR }')" "0" "no k-mer is in two unitigs"
 
-is "$(awk 'END { print NR }' snp.gaf)" "5" "the GAF has one line per unitig"
+is "$(grep -vc '^@' snp.gaf)" "5" "the GAF has one line per unitig"
+
+is "$(grep -c '^@RN' snp.gaf) $(grep -c $'^@CO\tvg unitigs -k 11 -g snp.gaf snp.gbz$' snp.gaf)" "1 1" "the GAF header names the graph and the command"
 
 is "$(cut -f 13 snp.gaf | grep -c '^sp:i:')" "5" "every GAF line has the haplotype support"
 
@@ -45,6 +55,8 @@ vg unitigs -k 11 -t 1 snp.gbz > snp.t1.fa
 vg unitigs -k 11 -t 4 snp.gbz > snp.t4.fa
 cmp -s snp.t1.fa snp.t4.fa
 is $? 0 "the output does not depend on the thread count"
+
+is "$(vg unitigs -k 11 -n k11_ snp.gbz | head -1)" ">k11_1" "tig names can have a prefix"
 
 vg unitigs -k 1 snp.gbz > /dev/null 2>&1
 is $? 1 "k below 2 is rejected"
