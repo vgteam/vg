@@ -108,16 +108,8 @@ public:
     /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
     /// two effectively-identical alleles collapses to 1/1 with a single ALT.
     ///
-    /// Two alleles merge when their similarity is at least threshold. The similarity is a
-    /// length-weighted Jaccard that scores a pure deletion against the site (see
-    /// weighted_traversal_similarity). When min_len is above 0, alleles merge only at a site
-    /// whose core length (see allele_core_length) is at least min_len bp. A threshold of 1.0,
-    /// the default, turns merging off.
-    ///
-    /// vg deconstruct clusters traversals by the same similarity and core length (see
-    /// Deconstructor's cluster_threshold and cluster_min_allele_len). Each tool measures core
-    /// length on the alleles it emits, and the two tools can emit different alleles for one site,
-    /// so they can disagree about whether its alleles merge.
+    /// Two alleles merge when their similarity, a modified length-weighted Jaccard, is at least
+    /// `threshold`. A threshold of 1.0 turns merging off.
     void set_allele_merge(double threshold, int64_t min_len);
 
     /// The set of reference contigs that actually have a record.  Reads the sort keys of the
@@ -131,12 +123,8 @@ public:
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
     /**
-     * The writer of one called site's record into the output.
-     *
-     * `emit` builds the site's record and adds it to the output. A variant
-     * caller subclasses it, and must say how the site's alleles are spelled. It can also override
-     * the decisions that shape the record, each of which has the default its comment gives, and
-     * the hooks that `emit` calls as it builds and files the record, which do nothing by default.
+     * A strategy for emitting the records of individual sites. Subclass it to customize how a
+     * site is emitted.
      */
     class SiteEmitter {
     public:
