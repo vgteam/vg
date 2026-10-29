@@ -80,7 +80,7 @@ TEST_CASE("The chm13v2 presets give chrX and chrY their ploidy", "[ploidy_region
     }
 }
 
-TEST_CASE("The grch37.b37 presets name the sex chromosomes X, Y and MT", "[ploidy_regions]") {
+TEST_CASE("The grch37.b37 presets name chromosomes X, Y and MT", "[ploidy_regions]") {
     PloidyRegions xy = PloidyRegions::preset("grch37.b37.XY");
     REQUIRE(xy.region_ploidy("X", 2699520, 2) == 1);
     REQUIRE(xy.region_ploidy("chrX", 2699520, 2) == 2);

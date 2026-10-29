@@ -448,7 +448,7 @@ is $(awk -F'\t' '/^H\t/ {n += $11} END {print n+0}' rl_mosaic.tsv) \
 is $(awk -F'\t' '/^H\t/ {n += $11} END {print (n > 0) ? 1 : 0}' rl_mosaic.tsv) "1" \
    "the mosaic site total is non-zero, so conserving it means something"
 
-# Haploid chains. chrX outside the pseudoautosomal regions and all of chrY are haploid in a male
+# Haploid chains. chrX outside the pseudoautosomal regions and all of chrY are haploid in an XY
 # sample, and they used to be dropped from the linkage pass by a guard that only accepted a
 # two-allele genotype -- silently costing them both the transition model and any mosaic. The
 # mosaic must name one strand, not two: a second would assert a homozygote where there is one copy.

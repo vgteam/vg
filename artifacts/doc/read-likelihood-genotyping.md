@@ -305,7 +305,7 @@ or 2, except that an interval of the ploidy BED may have ploidy 0: the sample ha
 region, so a site there is not genotyped and gets no record. A site at ploidy 1 has a single allele
 as its `GT`.
 
-`--ploidy-preset` names a ploidy BED built into vg, one per reference assembly and sample sex:
+`--ploidy-preset` names a ploidy BED built into vg, one per reference assembly and sample karyotype:
 `chm13v2`, `grch38`, `grch37.ucsc` and `grch37.b37`, each as `XY` and `XX`, for example
 `chm13v2.XY`. An `XY` preset makes chrX haploid outside its pseudoautosomal regions. It also makes
 chrY and the mitochondrion haploid. An `XX` preset gives chrY ploidy 0 and makes the mitochondrion

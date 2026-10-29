@@ -14,18 +14,18 @@ using namespace std;
 /**
  * A table of ploidies for regions of reference contigs, read from a BED of `CHROM START END PLOIDY`.
  *
- * It describes a contig whose copy number changes along it, such as the chrX of a male sample,
+ * It describes a contig whose copy number changes along it, such as the chrX of an XY sample,
  * which is haploid except in the pseudoautosomal regions. A position no interval covers keeps the
  * ploidy of its contig.
  *
  * CHROM is the contig as the output VCF names it, which is the locus of a PanSN path name: `chrX`,
  * not `CHM13#0#chrX`. Intervals are 0-based and half-open, as BED has them.
  *
- * A ploidy is 0, 1 or 2. Ploidy 0 means the sample has no copy of the region, such as chrY in a
- * female sample, so a site there is not genotyped and gets no record.
+ * A ploidy is 0, 1 or 2. Ploidy 0 means the sample has no copy of the region, such as chrY in an
+ * XX sample, so a site there is not genotyped and gets no record.
  *
  * The BED comes from a file, or from a preset. A preset is a BED built into vg that gives the
- * ploidy of one sample sex on one reference assembly.
+ * ploidy of samples of one karyotype on one reference assembly.
  *
  * No two intervals overlap.
  */
@@ -48,8 +48,8 @@ public:
 
     /// Read the preset named `name`, such as `chm13v2.XY`.
     ///
-    /// A name is an assembly, a dot, and `XY` for a male sample or `XX` for a female one. A name
-    /// that is not a preset ends the run with an error that lists the presets.
+    /// A name is an assembly, a dot, and the karyotype, `XY` or `XX`. A name that is not a preset
+    /// ends the run with an error that lists the presets.
     static PloidyRegions preset(const string& name);
 
     /// Return the names of the presets, sorted.

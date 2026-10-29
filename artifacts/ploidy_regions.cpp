@@ -14,8 +14,8 @@ namespace {
 /**
  * The BED of each preset, by name.
  *
- * A preset gives the ploidy of one sample sex on one reference assembly. Its name is the assembly,
- * a dot, and `XY` for a male sample or `XX` for a female one. The assemblies are:
+ * A preset gives the ploidy of samples of one karyotype on one reference assembly. Its name is the
+ * assembly, a dot, and the karyotype, `XY` or `XX`. The assemblies are:
  *
  * - `chm13v2`: T2T-CHM13v2.0, with contigs `chrX`, `chrY` and `chrM`.
  * - `grch38`: GRCh38, with contigs `chrX`, `chrY` and `chrM`.
@@ -35,14 +35,14 @@ namespace {
  * coordinates.
  */
 const map<string, string> PRESET_BEDS = {
-    {"chm13v2.XY", R"bed(# Ploidy of a male (XY) sample on T2T-CHM13v2.0: chrX haploid outside its two
+    {"chm13v2.XY", R"bed(# Ploidy of an XY sample on T2T-CHM13v2.0: chrX haploid outside its two
 # pseudoautosomal regions (PARs), which are diploid, and chrY and chrM haploid.
 #
 # CHROM START END PLOIDY, 0-based half-open, with CHROM spelled as in the output VCF. A position no
 # line covers is diploid. Ploidy 0 means the sample has no copy of the region, so vg makes no calls
 # there.
 #
-# chrY is haploid along its whole length, PARs included: a male sample's second PAR copy is
+# chrY is haploid along its whole length, PARs included: an XY sample's second PAR copy is
 # counted on chrX, where the reads usually go because analysis sets mask chrY's PARs.
 #
 # Lengths: the CHM13v2.0 assembly (GCA_009914755.4); chrX also matches the CHM13#0#chrX path of
@@ -53,7 +53,7 @@ chrX	2394370	153926003	1
 chrY	0	62460029	1
 chrM	0	16569	1
 )bed"},
-    {"chm13v2.XX", R"bed(# Ploidy of a female (XX) sample on T2T-CHM13v2.0: chrX diploid, so it has no line,
+    {"chm13v2.XX", R"bed(# Ploidy of an XX sample on T2T-CHM13v2.0: chrX diploid, so it has no line,
 # chrY absent (ploidy 0, no calls), and chrM haploid.
 #
 # CHROM START END PLOIDY, 0-based half-open, with CHROM spelled as in the output VCF. A position no
@@ -65,14 +65,14 @@ chrM	0	16569	1
 chrY	0	62460029	0
 chrM	0	16569	1
 )bed"},
-    {"grch38.XY", R"bed(# Ploidy of a male (XY) sample on GRCh38: chrX haploid outside its two
+    {"grch38.XY", R"bed(# Ploidy of an XY sample on GRCh38: chrX haploid outside its two
 # pseudoautosomal regions (PARs), which are diploid, and chrY and chrM haploid.
 #
 # CHROM START END PLOIDY, 0-based half-open, with CHROM spelled as in the output VCF. A position no
 # line covers is diploid. Ploidy 0 means the sample has no copy of the region, so vg makes no calls
 # there.
 #
-# chrY is haploid along its whole length, PARs included: a male sample's second PAR copy is
+# chrY is haploid along its whole length, PARs included: an XY sample's second PAR copy is
 # counted on chrX, where the reads usually go because analysis sets mask chrY's PARs.
 #
 # Lengths: the GRCh38 assembly report (GCA_000001405.15). PARs: GRC pseudoautosomal regions, https://www.ncbi.nlm.nih.gov/grc/human,
@@ -83,7 +83,7 @@ chrX	156030895	156040895	1
 chrY	0	57227415	1
 chrM	0	16569	1
 )bed"},
-    {"grch38.XX", R"bed(# Ploidy of a female (XX) sample on GRCh38: chrX diploid, so it has no line,
+    {"grch38.XX", R"bed(# Ploidy of an XX sample on GRCh38: chrX diploid, so it has no line,
 # chrY absent (ploidy 0, no calls), and chrM haploid.
 #
 # CHROM START END PLOIDY, 0-based half-open, with CHROM spelled as in the output VCF. A position no
@@ -94,14 +94,14 @@ chrM	0	16569	1
 chrY	0	57227415	0
 chrM	0	16569	1
 )bed"},
-    {"grch37.ucsc.XY", R"bed(# Ploidy of a male (XY) sample on GRCh37 with UCSC hg19 names: chrX haploid outside its two
+    {"grch37.ucsc.XY", R"bed(# Ploidy of an XY sample on GRCh37 with UCSC hg19 names: chrX haploid outside its two
 # pseudoautosomal regions (PARs), which are diploid, and chrY and chrM haploid.
 #
 # CHROM START END PLOIDY, 0-based half-open, with CHROM spelled as in the output VCF. A position no
 # line covers is diploid. Ploidy 0 means the sample has no copy of the region, so vg makes no calls
 # there.
 #
-# chrY is haploid along its whole length, PARs included: a male sample's second PAR copy is
+# chrY is haploid along its whole length, PARs included: an XY sample's second PAR copy is
 # counted on chrX, where the reads usually go because analysis sets mask chrY's PARs.
 #
 # Lengths: the GRCh37 assembly report (GCA_000001405.1), and UCSC hg19.chrom.sizes for chrM,
@@ -113,7 +113,7 @@ chrX	155260560	155270560	1
 chrY	0	59373566	1
 chrM	0	16571	1
 )bed"},
-    {"grch37.ucsc.XX", R"bed(# Ploidy of a female (XX) sample on GRCh37 with UCSC hg19 names: chrX diploid, so it has no line,
+    {"grch37.ucsc.XX", R"bed(# Ploidy of an XX sample on GRCh37 with UCSC hg19 names: chrX diploid, so it has no line,
 # chrY absent (ploidy 0, no calls), and chrM haploid.
 #
 # CHROM START END PLOIDY, 0-based half-open, with CHROM spelled as in the output VCF. A position no
@@ -125,14 +125,14 @@ chrM	0	16571	1
 chrY	0	59373566	0
 chrM	0	16571	1
 )bed"},
-    {"grch37.b37.XY", R"bed(# Ploidy of a male (XY) sample on GRCh37 with b37/hs37d5 names: X haploid outside its two
+    {"grch37.b37.XY", R"bed(# Ploidy of an XY sample on GRCh37 with b37/hs37d5 names: X haploid outside its two
 # pseudoautosomal regions (PARs), which are diploid, and Y and MT haploid.
 #
 # CHROM START END PLOIDY, 0-based half-open, with CHROM spelled as in the output VCF. A position no
 # line covers is diploid. Ploidy 0 means the sample has no copy of the region, so vg makes no calls
 # there.
 #
-# Y is haploid along its whole length, PARs included: a male sample's second PAR copy is
+# Y is haploid along its whole length, PARs included: an XY sample's second PAR copy is
 # counted on X, where the reads usually go because analysis sets mask Y's PARs.
 #
 # Lengths: the GRCh37 assembly report (GCA_000001405.1); MT is the 16,569 bp rCRS. PARs: GRC pseudoautosomal regions, https://www.ncbi.nlm.nih.gov/grc/human,
@@ -143,7 +143,7 @@ X	155260560	155270560	1
 Y	0	59373566	1
 MT	0	16569	1
 )bed"},
-    {"grch37.b37.XX", R"bed(# Ploidy of a female (XX) sample on GRCh37 with b37/hs37d5 names: X diploid, so it has no line,
+    {"grch37.b37.XX", R"bed(# Ploidy of an XX sample on GRCh37 with b37/hs37d5 names: X diploid, so it has no line,
 # Y absent (ploidy 0, no calls), and MT haploid.
 #
 # CHROM START END PLOIDY, 0-based half-open, with CHROM spelled as in the output VCF. A position no

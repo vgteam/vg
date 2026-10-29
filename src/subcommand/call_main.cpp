@@ -814,7 +814,7 @@ void help_call(char** argv) {
          << "                            VCF contig name as CHROM, intervals that do not" << endl
          << "                            overlap, and ploidy 0 for no calls" << endl
          << "      --ploidy-preset NAME  the sample's ploidy by region from a BED built" << endl
-         << "                            into vg for one assembly and sample sex:" << endl
+         << "                            into vg for one assembly and karyotype:" << endl
          << "                            chm13v2.XY, chm13v2.XX, grch38.XY, grch38.XX," << endl
          << "                            grch37.ucsc.XY, grch37.ucsc.XX, grch37.b37.XY or" << endl
          << "                            grch37.b37.XX (cannot use with --ploidy-bed)" << endl
