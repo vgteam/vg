@@ -7,6 +7,7 @@
 #include <omp.h>
 
 #include "vcf_genotyper.hpp"
+#include "snarl_traversal_text.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
@@ -89,7 +90,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
         if (traversals_only) {
             assert(gaf_output);
             // todo: can't get ref position here without pathposition graph
-            emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, "", -1);
+            emit_gaf_traversals(graph, snarl_name(snarl, translation), travs, ref_trav_idx, "", -1);
             return true;
         }
         
@@ -115,7 +116,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
         if (gaf_output) {
             // todo: can't get ref position here without pathposition graph
-            emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, "", -1);
+            emit_gaf_variant(graph, snarl_name(snarl, translation), travs, trav_genotype, ref_trav_idx, "", -1);
             return true;
         }
 

@@ -2,6 +2,7 @@
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
+#include "snarl_traversal_text.hpp"
 #include "traversal_clusters.hpp"
 
 //#define debug
@@ -120,8 +121,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     if (traversals_only) {
         assert(gaf_output);
         const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
-        auto [contig, position] = get_ref_position(graph, site.snarl, ref_path_name, ref_offset_of(ref_offsets, ref_path_name));
-        emit_gaf_traversals(graph, print_snarl(site.snarl), site.travs, site.ref_trav_idx, contig, position, &support_finder);
+        auto [contig, position] = get_ref_position(graph, visit_handle(graph, site.snarl.start()),
+                                                   visit_handle(graph, site.snarl.end()),
+                                                   ref_path_name,
+                                                   ref_offset_of(ref_offsets, ref_path_name));
+        emit_gaf_traversals(graph, snarl_name(site.snarl, translation), site.travs, site.ref_trav_idx, contig, position, &support_finder);
     } else {
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
         bool added = true;
@@ -203,8 +207,10 @@ bool FlowCaller::emit_site(const CandidateFinder::Site& site, const vector<int>&
                             call_info, site.ref_path_name, ref_offset, genotype_snarls, ploidy);
     }
     const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
-    auto [contig, position] = get_ref_position(graph, site.snarl, site.ref_path_name, ref_offset);
-    emit_gaf_variant(graph, print_snarl(site.snarl), site.travs, genotype, site.ref_trav_idx,
+    auto [contig, position] = get_ref_position(graph, visit_handle(graph, site.snarl.start()),
+                                               visit_handle(graph, site.snarl.end()),
+                                               site.ref_path_name, ref_offset);
+    emit_gaf_variant(graph, snarl_name(site.snarl, translation), site.travs, genotype, site.ref_trav_idx,
                      contig, position, &support_finder);
     return true;
 }

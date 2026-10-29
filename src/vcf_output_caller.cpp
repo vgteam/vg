@@ -12,6 +12,7 @@
 #include "annotation.hpp"
 #include "gref.hpp"
 #include "traversal_clusters.hpp"
+#include "snarl_traversal_text.hpp"
 #include "utility.hpp"
 
 //#define debug
@@ -316,28 +317,6 @@ string VCFOutputCaller::prune_header_contigs(const string& header,
     return result;
 }
 
-void VCFOutputCaller::add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele, const Traversal& trav,
-                                              bool reversed) const {
-    vector<NodeVisit> visits;
-    visits.reserve(trav.size());
-    for (const handle_t& handle : trav) {
-        visits.emplace_back(graph->get_id(handle), graph->get_is_reverse(handle));
-    }
-    vg::add_allele_path_to_info(v, allele, visits, reversed, translation);
-}
-
-string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const {
-    string seq;
-    for (int i = 0; i < trav.visit_size(); ++i) {
-        const Visit& visit = trav.visit(i);
-        if (visit.node_id() > 0) {
-            seq += graph.get_sequence(graph.get_handle(visit.node_id(), visit.backward()));
-        } else {
-            seq += print_snarl(visit.snarl(), true);
-        }
-    }
-    return seq;    
-}
 
 
 
@@ -365,7 +344,7 @@ public:
 protected:
     string spell(int trav, int genotype_index) override {
         if (trav_to_string == nullptr) {
-            return output.trav_string(graph, called_traversals[trav]);
+            return vg::trav_string(graph, called_traversals[trav], output.translation);
         }
         return trav_to_string(called_traversals, genotype, trav, genotype_index, ref_trav_idx);
     }
@@ -672,24 +651,6 @@ string VCFOutputCaller::genotyper_vcf_header(const PathHandleGraph& graph,
     return header;
 }
 
-tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
-    const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name) const {
-    return vg::get_ref_interval(graph, graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
-                                graph.get_handle(snarl.end().node_id(), snarl.end().backward()),
-                                ref_path_name);
-}
-
-pair<string, int64_t> VCFOutputCaller::get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
-                                                        int64_t ref_path_offset) const {
-    return vg::get_ref_position(graph, graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
-                                graph.get_handle(snarl.end().node_id(), snarl.end().backward()),
-                                ref_path_name, ref_path_offset);
-}
-
-void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const {
-    vg::flatten_common_allele_ends(variant, backward, len_override);
-}
-
 string VCFOutputCaller::nesting_info_headers() {
     stringstream ss;
     ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
@@ -701,63 +662,6 @@ string VCFOutputCaller::nesting_info_headers() {
     return ss.str();
 }
 
-string VCFOutputCaller::print_snarl(const HandleGraph* graph, const handle_t& snarl_start,
-                                    const handle_t& snarl_end, bool in_brackets) const {
-    return print_snarl(graph->get_id(snarl_start), graph->get_is_reverse(snarl_start),
-                       graph->get_id(snarl_end), graph->get_is_reverse(snarl_end), in_brackets);
-}
-string VCFOutputCaller::print_snarl(const Snarl& snarl, bool in_brackets) const {
-    return print_snarl(snarl.start().node_id(), snarl.start().backward(), snarl.end().node_id(),
-                       snarl.end().backward(), in_brackets);
-}
-string VCFOutputCaller::print_flipped_snarl(const Snarl& snarl, bool in_brackets) const {
-    return print_snarl(snarl.end().node_id(), !snarl.end().backward(), snarl.start().node_id(),
-                       !snarl.start().backward(), in_brackets);
-}
-string VCFOutputCaller::print_snarl(nid_t start_node_id, bool start_backward, nid_t end_node_id,
-                                    bool end_backward, bool in_brackets) const {
-    return site_name(start_node_id, start_backward, end_node_id, end_backward, translation,
-                     in_brackets);
-}
-
-void VCFOutputCaller::scan_snarl(const string& allele_string, const function<void(const string&, Snarl&)>& callback) const {
-    int left = -1;
-    int last = 0;
-    Snarl snarl;
-    string frag;
-    for (int i = 0; i < allele_string.length(); ++i) {
-        if (allele_string[i] == '(') {
-            assert(left == -1);
-            if (last < i) {
-                frag = allele_string.substr(last, i-last);
-                callback(frag, snarl);
-            }
-            left = i;
-        } else if (allele_string[i] == ')') {
-            assert(left >= 0 && i > left + 3);
-            frag = allele_string.substr(left + 1, i - left - 1);
-            auto toks = split_delims(frag, "><");
-            assert(toks.size() == 2);
-            assert(frag[0] == '<' || frag[0] == '>');
-            int64_t start = std::stoi(toks[0]);
-            snarl.mutable_start()->set_node_id(start);
-            snarl.mutable_start()->set_backward(frag[0] == '<');
-            assert(frag[toks[0].size() + 1] == '<' || frag[toks[0].size() + 1] == '>');
-            int64_t end = std::stoi(toks[1]);
-            snarl.mutable_end()->set_node_id(abs(end));
-            snarl.mutable_end()->set_backward(frag[toks[0].size() + 1] == '<');
-            callback("", snarl);
-            left = -1;
-            last = i + 1;
-        }
-    }
-    if (last == 0) {
-        callback(allele_string, snarl);
-    } else {
-        frag = allele_string.substr(last);
-        callback(frag, snarl);
-    }
-}
 
 namespace {
 

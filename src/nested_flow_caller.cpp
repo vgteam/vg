@@ -10,6 +10,7 @@
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
+#include "snarl_traversal_text.hpp"
 #include "traversal_clusters.hpp"
 #include "utility.hpp"
 
@@ -136,7 +137,8 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         }
 
         // find the reference traversal and coordinates using the path position graph interface
-        ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+        ref_interval = get_ref_interval(graph, visit_handle(graph, snarl.start()),
+                                        visit_handle(graph, snarl.end()), ref_path_name);
         if (get<0>(ref_interval) == -1) {
             // no reference path found due to orientation conflict
             return false;
@@ -144,7 +146,8 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         if (get<2>(ref_interval) == true) {
             // calling code assumes snarl forward on reference
             flip_snarl(snarl);
-            ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+            ref_interval = get_ref_interval(graph, visit_handle(graph, snarl.start()),
+                                            visit_handle(graph, snarl.end()), ref_path_name);
         }
 
         step_handle_t cur_step = get<3>(ref_interval);
@@ -313,8 +316,10 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         for (SnarlTraversal& traversal : travs) {
             snarl_graph.embed_snarls(traversal);
         }
-        pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, 0);
-        emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
+        pair<string, int64_t> pos_info = get_ref_position(graph, visit_handle(graph, snarl.start()),
+                                                          visit_handle(graph, snarl.end()),
+                                                          ref_path_name, 0);
+        emit_gaf_traversals(graph, snarl_name(snarl, translation), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
     } else {
         // use our support caller to choose our genotype
         for (int ploidy = 1; ploidy <= max_ploidy; ++ploidy) {
@@ -395,7 +400,7 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
         function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_flat_string =
             [&](const vector<SnarlTraversal>& travs, const vector<int>& travs_genotype, int trav_allele, int genotype_allele, int ref_trav_idx) {
 
-            string allele_string = trav_string(graph, travs[trav_allele]);
+            string allele_string = trav_string(graph, travs[trav_allele], translation);
             if (trav_allele == ref_trav_idx) {
                 return flatten_reference_allele(allele_string, call_table);
             } else {
@@ -434,7 +439,7 @@ string NestedFlowCaller::flatten_reference_allele(const string& nested_allele, c
                     assert(false);
                 } else{
                     const SnarlTraversal& traversal = record.travs[record.ref_trav_idx];
-                    string nested_snarl_allele = trav_string(graph, traversal);
+                    string nested_snarl_allele = trav_string(graph, traversal, translation);
                     flat_allele += flatten_reference_allele(nested_snarl_allele, call_table);
                 }
             }       
@@ -476,7 +481,7 @@ string NestedFlowCaller::flatten_alt_allele(const string& nested_allele, int all
                     // we try to get the allele from the genotype if possible, but fallback on the fallback_allele
                     int trav_allele = fallback_allele >= 0 ? fallback_allele : record.genotype_by_ploidy[ploidy-1].first[allele];
                     const SnarlTraversal& traversal = record.travs[trav_allele];
-                    string nested_snarl_allele = trav_string(graph, traversal);
+                    string nested_snarl_allele = trav_string(graph, traversal, translation);
                     flat_allele += flatten_alt_allele(nested_snarl_allele, allele, ploidy, call_table);
                 }                
             }  
@@ -486,6 +491,46 @@ string NestedFlowCaller::flatten_alt_allele(const string& nested_allele, int all
 }
 
 
+
+void NestedFlowCaller::scan_snarl(const string& allele_string,
+                                  const function<void(const string&, Snarl&)>& callback) {
+    int left = -1;
+    int last = 0;
+    Snarl snarl;
+    string frag;
+    for (int i = 0; i < allele_string.length(); ++i) {
+        if (allele_string[i] == '(') {
+            assert(left == -1);
+            if (last < i) {
+                frag = allele_string.substr(last, i-last);
+                callback(frag, snarl);
+            }
+            left = i;
+        } else if (allele_string[i] == ')') {
+            assert(left >= 0 && i > left + 3);
+            frag = allele_string.substr(left + 1, i - left - 1);
+            auto toks = split_delims(frag, "><");
+            assert(toks.size() == 2);
+            assert(frag[0] == '<' || frag[0] == '>');
+            int64_t start = std::stoi(toks[0]);
+            snarl.mutable_start()->set_node_id(start);
+            snarl.mutable_start()->set_backward(frag[0] == '<');
+            assert(frag[toks[0].size() + 1] == '<' || frag[toks[0].size() + 1] == '>');
+            int64_t end = std::stoi(toks[1]);
+            snarl.mutable_end()->set_node_id(abs(end));
+            snarl.mutable_end()->set_backward(frag[toks[0].size() + 1] == '<');
+            callback("", snarl);
+            left = -1;
+            last = i + 1;
+        }
+    }
+    if (last == 0) {
+        callback(allele_string, snarl);
+    } else {
+        frag = allele_string.substr(last);
+        callback(frag, snarl);
+    }
+}
 
 string NestedFlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides) const {

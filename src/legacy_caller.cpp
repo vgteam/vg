@@ -7,6 +7,7 @@
 #include <omp.h>
 
 #include "legacy_caller.hpp"
+#include "snarl_traversal_text.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
@@ -146,7 +147,9 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         string path_name = find_index(snarl, is_vg ? path_indexes : site_path_indexes).first;
 
         // orient the snarl along the reference path
-        tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, path_name);
+        tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval =
+            get_ref_interval(graph, visit_handle(graph, snarl.start()),
+                             visit_handle(graph, snarl.end()), path_name);
         if (get<2>(ref_interval) == true) {
             snarl_manager.flip(&snarl);
         }

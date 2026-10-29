@@ -85,6 +85,14 @@ protected:
     string flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const;
     string flatten_alt_allele(const string& nested_allele, int allele, int ploidy, const CallTable& call_table) const;
 
+    /// Split an allele string as `trav_string` writes it, with child snarls named in brackets,
+    /// into its pieces, and call `callback` on each in order.
+    ///
+    /// AACT(>12<17)TTT gives three calls: ("AACT", Snarl), ("", Snarl(12,-17)) and
+    /// ("TTT", Snarl(12,-17)). The callback should read a call as a sequence fragment if the
+    /// fragment is not empty, and otherwise as a snarl.
+    static void scan_snarl(const string& allele_string, const function<void(const string&, Snarl&)>& callback);
+
     /// the graph
     const PathPositionHandleGraph& graph;
 

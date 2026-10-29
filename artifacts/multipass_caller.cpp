@@ -55,7 +55,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
             .ploidy_regions = &ploidy_regions,
             .ref_paths = &ref_paths,
             .site_id = [this](const handle_t& start, const handle_t& end) {
-                return output.print_snarl(&graph, start, end);
+                return site_name(graph, start, end, output.get_translation());
             },
             .edit_source = off_panel.source(),
             .read_source = read_source,
@@ -106,7 +106,7 @@ unique_ptr<SiteTree> MultiPassCaller::site_tree() {
     return std::make_unique<StagedSiteTree>(
         staged_sites, sites, graph,
         [this](const handle_t& start, const handle_t& end) {
-            return output.print_snarl(&graph, start, end);
+            return site_name(graph, start, end, output.get_translation());
         });
 }
 

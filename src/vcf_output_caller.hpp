@@ -282,31 +282,11 @@ public:
                                 const vector<size_t>& contig_length_overrides,
                                 const function<void(string& header)>& add_genotyper_lines) const;
 
-    /// print a snarl in a consistent form like >3435<12222
-    /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
-    string print_snarl(const HandleGraph* grpah, const handle_t& snarl_start, const handle_t& snarl_end, bool in_brackets = false) const;
-    /// legacy version of above
-    string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
-    /// The same as above, but print the snarl as if its orientation has been flipped
-    string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
-    /// Print a snarl from its two boundary visits, as >3435<12222, or as (>3435<12222) with
-    /// `in_brackets`.
-    string print_snarl(nid_t start_id, bool start_backward, nid_t end_id, bool end_backward,
-                       bool in_brackets = false) const;
-
-    /// convert a traversal into an allele string
-    string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
-
     /// Get the node translation given to `set_translation`, or null.
     const unordered_map<nid_t, pair<string, size_t>>* get_translation() const;
 
 protected:
 
-    /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
-    void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,
-                                 const Traversal& trav, bool reversed) const;
-    
-    
     /// The writer of a site called by a SnarlCaller, which `emit_variant` uses.
     class SnarlTraversalEmitter;
 
@@ -315,20 +295,6 @@ protected:
     /// The INFO lines a caller added to the header.
     vector<string> info_header_lines;
 
-    /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
-    /// the bool is true if the snarl's backward on the path
-    /// first returned value -1 if no traversal found 
-    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
-                                                                                 const string& ref_path_name) const;
-
-    /// used for making gaf traversal names
-    pair<string, int64_t> get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
-                                           int64_t ref_path_offset) const;
-
-    /// clean up the alleles to not share common prefixes / suffixes
-    /// if len_override given, just do that many bases without thinking
-    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
-
     // The nesting INFO headers (LV/CH/PS/RC/RS/RD), for both vg call and vg deconstruct.
     //
     // One definition on purpose.  These used to be written out verbatim in two places, and
@@ -336,12 +302,6 @@ protected:
     // -- the copy deconstruct actually emits -- kept the text that commit's own message called
     // false, so the released VCFs carried the wrong one.
     static string nesting_info_headers();
-
-    /// do the opposite of print_snarl
-    /// So a string that looks like AACT(>12<17)TTT would invoke the callback three times with
-    /// ("AACT", Snarl), ("", Snarl(12,-17)), ("TTT", Snarl(12,-17))
-    /// The parameters are to be treated as unions:  A sequence fragment if non-empty, otherwise a snarl
-    void scan_snarl(const string& allele_string, const function<void(const string&, Snarl&)>& callback) const;
 
     /// Add the nesting INFO tags (LV, CH, PS, RC, RS, RD) to every buffered record, from the tree
     /// of sites.
@@ -364,7 +324,7 @@ protected:
     /// graphs, where the parent of an island of non-reference sequence is often a large snarl that
     /// only the reference and its own gref copy span.
     ///
-    /// Keyed by snarl name as print_snarl() spells it, which is how record IDs and chrom_of_name
+    /// Keyed by snarl name as `site_name` spells it, which is how record IDs and chrom_of_name
     /// are keyed too.  One buffer per thread, like output_variants, merged in
     /// update_nesting_info_tags().
     mutable vector<unordered_map<string, Region>> suppressed_ref_info;
