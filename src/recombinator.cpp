@@ -36,6 +36,15 @@ bool is_gref_fragment(const gbwtgraph::GBWTGraph& graph, path_handle_t path) {
     return GrefCover::is_gref_derived(graph.get_path_name(path)) && GrefCover::is_gref_name(graph.get_locus_name(path));
 }
 
+// Returns true if the path belongs to a gref cover: a copy of a reference path
+// (`gref_CHM13#0#chr1`, or `gref_x` for a generic path) or a fragment of one.
+bool is_gref_path(const gbwt::FullPathName& path_name) {
+    if (path_name.sample_name == gbwtgraph::GENERIC_PATH_SAMPLE_NAME) {
+        return GrefCover::is_gref_derived(path_name.contig_name);
+    }
+    return GrefCover::is_gref_derived(path_name.sample_name);
+}
+
 //------------------------------------------------------------------------------
 
 HaplotypePartitioner::HaplotypePartitioner(
@@ -1813,7 +1822,11 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
         gbwt::size_type path_id = gbwt::Path::id(sequence_id);
         gbwt::FullPathName path_name = gbz.index.metadata.fullPath(path_id);
 
-        if (parameters.banned_samples.find(path_name.sample_name) == parameters.banned_samples.end()) {
+        // A gref cover is never a candidate. Its copy of the reference would take haplotype
+        // slots while adding nothing the reference does not, and its fragments are pieces
+        // of other haplotypes. Without it, a gref graph samples the same haplotypes as the
+        // graph it was computed from.
+        if (parameters.banned_samples.find(path_name.sample_name) == parameters.banned_samples.end() && !is_gref_path(path_name)) {
             remaining_haplotypes.push_back( { seq_offset, 0.0 });
         }
     }
