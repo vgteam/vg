@@ -10,10 +10,10 @@
 #include <utility>
 #include <vector>
 
-#include "handle.hpp"
-#include "../artifacts/reference_path_table.hpp"
-#include "snarls.hpp"
-#include "traversal_finder.hpp"
+#include "../src/handle.hpp"
+#include "reference_path_table.hpp"
+#include "../src/snarls.hpp"
+#include "../src/traversal_finder.hpp"
 
 namespace vg {
 

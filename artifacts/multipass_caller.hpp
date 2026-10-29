@@ -16,7 +16,7 @@
 #include "../src/traversal_finder.hpp"
 #include "anchor.hpp"
 #include "block_records.hpp"
-#include "../src/candidate_finder.hpp"
+#include "candidate_finder.hpp"
 #include "allele_splicer.hpp"
 #include "descent_policy.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"

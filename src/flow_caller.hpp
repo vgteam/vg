@@ -9,7 +9,7 @@
 #include <unordered_set>
 #include <tuple>
 #include "handle.hpp"
-#include "candidate_finder.hpp"
+#include "../artifacts/candidate_finder.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
 #include "snarl_caller.hpp"
