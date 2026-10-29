@@ -415,8 +415,9 @@ A read that spans two phaseable sites shows directly whether their alleles lie o
 `--read-phasing` uses such reads to re-decide the phase of each phaseable site, nested and
 off-reference sites included, within the phase sets the panel gave. It leaves out the chains that a
 [block record](#block-records) spells out. Read phasing changes phases and keeps every genotype. It
-is off by default and on under `--preset ont`. It uses its own statistics, not the linkage model's,
-and is described in [Read phasing](read-likelihood-read-phasing.md#read-phasing).
+is off by default and on under `--preset ont` and `--preset hifi`. It uses its own statistics, not
+the linkage model's, and is described in [Read
+phasing](read-likelihood-read-phasing.md#read-phasing).
 
 ### Re-genotyping from the phase
 
@@ -424,9 +425,9 @@ and is described in [Read phasing](read-likelihood-read-phasing.md#read-phasing)
 strand, and so corrects each site's likelihoods, at the start of every round after the first (see
 [Rounds](#rounds)). Off-reference chains, and chains that a block record spells out, keep the
 likelihoods of the direct pass. It needs `--read-phasing` and, like it, is off by default and on
-under `--preset ont`. It cannot be combined with `--top-down`: an explicit `--regenotype` with it
-is an error, and a preset's is turned off. The correction is described
-in [Re-genotyping from the phase](read-likelihood-read-phasing.md#re-genotyping-from-the-phase).
+under `--preset ont` and `--preset hifi`. It cannot be combined with `--top-down`: an explicit
+`--regenotype` with it is an error, and a preset's is turned off. The correction is described in
+[Re-genotyping from the phase](read-likelihood-read-phasing.md#re-genotyping-from-the-phase).
 
 ## Output
 
@@ -822,9 +823,12 @@ name the columns of each kind of row, and the `#note` lines describe them.
 ## Options
 
 `--preset ont` sets several of the options below to values suited to Oxford Nanopore reads, and
-`vg call --help` lists which, and each option's default. An option given explicitly overrides the
-preset. Where an option has a `--no-` form, the two set the same thing and the one given last wins,
-so a `--no-` form also turns off a setting that a preset turned on.
+`--preset hifi` to values suited to PacBio HiFi reads; `vg call --help` lists which, and each
+option's default. The `hifi` values are the `ont` ones with `--insertion-nats -1.8`, `--hp-prior 0`
+and `--linkage-weight 1`, chosen by F1 against the HG002 benchmark on Revio reads aligned to an HPRC
+graph sampled with the reads' k-mers. An option given explicitly overrides the preset. Where an
+option has a `--no-` form, the two set the same thing and the one given last wins, so a `--no-` form
+also turns off a setting that a preset turned on.
 
 The table includes general `vg call` options: `--pack`, `--gbwt`, `--gbz`, `--max-snarl-edges`,
 the Ploidy row, `--cluster` and `--cluster-min-len`. Its other options are rejected without `--read-likelihood`. The options

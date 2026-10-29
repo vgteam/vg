@@ -523,6 +523,10 @@ static const vector<pair<string, vector<PresetSetting>>> PRESETS = {
              {"--gap-extend", "1"}, {"--mismap-min", "0.05"}, {"--read-min-mapq", "5"},
              {"--insertion-nats", "0.9"}, {"--hp-prior", "20"},
              {"--off-panel-indels", "7,0.25,5"}}},
+    {"hifi", {{"--read-phasing", ""}, {"--regenotype", ""}, {"--gap-open", "1"},
+              {"--gap-extend", "1"}, {"--mismap-min", "0.05"}, {"--read-min-mapq", "5"},
+              {"--insertion-nats", "-1.8"}, {"--hp-prior", "0"}, {"--linkage-weight", "1"},
+              {"--off-panel-indels", "7,0.25,5"}}},
 };
 
 /// Return the settings of each preset for the --preset help, wrapped at the description column of
@@ -1805,7 +1809,10 @@ int main_call(int argc, char** argv) {
     }
     if (!preset.empty()) {
         // A preset only sets the options that were not given explicitly. The values for `ont`
-        // were fitted to Oxford Nanopore reads.
+        // were fitted to Oxford Nanopore reads. Those for `hifi` were fitted to PacBio HiFi reads
+        // (HG002, Revio): they are `ont`'s, except that a gap where the read has bases the allele
+        // lacks lowers the read's log-likelihood instead of raising it, no homopolymer prior is
+        // used, and the linkage weight is half the default.
         auto chosen = std::ranges::find_if(PRESETS, [&](const pair<string, vector<PresetSetting>>& p) {
             return p.first == preset;
         });
@@ -1836,6 +1843,8 @@ int main_call(int argc, char** argv) {
             {"--insertion-nats", {insertion_nats_explicit,
                                   [&](const string& v) { insertion_gap_nats = parse<double>(v); }}},
             {"--hp-prior", {hp_prior_explicit, [&](const string& v) { hp_prior = parse<double>(v); }}},
+            {"--linkage-weight", {linkage_weight_explicit,
+                                  [&](const string& v) { linkage_weight = parse<double>(v); }}},
             {"--off-panel-indels", {off_panel_indels_explicit, [&](const string& v) {
                 vector<string> parts = split_delims(v, ",");
                 off_panel_bar.indel_min_alt_fragments = parse<size_t>(parts[0]);
