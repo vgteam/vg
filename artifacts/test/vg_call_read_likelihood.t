@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 308
+plan tests 307
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -603,13 +603,13 @@ vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --gaf-base gb_plac
 is $(grep -c "mutually exclusive" gb_excl.txt) "1" "--gaf-base and --gam together are refused"
 
 vg call x.vg -k x.pack --gaf-base gb_placeholder.db -t 1 >/dev/null 2>gb_norl.txt
-is $(grep -c "only applies to --read-likelihood" gb_norl.txt) "1" "--gaf-base without --read-likelihood is refused"
+is $(grep -c "only applies to the read-likelihood genotyper" gb_norl.txt) "1" "--gaf-base without --read-likelihood is refused"
 
 # The refused options are the ones outside the option table's "core" group.  Guard one of the
 # --mosaic-* modifiers, and guard that a "core" option is still let through -- a check that refuses
 # everything would pass the first assertion and be useless.
 vg call x.vg -k x.pack --mosaic-patch-gaps -t 1 >/dev/null 2>mos_norl.txt
-is $(grep -c "only applies to --read-likelihood" mos_norl.txt) "1" "a --mosaic-* modifier without --read-likelihood is refused"
+is $(grep -c "only applies to the read-likelihood genotyper" mos_norl.txt) "1" "a --mosaic-* modifier without --read-likelihood is refused"
 
 vg call x.vg -k x.pack --gap-open 2 --optimal-pairing --mosaic-patch-gaps -t 1 >/dev/null 2>multi_norl.txt
 is "$(grep -o -- "--gap-open, --optimal-pairing, --mosaic-patch-gaps only apply" multi_norl.txt)" \
@@ -617,11 +617,11 @@ is "$(grep -o -- "--gap-open, --optimal-pairing, --mosaic-patch-gaps only apply"
    "several offenders are named together, in the order they were given"
 
 vg call x.vg -k x.pack --traversals -t 1 >/dev/null 2>trav_norl.txt
-is $(grep -c "only applies to --read-likelihood" trav_norl.txt) "0" "an option the table does not own is still accepted"
+is $(grep -c "only applies to the read-likelihood genotyper" trav_norl.txt) "0" "an option the table does not own is still accepted"
 
 # Nested calling and its block records are part of the read-likelihood genotyper.
 vg call x.vg -k x.pack --nested -t 1 >/dev/null 2>nested_norl.txt
-is $(grep -c -- "--nested only applies to --read-likelihood" nested_norl.txt) "1" "--nested without --read-likelihood is refused"
+is $(grep -c -- "--nested only applies to the read-likelihood genotyper" nested_norl.txt) "1" "--nested without --read-likelihood is refused"
 
 # The read-likelihood caller has no --bottom-up, -I, -G, -T or -v mode, so each is refused with it.
 vg call x.vg -k x.pack --read-likelihood --gam sim.gam --bottom-up -I -t 1 >/dev/null 2>rl_modes.txt
@@ -723,7 +723,7 @@ is $(if cmp -s sq_lo.vcf sq_hi.vcf; then echo 1; else echo 0; fi) "1" \
 
 vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --split-min-q 1.0 -t 1 \
     >/dev/null 2>sq_noout.txt
-is $(grep -c -- "--split-min-q only applies with --anchors-out" sq_noout.txt) "1" \
+is $(grep -c -- "--split-min-q only applies to the anchor file" sq_noout.txt) "1" \
    "--split-min-q without --anchors-out is refused"
 
 # The coin that places a read with no cross-site opinion is the read NAME's hash parity, not a
@@ -758,16 +758,16 @@ rm -f hs_norp.tsv hs_norp.txt hs_rp.tsv hs_rp.txt
 # switches are missing, the refusal names the outer one, because that is the one the user has to
 # fix first.
 vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --anchors-min-q 30 -t 1 >/dev/null 2>sub_anch.txt
-is $(grep -c -- "--anchors-min-q only applies with --anchors-out" sub_anch.txt) "1" "an --anchors-* option without --anchors-out is refused"
+is $(grep -c -- "--anchors-min-q only applies to the anchor file" sub_anch.txt) "1" "an --anchors-* option without --anchors-out is refused"
 
 vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --regeno-temper 0.2 -t 1 >/dev/null 2>sub_reg.txt
-is $(grep -c -- "--regeno-temper only applies with --regenotype" sub_reg.txt) "1" "a --regeno-* option without --regenotype is refused"
+is $(grep -c -- "--regeno-temper only applies to re-genotyping" sub_reg.txt) "1" "a --regeno-* option without --regenotype is refused"
 
 vg call x.gbz --read-likelihood --gam sim.gam --regenotype --read-phasing --regeno-temper 0.2 -t 1 >/dev/null 2>sub_regok.txt
-is $(grep -c "only applies with" sub_regok.txt) "0" "the same option with --regenotype is accepted"
+is $(grep -c "only applies to" sub_regok.txt) "0" "the same option with --regenotype is accepted"
 
 vg call x.vg -k x.pack --anchors-min-q 30 -t 1 >/dev/null 2>sub_outer.txt
-is $(grep -c "only applies to --read-likelihood" sub_outer.txt) "1" "with both switches missing the outer one is named"
+is $(grep -c "only applies to the read-likelihood genotyper" sub_outer.txt) "1" "with both switches missing the outer one is named"
 rm -f sub_anch.txt sub_reg.txt sub_regok.txt sub_outer.txt
 
 # A missing gaf-base is the user's setup, not a vg bug: it must be an error with a fix
@@ -1565,7 +1565,6 @@ rm -f rl_rg_td.err
 rm -f rl_hifi_pre.err rl_hifi_pre.vcf rl_hifi_long.vcf
 vg call x.gbz --read-likelihood --phased --gam sim.gam --preset hifi --phase-min-q 0 -t 1 \
     2>rl_hifi_pre.err | grep -v "^#" > rl_hifi_pre.vcf
-is $(grep -c "no preset handling" rl_hifi_pre.err) "0" "--preset hifi can apply every setting it lists"
 is $(if [ $(grep -c "re-genotyping" rl_hifi_pre.err) -gt 0 ]; then echo 1; else echo 0; fi) "1" \
    "--preset hifi turns re-genotyping on"
 vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenotype --gap-open 1 \

@@ -77,50 +77,62 @@ static string join_with_commas(const vector<string>& items) {
     return joined.str();
 }
 
-/// A rule that the options of some subsystems only apply when one option turns them on.
-struct SubsystemCheck {
-    /// The option that turns the subsystems on.
-    const char* needs;
-    /// The word that joins the error message to `needs`.
-    const char* preposition;
-    /// Whether the subsystems are on.
-    bool on;
-    /// The subsystems, as the option table names them.
-    set<string> subsystems;
+/// The long options that configure one subsystem of vg call, and the option that turns the
+/// subsystem on. Options of a subsystem that is off would have no effect, so we refuse them.
+struct OptionGroup {
+    /// The subsystem's name, for messages.
+    const char* subsystem;
+    /// The option that turns the subsystem on, or null for options that always apply.
+    const char* switch_option;
+    /// The index in the table of the group whose subsystem contains this one, or -1. A subsystem
+    /// can only be on when the one containing it is.
+    int within;
+    /// Whether the subsystem is on, once all the options are parsed.
+    function<bool()> on;
+    vector<struct option> options;
 };
 
 /**
- * Refuse the options given for a subsystem that is not on, since they would have no effect.
+ * Refuse the options given for a subsystem that is off.
  *
- * Only the first failing check reports, since logger.error() exits.
+ * An option is refused with the outermost subsystem that contains it and is off, since that is
+ * the one to turn on first. Only the first such subsystem is reported, since logger.error() exits.
  *
- * @param options_seen The `val` of each option given.
- * @param option_name The long name of each option, by `val`.
- * @param option_subsystem The subsystem of each option, by `val`.
+ * @param given The names of the options given, without "--".
  */
 static void refuse_inactive_subsystem_options(const Logger& logger,
-                                              const vector<SubsystemCheck>& checks,
-                                              const vector<int>& options_seen,
-                                              const unordered_map<int, string>& option_name,
-                                              const unordered_map<int, string>& option_subsystem) {
-    for (const SubsystemCheck& check : checks) {
-        if (check.on) {
+                                              const vector<OptionGroup>& groups,
+                                              const vector<string>& given) {
+    for (size_t g = 0; g < groups.size(); ++g) {
+        if (groups[g].switch_option == nullptr || groups[g].on()) {
             continue;
         }
         vector<string> offenders;
-        for (int val : options_seen) {
-            auto subsystem = option_subsystem.find(val);
-            if (subsystem != option_subsystem.end() && check.subsystems.contains(subsystem->second)) {
-                offenders.push_back("--" + option_name.at(val));
+        for (const string& name : given) {
+            // Find the group of the option. Group g reports it if g is the outermost subsystem
+            // around it that is off.
+            for (size_t h = 0; h < groups.size(); ++h) {
+                if (!std::ranges::any_of(groups[h].options,
+                                         [&](const struct option& o) { return name == o.name; })) {
+                    continue;
+                }
+                int outermost_off = -1;
+                for (int k = h; k >= 0; k = groups[k].within) {
+                    if (groups[k].switch_option != nullptr && !groups[k].on()) {
+                        outermost_off = k;
+                    }
+                }
+                if (outermost_off == (int)g) {
+                    offenders.push_back("--" + name);
+                }
             }
         }
-        if (offenders.empty()) {
-            continue;
+        if (!offenders.empty()) {
+            logger.error() << join_with_commas(offenders)
+                           << (offenders.size() == 1 ? " only applies to " : " only apply to ")
+                           << groups[g].subsystem << ", which " << groups[g].switch_option
+                           << " turns on" << endl;
         }
-        logger.error() << join_with_commas(offenders)
-                       << (offenders.size() == 1 ? " only applies " : " only apply ")
-                       << check.preposition << " " << check.needs
-                       << ", which was not given" << endl;
     }
 }
 
@@ -185,7 +197,7 @@ static unique_ptr<SiteReadSource> open_site_read_source(const PathHandleGraph& g
     const size_t cached_windows = 4 * (size_t)vg::get_thread_count();
     if (!reads.gaf_base.empty()) {
         // Extra arguments for each gaf-base process, such as the sizes of its caches, separated by
-        // spaces. An environment variable while the right settings are being measured.
+        // spaces. They come from an environment variable until the right settings are known.
         vector<string> batch_arguments;
         if (const char* extra = getenv("VG_GAFBASE_BATCH_ARGS"); extra != nullptr) {
             istringstream words(extra);
@@ -517,7 +529,10 @@ struct PresetSetting {
 /// The settings of each --preset, by preset name.
 ///
 /// help_call lists these and main_call applies them, so the help lists exactly the settings
-/// applied.
+/// applied. The values for `ont` were fitted to Oxford Nanopore reads. Those for `hifi` were fitted
+/// to PacBio HiFi reads (HG002, Revio): they are `ont`'s, except that a gap where the read has bases
+/// the allele lacks lowers the read's log-likelihood instead of raising it, no homopolymer prior is
+/// used, and the linkage weight is half the default.
 static const vector<pair<string, vector<PresetSetting>>> PRESETS = {
     {"ont", {{"--read-phasing", ""}, {"--regenotype", ""}, {"--gap-open", "1"},
              {"--gap-extend", "1"}, {"--mismap-min", "0.05"}, {"--read-min-mapq", "5"},
@@ -840,12 +855,10 @@ int main_call(int argc, char** argv) {
     string snarl_filename;
     string gbwt_filename;
     bool   gbz_paths = false;
-    bool   gbz_paths_explicit = false;
     bool   enumerate_support = false;
     // Phasing comes from the linkage model. Where the model cannot run, an explicit --phased is
     // an error, and the default is turned off.
     bool   phased_output = true;
-    bool   phased_explicit = false;
     string mosaic_out;
     string anchors_out;
     bool no_off_ref_nesting = false;
@@ -854,8 +867,8 @@ int main_call(int argc, char** argv) {
     AnchorCounters anchor_run_counters;
     // Mosaic settings. Where no haplotype can be followed, fill the gap with the reference.
     bool mosaic_patch_gaps = true;
-    // Include nested sites; if false, each strand follows its enclosing site's haplotype through
-    // nested snarls instead of switching haplotypes inside them.
+    // Whether a strand can switch haplotypes inside nested snarls. If not, it follows its
+    // enclosing site's haplotype through them.
     bool mosaic_keep_nested = true;
     // Where no haplotype explains a stretch, continue the flanking haplotype through it.
     bool mosaic_connect_unexplained = true;
@@ -891,9 +904,7 @@ int main_call(int argc, char** argv) {
     bool bottom_up = false;
     // Both on by default, and turned off below where they cannot apply.
     bool atomize_blocks = true;
-    bool atomize_explicit = false;
     bool nested_calling = true;
-    bool nested_explicit = false;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -923,10 +934,7 @@ int main_call(int argc, char** argv) {
     int gap_extend = default_gap_extension;
     // Phase heterozygous sites with the reads, as well as with the haplotypes.
     bool read_phasing = false;
-    bool read_phasing_explicit = false;
     bool regenotype = false;
-    bool regenotype_explicit = false;
-    bool phase_hets_explicit = false;
     RegenotypeParams regenotype_params;
     // The number of linkage passes under --regenotype. The first pass chooses the genotypes. Each
     // later pass applies a correction from the read phasing and chooses them again.
@@ -938,28 +946,16 @@ int main_call(int argc, char** argv) {
     EditCallBar off_panel_bar;
     bool off_panel_svs = false;
     ReadPhasingParams read_phasing_params;
-    // The preset, which is applied after all options are parsed. An option whose *_explicit flag
-    // is set keeps its given value.
+    // The preset, which sets the options the command line does not give.
     string preset;
     double insertion_gap_nats = 0.0;
-    bool insertion_nats_explicit = false;
     bool optimal_pairing = false;
-    bool phase_min_q_explicit = false;
-    bool gap_open_explicit = false;
-    bool gap_extend_explicit = false;
-    bool mismap_min_explicit = false;
-    bool read_min_mapq_explicit = false;
     double min_confidence = 0.0;
     double linkage_weight = 2.0;
-    /// Whether --linkage-weight was given. Where the linkage model cannot run, an explicit weight
-    /// is an error, while the default weight is set to 0.
-    bool linkage_weight_explicit = false;
     double linkage_scale = 10000.0;
     double linkage_freq_prior = 5.0;
     double linkage_mutation = LinkageModel::Params().mutation;
     double hp_prior = 0.0;
-    bool hp_prior_explicit = false;
-    bool off_panel_indels_explicit = false;
     int hp_prior_run = 11;
     bool flat_mixture = false;
     double depth_weight = 0.1;
@@ -979,7 +975,6 @@ int main_call(int argc, char** argv) {
     size_t max_yens_traversals = 50;
     // If not given, set after parsing, since the default depends on the traversal finder.
     size_t max_snarl_edges_opt = 0;
-    bool max_snarl_edges_explicit = false;
     // used to merge up snarls from chains when generating traversals
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
@@ -1075,13 +1070,13 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MOSAIC_PATCH = 1054;
     constexpr int OPT_NO_MOSAIC_NESTED = 1055;
     constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
-    int c;
     optind = 2; // force optind past command positional argument
-    // The long options, grouped by the subsystem they configure. The options of a subsystem other
-    // than "core" only have an effect when that subsystem is turned on, and we refuse them
-    // otherwise. Every such subsystem is part of the read-likelihood genotyper.
-    const map<string, vector<struct option>> long_options_by_subsystem = {
-        {"core", {
+    // The long options, grouped by the subsystem they configure. Every subsystem with a switch is
+    // part of the read-likelihood genotyper.
+    const int READ_LIKELIHOOD_GROUP = 1;
+    const vector<OptionGroup> long_option_groups = {
+        {"vg call", nullptr, -1,
+         [] { return true; }, {
             {"pack", required_argument, nullptr, 'k'},
             {"bias-mode", no_argument, nullptr, 'B'},
             {"baseline-error", required_argument, nullptr, 'e'},
@@ -1128,7 +1123,8 @@ int main_call(int argc, char** argv) {
             {"progress", no_argument, nullptr, OPT_PROGRESS},
             {"help", no_argument, nullptr, 'h'},
         }},
-        {"read-likelihood", {  // need --read-likelihood
+        {"the read-likelihood genotyper", "--read-likelihood", -1,
+         [&] { return read_likelihood; }, {
             {"no-phased", no_argument, nullptr, OPT_NO_PHASED},
             {"gam", required_argument, nullptr, OPT_GAM},
             {"gaf-reads", required_argument, nullptr, OPT_GAF},
@@ -1183,13 +1179,15 @@ int main_call(int argc, char** argv) {
             {"gaf-base-binary", required_argument, nullptr, OPT_GAF_BASE_BINARY},
             {"read-window", required_argument, nullptr, OPT_READ_WINDOW},
         }},
-        {"off-panel", {  // need --off-panel
+        {"off-panel variant calling", "--off-panel", READ_LIKELIHOOD_GROUP,
+         [&] { return off_panel; }, {
             {"off-panel-dump", required_argument, nullptr, OPT_OFF_PANEL_DUMP},
             {"off-panel-bar", required_argument, nullptr, OPT_OFF_PANEL_BAR},
             {"off-panel-indels", required_argument, nullptr, OPT_OFF_PANEL_INDELS},
             {"off-panel-svs", no_argument, nullptr, OPT_OFF_PANEL_SVS},
         }},
-        {"anchors", {  // need --anchors-out
+        {"the anchor file", "--anchors-out", READ_LIKELIHOOD_GROUP,
+         [&] { return !anchors_out.empty(); }, {
             {"no-off-ref-nesting", no_argument, nullptr, OPT_NO_OFF_REF_NESTING},
             {"anchors-hom-split", no_argument, nullptr, OPT_ANCHORS_HOM_SPLIT},
             {"anchors-phase-hets", no_argument, nullptr, OPT_ANCHORS_PHASE_HETS},
@@ -1205,13 +1203,17 @@ int main_call(int argc, char** argv) {
             {"anchors-keep-off-call", no_argument, nullptr, OPT_ANCHORS_KEEP_OFF_CALL},
             {"anchors-end-new", required_argument, nullptr, OPT_ANCHORS_END_PIN_MIN_NEW},
         }},
-        {"mosaic", {  // need --mosaic-out
+        {"the mosaic", "--mosaic-out", READ_LIKELIHOOD_GROUP,
+         [&] { return !mosaic_out.empty(); }, {
             {"mosaic-patch-gaps", no_argument, nullptr, OPT_MOSAIC_PATCH},
             {"no-mosaic-patch-gaps", no_argument, nullptr, OPT_NO_MOSAIC_PATCH},
             {"no-mosaic-nested", no_argument, nullptr, OPT_NO_MOSAIC_NESTED},
             {"mosaic-break-unexplained", no_argument, nullptr, OPT_MOSAIC_BREAK_UNEXPL},
         }},
-        {"regenotype", {  // need --regenotype
+        // A preset can turn --regenotype on and --no-read-phasing then turns it off again, so we
+        // check the value that will take effect.
+        {"re-genotyping", "--regenotype", READ_LIKELIHOOD_GROUP,
+         [&] { return regenotype && read_phasing; }, {
             {"regeno-ceiling", required_argument, nullptr, OPT_REGENO_CEILING},
             {"regeno-haploid", no_argument, nullptr, OPT_REGENO_HAPLOID},
             {"no-regeno-haploid", no_argument, nullptr, OPT_NO_REGENO_HAPLOID},
@@ -1223,38 +1225,21 @@ int main_call(int argc, char** argv) {
     };
 
     // getopt_long takes a single array ending in an all-zero entry. We also record each option's
-    // name and subsystem by its `val`, which is unique.
+    // name by its `val`, which is unique.
     vector<struct option> long_options;
     unordered_map<int, string> option_name;
-    unordered_map<int, string> option_subsystem;
-    for (const auto& [subsystem, options] : long_options_by_subsystem) {
-        for (const struct option& o : options) {
+    for (const OptionGroup& group : long_option_groups) {
+        for (const struct option& o : group.options) {
             long_options.emplace_back(o);
             option_name[o.val] = o.name;
-            option_subsystem[o.val] = subsystem;
         }
     }
     long_options.push_back({nullptr, 0, nullptr, 0});
 
-    // The `val` of each option given, in the order first given.
-    vector<int> options_seen;
+    const char* const short_options = "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?";
 
-    while (true) {
-
-
-        int option_index = 0;
-
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?",
-                         long_options.data(), &option_index);
-
-        // Detect the end of the options.
-        if (c == -1)
-            break;
-
-        if (std::ranges::find(options_seen, c) == options_seen.end()) {
-            options_seen.push_back(c);
-        }
-
+    // Set the option `c`, which getopt_long returned, with its argument in optarg.
+    auto apply_option = [&](int c) {
         switch (c)
         {
         case 'k':
@@ -1304,14 +1289,12 @@ int main_call(int argc, char** argv) {
             break;
         case 'z':
             gbz_paths = true;
-            gbz_paths_explicit = true;
             break;
         case OPT_ENUMERATE_SUPPORT:
             enumerate_support = true;
             break;
         case OPT_PHASED:
             phased_output = true;
-            phased_explicit = true;
             break;
         case OPT_MOSAIC_BREAK_UNEXPL:
             mosaic_connect_unexplained = false;
@@ -1417,11 +1400,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_ATOMIZE_BLOCKS:
             atomize_blocks = true;
-            atomize_explicit = true;
             break;
         case OPT_NO_ATOMIZE_BLOCKS:
             atomize_blocks = false;
-            atomize_explicit = true;
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
@@ -1446,7 +1427,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_MAX_SNARL_EDGES:
             max_snarl_edges_opt = parse<size_t>(optarg);
-            max_snarl_edges_explicit = true;
             break;
         case OPT_DEPTH_TERM:
             depth_weight = parse<double>(optarg);
@@ -1458,24 +1438,19 @@ int main_call(int argc, char** argv) {
             preset = optarg;
             break;
         case OPT_GAP_OPEN:
-            gap_open_explicit = true;
             gap_open = parse<int>(optarg);
             if (gap_open < 1 || gap_open > 127) {
-                cerr << "error [vg call]: --gap-open must be between 1 and 127" << endl;
-                return 1;
+                logger.error() << "--gap-open must be between 1 and 127" << endl;
             }
             break;
         case OPT_READ_PHASING:
             read_phasing = true;
-            read_phasing_explicit = true;
             break;
         case OPT_NO_READ_PHASING:
             read_phasing = false;
-            read_phasing_explicit = true;
             break;
         case OPT_PHASE_MIN_Q:
             read_phasing_params.reliability = parse<double>(optarg);
-            phase_min_q_explicit = true;
             break;
         case OPT_PHASE_BREAK:
             read_phasing_params.break_threshold = parse<double>(optarg);
@@ -1496,24 +1471,20 @@ int main_call(int argc, char** argv) {
             read_phasing_params.coherence_min = parse<double>(optarg);
             if (read_phasing_params.coherence_min < 0.0
                 || read_phasing_params.coherence_min > 1.0) {
-                cerr << "error [vg call]: --phase-coherence is a fraction in [0,1]" << endl;
-                return 1;
+                logger.error() << "--phase-coherence is a fraction in [0,1]" << endl;
             }
             break;
         case OPT_PHASE_COH_ROUNDS:
             read_phasing_params.coherence_rounds = parse<size_t>(optarg);
             if (read_phasing_params.coherence_rounds < 1) {
-                cerr << "error [vg call]: --phase-coh-rounds must be >= 1" << endl;
-                return 1;
+                logger.error() << "--phase-coh-rounds must be >= 1" << endl;
             }
             break;
         case OPT_REGENOTYPE:
             regenotype = true;
-            regenotype_explicit = true;
             break;
         case OPT_NO_REGENOTYPE:
             regenotype = false;
-            regenotype_explicit = true;
             break;
         case OPT_REGENO_TEMPER:
             regenotype_params.temper = parse<double>(optarg);
@@ -1572,7 +1543,6 @@ int main_call(int argc, char** argv) {
             break;
         }
         case OPT_OFF_PANEL_INDELS: {
-            off_panel_indels_explicit = true;
             vector<string> parts = split_delims(optarg, ",");
             if (parts.size() != 3) {
                 logger.error() << "--off-panel-indels takes K,F,H" << endl;
@@ -1583,11 +1553,9 @@ int main_call(int argc, char** argv) {
             break;
         }
         case OPT_GAP_EXTEND:
-            gap_extend_explicit = true;
             gap_extend = parse<int>(optarg);
             if (gap_extend < 1 || gap_extend > 127) {
-                cerr << "error [vg call]: --gap-extend must be between 1 and 127" << endl;
-                return 1;
+                logger.error() << "--gap-extend must be between 1 and 127" << endl;
             }
             break;
         case OPT_DEPTH_QUALITY:
@@ -1604,23 +1572,19 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NESTED:
             nested_calling = true;
-            nested_explicit = true;
             break;
         case OPT_NO_OFF_REF_NESTING:
             no_off_ref_nesting = true;
             break;
         case OPT_NO_NESTED:
             nested_calling = false;
-            nested_explicit = true;
 
             break;
         case OPT_NO_PHASED:
             phased_output = false;
-            phased_explicit = true;
             break;
         case OPT_LINKAGE_WEIGHT:
             linkage_weight = parse<double>(optarg);
-            linkage_weight_explicit = true;
             break;
         case OPT_LINKAGE_SCALE:
             linkage_scale = parse<double>(optarg);
@@ -1633,7 +1597,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_HP_PRIOR:
             hp_prior = parse<double>(optarg);
-            hp_prior_explicit = true;
             break;
         case OPT_HP_PRIOR_RUN:
             hp_prior_run = parse<int>(optarg);
@@ -1645,11 +1608,9 @@ int main_call(int argc, char** argv) {
             max_mismap_prob = parse<double>(optarg);
             break;
         case OPT_MISMAP_MIN:
-            mismap_min_explicit = true;
             min_mismap_prob = parse<double>(optarg);
             break;
         case OPT_INSERTION_GAP_NATS:
-            insertion_nats_explicit = true;
             insertion_gap_nats = parse<double>(optarg);
             break;
         case OPT_OPTIMAL_PAIRING:
@@ -1660,35 +1621,29 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_ANCHORS_PHASE_HETS:
             anchor_params.phase_hets = true;
-            phase_hets_explicit = true;
             break;
         case OPT_NO_ANCHORS_PHASE_HETS:
             anchor_params.phase_hets = false;
-            phase_hets_explicit = true;
             break;
         case OPT_ANCHORS_STRICT_HETS:
             anchor_params.strict_hets = true;
-            phase_hets_explicit = true;
             break;
         case OPT_ANCHORS_PHASE_MIN:
             anchor_params.phase_min = parse<double>(optarg);
             if (anchor_params.phase_min < 0) {
-                cerr << "error [vg call]: --split-min-q must be at least 0" << endl;
-                return 1;
+                logger.error() << "--split-min-q must be at least 0" << endl;
             }
             break;
         case OPT_ANCHORS_PHASE_MIN_SIDE:
             anchor_params.phase_min_side = parse<size_t>(optarg);
             if (anchor_params.phase_min_side < 1) {
-                cerr << "error [vg call]: --split-min-side must be at least 1" << endl;
-                return 1;
+                logger.error() << "--split-min-side must be at least 1" << endl;
             }
             break;
         case OPT_NO_OPTIMAL_PAIRING:
             optimal_pairing = false;
             break;
         case OPT_READ_MIN_MAPQ:
-            read_min_mapq_explicit = true;
             read_min_mapq = parse<int>(optarg);
             break;
         case OPT_GAM_INDEX:
@@ -1741,6 +1696,75 @@ int main_call(int argc, char** argv) {
         default:
             abort ();
         }
+    };
+
+    // The `val` of each option given on the command line, in the order first given.
+    vector<int> options_seen;
+    while (true) {
+        int option_index = 0;
+        int c = getopt_long(argc, argv, short_options, long_options.data(), &option_index);
+        if (c == -1) {
+            break;
+        }
+        if (std::ranges::find(options_seen, c) == options_seen.end()) {
+            options_seen.push_back(c);
+        }
+        apply_option(c);
+    }
+
+    // The names of the options given on the command line, in the order first given.
+    vector<string> given_names;
+    for (int val : options_seen) {
+        given_names.push_back(option_name.at(val));
+    }
+    // Return whether the command line gave the option `name`, or its "no-" form, which sets the
+    // same thing. A setting the command line did not give has its default, or the preset's value.
+    auto user_gave = [&](const string& name) {
+        return std::ranges::find(given_names, name) != given_names.end()
+               || std::ranges::find(given_names, "no-" + name) != given_names.end();
+    };
+
+    // Apply the preset to the settings the command line did not give, by parsing its settings as
+    // command-line arguments.
+    if (!preset.empty()) {
+        auto chosen = std::ranges::find_if(PRESETS, [&](const pair<string, vector<PresetSetting>>& p) {
+            return p.first == preset;
+        });
+        if (chosen == PRESETS.end()) {
+            vector<string> names;
+            for (const auto& known : PRESETS) {
+                names.push_back(known.first);
+            }
+            logger.error() << "unknown --preset '" << preset << "'; known presets: "
+                           << join_with_commas(names) << endl;
+        }
+        vector<string> preset_args = {argv[0], argv[1]};
+        for (const PresetSetting& setting : chosen->second) {
+            preset_args.emplace_back(setting.option);
+            if (*setting.value != '\0') {
+                preset_args.emplace_back(setting.value);
+            }
+        }
+        vector<char*> preset_argv;
+        for (string& arg : preset_args) {
+            preset_argv.push_back(arg.data());
+        }
+        preset_argv.push_back(nullptr);
+        // The positional arguments start at optind, which parsing the preset moves.
+        const int first_positional = optind;
+        // An optind of 0 makes getopt_long start over on new arguments.
+        optind = 0;
+        while (true) {
+            int c = getopt_long(preset_args.size(), preset_argv.data(), short_options,
+                                long_options.data(), nullptr);
+            if (c == -1) {
+                break;
+            }
+            if (!user_gave(option_name.at(c))) {
+                apply_option(c);
+            }
+        }
+        optind = first_positional;
     }
 
     if (argc <= 2) {
@@ -1807,71 +1831,13 @@ int main_call(int argc, char** argv) {
              << endl;
         return 1;
     }
-    if (!preset.empty()) {
-        // A preset only sets the options that were not given explicitly. The values for `ont`
-        // were fitted to Oxford Nanopore reads. Those for `hifi` were fitted to PacBio HiFi reads
-        // (HG002, Revio): they are `ont`'s, except that a gap where the read has bases the allele
-        // lacks lowers the read's log-likelihood instead of raising it, no homopolymer prior is
-        // used, and the linkage weight is half the default.
-        auto chosen = std::ranges::find_if(PRESETS, [&](const pair<string, vector<PresetSetting>>& p) {
-            return p.first == preset;
-        });
-        if (chosen == PRESETS.end()) {
-            cerr << "error [vg call]: unknown --preset '" << preset << "'; known presets:";
-            for (size_t i = 0; i < PRESETS.size(); ++i) {
-                cerr << (i ? ", " : " ") << PRESETS[i].first;
-            }
-            cerr << endl;
-            return 1;
-        }
-        // How to apply each option a preset can set, and whether that option was given
-        // explicitly, which keeps the given value.
-        struct PresetTarget {
-            bool given;
-            function<void(const string& value)> apply;
-        };
-        const map<string, PresetTarget> preset_targets = {
-            {"--read-phasing", {read_phasing_explicit, [&](const string&) { read_phasing = true; }}},
-            {"--regenotype", {regenotype_explicit, [&](const string&) { regenotype = true; }}},
-            {"--gap-open", {gap_open_explicit, [&](const string& v) { gap_open = parse<int>(v); }}},
-            {"--gap-extend", {gap_extend_explicit,
-                              [&](const string& v) { gap_extend = parse<int>(v); }}},
-            {"--mismap-min", {mismap_min_explicit,
-                              [&](const string& v) { min_mismap_prob = parse<double>(v); }}},
-            {"--read-min-mapq", {read_min_mapq_explicit,
-                                 [&](const string& v) { read_min_mapq = parse<int>(v); }}},
-            {"--insertion-nats", {insertion_nats_explicit,
-                                  [&](const string& v) { insertion_gap_nats = parse<double>(v); }}},
-            {"--hp-prior", {hp_prior_explicit, [&](const string& v) { hp_prior = parse<double>(v); }}},
-            {"--linkage-weight", {linkage_weight_explicit,
-                                  [&](const string& v) { linkage_weight = parse<double>(v); }}},
-            {"--off-panel-indels", {off_panel_indels_explicit, [&](const string& v) {
-                vector<string> parts = split_delims(v, ",");
-                off_panel_bar.indel_min_alt_fragments = parse<size_t>(parts[0]);
-                off_panel_bar.indel_min_fraction = parse<double>(parts[1]);
-                off_panel_bar.indel_max_homopolymer = parse<uint32_t>(parts[2]);
-            }}},
-        };
-        for (const PresetSetting& setting : chosen->second) {
-            auto target = preset_targets.find(setting.option);
-            if (target == preset_targets.end()) {
-                // Every option in PRESETS needs an entry in preset_targets.
-                logger.error() << "--preset " << preset << " sets " << setting.option
-                               << ", which has no preset handling" << endl;
-                continue;
-            }
-            if (!target->second.given) {
-                target->second.apply(setting.value);
-            }
-        }
-    }
     // --atomize-blocks is on by default, so where it cannot apply we turn it off, and only an
     // explicit --atomize-blocks is an error. These checks depend only on the options, so they run
     // before the graph is loaded.
     if (atomize_blocks && genotype_snarls) {
         // -a writes the same records, one per snarl, whatever the sample, but block emission
         // writes one record per difference in the called haplotypes.
-        if (atomize_explicit) {
+        if (user_gave("atomize-blocks")) {
             logger.error() << "--atomize-blocks cannot be combined with -a/--genotype-snarls: "
                            << "a block list depends on the called haplotypes, so the record set "
                            << "would stop being sample-independent" << endl;
@@ -1879,7 +1845,7 @@ int main_call(int argc, char** argv) {
         atomize_blocks = false;
     }
     if (atomize_blocks && top_down) {
-        if (atomize_explicit) {
+        if (user_gave("atomize-blocks")) {
             logger.error() << "--atomize-blocks cannot be combined with --top-down" << endl;
         }
         atomize_blocks = false;
@@ -2077,7 +2043,7 @@ int main_call(int argc, char** argv) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
     }
 
-    // Reported ahead of the subsystem check below, since it is an error whatever else is given.
+    // An index is useless without the reads it indexes, whatever else is given.
     if (!reads.gam_index.empty() && reads.gam.empty()) {
         logger.error() << "--gam-index requires --gam" << endl;
     }
@@ -2085,18 +2051,8 @@ int main_call(int argc, char** argv) {
         logger.error() << "--gaf-index requires --gaf-reads" << endl;
     }
 
-    // Refuse options for a subsystem that is not on. The read-likelihood genotyper contains all the
-    // other subsystems, so we check it first: it has to be turned on before any other can be.
-    refuse_inactive_subsystem_options(logger, {
-            {"--read-likelihood", "to", read_likelihood,
-             {"read-likelihood", "anchors", "mosaic", "regenotype", "off-panel"}},
-            {"--off-panel", "with", off_panel, {"off-panel"}},
-            {"--anchors-out", "with", !anchors_out.empty(), {"anchors"}},
-            {"--mosaic-out", "with", !mosaic_out.empty(), {"mosaic"}},
-            // A preset can turn --regenotype on and --no-read-phasing then turns it off again,
-            // so we check the value that will take effect.
-            {"--regenotype", "with", regenotype && read_phasing, {"regenotype"}},
-        }, options_seen, option_name, option_subsystem);
+    // Refuse options for a subsystem that is off.
+    refuse_inactive_subsystem_options(logger, long_option_groups, given_names);
 
     // Refuse or turn off the options that start from the phase the linkage model gives each site:
     // read phasing, re-genotyping and hom splitting. An option given explicitly is an error, and
@@ -2104,10 +2060,10 @@ int main_call(int argc, char** argv) {
     // phase.
     auto refuse_phase_dependents = [&](const string& why) {
         vector<string> offenders;
-        if (read_phasing && read_phasing_explicit) {
+        if (read_phasing && user_gave("read-phasing")) {
             offenders.emplace_back("--read-phasing");
         }
-        if (regenotype && regenotype_explicit) {
+        if (regenotype && user_gave("regenotype")) {
             offenders.emplace_back("--regenotype");
         }
         if (anchor_params.hom_split) {
@@ -2121,7 +2077,7 @@ int main_call(int argc, char** argv) {
         read_phasing = false;
         regenotype = false;
     };
-    if (phased_explicit && !phased_output) {
+    if (user_gave("phased") && !phased_output) {
         refuse_phase_dependents("which --no-phased turns off");
     }
 
@@ -2194,7 +2150,7 @@ int main_call(int argc, char** argv) {
                              << "enumeration, which needs -k/--pack" << endl;
         }
     }
-    if (enumerate_support && gbz_paths_explicit) {
+    if (enumerate_support && user_gave("gbz")) {
         logger.error() << "--enumerate-support and -z/--gbz select different allele "
                        << "enumeration strategies: choose one or the other" << endl;
     }
@@ -2204,9 +2160,9 @@ int main_call(int argc, char** argv) {
     }
 
     // The linkage model needs --read-likelihood, haplotypes to enumerate alleles from (-z or -g)
-    // and a positive --linkage-weight. This is checked before the likelihood calculator is built,
-    // so that it does not keep read-phasing evidence for nothing. A GBWT with too few haplotypes
-    // is found only once it is loaded, below.
+    // and a positive --linkage-weight. We check this before the likelihood calculator is built,
+    // so that the calculator does not collect read-phasing evidence that nothing will use. A GBWT
+    // with too few haplotypes is found only once it is loaded, below.
     if (const bool haplotypes_given = gbwt_index != nullptr || !gbwt_filename.empty();
         !(read_likelihood && haplotypes_given && linkage_weight > 0.0)) {
         refuse_phase_dependents("and the linkage model needs --read-likelihood, haplotype "
@@ -2221,7 +2177,7 @@ int main_call(int argc, char** argv) {
     }
     // --optimal-pairing also finds good pairings for the alleles a read did not come from, which
     // lowers reads' confidence at heterozygous sites, so --phase-min-q has a lower default with it.
-    if (optimal_pairing && !phase_min_q_explicit) {
+    if (optimal_pairing && !user_gave("phase-min-q")) {
         read_phasing_params.reliability = 8.5;
     }
     // Under read phasing, refuse a --phase-min-q above the heterozygous score ceiling. The ceiling
@@ -2587,9 +2543,9 @@ int main_call(int argc, char** argv) {
             }
             read_source = open_site_read_source(*graph, reads, read_filter, show_progress, logger);
 
-            // Two scorers: quality-adjusted for reads that have base qualities,
-            // plain for reads that do not. Picking per read avoids either
-            // fabricating qualities or mis-scoring.
+            // Two scorers: quality-adjusted for reads that have base qualities, and plain for
+            // reads that do not. We pick one per read, so we neither invent qualities for a read
+            // nor ignore the ones it has.
             qual_scorer.reset(new QualAdjAlignmentScorer(default_score_matrix,
                                                         (int8_t)gap_open,
                                                         (int8_t)gap_extend));
@@ -2851,7 +2807,7 @@ int main_call(int argc, char** argv) {
     // By default, snarls have no size cap when the read-likelihood genotyper takes alleles from
     // haplotypes. Everywhere else they are capped at 10000 edges, which keeps Yen's traversal
     // search off very large snarls.
-    if (!max_snarl_edges_explicit) {
+    if (!user_gave("max-snarl-edges")) {
         max_snarl_edges_opt = (read_likelihood && gbwt_enumeration) ? 0 : 10000;
     }
     // The constructors do not take the cap, so we set it on whichever caller was built.
@@ -2891,7 +2847,7 @@ int main_call(int argc, char** argv) {
     // An explicit --regenotype without read phasing is an error. One set by a preset is turned
     // off, as with --preset ont --no-read-phasing.
     if (regenotype && !read_phasing) {
-        if (regenotype_explicit) {
+        if (user_gave("regenotype")) {
             cerr << "error [vg call]: --regenotype needs --read-phasing, which gives each read"
                  << " the strand log-odds it uses" << endl;
             return 1;
@@ -2902,7 +2858,7 @@ int main_call(int argc, char** argv) {
     // genotype, so re-genotyping, which can change that genotype afterwards, would leave the child
     // genotyped against the wrong alleles. An explicit --regenotype with it is an error. One set by
     // a preset is turned off.
-    if (regenotype && top_down && !regenotype_explicit) {
+    if (regenotype && top_down && !user_gave("regenotype")) {
         regenotype = false;
     }
     if (regenotype && top_down) {
@@ -2921,7 +2877,7 @@ int main_call(int argc, char** argv) {
     }
     // Placing heterozygous reads by phase is on by default, and has no effect without read
     // phasing, so we only refuse it when it was asked for.
-    if ((anchor_params.phase_hets || anchor_params.strict_hets) && phase_hets_explicit
+    if ((anchor_params.phase_hets || anchor_params.strict_hets) && (user_gave("anchors-phase-hets") || user_gave("anchors-strict-hets"))
         && !read_phasing) {
         cerr << "error [vg call]: --anchors-phase-hets / --anchors-strict-hets need --read-phasing,"
              << " which gives each read the strand log-odds they use" << endl;
@@ -2930,7 +2886,7 @@ int main_call(int argc, char** argv) {
     // -A already calls every nested snarl as a snarl of its own, so with nested calling each would
     // be called twice.
     if (nested_calling && all_snarls) {
-        if (nested_explicit) {
+        if (user_gave("nested")) {
             cerr << "error [vg call]: -A/--all-snarls calls every snarl independently while"
                  << " --nested calls children through their parent; they are alternatives, not a"
                  << " combination" << endl;
@@ -2947,7 +2903,7 @@ int main_call(int argc, char** argv) {
     // checks that depend only on the options were made before the graph was loaded.
     if (atomize_blocks) {
         if (!nested_calling) {
-            if (atomize_explicit) {
+            if (user_gave("atomize-blocks")) {
                 cerr << "error [vg call]: --atomize-blocks needs nested calling (--nested), which is"
                      << " on by default under --read-likelihood" << endl;
                 return 1;
@@ -2984,11 +2940,11 @@ int main_call(int argc, char** argv) {
         vcf_caller->set_translation(translation.get());
 
         // The linkage model compares genotypes with the haplotypes (-z or -g), and uses the
-        // read-likelihood genotyper's likelihoods. Without both, the default weight is set to 0
-        // and an explicit weight is an error. This is decided first because phasing, the mosaic
+        // read-likelihood genotyper's likelihoods. If either is missing, the default weight is set
+        // to 0, and an explicit weight is an error. This is decided first because phasing, the mosaic
         // and nested calling depend on it.
         if (linkage_weight > 0.0 && !(gbwt_index != nullptr && read_likelihood)) {
-            if (linkage_weight_explicit) {
+            if (user_gave("linkage-weight")) {
                 cerr << "error [vg call]: --linkage-weight needs haplotype enumeration (-z or -g) "
                      << "and --read-likelihood" << endl;
                 return 1;
@@ -3005,7 +2961,7 @@ int main_call(int argc, char** argv) {
             logger.error() << "--mosaic-out needs the linkage model, which needs haplotype "
                            << "enumeration (-z or -g) and --read-likelihood" << endl;
         }
-        if (!mosaic_out.empty() && phased_explicit && !phased_output) {
+        if (!mosaic_out.empty() && user_gave("phased") && !phased_output) {
             // The mosaic is written from the phasing, so it cannot be written without it.
             logger.error() << "--mosaic-out cannot be combined with --no-phased, because the mosaic "
                            << "is written from the phasing" << endl;
@@ -3013,7 +2969,7 @@ int main_call(int argc, char** argv) {
         if (phased_output && linkage_weight <= 0.0) {
             // Phasing comes from the linkage model. Without it, an explicit --phased is an error,
             // and the default is turned off.
-            if (phased_explicit) {
+            if (user_gave("phased")) {
                 logger.error() << "--phased needs the linkage model, which needs haplotype "
                                << "enumeration (-z or -g) and --read-likelihood" << endl;
             }
@@ -3023,7 +2979,7 @@ int main_call(int argc, char** argv) {
             // Where the linkage model runs, a nested site's ploidy and strand come from its
             // parent's phased genotype, so nested calling needs phasing. An explicit --nested is
             // an error. The default is turned off.
-            if (nested_explicit) {
+            if (user_gave("nested")) {
                 cerr << "error [vg call]: --nested needs --phased where the linkage model runs, "
                      << "because a nested site's ploidy and strand come from its parent's phased "
                      << "genotype" << endl;
@@ -3159,9 +3115,9 @@ int main_call(int argc, char** argv) {
         // Run every pass of the multipass caller.
         if (show_progress) logger.info() << "Calling top-level snarls" << endl;
         multipass_caller->call(recurse_type, [&]() {
-            // The passes after the first work from what it kept, not from reads. So free the
-            // windows that the read source still caches before they run, since they use the most
-            // memory.
+            // The passes after the first use the read likelihoods that the first pass stored, and
+            // read no more reads. So we free the read source's cached windows, which use the most
+            // memory, before those passes run.
             if (auto* windowed = dynamic_cast<WindowedSiteReadSource*>(read_source.get())) {
                 size_t freed = windowed->drop_cached_windows();
                 if (show_progress) {
@@ -3224,8 +3180,7 @@ int main_call(int argc, char** argv) {
     }
 
     // Everything is written. Close what is still open and exit without freeing what calling built,
-    // which would take minutes on a whole genome. exit() still runs the handlers registered for
-    // exit, such as the one that removes temporary files, and flushes C streams.
+    // which would take minutes on a whole genome.
     if (likelihood_dump) {
         likelihood_dump->close();
     }
