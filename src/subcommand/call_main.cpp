@@ -98,17 +98,17 @@ struct OptionGroup {
  * An option is refused with the outermost subsystem that contains it and is off, since that is
  * the one to turn on first. Only the first such subsystem is reported, since logger.error() exits.
  *
- * @param given The names of the options given, without "--".
+ * @param explicit_options The names of the options given on the command line, without "--".
  */
 static void refuse_inactive_subsystem_options(const Logger& logger,
                                               const vector<OptionGroup>& groups,
-                                              const vector<string>& given) {
+                                              const vector<string>& explicit_options) {
     for (size_t g = 0; g < groups.size(); ++g) {
         if (groups[g].switch_option == nullptr || groups[g].on()) {
             continue;
         }
         vector<string> offenders;
-        for (const string& name : given) {
+        for (const string& name : explicit_options) {
             // Find the group of the option. Group g reports it if g is the outermost subsystem
             // around it that is off.
             for (size_t h = 0; h < groups.size(); ++h) {
@@ -520,9 +520,11 @@ static vector<string> panel_haplotype_names(const gbwt::Metadata& meta,
     return hap_names;
 }
 
-/// One option that a --preset sets, written as on the command line. A switch has an empty value.
+/// One option that a --preset sets.
 struct PresetSetting {
+    /// The long name of the option, without "--".
     const char* option;
+    /// The option's argument, or null for a switch.
     const char* value;
 };
 
@@ -534,14 +536,14 @@ struct PresetSetting {
 /// the allele lacks lowers the read's log-likelihood instead of raising it, no homopolymer prior is
 /// used, and the linkage weight is half the default.
 static const vector<pair<string, vector<PresetSetting>>> PRESETS = {
-    {"ont", {{"--read-phasing", ""}, {"--regenotype", ""}, {"--gap-open", "1"},
-             {"--gap-extend", "1"}, {"--mismap-min", "0.05"}, {"--read-min-mapq", "5"},
-             {"--insertion-nats", "0.9"}, {"--hp-prior", "20"},
-             {"--off-panel-indels", "7,0.25,5"}}},
-    {"hifi", {{"--read-phasing", ""}, {"--regenotype", ""}, {"--gap-open", "1"},
-              {"--gap-extend", "1"}, {"--mismap-min", "0.05"}, {"--read-min-mapq", "5"},
-              {"--insertion-nats", "-1.8"}, {"--hp-prior", "0"}, {"--linkage-weight", "1"},
-              {"--off-panel-indels", "7,0.25,5"}}},
+    {"ont", {{"read-phasing", nullptr}, {"regenotype", nullptr}, {"gap-open", "1"},
+             {"gap-extend", "1"}, {"mismap-min", "0.05"}, {"read-min-mapq", "5"},
+             {"insertion-nats", "0.9"}, {"hp-prior", "20"},
+             {"off-panel-indels", "7,0.25,5"}}},
+    {"hifi", {{"read-phasing", nullptr}, {"regenotype", nullptr}, {"gap-open", "1"},
+              {"gap-extend", "1"}, {"mismap-min", "0.05"}, {"read-min-mapq", "5"},
+              {"insertion-nats", "-1.8"}, {"hp-prior", "0"}, {"linkage-weight", "1"},
+              {"off-panel-indels", "7,0.25,5"}}},
 };
 
 /// Return the settings of each preset for the --preset help, wrapped at the description column of
@@ -553,8 +555,8 @@ static string preset_help_lines() {
     for (const auto& [name, settings] : PRESETS) {
         string line = indent + name + ":";
         for (const PresetSetting& setting : settings) {
-            string item = setting.option;
-            if (*setting.value != '\0') {
+            string item = string("--") + setting.option;
+            if (setting.value != nullptr) {
                 item += string(" ") + setting.value;
             }
             if (line.size() + 1 + item.size() > width) {
@@ -1225,21 +1227,24 @@ int main_call(int argc, char** argv) {
     };
 
     // getopt_long takes a single array ending in an all-zero entry. We also record each option's
-    // name by its `val`, which is unique.
+    // name by its `val`, which is unique, and its `val` by its name.
     vector<struct option> long_options;
     unordered_map<int, string> option_name;
+    unordered_map<string, int> option_val;
     for (const OptionGroup& group : long_option_groups) {
         for (const struct option& o : group.options) {
             long_options.emplace_back(o);
             option_name[o.val] = o.name;
+            option_val[o.name] = o.val;
         }
     }
     long_options.push_back({nullptr, 0, nullptr, 0});
 
     const char* const short_options = "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?";
 
-    // Set the option `c`, which getopt_long returned, with its argument in optarg.
-    auto apply_option = [&](int c) {
+    // Set the option whose `val` is `c`, with its argument `optarg`, or null for a switch. The
+    // argument has the name of getopt's, so that the cases read as in other subcommands.
+    auto apply_option = [&](int c, const char* optarg) {
         switch (c)
         {
         case 'k':
@@ -1709,23 +1714,22 @@ int main_call(int argc, char** argv) {
         if (std::ranges::find(options_seen, c) == options_seen.end()) {
             options_seen.push_back(c);
         }
-        apply_option(c);
+        apply_option(c, optarg);
     }
 
     // The names of the options given on the command line, in the order first given.
-    vector<string> given_names;
+    vector<string> explicit_options;
     for (int val : options_seen) {
-        given_names.push_back(option_name.at(val));
+        explicit_options.push_back(option_name.at(val));
     }
     // Return whether the command line gave the option `name`, or its "no-" form, which sets the
     // same thing. A setting the command line did not give has its default, or the preset's value.
-    auto user_gave = [&](const string& name) {
-        return std::ranges::find(given_names, name) != given_names.end()
-               || std::ranges::find(given_names, "no-" + name) != given_names.end();
+    auto is_explicit = [&](const string& name) {
+        return std::ranges::find(explicit_options, name) != explicit_options.end()
+               || std::ranges::find(explicit_options, "no-" + name) != explicit_options.end();
     };
 
-    // Apply the preset to the settings the command line did not give, by parsing its settings as
-    // command-line arguments.
+    // Apply the preset to the settings the command line did not give.
     if (!preset.empty()) {
         auto chosen = std::ranges::find_if(PRESETS, [&](const pair<string, vector<PresetSetting>>& p) {
             return p.first == preset;
@@ -1738,33 +1742,11 @@ int main_call(int argc, char** argv) {
             logger.error() << "unknown --preset '" << preset << "'; known presets: "
                            << join_with_commas(names) << endl;
         }
-        vector<string> preset_args = {argv[0], argv[1]};
         for (const PresetSetting& setting : chosen->second) {
-            preset_args.emplace_back(setting.option);
-            if (*setting.value != '\0') {
-                preset_args.emplace_back(setting.value);
+            if (!is_explicit(setting.option)) {
+                apply_option(option_val.at(setting.option), setting.value);
             }
         }
-        vector<char*> preset_argv;
-        for (string& arg : preset_args) {
-            preset_argv.push_back(arg.data());
-        }
-        preset_argv.push_back(nullptr);
-        // The positional arguments start at optind, which parsing the preset moves.
-        const int first_positional = optind;
-        // An optind of 0 makes getopt_long start over on new arguments.
-        optind = 0;
-        while (true) {
-            int c = getopt_long(preset_args.size(), preset_argv.data(), short_options,
-                                long_options.data(), nullptr);
-            if (c == -1) {
-                break;
-            }
-            if (!user_gave(option_name.at(c))) {
-                apply_option(c);
-            }
-        }
-        optind = first_positional;
     }
 
     if (argc <= 2) {
@@ -1837,7 +1819,7 @@ int main_call(int argc, char** argv) {
     if (atomize_blocks && genotype_snarls) {
         // -a writes the same records, one per snarl, whatever the sample, but block emission
         // writes one record per difference in the called haplotypes.
-        if (user_gave("atomize-blocks")) {
+        if (is_explicit("atomize-blocks")) {
             logger.error() << "--atomize-blocks cannot be combined with -a/--genotype-snarls: "
                            << "a block list depends on the called haplotypes, so the record set "
                            << "would stop being sample-independent" << endl;
@@ -1845,7 +1827,7 @@ int main_call(int argc, char** argv) {
         atomize_blocks = false;
     }
     if (atomize_blocks && top_down) {
-        if (user_gave("atomize-blocks")) {
+        if (is_explicit("atomize-blocks")) {
             logger.error() << "--atomize-blocks cannot be combined with --top-down" << endl;
         }
         atomize_blocks = false;
@@ -2052,7 +2034,7 @@ int main_call(int argc, char** argv) {
     }
 
     // Refuse options for a subsystem that is off.
-    refuse_inactive_subsystem_options(logger, long_option_groups, given_names);
+    refuse_inactive_subsystem_options(logger, long_option_groups, explicit_options);
 
     // Refuse or turn off the options that start from the phase the linkage model gives each site:
     // read phasing, re-genotyping and hom splitting. An option given explicitly is an error, and
@@ -2060,10 +2042,10 @@ int main_call(int argc, char** argv) {
     // phase.
     auto refuse_phase_dependents = [&](const string& why) {
         vector<string> offenders;
-        if (read_phasing && user_gave("read-phasing")) {
+        if (read_phasing && is_explicit("read-phasing")) {
             offenders.emplace_back("--read-phasing");
         }
-        if (regenotype && user_gave("regenotype")) {
+        if (regenotype && is_explicit("regenotype")) {
             offenders.emplace_back("--regenotype");
         }
         if (anchor_params.hom_split) {
@@ -2077,7 +2059,7 @@ int main_call(int argc, char** argv) {
         read_phasing = false;
         regenotype = false;
     };
-    if (user_gave("phased") && !phased_output) {
+    if (is_explicit("phased") && !phased_output) {
         refuse_phase_dependents("which --no-phased turns off");
     }
 
@@ -2150,7 +2132,7 @@ int main_call(int argc, char** argv) {
                              << "enumeration, which needs -k/--pack" << endl;
         }
     }
-    if (enumerate_support && user_gave("gbz")) {
+    if (enumerate_support && is_explicit("gbz")) {
         logger.error() << "--enumerate-support and -z/--gbz select different allele "
                        << "enumeration strategies: choose one or the other" << endl;
     }
@@ -2177,7 +2159,7 @@ int main_call(int argc, char** argv) {
     }
     // --optimal-pairing also finds good pairings for the alleles a read did not come from, which
     // lowers reads' confidence at heterozygous sites, so --phase-min-q has a lower default with it.
-    if (optimal_pairing && !user_gave("phase-min-q")) {
+    if (optimal_pairing && !is_explicit("phase-min-q")) {
         read_phasing_params.reliability = 8.5;
     }
     // Under read phasing, refuse a --phase-min-q above the heterozygous score ceiling. The ceiling
@@ -2807,7 +2789,7 @@ int main_call(int argc, char** argv) {
     // By default, snarls have no size cap when the read-likelihood genotyper takes alleles from
     // haplotypes. Everywhere else they are capped at 10000 edges, which keeps Yen's traversal
     // search off very large snarls.
-    if (!user_gave("max-snarl-edges")) {
+    if (!is_explicit("max-snarl-edges")) {
         max_snarl_edges_opt = (read_likelihood && gbwt_enumeration) ? 0 : 10000;
     }
     // The constructors do not take the cap, so we set it on whichever caller was built.
@@ -2847,7 +2829,7 @@ int main_call(int argc, char** argv) {
     // An explicit --regenotype without read phasing is an error. One set by a preset is turned
     // off, as with --preset ont --no-read-phasing.
     if (regenotype && !read_phasing) {
-        if (user_gave("regenotype")) {
+        if (is_explicit("regenotype")) {
             cerr << "error [vg call]: --regenotype needs --read-phasing, which gives each read"
                  << " the strand log-odds it uses" << endl;
             return 1;
@@ -2858,7 +2840,7 @@ int main_call(int argc, char** argv) {
     // genotype, so re-genotyping, which can change that genotype afterwards, would leave the child
     // genotyped against the wrong alleles. An explicit --regenotype with it is an error. One set by
     // a preset is turned off.
-    if (regenotype && top_down && !user_gave("regenotype")) {
+    if (regenotype && top_down && !is_explicit("regenotype")) {
         regenotype = false;
     }
     if (regenotype && top_down) {
@@ -2877,7 +2859,7 @@ int main_call(int argc, char** argv) {
     }
     // Placing heterozygous reads by phase is on by default, and has no effect without read
     // phasing, so we only refuse it when it was asked for.
-    if ((anchor_params.phase_hets || anchor_params.strict_hets) && (user_gave("anchors-phase-hets") || user_gave("anchors-strict-hets"))
+    if ((anchor_params.phase_hets || anchor_params.strict_hets) && (is_explicit("anchors-phase-hets") || is_explicit("anchors-strict-hets"))
         && !read_phasing) {
         cerr << "error [vg call]: --anchors-phase-hets / --anchors-strict-hets need --read-phasing,"
              << " which gives each read the strand log-odds they use" << endl;
@@ -2886,7 +2868,7 @@ int main_call(int argc, char** argv) {
     // -A already calls every nested snarl as a snarl of its own, so with nested calling each would
     // be called twice.
     if (nested_calling && all_snarls) {
-        if (user_gave("nested")) {
+        if (is_explicit("nested")) {
             cerr << "error [vg call]: -A/--all-snarls calls every snarl independently while"
                  << " --nested calls children through their parent; they are alternatives, not a"
                  << " combination" << endl;
@@ -2903,7 +2885,7 @@ int main_call(int argc, char** argv) {
     // checks that depend only on the options were made before the graph was loaded.
     if (atomize_blocks) {
         if (!nested_calling) {
-            if (user_gave("atomize-blocks")) {
+            if (is_explicit("atomize-blocks")) {
                 cerr << "error [vg call]: --atomize-blocks needs nested calling (--nested), which is"
                      << " on by default under --read-likelihood" << endl;
                 return 1;
@@ -2944,7 +2926,7 @@ int main_call(int argc, char** argv) {
         // to 0, and an explicit weight is an error. This is decided first because phasing, the mosaic
         // and nested calling depend on it.
         if (linkage_weight > 0.0 && !(gbwt_index != nullptr && read_likelihood)) {
-            if (user_gave("linkage-weight")) {
+            if (is_explicit("linkage-weight")) {
                 cerr << "error [vg call]: --linkage-weight needs haplotype enumeration (-z or -g) "
                      << "and --read-likelihood" << endl;
                 return 1;
@@ -2961,7 +2943,7 @@ int main_call(int argc, char** argv) {
             logger.error() << "--mosaic-out needs the linkage model, which needs haplotype "
                            << "enumeration (-z or -g) and --read-likelihood" << endl;
         }
-        if (!mosaic_out.empty() && user_gave("phased") && !phased_output) {
+        if (!mosaic_out.empty() && is_explicit("phased") && !phased_output) {
             // The mosaic is written from the phasing, so it cannot be written without it.
             logger.error() << "--mosaic-out cannot be combined with --no-phased, because the mosaic "
                            << "is written from the phasing" << endl;
@@ -2969,7 +2951,7 @@ int main_call(int argc, char** argv) {
         if (phased_output && linkage_weight <= 0.0) {
             // Phasing comes from the linkage model. Without it, an explicit --phased is an error,
             // and the default is turned off.
-            if (user_gave("phased")) {
+            if (is_explicit("phased")) {
                 logger.error() << "--phased needs the linkage model, which needs haplotype "
                                << "enumeration (-z or -g) and --read-likelihood" << endl;
             }
@@ -2979,7 +2961,7 @@ int main_call(int argc, char** argv) {
             // Where the linkage model runs, a nested site's ploidy and strand come from its
             // parent's phased genotype, so nested calling needs phasing. An explicit --nested is
             // an error. The default is turned off.
-            if (user_gave("nested")) {
+            if (is_explicit("nested")) {
                 cerr << "error [vg call]: --nested needs --phased where the linkage model runs, "
                      << "because a nested site's ploidy and strand come from its parent's phased "
                      << "genotype" << endl;
