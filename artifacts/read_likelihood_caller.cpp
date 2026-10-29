@@ -10,6 +10,7 @@
 
 #include "../src/statistics.hpp"
 #include "../src/utility.hpp"
+#include "../src/crash.hpp"
 
 namespace vg {
 
@@ -68,7 +69,10 @@ double ReadLikelihoodSnarlCaller::discounted_gq(const ReadLikelihoodCallInfo& in
     if (share_discount) {
         gq *= explained_share(info, called);
     }
-    return gq * info.depth_discount;
+    gq *= info.depth_discount;
+    // Both discounts are fractions, so GQ is never above the gap, and so never above GQI.
+    crash_unless(gq <= gap);
+    return gq;
 }
 
 double ReadLikelihoodSnarlCaller::gq_factor(const ReadLikelihoodCallInfo& info) const {
