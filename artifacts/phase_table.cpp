@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include "phase_table.hpp"
+#include "vcf_record.hpp"
 
 namespace vg::multipass {
 
@@ -108,6 +109,42 @@ size_t PhaseTable::swap_strands(const unordered_set<size_t>& flips, vector<Neste
         frame_flipped[link.key] = pc.ploidy == 2 ? flips.contains(link.key) : strand_moved;
     }
     return moved;
+}
+
+bool phased_gt(const LinkageCollector::PhaseCall& phase, const vector<int>& site_genotype,
+               const map<int, int>& trav_to_allele, string& gt) {
+    // `find`, since `operator[]` would insert a default 0 on a miss, and the map's size is not
+    // a bound on traversal indices.
+    const auto found_a = trav_to_allele.find(phase.trav_first);
+    const auto found_b = trav_to_allele.find(phase.trav_second);
+    const int a = (phase.trav_first >= 0 && found_a != trav_to_allele.end())
+                      ? found_a->second : -1;
+    const int b = (phase.trav_second >= 0 && found_b != trav_to_allele.end())
+                      ? found_b->second : -1;
+    bool same = false;
+    if (phase.ploidy == 1 && site_genotype.size() == 1) {
+        same = (a >= 0 && a == site_genotype[0]);
+    } else if (phase.ploidy == 2 && site_genotype.size() == 2) {
+        same = (a >= 0 && b >= 0)
+               && ((a == site_genotype[0] && b == site_genotype[1])
+                   || (a == site_genotype[1] && b == site_genotype[0]));
+    }
+    if (!same) {
+        return false;
+    }
+    if (phase.ploidy == 1 && phase.nested_strand >= 0) {
+        // A nested ploidy-1 site is one strand of a diploid locus, since the parent's
+        // other allele deletes the chain. Written as a phased pair with "." on the other
+        // strand, which is how the VCF records which strand carries the allele.
+        gt = nested_strand_genotype(a, phase.nested_strand);
+    } else if (phase.ploidy == 1) {
+        // A haploid locus: one allele and no order; PS labels its phase set. "a|a"
+        // would claim a homozygous diploid call.
+        gt = std::to_string(a);
+    } else {
+        gt = std::to_string(a) + "|" + std::to_string(b);
+    }
+    return true;
 }
 
 }

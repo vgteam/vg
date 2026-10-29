@@ -86,6 +86,19 @@ private:
     unordered_map<size_t, PhaseCall> render_phases;
 };
 
+/**
+ * Find the phased GT that `phase` gives a record.
+ *
+ * The record's genotype is `site_genotype`, in VCF allele numbers, and `trav_to_allele` gives the
+ * VCF allele of each traversal in it. A one-strand site of a nested chain gets its allele on its
+ * strand and "." on the other, and any other haploid site gets its allele alone.
+ *
+ * @return False, leaving `gt` alone, if the alleles of `phase` are not a reordering of
+ * `site_genotype`, since phasing must not change a genotype.
+ */
+bool phased_gt(const LinkageCollector::PhaseCall& phase, const vector<int>& site_genotype,
+               const map<int, int>& trav_to_allele, string& gt);
+
 }
 
 #endif

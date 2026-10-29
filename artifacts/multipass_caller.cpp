@@ -752,40 +752,9 @@ int64_t MultiPassCaller::phase_record_genotype(size_t record_key,
         // its strands; so does a one-copy chain, whose GT shape says which strand it is on.
         return -1;
     }
-    // `find`, since `operator[]` would insert a default 0 on a miss, and the map's size is not
-    // a bound on traversal indices.
-    const auto found_a = trav_to_allele.find(phase.trav_first);
-    const auto found_b = trav_to_allele.find(phase.trav_second);
-    const int a = (phase.trav_first >= 0 && found_a != trav_to_allele.end())
-                      ? found_a->second : -1;
-    const int b = (phase.trav_second >= 0 && found_b != trav_to_allele.end())
-                      ? found_b->second : -1;
-    // The phased genotype must be a permutation of the one this record carries, so that
-    // phasing cannot change a genotype.
-    bool same = false;
-    if (phase.ploidy == 1 && site_genotype.size() == 1) {
-        same = (a >= 0 && a == site_genotype[0]);
-    } else if (phase.ploidy == 2 && site_genotype.size() == 2) {
-        same = (a >= 0 && b >= 0)
-               && ((a == site_genotype[0] && b == site_genotype[1])
-                   || (a == site_genotype[1] && b == site_genotype[0]));
-    }
-
-    if (!same) {
+    if (!phased_gt(phase, site_genotype, trav_to_allele, gt)) {
         ++phase_declined;
         return -1;
-    }
-    if (phase.ploidy == 1 && phase.nested_strand >= 0) {
-        // A nested ploidy-1 site is one strand of a diploid locus, since the parent's
-        // other allele deletes the chain. Written as a phased pair with "." on the other
-        // strand, which is how the VCF records which strand carries the allele.
-        gt = nested_strand_genotype(a, phase.nested_strand);
-    } else if (phase.ploidy == 1) {
-        // A haploid locus: one allele and no order; PS labels its phase set. "a|a"
-        // would claim a homozygous diploid call.
-        gt = std::to_string(a);
-    } else {
-        gt = std::to_string(a) + "|" + std::to_string(b);
     }
     return (int64_t)phase.phase_set;
 }
