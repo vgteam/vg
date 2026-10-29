@@ -158,8 +158,7 @@ public:
         // Decisions about the site.
 
         /// Return whether traversal `trav`, which is not the reference traversal, should be
-        /// treated as the same as the reference allele, because it takes the reference allele's
-        /// route through the site. By default no other traversal should be.
+        /// treated as the same as the reference allele. By default no other traversal should be.
         virtual bool same_as_reference(int trav, int ref_trav_idx);
 
         /// Decide how the genotype should be phased. Return the phase set it should be in, or -1
