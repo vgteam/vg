@@ -9,8 +9,8 @@
 #include <handlegraph/algorithms/weakly_connected_components.hpp>
 
 #include "../algorithms/weakly_connected_components_dense.hpp"
-#include "../../src/unittest/catch.hpp"
-#include "../../src/unittest/support/random_graph.hpp"
+#include "catch.hpp"
+#include "support/random_graph.hpp"
 
 namespace vg {
 namespace unittest {

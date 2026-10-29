@@ -8,7 +8,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "../../src/handle.hpp"
+#include "../handle.hpp"
 
 namespace vg {
 namespace algorithms {

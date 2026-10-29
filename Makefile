@@ -55,9 +55,7 @@ include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_SUPPORT_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_BIN_DIR)/*.d)
 include $(wildcard $(ARTIFACTS_OBJ_DIR)/*.d)
-include $(wildcard $(ARTIFACTS_OBJ_DIR)/algorithms/*.d)
 include $(wildcard $(ARTIFACTS_SHARED_OBJ_DIR)/*.d)
-include $(wildcard $(ARTIFACTS_SHARED_OBJ_DIR)/algorithms/*.d)
 include $(wildcard $(ARTIFACTS_UNITTEST_OBJ_DIR)/*.d)
 include $(wildcard $(ARTIFACTS_UNITTEST_SUPPORT_OBJ_DIR)/*.d)
 include $(wildcard test/*.d)
@@ -394,7 +392,7 @@ IO_SRC = $(wildcard $(IO_SRC_DIR)/*.cpp)
 SUBCOMMAND_SRC = $(wildcard $(SUBCOMMAND_SRC_DIR)/*.cpp)
 UNITTEST_SRC = $(wildcard $(UNITTEST_SRC_DIR)/*.cpp)
 UNITTEST_SUPPORT_SRC = $(wildcard $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp)
-ARTIFACTS_SRC = $(wildcard $(ARTIFACTS_SRC_DIR)/*.cpp $(ARTIFACTS_SRC_DIR)/algorithms/*.cpp)
+ARTIFACTS_SRC = $(wildcard $(ARTIFACTS_SRC_DIR)/*.cpp)
 ARTIFACTS_UNITTEST_SRC = $(wildcard $(ARTIFACTS_UNITTEST_SRC_DIR)/*.cpp)
 ARTIFACTS_UNITTEST_SUPPORT_SRC = $(wildcard $(ARTIFACTS_UNITTEST_SUPPORT_SRC_DIR)/*.cpp)
 
@@ -651,7 +649,7 @@ compile_commands.json: Makefile $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS) $(SRC) $(A
 	$(MAKE) --dry-run --always-make $(BIN_DIR)/$(EXE) >$(OBJ_DIR)/dry_run_build_log.txt
 	compiledb --overwrite --output $@ --parse $(OBJ_DIR)/dry_run_build_log.txt
 
-lint: $(ARTIFACTS_SRC_DIR)/*.cpp $(ARTIFACTS_SRC_DIR)/*.hpp $(ARTIFACTS_SRC_DIR)/algorithms/*.cpp $(ARTIFACTS_SRC_DIR)/algorithms/*.hpp $(ARTIFACTS_UNITTEST_SRC_DIR)/*.cpp $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
+lint: $(ARTIFACTS_SRC_DIR)/*.cpp $(ARTIFACTS_SRC_DIR)/*.hpp $(ARTIFACTS_UNITTEST_SRC_DIR)/*.cpp $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	scripts/lint.py 1>&2
 
 test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/rapper
@@ -1258,8 +1256,8 @@ $(shell if [ ! -d $(IO_SHARED_OBJ_DIR) ]; then mkdir -p $(IO_SHARED_OBJ_DIR); fi
 $(shell if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi)
 $(shell if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi)
 $(shell if [ ! -d $(UNITTEST_SUPPORT_OBJ_DIR) ]; then mkdir -p $(UNITTEST_SUPPORT_OBJ_DIR); fi)
-$(shell if [ ! -d $(ARTIFACTS_OBJ_DIR)/algorithms ]; then mkdir -p $(ARTIFACTS_OBJ_DIR)/algorithms; fi)
-$(shell if [ ! -d $(ARTIFACTS_SHARED_OBJ_DIR)/algorithms ]; then mkdir -p $(ARTIFACTS_SHARED_OBJ_DIR)/algorithms; fi)
+$(shell if [ ! -d $(ARTIFACTS_OBJ_DIR) ]; then mkdir -p $(ARTIFACTS_OBJ_DIR); fi)
+$(shell if [ ! -d $(ARTIFACTS_SHARED_OBJ_DIR) ]; then mkdir -p $(ARTIFACTS_SHARED_OBJ_DIR); fi)
 $(shell if [ ! -d $(ARTIFACTS_UNITTEST_OBJ_DIR) ]; then mkdir -p $(ARTIFACTS_UNITTEST_OBJ_DIR); fi)
 $(shell if [ ! -d $(ARTIFACTS_UNITTEST_SUPPORT_OBJ_DIR) ]; then mkdir -p $(ARTIFACTS_UNITTEST_SUPPORT_OBJ_DIR); fi)
 $(shell if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi)
@@ -1287,9 +1285,7 @@ clean-vg:
 	$(RM) -f $(IO_OBJ_DIR)/*.o $(IO_OBJ_DIR)/*.d
 	$(RM) -f $(IO_SHARED_OBJ_DIR)/*.o $(IO_SHARED_OBJ_DIR)/*.d
 	$(RM) -f $(ARTIFACTS_OBJ_DIR)/*.o $(ARTIFACTS_OBJ_DIR)/*.d
-	$(RM) -f $(ARTIFACTS_OBJ_DIR)/algorithms/*.o $(ARTIFACTS_OBJ_DIR)/algorithms/*.d
 	$(RM) -f $(ARTIFACTS_SHARED_OBJ_DIR)/*.o $(ARTIFACTS_SHARED_OBJ_DIR)/*.d
-	$(RM) -f $(ARTIFACTS_SHARED_OBJ_DIR)/algorithms/*.o $(ARTIFACTS_SHARED_OBJ_DIR)/algorithms/*.d
 	$(RM) -f $(ARTIFACTS_UNITTEST_OBJ_DIR)/*.o $(ARTIFACTS_UNITTEST_OBJ_DIR)/*.d
 	$(RM) -f $(ARTIFACTS_UNITTEST_SUPPORT_OBJ_DIR)/*.o $(ARTIFACTS_UNITTEST_SUPPORT_OBJ_DIR)/*.d
 	$(RM) -f $(SRC_DIR)/vg_git_version.hpp $(SRC_DIR)/vg_environment_version.hpp

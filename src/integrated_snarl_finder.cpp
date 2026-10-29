@@ -4,7 +4,7 @@
 ///
 
 #include "integrated_snarl_finder.hpp"
-#include "../artifacts/algorithms/weakly_connected_components_dense.hpp"
+#include "algorithms/weakly_connected_components_dense.hpp"
 
 #include "algorithms/three_edge_connected_components.hpp"
 #include "subgraph_overlay.hpp"
