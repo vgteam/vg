@@ -35,7 +35,7 @@ vector<int> PhaseTable::phase_ordered_genotype(size_t record_key,
     if (ordered.size() != 2) {
         return ordered;
     }
-    // A phase naming any other traversals is ignored, as `emit_variant` ignores it.
+    // A phase naming any other traversals is ignored, as `SiteEmitter::emit` ignores it.
     if (const auto found = render_phases.find(record_key);
         found != render_phases.end() && found->second.ploidy == 2
         && found->second.trav_first == ordered[1]
@@ -56,7 +56,7 @@ int PhaseTable::haploid_slot(size_t record_key, const vector<int>& genotype) con
         // just one strand.
         return 0;
     }
-    // A phase of another allele is ignored, as `emit_variant` ignores it.
+    // A phase of another allele is ignored, as `SiteEmitter::emit` ignores it.
     if (found->second.trav_first != genotype[0]) {
         return 0;
     }

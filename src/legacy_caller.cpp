@@ -28,6 +28,7 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            const vector<int>& ref_path_ploidies) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
+    site_emitter(*this),
     graph(graph),
     ref_paths(ref_paths) {
 
@@ -181,8 +182,22 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                                            path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
             // emit our vcf variant
-            was_called = emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, 0, call_info, path_name, ref_offsets.find(path_name)->second, false,
-                         ploidy);
+            // The reference traversal is the first.
+            CalledSite site{visit_handle(graph, snarl.start()), visit_handle(graph, snarl.end()),
+                            path_name, (int64_t)ref_offsets.find(path_name)->second, genotype, 0,
+                            called_traversals.size(), ploidy};
+            was_called = site_emitter.emit(
+                graph, site,
+                [&](size_t allele) {
+                    return make_pair(trav_string(graph, called_traversals[allele], translation()),
+                                     visits_of(called_traversals[allele]));
+                },
+                [&](const vector<int>& allele_traversals, const vector<int>& vcf_genotype,
+                    vcflib::Variant& record) {
+                    snarl_caller.update_vcf_info(snarl, traversals_of(called_traversals,
+                                                                      allele_traversals),
+                                                 vcf_genotype, call_info, sample_name(), record);
+                });
 
         }
     }        

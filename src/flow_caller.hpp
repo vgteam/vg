@@ -18,6 +18,7 @@
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
 #include "graph_caller.hpp"
+#include "site_emitter.hpp"
 #include "vcf_output_caller.hpp"
 #include "gaf_output_caller.hpp"
 
@@ -83,6 +84,9 @@ public:
     /// `call_top_level_snarls` then calls the children of a skipped snarl as if they were
     /// top-level snarls. Zero, the default, removes the limit.
     void set_max_snarl_edges(size_t edges);
+
+    /// Writes the record of each called site.
+    SiteEmitter site_emitter;
 
 protected:
 

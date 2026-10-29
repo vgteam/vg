@@ -17,6 +17,7 @@
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
 #include "graph_caller.hpp"
+#include "site_emitter.hpp"
 #include "vcf_output_caller.hpp"
 #include "gaf_output_caller.hpp"
 #include "snarl_graph.hpp"
@@ -57,6 +58,9 @@ public:
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
+
+    /// Writes the record of each called site.
+    SiteEmitter site_emitter;
 
 protected:
 

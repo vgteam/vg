@@ -3025,12 +3025,35 @@ int main_call(int argc, char** argv) {
             multipass_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,
                                              regenotype_ledger);
         }
-        // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
-        // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
-        vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
+        // Merge similar called ALT alleles (-L/--cluster) in the records of each caller that
+        // builds its records with a SiteEmitter.
+        SiteEmitter* site_emitter = nullptr;
         if (multipass_caller != nullptr) {
-            multipass_caller->emitter().allele_merge_threshold = cluster_threshold;
-            multipass_caller->emitter().allele_merge_min_len = cluster_min_allele_len;
+            site_emitter = &multipass_caller->emitter();
+        } else if (auto* flow_caller = dynamic_cast<FlowCaller*>(graph_caller.get())) {
+            site_emitter = &flow_caller->site_emitter;
+        } else if (auto* nested_caller = dynamic_cast<NestedFlowCaller*>(graph_caller.get())) {
+            site_emitter = &nested_caller->site_emitter;
+        } else if (auto* legacy_caller = dynamic_cast<LegacyCaller*>(graph_caller.get())) {
+            site_emitter = &legacy_caller->site_emitter;
+        }
+        if (site_emitter != nullptr) {
+            site_emitter->allele_merge_threshold = cluster_threshold;
+            site_emitter->allele_merge_min_len = cluster_min_allele_len;
+        }
+        // The header lines of the read-likelihood caller's own fields come before the line of
+        // MAT, the field that records merged alleles.
+        if (multipass_caller != nullptr) {
+            multipass_caller->add_header_lines();
+        }
+        if (cluster_threshold < 1.0) {
+            vcf_caller->add_info_header(
+                "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
+                "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:SIMILARITY using "
+                "pre-merge allele numbers. AD and GL are folded onto the surviving allele and MAD "
+                "is recomputed; DP, QUAL, GQ, GP and FILTER are as computed over the pre-merge allele "
+                "set. In a nested run this record gives the collapsed view of the site and its "
+                "child records the precise one, so they disagree by design.\">");
         }
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)
@@ -3038,7 +3061,7 @@ int main_call(int argc, char** argv) {
         vector<size_t> header_ref_lengths;
         bool need_overrides = dynamic_cast<VCFGenotyper*>(graph_caller.get()) == nullptr;
         for (const auto& path_len : basepath_length_map) {
-            // Use the locus name (eg "chrI") to match what emit_variant()
+            // Use the locus name (eg "chrI") to match what SiteEmitter::emit()
             // writes to the CHROM column in data lines
             string contig_name = PathMetadata::parse_locus_name(path_len.first);
             header_ref_paths.push_back(contig_name != PathMetadata::NO_LOCUS_NAME ? contig_name : path_len.first);

@@ -340,7 +340,7 @@ bool GenotypeLinker::buildable(const StagedSite& pr) {
     if (pr.alleles.walks.empty()) {
         return false;
     }
-    // `emit_variant` indexes `called_traversals[ref_trav_idx]` unchecked. A record with no
+    // `SiteEmitter::emit` spells the reference allele without checking its number. A record with no
     // reference path is never emitted.
     if (!pr.reference.no_reference
         && (pr.alleles.ref_allele < 0

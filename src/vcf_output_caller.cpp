@@ -7,13 +7,11 @@
 #include <omp.h>
 
 #include "vcf_output_caller.hpp"
-#include "site_emitter.hpp"
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
 #include "traversal_clusters.hpp"
-#include "snarl_traversal_text.hpp"
 #include "utility.hpp"
 
 //#define debug
@@ -82,15 +80,6 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     for (const string& line : info_header_lines) {
         ss << line << endl;
-    }
-    if (allele_merge_threshold < 1.0) {
-        ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
-           << "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:SIMILARITY using "
-           << "pre-merge allele numbers. AD and GL are folded onto the surviving allele and MAD is "
-           << "recomputed; DP, QUAL, GQ, GP and FILTER are as computed over the pre-merge allele set. "
-           << "In a nested run this record gives the collapsed view of the site and its child "
-           << "records the precise one, so they disagree by design.\">"
-           << endl;
     }
     return ss.str();
 }
@@ -278,11 +267,6 @@ void VCFOutputCaller::set_gref_levels(map<string, int> levels) {
     this->gref_levels = std::move(levels);
 }
 
-void VCFOutputCaller::set_allele_merge(double threshold, int64_t min_len) {
-    allele_merge_threshold = threshold;
-    allele_merge_min_len = min_len;
-}
-
 unordered_set<string> VCFOutputCaller::get_output_contigs() const {
     unordered_set<string> contigs;
     // The sort key is (sequenceName, position) (see add_variant), so the contig is right
@@ -331,43 +315,6 @@ string VCFOutputCaller::prune_header_contigs(const string& header,
 
 
 
-
-bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
-                                   const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
-                                   const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                   const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy) {
-    SiteEmitter emitter(*this);
-    emitter.genotype_snarls = genotype_snarls;
-    emitter.allele_merge_threshold = allele_merge_threshold;
-    emitter.allele_merge_min_len = allele_merge_min_len;
-    CalledSite site{
-        .start = graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
-        .end = graph.get_handle(snarl.end().node_id(), snarl.end().backward()),
-        .ref_path_name = ref_path_name,
-        .ref_offset = ref_offset,
-        .genotype = genotype,
-        .ref_trav_idx = ref_trav_idx,
-        .traversal_count = called_traversals.size(),
-        .ploidy = ploidy,
-    };
-    return emitter.emit(
-        graph, site,
-        [&](size_t trav) {
-            return make_pair(trav_string(graph, called_traversals[trav], node_translation),
-                             visits_of(called_traversals[trav]));
-        },
-        [&](const vector<int>& allele_traversals, const vector<int>& vcf_genotype,
-            vcflib::Variant& record) {
-            // A negative traversal number is the "*" allele, which gets an empty traversal.
-            vector<SnarlTraversal> traversals;
-            traversals.reserve(allele_traversals.size());
-            for (int trav : allele_traversals) {
-                traversals.push_back(trav >= 0 ? called_traversals[trav] : SnarlTraversal());
-            }
-            snarl_caller.update_vcf_info(snarl, traversals, vcf_genotype, call_info, sample,
-                                         record);
-        });
-}
 
 string VCFOutputCaller::snarl_caller_vcf_header(const PathHandleGraph& graph,
                                                 const vector<string>& contigs,

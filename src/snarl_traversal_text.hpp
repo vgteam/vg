@@ -27,6 +27,11 @@ string snarl_name(const Snarl& snarl, const NodeTranslation* translation, bool i
 string trav_string(const HandleGraph& graph, const SnarlTraversal& trav,
                    const NodeTranslation* translation);
 
+/// Return the traversal of `travs` that each of `numbers` gives, or an empty traversal for a
+/// negative number, which stands for the "*" allele.
+vector<SnarlTraversal> traversals_of(const vector<SnarlTraversal>& travs,
+                                     const vector<int>& numbers);
+
 }
 
 #endif

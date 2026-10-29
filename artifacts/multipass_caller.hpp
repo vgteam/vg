@@ -125,11 +125,13 @@ public:
     /// Toggle progress messages.
     void set_show_progress(bool show_progress) { this->show_progress = show_progress; }
 
-    /// Make the VCF header, with the lines of the read-likelihood genotyper and of this caller.
-    /// Call it once, after the settings that add header lines (phasing, off-panel variants and
-    /// block records), since each call adds this caller's lines to the output again.
+    /// Add the header lines of this caller's own fields to the output. Call it once, after the
+    /// settings that add fields (phasing, off-panel variants and block records).
+    void add_header_lines();
+
+    /// Make the VCF header, with the lines of the read-likelihood genotyper.
     string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                      const vector<size_t>& contig_length_overrides = {});
+                      const vector<size_t>& contig_length_overrides = {}) const;
 
     /// Set the ploidy of regions, in place of the ploidy of their contigs.
     void set_ploidy_regions(PloidyRegions regions) { ploidy_regions = std::move(regions); }

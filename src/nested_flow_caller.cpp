@@ -10,7 +10,6 @@
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
-#include "site_emitter.hpp"
 #include "snarl_traversal_text.hpp"
 #include "traversal_clusters.hpp"
 #include "utility.hpp"
@@ -35,6 +34,7 @@ NestedFlowCaller::NestedFlowCaller(const PathPositionHandleGraph& graph,
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
+    site_emitter(*this),
     graph(graph),
     traversal_finder(traversal_finder),
     ref_paths(ref_paths),
@@ -48,6 +48,7 @@ NestedFlowCaller::NestedFlowCaller(const PathPositionHandleGraph& graph,
         ref_path_set.insert(ref_paths[i]);
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
+    site_emitter.genotype_snarls = genotype_snarls;
 
 }
    
@@ -451,10 +452,6 @@ bool NestedFlowCaller::emit_record(const Snarl& snarl, const CallRecord& record,
         allele_genotype.push_back(allele);
     }
 
-    SiteEmitter emitter(*this);
-    emitter.genotype_snarls = genotype_snarls;
-    emitter.allele_merge_threshold = allele_merge_threshold;
-    emitter.allele_merge_min_len = allele_merge_min_len;
     CalledSite site{
         .start = visit_handle(graph, snarl.start()),
         .end = visit_handle(graph, snarl.end()),
@@ -465,7 +462,7 @@ bool NestedFlowCaller::emit_record(const Snarl& snarl, const CallRecord& record,
         .traversal_count = allele_strands.size(),
         .ploidy = ploidy,
     };
-    return emitter.emit(
+    return site_emitter.emit(
         graph, site,
         [&](size_t allele) {
             auto [trav, strand] = allele_strands[allele];

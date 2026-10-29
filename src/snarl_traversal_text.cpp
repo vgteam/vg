@@ -25,4 +25,14 @@ string trav_string(const HandleGraph& graph, const SnarlTraversal& trav,
     return seq;
 }
 
+vector<SnarlTraversal> traversals_of(const vector<SnarlTraversal>& travs,
+                                     const vector<int>& numbers) {
+    vector<SnarlTraversal> picked;
+    picked.reserve(numbers.size());
+    for (int number : numbers) {
+        picked.push_back(number >= 0 ? travs[number] : SnarlTraversal());
+    }
+    return picked;
+}
+
 }

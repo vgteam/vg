@@ -309,8 +309,7 @@ static const char* const SB_HEADER_LINE =
     "must group by the snarl's ID first and count each snarl once. Records without "
     "SB are unaffected: they are the only record their snarl emitted.\">";
 
-string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                                   const vector<size_t>& contig_length_overrides) {
+void MultiPassCaller::add_header_lines() {
     if (emit_phasing) {
         // FORMAT/PS is the VCF phase set, which phasing tools read. It is unrelated to INFO/PS,
         // vg's parent-snarl field; the two are in different namespaces, so both are legal, and
@@ -329,6 +328,10 @@ string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     if (block_records.is_enabled()) {
         output.add_info_header(SB_HEADER_LINE);
     }
+}
+
+string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                                   const vector<size_t>& contig_length_overrides) const {
     return output.genotyper_vcf_header(graph, contigs, contig_length_overrides,
                                        [this](string& header) { snarl_caller.update_vcf_header(header); });
 }

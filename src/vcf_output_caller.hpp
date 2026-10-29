@@ -111,13 +111,6 @@ public:
     /// A record on one of these contigs gets at least its level as INFO/CH.
     void set_gref_levels(map<string, int> levels);
 
-    /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
-    /// two effectively-identical alleles collapses to 1/1 with a single ALT.
-    ///
-    /// Two alleles merge when their similarity, a modified length-weighted Jaccard, is at least
-    /// `threshold`. A threshold of 1.0 turns merging off.
-    void set_allele_merge(double threshold, int64_t min_len);
-
     /// The set of reference contigs that actually have a record.  Reads the sort keys of the
     /// output buffer, so it costs nothing (no decompression) and does not need the snarl tree.
     /// Only meaningful once calling is finished and before write_variants() drains the buffer.
@@ -135,19 +128,6 @@ public:
     /// Add an INFO line, without its newline, to the header that `vcf_header` writes, after the
     /// AT line.
     void add_info_header(string line);
-
-    /**
-     * Add the record for a called site to the output buffer.
-     *
-     * The record has the called traversals as its alleles, each spelled as the sequence of its
-     * traversal, and the snarl caller's INFO and FORMAT fields.
-     *
-     * @return false only if add_variant refused a line the site wanted.
-     */
-    bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
-                      const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
-                      const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                      const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy);
 
     /**
      * Return the VCF header of a caller that genotypes with `snarl_caller`.
@@ -212,12 +192,6 @@ protected:
     /// The gRef nesting level of each gRef contig, by contig name. Empty without a gRef cover.
     map<string, int> gref_levels;
 
-    // post-genotyping ALT merging (vg call -L / --cluster-min-len).  Deliberately NOT named
-    // cluster_threshold / cluster_min_allele_len: Deconstructor derives from this class and already
-    // declares both for its own pre-allele-string clustering, and -Wshadow is silent when a derived
-    // member shadows a base one.
-    double allele_merge_threshold = 1.0;
-    int64_t allele_merge_min_len = 0;
 
 
 private:
