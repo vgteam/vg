@@ -29,7 +29,7 @@ namespace vg {
 class KmerPresenceMatrix {
 public:
     /// Kmer classification.
-    enum kmer_classification : size_t { absent = 0, heterozygous = 1, present = 2, frequent = 3 };
+    enum kmer_classification : size_t { absent = 0, heterozygous = 1, present = 2, frequent = 3, ignored = 4 };
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
@@ -319,7 +319,6 @@ public:
     /// A more space-efficient representation of `sequence_type`.
     typedef KmerPresenceMatrix::compact_sequence_type compact_sequence_type;
 
-    // FIXME: add a placeholder word for scoring model override
     /// Representation of a subchain.
     /// The subchain contains `num_sequences()` haplotype sequences and `num_kmers()` kmers.
     struct Subchain {

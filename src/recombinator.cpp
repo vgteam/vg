@@ -1661,13 +1661,45 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
 
 //------------------------------------------------------------------------------
 
+// Return true if the kmer contains a homopolymer of length threshold or more.
+// The kmer must be encoded with 2 bits per symbol in the low 2k bits. The high
+// bits must be 0.
+bool contains_homopolymer(const Haplotypes::Subchain::kmer_type kmer, size_t k, size_t threshold) {
+    if (threshold > k) {
+        return false;
+    }
+    if (threshold <= 1) {
+        return true;
+    }
+
+    // 2-bit field i is 0 iff symbols i and i+1 are the same.
+    Haplotypes::Subchain::kmer_type diff = kmer ^ (kmer >> 2);
+    // Field i is 1 iff symbols i and i+1 are the same.
+    Haplotypes::Subchain::kmer_type equal = ~(diff | (diff >> 1)) & 0x5555555555555555ull;
+    // Mask out the last field, as it compares the last symbol to the padding.
+    equal &= (Haplotypes::Subchain::kmer_type(1) << (2 * (k - 1))) - 1;
+
+    // A homopolymer of length `threshold` is a run of `threshold - 1` set bits in
+    // `equal`, 2 bits apart. We find such runs by shifting and ANDing. After each
+    // step, bit i is set when the original `equal` has covered set bits starting
+    // at bit i. Each step doubles `covered`, and the last one adds only what is
+    // still needed.
+    size_t needed = threshold - 1;
+    for (size_t covered = 1; covered < needed && equal != 0; ) {
+        size_t step = std::min(covered, needed - covered);
+        equal &= equal >> (2 * step);
+        covered += step;
+    }
+    return (equal != 0);
+}
+
 // Classify the kmers in the subchain according to the kmer counts and the
 // coverage. Return a vector of kmer types and their initial scores. Update the
 // statistics with the number of non-frequent kmers if necessary.
 std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> classify_kmers(
     const Haplotypes::Subchain& subchain,
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
-    double coverage,
+    double coverage, size_t k,
     Recombinator::Statistics* statistics,
     const Recombinator::Parameters& parameters
 ) {
@@ -1683,6 +1715,10 @@ std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> classify
     size_t selected_kmers = 0;
     for (size_t kmer_id = 0; kmer_id < subchain.num_kmers(); kmer_id++) {
         double count = kmer_counts.at(subchain.kmers[kmer_id]);
+        if (contains_homopolymer(subchain.kmers[kmer_id], k, parameters.ignore_homopolymers)) {
+            kmer_types.push_back({ KmerPresenceMatrix::ignored, 0.0 });
+            continue;
+        }
         switch (parameters.scoring_model) {
         case Recombinator::Parameters::high_coverage_scoring:
             // High-coverage model: the frequent component is the true signal,
@@ -1796,13 +1832,15 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     const gbwtgraph::GBZ& gbz,
     const Haplotypes::Subchain& subchain,
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
-    double coverage,
+    double coverage, size_t k,
     Recombinator::Statistics* statistics,
     std::vector<Recombinator::LocalHaplotype>* local_haplotypes,
     const Recombinator::Parameters& parameters
 ) {
     // Classify the kmers.
-    std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmer_types = classify_kmers(subchain, kmer_counts, coverage, statistics, parameters);
+    std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmer_types = classify_kmers(
+        subchain, kmer_counts, coverage, k, statistics, parameters
+    );
 
     // Select the haplotypes greedily.
     std::vector<std::pair<size_t, double>> selected_haplotypes;
@@ -1927,7 +1965,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             // Select the haplotypes greedily. If we are doing diploid sampling and we get
             // extra fragments, store them for later processing.
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
-                this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters
+                this->gbz, subchain, kmer_counts, coverage, this->haplotypes.k(), &statistics, nullptr, parameters
             );
 #ifdef debug_selected_haplotypes
             for (size_t i = 0; i < selected_haplotypes.size(); i++) {

@@ -315,6 +315,9 @@ public:
         /// the wrong variants out.
         double absent_score = ABSENT_SCORE;
 
+        /// Ignore kmers containing homopolymers of at least this length.
+        size_t ignore_homopolymers = std::numeric_limits<size_t>::max();
+
         /// Use the haploid scoring model. The most common kmer count is used as
         /// the coverage estimate. Kmers that would be classified as heterozygous
         /// are treated as homozygous.
@@ -324,16 +327,16 @@ public:
         /// highest-scoring pair out of them.
         bool diploid_sampling = false;
 
+        /// Include named and reference paths. Gref fragments are clipped to the sampled
+        /// graph, as copying them would keep the whole gref cover.
+        bool include_reference = false;
+
         /// When using diploid sampling, include the remaining candidates as
         /// additional fragments in bad subchains.
         bool extra_fragments = false;
 
         /// Badness threshold for subchains when using diploid sampling.
         double badness_threshold = BADNESS_THRESHOLD;
-
-        /// Include named and reference paths. Gref fragments are clipped to the sampled
-        /// graph, as copying them would keep the whole gref cover.
-        bool include_reference = false;
 
         /// Minimum length (in bp) for a piece of a gref fragment to be kept.
         size_t min_gref_length = MIN_GREF_LENGTH;
