@@ -17,7 +17,6 @@ namespace unittest {
 using namespace std;
 using multipass::ChildCrossing;
 using multipass::ChildCrossingFinder;
-using multipass::ChildCrossingFinders;
 
 namespace {
 
@@ -150,7 +149,7 @@ TEST_CASE("The crossing mask and the entry along a genotype read the walks that 
         REQUIRE_FALSE(known);
     }
     SECTION("The entry is along the first walk of the genotype that crosses the child") {
-        ChildCrossingFinders finders;
+        unordered_map<const Traversal*, ChildCrossingFinder> finders;
         REQUIRE(multipass::entry_bases_along_genotype(sites.overlay, sites.nested.graph, travs,
                                                       {0, 1}, edit, finders)
                 == 2);

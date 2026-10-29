@@ -82,7 +82,7 @@ void DescentPolicy::place(const Parent& parent, bool off_reference, bool keep_un
         walks.emplace_back(*decomposition, *graph, t);
     }
     // Make the crossing finder of each walk the first time a child's offset needs that walk.
-    ChildCrossingFinders offset_finders;
+    unordered_map<const Traversal*, ChildCrossingFinder> offset_finders;
     for (const net_handle_t& child : parent.nested.sites) {
         const ChildChain chain = chain_holding(*decomposition, *graph, child);
         // A chain the reference walk does not cross has no REF or POS for its records, so leave

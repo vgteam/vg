@@ -175,7 +175,7 @@ bool CandidateFinder::in_allele_length_range(const vector<Traversal>& walks) con
  * @return The index in `walks` of the reference walk, or -1 for none.
  */
 static int stand_in_reference(vector<Traversal>& travs,
-                              const ChildWalkSets* parent_child_walk_sets) {
+                              const vector<WalkSet>* parent_child_walk_sets) {
     if (parent_child_walk_sets == nullptr) {
         return -1;
     }
@@ -201,7 +201,7 @@ static int stand_in_reference(vector<Traversal>& travs,
 bool CandidateFinder::find(const handle_t& given_start, const handle_t& given_end,
                            const string& parent_ref_path_name,
                            pair<size_t, size_t> parent_ref_interval,
-                           const ChildWalkSets* parent_child_walk_sets, bool no_reference,
+                           const vector<WalkSet>* parent_child_walk_sets, bool no_reference,
                            WalkSite& site) const {
     // The bounds can be turned round to run forward along the reference.
     site.start = given_start;
@@ -279,14 +279,14 @@ bool CandidateFinder::find(const handle_t& given_start, const handle_t& given_en
 
 bool CandidateFinder::find(const Snarl& given_snarl, const string& parent_ref_path_name,
                            pair<size_t, size_t> parent_ref_interval,
-                           const ChildTraversalSets* parent_child_trav_sets, bool no_reference,
+                           const vector<TraversalSet>* parent_child_trav_sets, bool no_reference,
                            Site& site) const {
     site.snarl = given_snarl;
     if (!graph.has_node(given_snarl.start().node_id()) || !graph.has_node(given_snarl.end().node_id())) {
         // A site outside the graph cannot be called.
         return false;
     }
-    ChildWalkSets walk_sets;
+    vector<WalkSet> walk_sets;
     if (parent_child_trav_sets != nullptr) {
         for (const TraversalSet& set : *parent_child_trav_sets) {
             WalkSet& walks = walk_sets.emplace_back();

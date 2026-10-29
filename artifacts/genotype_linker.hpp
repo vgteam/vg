@@ -153,12 +153,15 @@ private:
     void revise_chain(StagedSiteTable& sites, size_t index,
                       const unordered_map<size_t, StagedSite*>& record_by_key,
                       const unordered_map<size_t, const PhaseCall*>& chosen,
-                      ChildCrossingFinders& crossing_finders,
+                      unordered_map<const Traversal*, ChildCrossingFinder>& crossing_finders,
                       PassCounts& counts);
 
     /// Move a nested chain to where it starts along the allele chosen for its parent.
+    ///
+    /// @param crossing_finders The crossing finder of each parent traversal, by its address,
+    /// filled as needed.
     void place_chain(StagedSite& pr, const StagedSite& parent,
-                     ChildCrossingFinders& crossing_finders) const;
+                     unordered_map<const Traversal*, ChildCrossingFinder>& crossing_finders) const;
 
     /// Find the traversals chosen for the parent of a nested chain, the second -1 for a haploid
     /// parent.

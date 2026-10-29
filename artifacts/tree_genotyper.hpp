@@ -167,14 +167,14 @@ private:
      */
     bool genotype_tree(const net_handle_t& view, const string& parent_ref_path_name,
                        pair<size_t, size_t> parent_ref_interval,
-                       const ChildWalkSets* parent_child_walk_sets, int ploidy_override,
+                       const vector<WalkSet>* parent_child_walk_sets, int ploidy_override,
                        const NestingPlacement& placement);
 
     /// Genotype a site of top-down calling against its parent's traversal sets, and record and
     /// stage it if it is on a reference path.
     ///
     /// @return False if the genotype does not have one allele per set.
-    bool genotype_in_parent_sets(SiteCall& call, const ChildWalkSets& sets);
+    bool genotype_in_parent_sets(SiteCall& call, const vector<WalkSet>& sets);
 
     /// Genotype a nested chain at the ploidy its parent gives it, and record and stage it as its
     /// placement says.

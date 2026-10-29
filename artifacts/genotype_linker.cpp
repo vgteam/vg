@@ -174,7 +174,7 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
     unordered_map<size_t, StagedSite*> record_by_key = sites.by_key();
     // The crossing finder of each parent traversal, keyed by address. The addresses stay valid
     // for the pass, and the traversals do not change after the direct pass.
-    ChildCrossingFinders crossing_finders;
+    unordered_map<const Traversal*, ChildCrossingFinder> crossing_finders;
 
     // Choose each level, then revise the chains of the next level from the parents just chosen.
     // Revising can add a chain at a deeper level, so `counts.levels` can grow.
@@ -222,7 +222,7 @@ unordered_map<size_t, const GenotypeLinker::PhaseCall*> GenotypeLinker::parent_p
 void GenotypeLinker::revise_chain(
     StagedSiteTable& sites, size_t index, const unordered_map<size_t, StagedSite*>& record_by_key,
     const unordered_map<size_t, const PhaseCall*>& chosen,
-    ChildCrossingFinders& crossing_finders, PassCounts& counts) {
+    unordered_map<const Traversal*, ChildCrossingFinder>& crossing_finders, PassCounts& counts) {
     StagedSite& pr = sites.nested()[index];
     const auto parent_record = record_by_key.find(pr.placement.parent_record_key);
     const StagedSite* parent =
@@ -295,7 +295,7 @@ void GenotypeLinker::revise_chain(
 
 void GenotypeLinker::place_chain(
     StagedSite& pr, const StagedSite& parent,
-    ChildCrossingFinders& crossing_finders) const {
+    unordered_map<const Traversal*, ChildCrossingFinder>& crossing_finders) const {
     const size_t offset =
         parent.placement.parent_offset
         + entry_bases_along_genotype(*reader.sites, *reader.graph, parent.alleles.walks,

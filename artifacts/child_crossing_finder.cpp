@@ -102,7 +102,7 @@ uint64_t crossing_mask(const vector<ChildCrossingFinder>& walks, const net_handl
 size_t entry_bases_along_genotype(const EditSnarlDecompositionOverlay& sites,
                                   const HandleGraph& graph, const vector<Traversal>& travs,
                                   const vector<int>& genotype, const net_handle_t& child,
-                                  ChildCrossingFinders& finders) {
+                                  unordered_map<const Traversal*, ChildCrossingFinder>& finders) {
     for (int allele : genotype) {
         if (allele < 0 || allele >= (int)travs.size()) {
             continue;

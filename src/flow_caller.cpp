@@ -95,7 +95,7 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                       const string& parent_ref_path_name,
                                       pair<size_t, size_t> parent_ref_interval,
-                                      const ChildTraversalSets* parent_child_trav_sets) {
+                                      const vector<TraversalSet>* parent_child_trav_sets) {
     // The reference path, the site oriented along it, and its candidate traversals.
     CandidateFinder::Site site;
     if (!candidates.find(managed_snarl, parent_ref_path_name, parent_ref_interval,
@@ -151,7 +151,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 }
 
 /// Add to `travs` each traversal of the traversal sets that `travs` does not have yet.
-static void add_traversal_sets(vector<SnarlTraversal>& travs, const ChildTraversalSets& sets) {
+static void add_traversal_sets(vector<SnarlTraversal>& travs, const vector<TraversalSet>& sets) {
     for (const TraversalSet& tset : sets) {
         for (const SnarlTraversal& trav : tset) {
             if (std::ranges::find(travs, trav) == travs.end()) {
@@ -162,7 +162,7 @@ static void add_traversal_sets(vector<SnarlTraversal>& travs, const ChildTravers
 }
 
 vector<int> FlowCaller::genotype_from_parent_sets(CandidateFinder::Site& site,
-                                                  const ChildTraversalSets& parent_sets,
+                                                  const vector<TraversalSet>& parent_sets,
                                                   unique_ptr<SnarlCaller::CallInfo>& call_info) {
     add_traversal_sets(site.travs, parent_sets);
 
@@ -210,10 +210,10 @@ bool FlowCaller::emit_site(const CandidateFinder::Site& site, const vector<int>&
     return true;
 }
 
-ChildTraversalSets FlowCaller::child_traversal_sets(const CandidateFinder::Site& site,
-                                                    const vector<int>& genotype,
-                                                    const Snarl& child) const {
-    ChildTraversalSets child_trav_sets;
+vector<TraversalSet> FlowCaller::child_traversal_sets(const CandidateFinder::Site& site,
+                                                      const vector<int>& genotype,
+                                                      const Snarl& child) const {
+    vector<TraversalSet> child_trav_sets;
     for (int allele_idx : genotype) {
         if (allele_idx >= 0 && allele_idx < site.travs.size()) {
             child_trav_sets.push_back(candidates.find_child_traversal_set(site.travs[allele_idx], child));
@@ -234,7 +234,7 @@ void FlowCaller::call_children(const CandidateFinder::Site& site, const vector<i
         if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
             continue;
         }
-        ChildTraversalSets child_trav_sets = child_traversal_sets(site, genotype, *child);
+        vector<TraversalSet> child_trav_sets = child_traversal_sets(site, genotype, *child);
         // Skip a child that no called allele visits.
         if (std::ranges::any_of(child_trav_sets, [](const TraversalSet& tset) { return !tset.empty(); })) {
             call_snarl_internal(*child, site.ref_path_name,

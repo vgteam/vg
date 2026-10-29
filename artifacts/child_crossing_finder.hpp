@@ -79,9 +79,6 @@ private:
 uint64_t crossing_mask(const vector<ChildCrossingFinder>& walks, const net_handle_t& child,
                        bool* known = nullptr);
 
-/// The crossing finder of each walk asked about so far, by the walk's address.
-using ChildCrossingFinders = unordered_map<const Traversal*, ChildCrossingFinder>;
-
 /**
  * Find how far along the first walk of `genotype` that crosses `child` the walk first enters it,
  * in bases, or 0 when none does.
@@ -92,7 +89,7 @@ using ChildCrossingFinders = unordered_map<const Traversal*, ChildCrossingFinder
 size_t entry_bases_along_genotype(const EditSnarlDecompositionOverlay& sites,
                                   const HandleGraph& graph, const vector<Traversal>& travs,
                                   const vector<int>& genotype, const net_handle_t& child,
-                                  ChildCrossingFinders& finders);
+                                  unordered_map<const Traversal*, ChildCrossingFinder>& finders);
 
 }
 

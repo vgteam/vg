@@ -24,16 +24,10 @@ using namespace std;
 /// There can be several if the child has variation of its own.
 using TraversalSet = vector<SnarlTraversal>;
 
-/// One TraversalSet per allele of a parent's genotype, in the order of the genotype.
-using ChildTraversalSets = vector<TraversalSet>;
-
 /// The walks through a child site that agree with one parent allele.
 ///
 /// There can be several if the child has variation of its own.
 using WalkSet = vector<Traversal>;
-
-/// One WalkSet per allele of a parent's genotype, in the order of the genotype.
-using ChildWalkSets = vector<WalkSet>;
 
 /**
  * A finder of what a caller genotypes a site against.
@@ -121,19 +115,21 @@ public:
      * allows it (off-reference nested calling). With parent walk sets, the first walk of the first
      * nonempty set stands in for its reference walk.
      *
+     * @param parent_child_walk_sets If not null, one WalkSet per allele of the parent's genotype,
+     * in the order of the genotype.
      * @return False, with `site` partly filled, if the site cannot be genotyped. That is when it
      * is one node, outside the graph, too big, outside the allele length range, or on no usable
      * reference path.
      */
     bool find(const handle_t& start, const handle_t& end, const string& parent_ref_path_name,
               pair<size_t, size_t> parent_ref_interval,
-              const ChildWalkSets* parent_child_walk_sets, bool no_reference,
+              const vector<WalkSet>* parent_child_walk_sets, bool no_reference,
               WalkSite& site) const;
 
     /// Fill `site` for `given_snarl`, as `find` does for its bounds.
     bool find(const Snarl& given_snarl, const string& parent_ref_path_name,
               pair<size_t, size_t> parent_ref_interval,
-              const ChildTraversalSets* parent_child_trav_sets, bool no_reference,
+              const vector<TraversalSet>* parent_child_trav_sets, bool no_reference,
               Site& site) const;
 
     /// Find the walks through the child site between `child_start` and `child_end` that agree

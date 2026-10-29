@@ -159,7 +159,7 @@ struct TreeGenotyper::SiteCall {
 
 bool TreeGenotyper::genotype_tree(const net_handle_t& view, const string& parent_ref_path_name,
                                   pair<size_t, size_t> parent_ref_interval,
-                                  const ChildWalkSets* parent_child_walk_sets,
+                                  const vector<WalkSet>* parent_child_walk_sets,
                                   int ploidy_override, const NestingPlacement& placement) {
     SiteCall call{view, placement};
     const auto [view_start, view_end] = oriented_ends(*parts.sites, *parts.graph, view);
@@ -214,7 +214,7 @@ bool TreeGenotyper::genotype_tree(const net_handle_t& view, const string& parent
 }
 
 /// Add each walk in the parent's walk sets that `walks` does not already hold.
-static void merge_parent_sets(vector<Traversal>& walks, const ChildWalkSets& sets) {
+static void merge_parent_sets(vector<Traversal>& walks, const vector<WalkSet>& sets) {
     for (const WalkSet& set : sets) {
         for (const Traversal& walk : set) {
             if (std::find(walks.begin(), walks.end(), walk) == walks.end()) {
@@ -224,7 +224,7 @@ static void merge_parent_sets(vector<Traversal>& walks, const ChildWalkSets& set
     }
 }
 
-bool TreeGenotyper::genotype_in_parent_sets(SiteCall& call, const ChildWalkSets& sets) {
+bool TreeGenotyper::genotype_in_parent_sets(SiteCall& call, const vector<WalkSet>& sets) {
     // The child has one strand per parent allele.
     call.ploidy = sets.size();
     merge_parent_sets(call.site.walks, sets);
@@ -450,7 +450,7 @@ void TreeGenotyper::descend_top_down(const SiteCall& call) {
         const auto [child_start, child_end] = oriented_ends(*parts.sites, *parts.graph, child);
         // Find, for each parent allele, the traversals of the child that agree with it. A star
         // or missing allele gets an empty set.
-        ChildWalkSets child_trav_sets;
+        vector<WalkSet> child_trav_sets;
         bool any_real_traversals = false;
         for (int allele_idx : call.genotype) {
             if (allele_idx >= 0 && allele_idx < travs.size()) {

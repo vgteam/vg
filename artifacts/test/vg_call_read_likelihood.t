@@ -1603,7 +1603,7 @@ vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenoty
 is "$?" "1" "and so is a ceiling above 1"
 
 # The one combination the correction genuinely cannot be made safe in. `--top-down` builds each
-# child's ChildTraversalSets out of its parent's CALLED genotype, and those sets decide the child's
+# child's traversal sets out of its parent's CALLED genotype, and those sets decide the child's
 # ploidy, are merged into its candidate list and supply its pseudo-reference -- so moving a parent
 # leaves the child scored against alleles the parent no longer carries, and no amount of
 # re-resolving repairs that, because the columns were never in the matrix. The read-likelihood

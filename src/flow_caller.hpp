@@ -146,7 +146,7 @@ protected:
     bool call_snarl_internal(const Snarl& snarl,
                              const string& parent_ref_path_name,
                              pair<size_t, size_t> parent_ref_interval,
-                             const ChildTraversalSets* parent_child_trav_sets = nullptr);
+                             const vector<TraversalSet>* parent_child_trav_sets = nullptr);
 
     /**
      * Genotype a nested site from the traversal sets that its parent's genotype gives it.
@@ -161,7 +161,7 @@ protected:
      * @return One allele per strand.
      */
     vector<int> genotype_from_parent_sets(CandidateFinder::Site& site,
-                                          const ChildTraversalSets& parent_sets,
+                                          const vector<TraversalSet>& parent_sets,
                                           unique_ptr<SnarlCaller::CallInfo>& call_info);
 
     /// Write the record of a genotyped site, as VCF or as GAF.
@@ -176,8 +176,9 @@ protected:
 
     /// Return, for each strand of the genotype of a site, the traversals of `child` that agree
     /// with the traversal of its allele. A star or missing allele gets an empty set.
-    ChildTraversalSets child_traversal_sets(const CandidateFinder::Site& site,
-                                            const vector<int>& genotype, const Snarl& child) const;
+    vector<TraversalSet> child_traversal_sets(const CandidateFinder::Site& site,
+                                              const vector<int>& genotype,
+                                              const Snarl& child) const;
 };
 
 }
