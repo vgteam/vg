@@ -150,24 +150,18 @@ int main_unitigs(int argc, char** argv) {
     for (size_t i = 0; i < tigs.size(); i++) {
         const Tig& tig = tigs[i];
         string name = "u" + to_string(i + 1);
+        const string& placement = tig.placement.text;
         cout << '>' << name;
-        if (!tig.gref.empty()) {
-            cout << ' ' << tig.gref;
+        if (!placement.empty()) {
+            cout << ' ' << placement;
         }
-        cout << '\n' << tig_sequence(gbz.graph, tig) << '\n';
+        cout << '\n' << tig.interval.sequence(gbz.graph) << '\n';
 
         if (gaf.is_open()) {
-            size_t path_length = 0;
-            gaf << name << '\t' << tig.length << "\t0\t" << tig.length << "\t+\t";
-            for (const handle_t& handle : tig.walk) {
-                gaf << (gbz.graph.get_is_reverse(handle) ? '<' : '>') << gbz.graph.get_id(handle);
-                path_length += gbz.graph.get_length(handle);
-            }
-            gaf << '\t' << path_length << '\t' << tig.offset << '\t' << (tig.offset + tig.length)
-                << '\t' << tig.length << '\t' << tig.length << "\t255"
-                << "\tsp:i:" << tig.support;
-            if (!tig.gref.empty()) {
-                gaf << "\tgr:Z:" << tig.gref;
+            write_gaf_columns(gaf, gbz.graph, name, tig.interval);
+            gaf << "\tsp:i:" << tig.support;
+            if (!placement.empty()) {
+                gaf << "\tgr:Z:" << placement;
             }
             gaf << '\n';
         }

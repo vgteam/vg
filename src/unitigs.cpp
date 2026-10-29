@@ -9,7 +9,8 @@
 
 #include <algorithm>
 #include <cctype>
-#include <functional>
+#include <ostream>
+#include <sstream>
 #include <stdexcept>
 
 #include <omp.h>
@@ -22,34 +23,157 @@ using gbwtgraph::GBWTGraph;
 
 //------------------------------------------------------------------------------
 
-namespace {
+std::string WalkInterval::sequence(const GBWTGraph& graph) const {
+    std::string result;
+    result.reserve(length);
+    size_t skip = offset;
+    for (const handle_t& handle : walk) {
+        std::string_view view = graph.get_sequence_view(handle);
+        size_t take = std::min(view.size() - skip, length - result.size());
+        result.append(view.substr(skip, take));
+        skip = 0;
+    }
+    return result;
+}
 
-/// Call visit(path_id, name, shift) for each GBWT path whose name starts with the
-/// prefix. The name has any subrange removed, and shift is where the subrange starts.
-void for_each_path_named(const gbwt::GBWT& index, const std::string& name_prefix,
+WalkInterval WalkInterval::reverse(const GBWTGraph& graph) const {
+    WalkInterval result;
+    result.walk.reserve(walk.size());
+    for (auto it = walk.rbegin(); it != walk.rend(); ++it) {
+        result.walk.push_back(graph.flip(*it));
+    }
+    result.offset = walk_length(graph) - (offset + length);
+    result.length = length;
+    return result;
+}
+
+WalkInterval WalkInterval::subinterval(const GBWTGraph& graph, size_t start, size_t end) const {
+    WalkInterval result;
+    result.length = end - start;
+    // Walk coordinates of the first base and of the base after the last.
+    size_t from = offset + start, to = offset + end;
+    size_t node_start = 0;
+    for (const handle_t& handle : walk) {
+        size_t node_end = node_start + graph.get_length(handle);
+        if (node_end > from) {
+            if (result.walk.empty()) {
+                result.offset = from - node_start;
+            }
+            result.walk.push_back(handle);
+        }
+        if (node_end >= to) {
+            break;
+        }
+        node_start = node_end;
+    }
+    return result;
+}
+
+size_t WalkInterval::walk_length(const GBWTGraph& graph) const {
+    size_t total = 0;
+    for (const handle_t& handle : walk) {
+        total += graph.get_length(handle);
+    }
+    return total;
+}
+
+void write_gaf_columns(std::ostream& out, const GBWTGraph& graph, const std::string& name,
+                       const WalkInterval& interval) {
+    out << name << '\t' << interval.length << "\t0\t" << interval.length << "\t+\t";
+    for (const handle_t& handle : interval.walk) {
+        out << (graph.get_is_reverse(handle) ? '<' : '>') << graph.get_id(handle);
+    }
+    out << '\t' << interval.walk_length(graph) << '\t' << interval.offset << '\t'
+        << (interval.offset + interval.length) << '\t' << interval.length << '\t' << interval.length << "\t255";
+}
+
+WalkInterval parse_gaf_columns(const std::string& line, const GBWTGraph& graph, std::string& name) {
+    auto fail = [&](const std::string& problem) {
+        throw std::runtime_error(problem + " in GAF line: " + line);
+    };
+    std::vector<std::string> columns;
+    std::stringstream stream(line);
+    std::string column;
+    while (columns.size() < 12 && std::getline(stream, column, '\t')) {
+        columns.push_back(column);
+    }
+    if (columns.size() < 12) {
+        fail("fewer than 12 columns");
+    }
+    auto number = [&](const std::string& text) -> size_t {
+        size_t used = 0;
+        size_t value = 0;
+        try {
+            value = std::stoull(text, &used);
+        } catch (const std::exception&) {
+            used = 0;
+        }
+        if (used == 0 || used != text.size()) {
+            fail("bad number " + text);
+        }
+        return value;
+    };
+
+    name = columns[0];
+    WalkInterval interval;
+    const std::string& walk = columns[5];
+    for (size_t i = 0; i < walk.size();) {
+        if (walk[i] != '>' && walk[i] != '<') {
+            fail("not a walk of node IDs");
+        }
+        size_t j = walk.find_first_of("<>", i + 1);
+        if (j == std::string::npos) {
+            j = walk.size();
+        }
+        nid_t id = number(walk.substr(i + 1, j - i - 1));
+        if (!graph.has_node(id)) {
+            fail("node " + std::to_string(id) + " not in the graph");
+        }
+        interval.walk.push_back(graph.get_handle(id, walk[i] == '<'));
+        i = j;
+    }
+    size_t start = number(columns[7]), end = number(columns[8]);
+    if (interval.walk.empty() || start >= end || end > interval.walk_length(graph)) {
+        fail("bad walk or path coordinates");
+    }
+    interval.offset = start;
+    interval.length = end - start;
+    // Trim the walk to the nodes that hold the interval's bases.
+    return interval.subinterval(graph, 0, interval.length);
+}
+
+void for_each_path_start(const gbwt::GBWT& index,
                          const std::function<void(gbwt::size_type, const std::string&, uint64_t)>& visit) {
     if (!index.hasMetadata() || !index.metadata.hasPathNames()) {
         return;
     }
+    using handlegraph::PathMetadata;
+    using handlegraph::PathSense;
     gbwtgraph::sample_name_set reference_samples = gbwtgraph::parse_reference_samples_tag(index);
     for (gbwt::size_type path_id = 0; path_id < index.metadata.paths(); path_id++) {
-        // A gref copy of a generic path has no sample, so match the whole name.
-        handlegraph::PathSense sense = gbwtgraph::get_path_sense(index, path_id, reference_samples);
-        std::string name = gbwtgraph::compose_path_name(index, path_id, sense);
-        if (name.compare(0, name_prefix.size(), name_prefix) != 0) {
-            continue;
+        PathSense sense = gbwtgraph::get_path_sense(index, path_id, reference_samples);
+        std::string sample = gbwtgraph::get_path_sample_name(index, path_id, sense);
+        std::string locus = gbwtgraph::get_path_locus_name(index, path_id, sense);
+        size_t haplotype = gbwtgraph::get_path_haplotype(index, path_id, sense);
+        uint64_t start = 0;
+        if (sense == PathSense::HAPLOTYPE) {
+            start = gbwtgraph::get_path_phase_block(index, path_id, sense);
+            // Compose the name as a reference path name. That is the haplotype
+            // path name without the phase block.
+            sense = PathSense::REFERENCE;
+        } else {
+            handlegraph::subrange_t subrange = gbwtgraph::get_path_subrange(index, path_id, sense);
+            if (subrange != PathMetadata::NO_SUBRANGE) {
+                start = subrange.first;
+            }
         }
-        uint64_t shift = 0;
-        handlegraph::subrange_t subrange = gbwtgraph::get_path_subrange(index, path_id, sense);
-        if (subrange != handlegraph::PathMetadata::NO_SUBRANGE) {
-            shift = subrange.first;
-            name = name.substr(0, name.rfind('['));
-        }
-        visit(path_id, name, shift);
+        std::string name = PathMetadata::create_path_name(sense, sample, locus, haplotype,
+                                                          PathMetadata::NO_PHASE_BLOCK, PathMetadata::NO_SUBRANGE);
+        visit(path_id, name, start);
     }
 }
 
-}
+//------------------------------------------------------------------------------
 
 GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) : graph(gbz.graph) {
     const gbwt::GBWT& index = gbz.index;
@@ -58,12 +182,12 @@ GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) 
         positions.resize(graph.max_node_id() - min_id + 1);
     }
 
-    for_each_path_named(index, name_prefix, [&](gbwt::size_type path_id, const std::string& name, uint64_t shift) {
-        uint32_t rank = names.size();
-        names.push_back(name);
-        shifts.push_back(shift);
-        step_starts.emplace_back();
-        step_handles.emplace_back();
+    for_each_path_start(index, [&](gbwt::size_type path_id, const std::string& name, uint64_t start) {
+        if (name.compare(0, name_prefix.size(), name_prefix) != 0) {
+            return;
+        }
+        uint32_t rank = paths.size();
+        paths.push_back({ name, start, {} });
         uint64_t coord = 0;
         for (gbwt::node_type node : index.extract(gbwt::Path::encode(path_id, false))) {
             handle_t handle = GBWTGraph::node_to_handle(node);
@@ -76,11 +200,28 @@ GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) 
                 // The gref should be node-disjoint. Keep the first visit.
                 repeats++;
             }
-            step_starts.back().push_back(coord);
-            step_handles.back().push_back(handle);
+            paths.back().steps.push_back({ coord, handle });
             coord += graph.get_length(handle);
         }
     });
+
+    // Find each path by the names vg paths gives a path with a subrange,
+    // NAME[START] and NAME[START-END], and by NAME alone where it is unique.
+    std::unordered_map<std::string, size_t> name_counts;
+    for (const Path& path : paths) {
+        name_counts[path.name]++;
+    }
+    for (uint32_t rank = 0; rank < paths.size(); rank++) {
+        const Path& path = paths[rank];
+        if (name_counts[path.name] == 1) {
+            path_ranks[path.name] = rank;
+        }
+        if (path.shift > 0) {
+            std::string start = std::to_string(path.shift);
+            path_ranks[path.name + '[' + start + ']'] = rank;
+            path_ranks[path.name + '[' + start + '-' + std::to_string(path.shift + path_length(rank)) + ']'] = rank;
+        }
+    }
 }
 
 const GrefIndex::Position& GrefIndex::find(nid_t id) const {
@@ -91,23 +232,81 @@ const GrefIndex::Position& GrefIndex::find(nid_t id) const {
     return positions[id - min_id];
 }
 
+uint64_t GrefIndex::path_length(uint32_t path) const {
+    const std::vector<Step>& steps = paths[path].steps;
+    return steps.empty() ? 0 : steps.back().start + graph.get_length(steps.back().handle);
+}
+
+uint32_t GrefIndex::find_path(const std::string& name) const {
+    auto found = path_ranks.find(name);
+    return found == path_ranks.end() ? NO_PATH : found->second;
+}
+
+namespace {
+
+/// Return the index of the step that holds the given path coordinate.
+template<typename Steps>
+size_t step_at(const Steps& steps, uint64_t coord) {
+    auto after = std::upper_bound(steps.begin(), steps.end(), coord, [](uint64_t c, const auto& step) {
+        return c < step.start;
+    });
+    return after - steps.begin() - 1;
+}
+
+}
+
+WalkInterval GrefIndex::interval(uint32_t path, uint64_t start, uint64_t end) const {
+    const std::vector<Step>& steps = paths[path].steps;
+    size_t first = step_at(steps, start), last = step_at(steps, end - 1);
+    WalkInterval result;
+    for (size_t step = first; step <= last; step++) {
+        result.walk.push_back(steps[step].handle);
+    }
+    result.offset = start - steps[first].start;
+    result.length = end - start;
+    return result;
+}
+
 char GrefIndex::base(uint32_t path, uint64_t coord) const {
-    const std::vector<uint64_t>& starts = step_starts[path];
-    size_t step = std::upper_bound(starts.begin(), starts.end(), coord) - starts.begin() - 1;
-    return graph.get_sequence_view(step_handles[path][step])[coord - starts[step]];
+    const std::vector<Step>& steps = paths[path].steps;
+    const Step& step = steps[step_at(steps, coord)];
+    return graph.get_sequence_view(step.handle)[coord - step.start];
 }
 
 uint64_t GrefIndex::total_length() const {
     uint64_t total = 0;
-    for (size_t path = 0; path < names.size(); path++) {
-        if (!step_starts[path].empty()) {
-            total += step_starts[path].back() + graph.get_length(step_handles[path].back());
-        }
+    for (uint32_t path = 0; path < paths.size(); path++) {
+        total += path_length(path);
     }
     return total;
 }
 
-//------------------------------------------------------------------------------
+std::vector<GrefIndex::Run> GrefIndex::runs(const WalkInterval& interval) const {
+    std::vector<Run> result;
+    size_t node_start = 0;
+    for (const handle_t& handle : interval.walk) {
+        size_t node_length = graph.get_length(handle);
+        const Position& position = find(graph.get_id(handle));
+        // Walk coordinates of the bases of the interval on this node.
+        size_t from = std::max(node_start, interval.offset);
+        size_t to = std::min(node_start + node_length, interval.offset + interval.length);
+        if (position.path != NO_PATH && from < to) {
+            bool is_reverse = (graph.get_is_reverse(handle) != position.is_reverse);
+            uint64_t coord = is_reverse ? position.offset + node_length - 1 - (from - node_start)
+                                        : position.offset + (from - node_start);
+            from -= interval.offset;
+            to -= interval.offset;
+            if (!result.empty() && result.back().end == from && result.back().path == position.path &&
+                result.back().is_reverse == is_reverse && result.back().coord_at(from) == coord) {
+                result.back().end = to;
+            } else {
+                result.push_back({ from, to, position.path, is_reverse, coord });
+            }
+        }
+        node_start += node_length;
+    }
+    return result;
+}
 
 namespace {
 
@@ -121,22 +320,7 @@ char complement(char base) {
     }
 }
 
-/// A stretch of tig bases that lies contiguously along one gref path.
-struct GrefRun {
-    size_t begin, end;
-    uint32_t path;
-    /// Path coordinates decrease along the tig.
-    bool is_reverse;
-    /// Path coordinate of the base at begin.
-    uint64_t coord;
-
-    uint64_t coord_at(size_t position) const {
-        return is_reverse ? coord - (position - begin) : coord + (position - begin);
-    }
-    uint64_t last() const { return coord_at(end - 1); }
-};
-
-/// A placement of part of a tig on one gref path.
+/// A placement of part of an interval on one gref path.
 struct Segment {
     uint32_t path;
     bool is_reverse;
@@ -156,6 +340,96 @@ struct Segment {
         }
     }
 };
+
+}
+
+GrefPlacement GrefIndex::place(const WalkInterval& interval) const {
+    GrefPlacement placement;
+    std::vector<Run> runs = this->runs(interval);
+    for (const Run& run : runs) {
+        (run.is_reverse ? placement.reverse_bases : placement.forward_bases) += run.end - run.begin;
+    }
+    placement.along_one_path = (runs.size() == 1 && runs.front().begin == 0 && runs.front().end == interval.length);
+    // Only bases between two runs can be substitutions, which need the bases
+    // to compare with the gref.
+    std::string sequence;
+    if (runs.size() > 1) {
+        sequence = interval.sequence(graph);
+    }
+
+    std::vector<Segment> segments;
+    size_t position = 0;
+    for (const Run& run : runs) {
+        size_t inserted = run.begin - position;
+        bool continues = false;
+        int64_t deleted = 0;
+        if (!segments.empty() && segments.back().path == run.path && segments.back().is_reverse == run.is_reverse) {
+            deleted = run.is_reverse ? segments.back().next - int64_t(run.coord) : int64_t(run.coord) - segments.back().next;
+            continues = (deleted >= 0);
+        }
+        if (continues) {
+            Segment& segment = segments.back();
+            if (inserted == size_t(deleted)) {
+                // A substitution: compare the bases.
+                for (size_t t = 0; t < inserted; t++) {
+                    int64_t coord = run.is_reverse ? segment.next - int64_t(t) : segment.next + int64_t(t);
+                    char gref_base = base(run.path, coord);
+                    if (run.is_reverse) {
+                        gref_base = complement(gref_base);
+                    }
+                    segment.add(1, std::toupper(sequence[position + t]) == std::toupper(gref_base) ? '=' : 'X');
+                }
+            } else {
+                segment.add(deleted, 'D');
+                segment.add(inserted, 'I');
+            }
+        } else {
+            if (!segments.empty()) {
+                // Bases between placements on different paths go with the earlier one.
+                segments.back().add(inserted, 'I');
+            }
+            segments.push_back({ run.path, run.is_reverse, run.coord, run.coord, 0, {} });
+            if (segments.size() == 1) {
+                segments.back().add(inserted, 'I');
+            }
+        }
+        Segment& segment = segments.back();
+        segment.add(run.end - run.begin, '=');
+        segment.low = std::min({ segment.low, run.coord, run.last() });
+        segment.high = std::max({ segment.high, run.coord, run.last() });
+        segment.next = run.is_reverse ? int64_t(run.last()) - 1 : int64_t(run.last()) + 1;
+        position = run.end;
+    }
+    size_t trailing = interval.length - position;
+
+    if (segments.empty()) {
+        placement.text = "*:" + std::to_string(trailing) + "I";
+        return placement;
+    }
+    segments.back().add(trailing, 'I');
+    placement.path = segments.front().path;
+    placement.coord = segments.front().low;
+    for (Segment& segment : segments) {
+        if (segment.is_reverse) {
+            // CIGARs are in path order.
+            std::reverse(segment.cigar.begin(), segment.cigar.end());
+        }
+        if (!placement.text.empty()) {
+            placement.text += ',';
+        }
+        uint64_t shift = path_shift(segment.path) + 1;
+        placement.text += path_name(segment.path) + ':' + std::to_string(segment.low + shift) + '-' +
+                          std::to_string(segment.high + shift) + ':' + (segment.is_reverse ? '-' : '+') + ':';
+        for (const auto& op : segment.cigar) {
+            placement.text += std::to_string(op.first) + op.second;
+        }
+    }
+    return placement;
+}
+
+//------------------------------------------------------------------------------
+
+namespace {
 
 struct Extension {
     handle_t handle;
@@ -356,186 +630,53 @@ private:
         }
         statistics.unitigs++;
 
-        // Find where the unitig lies on the gref.
-        size_t end = last + k;
-        std::vector<GrefRun> runs;
+        auto nodes = overlapping(first, last + k);
+        WalkInterval unitig { std::vector<handle_t>(walk.begin() + nodes.first, walk.begin() + nodes.second),
+                              first - starts[nodes.first], last + k - first };
+        std::vector<GrefIndex::Run> runs;
         if (gref != nullptr) {
-            auto nodes = overlapping(first, end);
-            for (size_t i = nodes.first; i < nodes.second; i++) {
-                const GrefIndex::Position& position = gref->find(graph.get_id(walk[i]));
-                if (position.path == GrefIndex::NO_PATH) {
-                    continue;
-                }
-                size_t from = std::max(starts[i], first), to = std::min(starts[i + 1], end);
-                size_t node_length = starts[i + 1] - starts[i];
-                bool is_reverse = (graph.get_is_reverse(walk[i]) != position.is_reverse);
-                uint64_t coord = is_reverse ? position.offset + node_length - 1 - (from - starts[i])
-                                            : position.offset + (from - starts[i]);
-                if (!runs.empty() && runs.back().end == from && runs.back().path == position.path &&
-                    runs.back().is_reverse == is_reverse && runs.back().coord_at(from) == coord) {
-                    runs.back().end = to;
-                } else {
-                    runs.push_back({ from, to, position.path, is_reverse, coord });
-                }
-            }
+            runs = gref->runs(unitig);
         }
 
-        // The k-mers within a run are in the gref sequence. Report the stretches between them.
-        size_t piece_start = first;
-        for (const GrefRun& run : runs) {
+        // The k-mers within a run are in the gref sequence. Report the stretches
+        // between them. Positions are in unitig coordinates from here on.
+        size_t piece_start = 0, last_kmer = unitig.length - k;
+        for (const GrefIndex::Run& run : runs) {
             if (run.end - run.begin < k) {
                 continue;
             }
             if (run.begin > piece_start) {
-                report(walk, starts, piece_start, run.begin - 1, support, runs);
+                report(unitig, piece_start, run.begin - 1, support);
             }
             piece_start = std::max(piece_start, run.end - k + 1);
         }
-        if (piece_start <= last) {
-            report(walk, starts, piece_start, last, support, runs);
+        if (piece_start <= last_kmer) {
+            report(unitig, piece_start, last_kmer, support);
         }
     }
 
-    /// Report the tig consisting of the k-mers starting at [first, last].
-    void report(const std::vector<handle_t>& walk, const std::vector<size_t>& starts,
-                size_t first, size_t last, size_t support, const std::vector<GrefRun>& runs) {
-        size_t end = last + k;
-        size_t i = std::upper_bound(starts.begin(), starts.end(), first) - starts.begin() - 1;
-        size_t j = std::lower_bound(starts.begin(), starts.end(), end) - starts.begin();
-
+    /// Report the tig made of the k-mers of the unitig that start at positions first to last.
+    void report(const WalkInterval& unitig, size_t first, size_t last, size_t support) {
         Tig tig;
-        tig.walk.assign(walk.begin() + i, walk.begin() + j);
-        tig.offset = first - starts[i];
-        tig.length = end - first;
+        tig.interval = unitig.subinterval(graph, first, last + k);
         tig.support = support;
-
-        // Runs in tig coordinates.
-        std::vector<GrefRun> local;
-        for (const GrefRun& run : runs) {
-            if (run.end <= first || run.begin >= end) {
-                continue;
-            }
-            GrefRun clipped = run;
-            clipped.begin = std::max(run.begin, first);
-            clipped.end = std::min(run.end, end);
-            clipped.coord = run.coord_at(clipped.begin);
-            clipped.begin -= first;
-            clipped.end -= first;
-            local.push_back(clipped);
-        }
-
         if (gref != nullptr) {
             // Use the orientation with the most bases on forward gref strands.
-            size_t forward_bases = 0, reverse_bases = 0;
-            for (const GrefRun& run : local) {
-                (run.is_reverse ? reverse_bases : forward_bases) += run.end - run.begin;
+            tig.placement = gref->place(tig.interval);
+            if (tig.placement.reverse_bases > tig.placement.forward_bases) {
+                tig.interval = tig.interval.reverse(graph);
+                tig.placement = gref->place(tig.interval);
             }
-            if (reverse_bases > forward_bases) {
-                flip(tig, local);
+            if (tig.placement.path == GrefIndex::NO_PATH) {
+                statistics.unanchored++;
             }
-            describe(tig, local, tig_sequence(graph, tig));
         }
 
         statistics.tigs++;
-        statistics.bases += tig.length;
-        statistics.kmers += tig.length - k + 1;
-        statistics.longest = std::max(statistics.longest, tig.length);
+        statistics.bases += tig.interval.length;
+        statistics.kmers += tig.interval.length - k + 1;
+        statistics.longest = std::max(statistics.longest, tig.interval.length);
         output.push_back(std::move(tig));
-    }
-
-    void flip(Tig& tig, std::vector<GrefRun>& runs) const {
-        size_t walk_length = 0;
-        for (const handle_t& handle : tig.walk) {
-            walk_length += graph.get_length(handle);
-        }
-        size_t length = tig.length;
-        std::reverse(tig.walk.begin(), tig.walk.end());
-        for (handle_t& handle : tig.walk) {
-            handle = graph.flip(handle);
-        }
-        tig.offset = walk_length - (tig.offset + length);
-        std::reverse(runs.begin(), runs.end());
-        for (GrefRun& run : runs) {
-            uint64_t coord = run.last();
-            size_t begin = length - run.end;
-            run.end = length - run.begin;
-            run.begin = begin;
-            run.coord = coord;
-            run.is_reverse = !run.is_reverse;
-        }
-    }
-
-    /// Describe where the tig, which spells the given sequence, lies on the gref,
-    /// as segments with CIGARs.
-    void describe(Tig& tig, const std::vector<GrefRun>& runs, const std::string& sequence) {
-        std::vector<Segment> segments;
-        size_t position = 0;
-        for (const GrefRun& run : runs) {
-            size_t inserted = run.begin - position;
-            bool continues = false;
-            int64_t deleted = 0;
-            if (!segments.empty() && segments.back().path == run.path && segments.back().is_reverse == run.is_reverse) {
-                deleted = run.is_reverse ? segments.back().next - int64_t(run.coord) : int64_t(run.coord) - segments.back().next;
-                continues = (deleted >= 0);
-            }
-            if (continues) {
-                Segment& segment = segments.back();
-                if (inserted == size_t(deleted)) {
-                    // A substitution: compare the bases.
-                    for (size_t t = 0; t < inserted; t++) {
-                        int64_t coord = run.is_reverse ? segment.next - int64_t(t) : segment.next + int64_t(t);
-                        char base = gref->base(run.path, coord);
-                        if (run.is_reverse) {
-                            base = complement(base);
-                        }
-                        segment.add(1, std::toupper(sequence[position + t]) == std::toupper(base) ? '=' : 'X');
-                    }
-                } else {
-                    segment.add(deleted, 'D');
-                    segment.add(inserted, 'I');
-                }
-            } else {
-                if (!segments.empty()) {
-                    // Bases between placements on different paths go with the earlier one.
-                    segments.back().add(inserted, 'I');
-                }
-                segments.push_back({ run.path, run.is_reverse, run.coord, run.coord, 0, {} });
-                if (segments.size() == 1) {
-                    segments.back().add(inserted, 'I');
-                }
-            }
-            Segment& segment = segments.back();
-            segment.add(run.end - run.begin, '=');
-            segment.low = std::min({ segment.low, run.coord, run.last() });
-            segment.high = std::max({ segment.high, run.coord, run.last() });
-            segment.next = run.is_reverse ? int64_t(run.last()) - 1 : int64_t(run.last()) + 1;
-            position = run.end;
-        }
-        size_t trailing = tig.length - position;
-
-        if (segments.empty()) {
-            tig.gref = "*:" + std::to_string(trailing) + "I";
-            statistics.unanchored++;
-            return;
-        }
-        segments.back().add(trailing, 'I');
-        tig.sort_path = segments.front().path;
-        tig.sort_coord = segments.front().low;
-        for (Segment& segment : segments) {
-            if (segment.is_reverse) {
-                // CIGARs are in path order.
-                std::reverse(segment.cigar.begin(), segment.cigar.end());
-            }
-            if (!tig.gref.empty()) {
-                tig.gref += ',';
-            }
-            uint64_t shift = gref->path_shift(segment.path) + 1;
-            tig.gref += gref->path_name(segment.path) + ':' + std::to_string(segment.low + shift) + '-' +
-                        std::to_string(segment.high + shift) + ':' + (segment.is_reverse ? '-' : '+') + ':';
-            for (const auto& op : segment.cigar) {
-                tig.gref += std::to_string(op.first) + op.second;
-            }
-        }
     }
 };
 
@@ -568,25 +709,27 @@ std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefI
     }
     // Sort along the gref, then by the walk, so that the order does not depend on threads.
     std::sort(tigs.begin(), tigs.end(), [](const Tig& a, const Tig& b) {
-        if (a.sort_path != b.sort_path) {
-            return a.sort_path < b.sort_path;
+        if (a.placement.path != b.placement.path) {
+            return a.placement.path < b.placement.path;
         }
-        if (a.sort_coord != b.sort_coord) {
-            return a.sort_coord < b.sort_coord;
+        if (a.placement.coord != b.placement.coord) {
+            return a.placement.coord < b.placement.coord;
         }
-        for (size_t i = 0; i < std::min(a.walk.size(), b.walk.size()); i++) {
-            gbwt::node_type x = GBWTGraph::handle_to_node(a.walk[i]), y = GBWTGraph::handle_to_node(b.walk[i]);
-            if (x != y) {
-                return x < y;
+        const WalkInterval& x = a.interval;
+        const WalkInterval& y = b.interval;
+        for (size_t i = 0; i < std::min(x.walk.size(), y.walk.size()); i++) {
+            gbwt::node_type m = GBWTGraph::handle_to_node(x.walk[i]), n = GBWTGraph::handle_to_node(y.walk[i]);
+            if (m != n) {
+                return m < n;
             }
         }
-        if (a.walk.size() != b.walk.size()) {
-            return a.walk.size() < b.walk.size();
+        if (x.walk.size() != y.walk.size()) {
+            return x.walk.size() < y.walk.size();
         }
-        if (a.offset != b.offset) {
-            return a.offset < b.offset;
+        if (x.offset != y.offset) {
+            return x.offset < y.offset;
         }
-        return a.length < b.length;
+        return x.length < y.length;
     });
 
     if (statistics != nullptr) {
@@ -603,23 +746,13 @@ std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefI
     return tigs;
 }
 
-std::string tig_sequence(const GBWTGraph& graph, const Tig& tig) {
-    std::string sequence;
-    sequence.reserve(tig.length);
-    size_t skip = tig.offset;
-    for (const handle_t& handle : tig.walk) {
-        std::string_view view = graph.get_sequence_view(handle);
-        size_t take = std::min(view.size() - skip, tig.length - sequence.size());
-        sequence.append(view.substr(skip, take));
-        skip = 0;
-    }
-    return sequence;
-}
-
 std::vector<std::pair<std::string, size_t>> unsupported_gref_paths(const gbwtgraph::GBZ& gbz,
                                                                    const std::string& name_prefix) {
     std::vector<std::pair<std::string, size_t>> result;
-    for_each_path_named(gbz.index, name_prefix, [&](gbwt::size_type path_id, const std::string& name, uint64_t) {
+    for_each_path_start(gbz.index, [&](gbwt::size_type path_id, const std::string& name, uint64_t) {
+        if (name.compare(0, name_prefix.size(), name_prefix) != 0) {
+            return;
+        }
         std::vector<handle_t> walk;
         size_t length = 0;
         for (gbwt::node_type node : gbz.index.extract(gbwt::Path::encode(path_id, false))) {
