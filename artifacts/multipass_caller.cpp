@@ -153,7 +153,7 @@ public:
     /// too, and which must outlive the emitter.
     StagedSiteEmitter(MultiPassCaller& caller, const PathPositionHandleGraph& graph,
                       const StagedSite& site, const AlleleSplicer::SplicedAlleles* spliced) :
-        SiteEmitter(caller.output), caller(caller), graph(graph), site(site), spliced(spliced),
+        SiteEmitter(caller.output, caller.genotype_snarls), caller(caller), graph(graph), site(site), spliced(spliced),
         site_steps(spliced != nullptr ? AlleleSequences() : site.alleles.all_step_sequences(graph)) {
     }
 
@@ -190,8 +190,7 @@ protected:
     }
 
     int write_blocks(const PathPositionHandleGraph&, const vector<int>& genotype,
-                     int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout,
-                     bool genotype_snarls) override {
+                     int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout) override {
         // The blocks spell the alleles the site record spells.
         return caller.block_records.write(
             graph, site.children, spliced != nullptr ? spliced->travs : site.alleles.walks,
@@ -450,7 +449,7 @@ void MultiPassCaller::render_retained_records() {
             AlleleSplicer::SplicedAlleles spliced;
             const bool is_spliced = splicer.splice(site, spliced);
             StagedSiteEmitter emitter(*this, graph, site, is_spliced ? &spliced : nullptr);
-            emitter.emit(graph, SiteToWrite{
+            emitter.emit(graph, CalledSite{
                                     .start = sites.get_site_start(site.net),
                                     .end = sites.get_site_end(site.net),
                                     .ref_path_name = site.reference.path_name,
@@ -459,7 +458,6 @@ void MultiPassCaller::render_retained_records() {
                                     .ref_trav_idx = site.alleles.ref_allele,
                                     .traversal_count = site.alleles.walks.size(),
                                     .ploidy = site.ploidy,
-                                    .genotype_snarls = genotype_snarls,
                                     .id = &site.id,
                                 });
         },

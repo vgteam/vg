@@ -183,7 +183,7 @@ grouped by the step they serve; the driver and its walk come first.
 | Output | `record_renderer.hpp` | `RecordRenderer`, which builds each staged site's records once and collects its anchors |
 | | `allele_splicer.hpp` | `AlleleSplicer`, which spells a site's alleles with the chosen alleles of the sites staged under it |
 | | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the dump and the summary |
-| | `vcf_output_caller.hpp`, `vcf_record.hpp` | `VCFOutputCaller`, the record buffer and VCF writer that vg's callers share, and `build_site_record`, which builds one site's record from its alleles and the steps a caller adds |
+| | `vcf_output_caller.hpp`, `vcf_record.hpp` | `VCFOutputCaller`, the record buffer and VCF writer that vg's callers share, and `VCFOutputCaller::SiteEmitter`, which builds one site's record and which each caller subclasses |
 | | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks |
 | | `anchor.hpp`, `mosaic_writer.hpp` | the anchor file (`AnchorCollector`, `AnchorWriter`) and the mosaic file (`MosaicWriter`) |
 | Command line | `subcommand/call_main.cpp` | the options, grouped by subsystem, the `--preset` table, and the construction of every object above |

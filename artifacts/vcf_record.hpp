@@ -146,22 +146,8 @@ bool merge_similar_alleles(const PathPositionHandleGraph& graph, size_t allele_c
 /// that many bases.
 void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override);
 
-/// What stays the same for every record a caller writes.
-struct RecordOptions {
-    /// The sample the FORMAT fields are written for.
-    string sample_name;
-    /// Names for node IDs, or null to write the IDs.
-    const NodeTranslation* translation;
-    /// The most alleles that were not called that are added to a reference call written anyway.
-    size_t max_uncalled_alleles;
-    /// Similar alleles are merged when their walks are at least this similar; 1 merges none.
-    double allele_merge_threshold;
-    /// Alleles are merged only in a record whose core length is at least this.
-    int64_t allele_merge_min_len;
-};
-
-/// The site a record is built for, and its call.
-struct SiteToWrite {
+/// A site, where it lies on the reference, and its call.
+struct CalledSite {
     /// The site's bounds: its two boundary nodes, oriented into the site.
     handle_t start;
     handle_t end;
@@ -178,44 +164,12 @@ struct SiteToWrite {
     size_t traversal_count;
     /// How many "." the genotype of a site with no call has.
     int ploidy;
-    /// Write the record even for a reference call, with alleles that were not called added, and
-    /// trim the alleles only as far as the site's boundary nodes.
-    bool genotype_snarls;
     /// The site's ID, written as the record's. When null, the ID is printed from the bounds
     /// (`site_name`).
     const string* id = nullptr;
 };
 
-/// A site's traversals, numbered from 0, which build_site_record reads through these functions.
-struct SiteAlleles {
-    /// The sequence written for traversal `trav` where it fills entry `genotype_index` of the
-    /// genotype. A caller that writes a child site inside an allele spells it from the child's own
-    /// call, which can differ between the entries of the genotype.
-    function<string(int trav, int genotype_index)> spell;
-    /// The visits of traversal `trav`.
-    function<vector<NodeVisit>(int trav)> visits;
-};
-
-/// Steps a caller adds to building a record. Any of the functions may be left empty.
-struct SiteHooks {
-    /// Whether traversal `trav` takes the reference traversal's route through the site, differing
-    /// only inside child sites, so that it is written as the reference allele. When empty, only the
-    /// reference traversal is.
-    function<bool(int trav)> same_as_reference;
-    /// Phases the genotype. It is given the genotype in VCF allele numbers and the VCF allele of
-    /// each traversal in the genotype. It may replace the GT string, and returns the phase set to
-    /// write as PS, or -1 for none.
-    function<int64_t(const vector<int>& site_genotype, const map<int, int>& trav_to_allele,
-                     string& gt)> phase;
-    /// Adds the caller's INFO and FORMAT fields, after GT and before PS. `site_trav` gives the
-    /// traversal of each VCF allele, or -1 for "*".
-    function<void(const vector<int>& site_trav, const vector<int>& site_genotype,
-                  vcflib::Variant& variant)> fill_info;
-    /// The order in which `fill_info` writes GL.
-    GLLayout gl_layout;
-};
-
-/// A record from build_site_record, with what its caller needs to file it.
+/// A record built for a site, with what its caller needs to file it.
 struct SiteRecord {
     vcflib::Variant variant;
     /// The genotype in VCF allele numbers, with MISSING_ALLELE_MARKER for ".".
@@ -239,13 +193,6 @@ string block_site_name(const string& id);
 ///
 /// The other strand carries nothing here, since its parent allele deletes the chain.
 string nested_strand_genotype(int allele, int strand);
-
-/// Build the record for a site. Traversals with the same sequence become one allele. Where the
-/// genotype has an allele marker, the record has "*" or ".", and a genotype with "." and no ALT
-/// gets "*" as its ALT, so that the record is valid VCF.
-SiteRecord build_site_record(const PathPositionHandleGraph& graph, const SiteToWrite& site,
-                             const SiteAlleles& alleles, const SiteHooks& hooks,
-                             const RecordOptions& options);
 
 }
 
