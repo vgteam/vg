@@ -164,8 +164,8 @@ Some words mean something narrower, or something else, inside one module. In tha
 
 ## Writing Comments
 - Before finishing a task in which you wrote or changed code comments, use the `intelligible-comments` skill to rewrite them so that a programmer new to the code understands each one on one reading.
-- Name a setting by what it means, or by its name in the library code, never by a command-line option. This holds in library comments and in unit tests: their comments, `TEST_CASE` and `SECTION` names, and messages. Only `src/subcommand/` names options. `make lint` checks this, but finds only long options such as `--min-mapq`, so check for short ones such as `-L` yourself.
-- Do not write "gate", "gated" or "gating" for the condition under which something happens. Say what must be true for it to happen ("the depth discount applies where the alleles differ in length by 50 bp or more"). `make lint` checks this.
+- Name a setting by what it means, or by its name in the library code, never by a command-line option. This holds in library comments and in unit tests: their comments, `TEST_CASE` and `SECTION` names, and messages. Only `src/subcommand/` names options. The `lint_prose.py` script in the `intelligible-comments` skill checks this, but finds only long options such as `--min-mapq`, so check for short ones such as `-L` yourself.
+- Do not write "gate", "gated" or "gating" for the condition under which something happens. Say what must be true for it to happen ("the depth discount applies where the alleles differ in length by 50 bp or more"). The same script checks this.
 - Say what a thing is. Do not define it by likeness or by reference to something else ("oriented like the start and end of a Snarl", "in the order `find_traversals()` uses"). If the next sentence explains the thing, delete the indirect one.
 
 ## Documentation

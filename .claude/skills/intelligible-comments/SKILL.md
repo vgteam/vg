@@ -12,6 +12,11 @@ breaks the reader's concentration.
 
 Go over each comment you wrote or changed, and rewrite it using this guide.
 
+When you are done, run `lint_prose.py` from this skill's directory. It checks the comments, unit
+test names and Markdown you added since the last commit for phrasings this guide rules out, and
+for command-line options named outside `src/subcommand/`. Give it `--base` and a branch to check
+all of a branch's work, or paths to check whole files. Fix what it reports in your own prose.
+
 ## Decide what to say
 
 A comment gives the reader the abstraction, rules, and animating idea behind

@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
-"""Check prose in Markdown files, in source comments and in unit test names for phrasings the
-project does not accept, and check that source comments and unit test names outside src/subcommand/
-name no long command-line option.
+"""Check the prose you wrote in Markdown files, source comments and unit test names for phrasings
+the project does not accept, and check that source comments and unit test names outside
+src/subcommand/ name no long command-line option.
 
-It reads doc/ and artifacts/doc/ for Markdown, and src/ and artifacts/ for C++.
+Usage, from anywhere in the repository:
 
-Run with scripts/lint_prose.py from the repository root; `make lint` runs it.
+    lint_prose.py [--base REF] [PATH ...]
+
+With paths, check those files in full. Without, check the lines added since REF (HEAD by default,
+so your uncommitted work) in the Markdown files under doc/ and artifacts/, and in the .cpp and .hpp
+files under src/ and artifacts/. Use `--base master` to check a whole branch. Old prose is not
+checked, since much of it predates the rules.
 
 Each rule is a regular expression matched against one paragraph of a Markdown file, the comments
 on one run of consecutive lines of a .cpp or .hpp file, or the name of one test case, scenario or
-section in src/unittest/ or artifacts/unittest/. Lines are joined with spaces, so a phrase broken across lines is still
-found. A match prints `path:line: message` and fails the check.
+section in src/unittest/ or artifacts/unittest/. Lines are joined with spaces, so a phrase broken
+across lines is still found. A match prints `path:line: message` and fails the check.
 
 Unit tests exercise library code, so their comments and names follow the library's rule: they
 describe a setting, and do not name the option that sets it.
@@ -20,8 +25,10 @@ as -L looks like a minus sign, another program's flag (grep -v) or part of a dia
 writer and the reviewer check for short options themselves.
 """
 
+import argparse
 import os
 import re
+import subprocess
 import sys
 
 RULES = [
@@ -47,8 +54,7 @@ RULES = [
      "says something is gated; say what must be true for it to happen"),
 ]
 
-# Rules checked one comment line, paragraph or test name at a time, with an allowance for the
-# comments that used the phrase before the rule existed.
+# Rules checked one comment line, paragraph or test name at a time.
 LINE_RULES = [
     # A thing defined by likeness to another ("oriented like the start and end of a Snarl"). Say
     # what the thing is.
@@ -56,15 +62,6 @@ LINE_RULES = [
                 re.IGNORECASE),
      "defines a thing by likeness to another; say what it is"),
 ]
-# Comments that used a LINE_RULES phrase before the rule existed, by their text after the comment
-# marker.
-LINE_RULE_COMMENTS_ALLOWED = {
-    'is computed, and a reference path can no longer be named like a fragment, so there is',
-    'Could be that the path is chopped but the first subpath is named like the base/full path',
-    'Everything else should be named like the FASTA by default. This is a',
-    'files named like PREFIX_VCFCONTIG_STARTSAMPLE_ENDSAMPLE. Otherwise, the',
-}
-
 # A command-line option, such as --read-likelihood. Only the subcommands in src/subcommand/ have
 # options, so only their comments name them. Library code and its unit tests describe a setting
 # by what it means.
@@ -74,20 +71,14 @@ TEST_OPTION_MESSAGE = ("names a command-line option in a unit test name; "
                        "name the library setting or describe the behaviour")
 SUBCOMMAND = os.path.join('src', 'subcommand') + os.sep
 UNITTEST = (os.path.join('src', 'unittest') + os.sep, os.path.join('artifacts', 'unittest') + os.sep)
-# Comments outside src/subcommand/ that may name an option, each by its text after the comment
-# marker.
-OPTION_COMMENTS_ALLOWED = {
-    'Respects catch.hpp --rng-seed option to `vg test`.',
-    '--progress output rather than emitted as a zero-length path.',
-    '--progress output.',
-    'Load a translation file (created with vg gbwt --translation) and return a backwards mapping',
-    'Load a translation file (created with vg gbwt --translation) and return a mapping',
-    'NestedFlowCaller, and --bottom-up is rejected with -L.  It is kept because the consequence of',
-    'is this variant" behind --cluster-min-len in BOTH vg call and vg deconstruct.  It is',
-    'post-genotyping ALT merging (vg call -L / --cluster-min-len).  Deliberately NOT named',
-    'sampled graph. The same floor as `vg paths --min-gref-len`.',
-    'uncomment to make vg map --debug very interesting',
-}
+# The files checked without paths given: documentation, and C++ source.
+CHECKED = ['doc/*.md', 'artifacts/*.md', 'src/*.cpp', 'src/*.hpp', 'artifacts/*.cpp',
+           'artifacts/*.hpp']
+# The top of the repository, which the checked paths are relative to.
+ROOT = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True,
+                      check=True).stdout.strip()
+# The header of a diff hunk, whose first group is the start and length of its lines in the new file.
+HUNK = re.compile(r'^@@ -\S+ \+(\S+) @@')
 # A string literal, so that a // inside one does not start a comment.
 STRING = re.compile(r'"(?:\\.|[^"\\])*"')
 # The marker that opens or continues a comment: //, ///, //!, //<, /*, /**, or the * at the start
@@ -163,10 +154,10 @@ def problems(path, text):
         return
     for line, comment in comment_lines(text):
         for pattern, message in LINE_RULES:
-            if pattern.search(comment) and comment not in LINE_RULE_COMMENTS_ALLOWED:
+            if pattern.search(comment):
                 yield line, message
         option = OPTION.search(comment)
-        if option and comment not in OPTION_COMMENTS_ALLOWED and not path.startswith(SUBCOMMAND):
+        if option and not path.startswith(SUBCOMMAND):
             yield line, f"{OPTION_MESSAGE}: {option.group()}"
     if not path.startswith(UNITTEST):
         return
@@ -182,19 +173,44 @@ def problems(path, text):
             yield line, f"{TEST_OPTION_MESSAGE}: {option.group()}"
 
 
+def added_lines(base):
+    """Return, for each checked file that changed since `base`, the set of line numbers it adds."""
+    result = subprocess.run(['git', 'diff', '-U0', '--no-color', base, '--', *CHECKED],
+                            stdout=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+    diff = result.stdout
+    added, path = {}, None
+    for line in diff.split('\n'):
+        if line.startswith('+++ '):
+            path = line[len('+++ b/'):] if line != '+++ /dev/null' else None
+        elif line.startswith('@@') and path is not None:
+            start, _, count = HUNK.match(line).group(1).partition(',')
+            first, length = int(start), int(count) if count else 1
+            added.setdefault(path, set()).update(range(first, first + length))
+    return added
+
+
 def main():
-    paths = []
-    for top, exts in (('doc', ('.md',)), ('src', ('.cpp', '.hpp')),
-                      ('artifacts', ('.md', '.cpp', '.hpp'))):
-        for root, _, files in os.walk(top):
-            paths += [os.path.join(root, f) for f in files if f.endswith(exts)]
+    parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
+    parser.add_argument('--base', default='HEAD',
+                        help='check the lines added since this commit (default: HEAD)')
+    parser.add_argument('paths', nargs='*', help='check these files in full instead')
+    args = parser.parse_args()
+    if args.paths:
+        paths = [os.path.relpath(os.path.abspath(p), ROOT) for p in args.paths]
+    os.chdir(ROOT)
+    lines_to_check = None if args.paths else added_lines(args.base)
+    if lines_to_check is not None:
+        paths = sorted(lines_to_check)
     ok = True
-    for path in sorted(paths):
+    for path in paths:
         with open(path, encoding='utf-8', errors='replace') as f:
             text = f.read()
         for line, message in sorted(problems(path, text), key=lambda problem: problem[0]):
-            print(f"{path}:{line}: {message}")
-            ok = False
+            if lines_to_check is None or line in lines_to_check[path]:
+                print(f"{path}:{line}: {message}")
+                ok = False
     return 0 if ok else 1
 
 
