@@ -90,7 +90,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
         if (traversals_only) {
             assert(gaf_output);
             // todo: can't get ref position here without pathposition graph
-            emit_gaf_traversals(graph, snarl_name(snarl, translation), travs, ref_trav_idx, "", -1);
+            emit_gaf_traversals(graph, snarl_name(snarl, translation()), travs, ref_trav_idx, "", -1);
             return true;
         }
         
@@ -116,7 +116,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
         if (gaf_output) {
             // todo: can't get ref position here without pathposition graph
-            emit_gaf_variant(graph, snarl_name(snarl, translation), travs, trav_genotype, ref_trav_idx, "", -1);
+            emit_gaf_variant(graph, snarl_name(snarl, translation()), travs, trav_genotype, ref_trav_idx, "", -1);
             return true;
         }
 
@@ -167,11 +167,11 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
             // add the genotype
             out_variant.format.push_back("GT");
-            auto& genotype_vector = out_variant.samples[sample_name]["GT"];
+            auto& genotype_vector = out_variant.samples[sample_name()]["GT"];
             genotype_vector.push_back(vcf_genotype);
 
             // add some info
-            snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, trav_call_info, sample_name, out_variant);
+            snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, trav_call_info, sample_name(), out_variant);
 
             // print the variant
             add_variant(out_variant);
@@ -198,8 +198,8 @@ string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<strin
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
-    header += "##SAMPLE=<ID=" + sample_name + ">\n";
-    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+    header += "##SAMPLE=<ID=" + sample_name() + ">\n";
+    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name();
     assert(output_vcf.openForOutput(header));
     header += "\n";
     return header;

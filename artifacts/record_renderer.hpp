@@ -24,8 +24,9 @@ using namespace std;
  */
 class RecordRenderer {
 public:
-    /// Writes one staged site's records at `genotype`, through the caller that staged it.
-    using LineWriter = function<void(const StagedSite& site, const vector<int>& genotype)>;
+    /// Writes one staged site's records at `genotype`, through the caller that staged it. It
+    /// may keep on the site what writing its records needs.
+    using LineWriter = function<void(StagedSite& site, const vector<int>& genotype)>;
 
     /**
      * Make a renderer that reads from the given tables and collects anchors into `anchors`.

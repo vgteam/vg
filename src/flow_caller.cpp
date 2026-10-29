@@ -125,7 +125,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                                    visit_handle(graph, site.snarl.end()),
                                                    ref_path_name,
                                                    ref_offset_of(ref_offsets, ref_path_name));
-        emit_gaf_traversals(graph, snarl_name(site.snarl, translation), site.travs, site.ref_trav_idx, contig, position, &support_finder);
+        emit_gaf_traversals(graph, snarl_name(site.snarl, translation()), site.travs, site.ref_trav_idx, contig, position, &support_finder);
     } else {
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
         bool added = true;
@@ -210,7 +210,7 @@ bool FlowCaller::emit_site(const CandidateFinder::Site& site, const vector<int>&
     auto [contig, position] = get_ref_position(graph, visit_handle(graph, site.snarl.start()),
                                                visit_handle(graph, site.snarl.end()),
                                                site.ref_path_name, ref_offset);
-    emit_gaf_variant(graph, snarl_name(site.snarl, translation), site.travs, genotype, site.ref_trav_idx,
+    emit_gaf_variant(graph, snarl_name(site.snarl, translation()), site.travs, genotype, site.ref_trav_idx,
                      contig, position, &support_finder);
     return true;
 }

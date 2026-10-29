@@ -146,28 +146,8 @@ bool merge_similar_alleles(const PathPositionHandleGraph& graph,
 /// that many bases.
 void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override);
 
-/// A site, where it lies on the reference, and its call.
-struct CalledSite {
-    /// The site's bounds: its two boundary nodes, oriented into the site.
-    handle_t start;
-    handle_t end;
-    /// The reference path the record is placed on, which may name a subrange of its base path.
-    const string& ref_path_name;
-    /// Added to positions on the reference path.
-    int64_t ref_offset;
-    /// The called genotype, as numbers of the site's traversals or as the allele markers. Empty
-    /// when the site has no call.
-    const vector<int>& genotype;
-    /// The traversal that is the reference allele.
-    int ref_trav_idx;
-    /// How many traversals the site has.
-    size_t traversal_count;
-    /// How many "." the genotype of a site with no call has.
-    int ploidy;
-    /// The site's ID, written as the record's. When null, the ID is printed from the bounds
-    /// (`site_name`).
-    const string* id = nullptr;
-};
+/// A called site, as `SiteEmitter` writes it.
+struct CalledSite;
 
 /// A record built for a site, with what its caller needs to file it.
 struct SiteRecord {

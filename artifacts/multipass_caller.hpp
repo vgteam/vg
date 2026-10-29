@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -37,6 +38,7 @@
 #include "site_walker.hpp"
 #include "staged_site.hpp"
 #include "tree_genotyper.hpp"
+#include "../src/site_emitter.hpp"
 #include "../src/vcf_output_caller.hpp"
 
 namespace vg::multipass {
@@ -100,6 +102,10 @@ public:
      * passes after it read only what the direct pass kept, not reads.
      */
     void call(GraphCaller::RecurseType recurse_type, const function<void()>& after_direct_pass);
+
+    /// Get the emitter that writes the record of each staged site, so that its settings can be
+    /// changed.
+    SiteEmitter& emitter() { return site_emitter; }
 
     /// Get the tree of the sites `call` wrote records for, and of the sites enclosing them.
     ///
@@ -225,14 +231,35 @@ private:
     /**
      * The writer of the record of a staged site.
      *
-     * It spells each allele as the site holds it, by its step sequences where it has them, or
-     * else by its walk, or as spliced from the site's children's chosen alleles. It does symbolic
-     * collapsing and the block count with nested calling, phasing from the linkage model, the GL
-     * layout of the read-likelihood genotyper, block records, the quality fields of a genotype the
-     * linkage model moved, and telling the linkage model the site's allele numbering. Each does
-     * nothing when its part is turned off.
+     * It finds the staged site of each called site by its ID, among the sites the render is
+     * writing. It does symbolic collapsing with nested calling, phasing from the linkage model,
+     * block records, the quality fields of a genotype the linkage model moved, and telling the
+     * linkage model the site's allele numbering. Each does nothing when its part is turned off.
      */
-    class StagedSiteEmitter;
+    class StagedSiteEmitter : public SiteEmitter {
+    public:
+        /// Make an emitter for the sites of `caller`, writing into `output`. Both must outlive it.
+        StagedSiteEmitter(MultiPassCaller& caller, VCFOutputCaller& output);
+
+    protected:
+        bool same_as_reference(const CalledSite& site, int trav) override;
+        int64_t phase(const CalledSite& site, const vector<int>& genotype,
+                      const map<int, int>& trav_to_allele, string& gt) override;
+        int write_blocks(const PathPositionHandleGraph& graph, const CalledSite& site,
+                         const SiteRecord& record) override;
+        void finish_record(const CalledSite& site, vcflib::Variant& record) override;
+        void on_site_done(const CalledSite& site, const map<int, int>& trav_to_allele,
+                          bool has_line) override;
+
+    private:
+        MultiPassCaller& caller;
+    };
+
+    /// Get the staged site that the render is writing as `site`.
+    const StagedSite& rendered_site(const CalledSite& site) const;
+
+    /// Write the records of a staged site at `genotype`, during the render.
+    void write_site(StagedSite& site, const vector<int>& genotype);
 
     /// Give `record` the quality fields of its chosen genotype, if the linkage model moved its
     /// site's genotype (see ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).
@@ -341,6 +368,12 @@ private:
 
     /// Where the records go.
     VCFOutputCaller& output;
+
+    /// Writes the record of each staged site into `output`.
+    StagedSiteEmitter site_emitter;
+
+    /// The staged sites the render writes, by record key, while it runs.
+    unordered_map<size_t, StagedSite*> rendered_sites;
 
     /// The sample the records are for.
     string sample_name;

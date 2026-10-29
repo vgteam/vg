@@ -57,6 +57,15 @@ struct ReferencePlacement {
                     const EditSnarlDecompositionOverlay& sites, const net_handle_t& net) const;
 };
 
+/// The alleles a site's record spells, by traversal, with the sites under it spliced in (see
+/// `AlleleSplicer`).
+///
+/// A traversal the splice did not change is left as the site has it.
+struct SplicedAlleles {
+    vector<Traversal> travs;
+    AlleleSequences sequences;
+};
+
 /// The genotyping result of one site from the direct pass, kept until the render builds the
 /// site's records.
 ///
@@ -153,6 +162,11 @@ struct StagedSite {
     const vector<int>& panel_alleles(const PanelLookup& lookup);
     /// The kept answer of `panel_alleles`, once it is computed.
     optional<vector<int>> panel_cache;
+
+    /// The alleles the site's record spells, if they are spliced from the chosen alleles of the
+    /// sites under it. The render sets them while it writes the site's records, and then
+    /// frees them.
+    optional<SplicedAlleles> spliced;
 };
 
 class StagedSiteTable;

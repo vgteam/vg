@@ -3028,6 +3028,10 @@ int main_call(int argc, char** argv) {
         // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
         // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
         vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
+        if (multipass_caller != nullptr) {
+            multipass_caller->emitter().allele_merge_threshold = cluster_threshold;
+            multipass_caller->emitter().allele_merge_min_len = cluster_min_allele_len;
+        }
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)
         vector<string> header_ref_paths;

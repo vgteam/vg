@@ -80,6 +80,12 @@ protected:
     bool emit_snarl_recursive(const Snarl& managed_snarl, int ploidy,
                               CallTable& call_table);
 
+    /// Write the record of a snarl called at genotype `genotype`, with its alleles flattened, and
+    /// return false only if the writer refused a line the snarl wanted.
+    bool emit_record(const Snarl& snarl, const CallRecord& record, const vector<int>& genotype,
+                     const unique_ptr<SnarlCaller::CallInfo>& call_info, int ploidy,
+                     const CallTable& call_table);
+
     /// transform the nested allele string from something like AAC<6_10>TTT to
     /// a proper string by recursively resolving the nested snarls into alleles
     string flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const;

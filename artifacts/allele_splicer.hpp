@@ -23,13 +23,7 @@ using namespace std;
  */
 class AlleleSplicer {
 public:
-    /// The alleles a site's record spells, by traversal.
-    ///
-    /// A traversal the splice did not change is left as the site has it.
-    struct SplicedAlleles {
-        vector<Traversal> travs;
-        AlleleSequences sequences;
-    };
+    using SplicedAlleles = multipass::SplicedAlleles;
 
     /// One change to the sequence of one step of a spliced walk.
     struct StepEdit {

@@ -312,7 +312,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
             int allele_trav_no = ai_pair.second.second;
             // update the traversal info
             add_allele_path_to_info(v, allele_no, visits_of(*graph, travs[allele_trav_no]), reversed,
-                                    translation);
+                                    translation());
         }
     }
 
@@ -896,9 +896,9 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // PS follows automatically.  chrom_of_name is keyed on the emitted ID, and the
         // ancestor walk in update_nesting_info_tags() already looks up both spellings, so the
         // parent it records is whichever one the VCF actually contains.
-        v.id = use_start ? site_name(*graph, snarl_start, snarl_end, translation)
+        v.id = use_start ? site_name(*graph, snarl_start, snarl_end, translation())
                          : site_name(*graph, graph->flip(snarl_end), graph->flip(snarl_start),
-                                     translation);
+                                     translation());
             
         // Convert the snarl traversals to strings and add them to the variant
         vector<bool> use_trav(travs.size());

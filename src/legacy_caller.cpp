@@ -203,8 +203,8 @@ string LegacyCaller::vcf_header(const PathHandleGraph& graph, const vector<strin
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
-    header += "##SAMPLE=<ID=" + sample_name + ">\n";
-    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+    header += "##SAMPLE=<ID=" + sample_name() + ">\n";
+    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name();
     assert(output_vcf.openForOutput(header));
     header += "\n";
     return header;

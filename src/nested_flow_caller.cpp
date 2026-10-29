@@ -10,6 +10,7 @@
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
+#include "site_emitter.hpp"
 #include "snarl_traversal_text.hpp"
 #include "traversal_clusters.hpp"
 #include "utility.hpp"
@@ -319,7 +320,7 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         pair<string, int64_t> pos_info = get_ref_position(graph, visit_handle(graph, snarl.start()),
                                                           visit_handle(graph, snarl.end()),
                                                           ref_path_name, 0);
-        emit_gaf_traversals(graph, snarl_name(snarl, translation), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
+        emit_gaf_traversals(graph, snarl_name(snarl, translation()), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
     } else {
         // use our support caller to choose our genotype
         for (int ploidy = 1; ploidy <= max_ploidy; ++ploidy) {
@@ -397,22 +398,9 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
 #ifdef debug
         cerr << "Recursively emitting " << pb2json(managed_snarl) << "with ploidy " << ploidy << endl;
 #endif
-        function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_flat_string =
-            [&](const vector<SnarlTraversal>& travs, const vector<int>& travs_genotype, int trav_allele, int genotype_allele, int ref_trav_idx) {
-
-            string allele_string = trav_string(graph, travs[trav_allele], translation);
-            if (trav_allele == ref_trav_idx) {
-                return flatten_reference_allele(allele_string, call_table);
-            } else {
-                int allele_ploidy = std::max((int)std::count(travs_genotype.begin(), travs_genotype.end(), trav_allele), 1);
-                return flatten_alt_allele(allele_string, std::min(allele_ploidy-1, genotype_allele), allele_ploidy, call_table);
-            }
-        };
-
         if (!gaf_output) {
-            bool added = emit_variant(graph, snarl_caller, managed_snarl, record.travs, genotype.first, record.ref_trav_idx, genotype.second, record.ref_path_name,
-                                 ref_offset_of(ref_offsets, record.ref_path_name), genotype_snarls, ploidy, trav_to_flat_string);
-            if (!added) {
+            if (!emit_record(managed_snarl, record, genotype.first, genotype.second, ploidy,
+                             call_table)) {
                 return false;
             }
         } else {
@@ -422,6 +410,84 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
     }
 
     return true;
+}
+
+bool NestedFlowCaller::emit_record(const Snarl& snarl, const CallRecord& record,
+                                   const vector<int>& genotype,
+                                   const unique_ptr<SnarlCaller::CallInfo>& call_info, int ploidy,
+                                   const CallTable& call_table) {
+    // The record's alleles, each a traversal read on one strand of the genotype. Allele t, for
+    // each traversal t, is t read on its base strand. A genotype entry that reads its traversal
+    // on another strand gets an allele of its own after them.
+    //
+    // A traversal the genotype holds more than once can spell its child snarls differently on
+    // each strand, so a homozygous ALT can become two ALTs. Entry i of the genotype reads its
+    // traversal on strand min(copies - 1, i), where copies is how often the genotype holds it.
+    // The base strand is the one entry (ploidy - 1) would read it on, which spells it when it
+    // is not called.
+    auto copies = [&](int trav) {
+        return std::max((int)std::count(genotype.begin(), genotype.end(), trav), 1);
+    };
+    vector<pair<int, int>> allele_strands;
+    for (int trav = 0; trav < (int)record.travs.size(); ++trav) {
+        allele_strands.emplace_back(trav, std::min(copies(trav) - 1,
+                                                   std::max((int)genotype.size() - 1, 0)));
+    }
+    size_t traversal_count = allele_strands.size();
+    vector<int> allele_genotype;
+    for (int i = 0; i < (int)genotype.size(); ++i) {
+        int allele = genotype[i];
+        if (allele >= 0 && allele != record.ref_trav_idx) {
+            pair<int, int> strand_allele(allele, std::min(copies(allele) - 1, i));
+            if (strand_allele != allele_strands[allele]) {
+                auto extra = std::find(allele_strands.begin() + traversal_count,
+                                       allele_strands.end(), strand_allele);
+                allele = extra - allele_strands.begin();
+                if (extra == allele_strands.end()) {
+                    allele_strands.push_back(strand_allele);
+                }
+            }
+        }
+        allele_genotype.push_back(allele);
+    }
+
+    SiteEmitter emitter(*this);
+    emitter.genotype_snarls = genotype_snarls;
+    emitter.allele_merge_threshold = allele_merge_threshold;
+    emitter.allele_merge_min_len = allele_merge_min_len;
+    CalledSite site{
+        .start = visit_handle(graph, snarl.start()),
+        .end = visit_handle(graph, snarl.end()),
+        .ref_path_name = record.ref_path_name,
+        .ref_offset = (int64_t)ref_offset_of(ref_offsets, record.ref_path_name),
+        .genotype = allele_genotype,
+        .ref_trav_idx = record.ref_trav_idx,
+        .traversal_count = allele_strands.size(),
+        .ploidy = ploidy,
+    };
+    return emitter.emit(
+        graph, site,
+        [&](size_t allele) {
+            auto [trav, strand] = allele_strands[allele];
+            string allele_string = trav_string(graph, record.travs[trav], translation());
+            string sequence = trav == record.ref_trav_idx
+                                  ? flatten_reference_allele(allele_string, call_table)
+                                  : flatten_alt_allele(allele_string, strand, copies(trav),
+                                                       call_table);
+            return make_pair(std::move(sequence), visits_of(record.travs[trav]));
+        },
+        [&](const vector<int>& allele_traversals, const vector<int>& vcf_genotype,
+            vcflib::Variant& variant) {
+            // A negative allele is "*", which gets an empty traversal.
+            vector<SnarlTraversal> traversals;
+            traversals.reserve(allele_traversals.size());
+            for (int allele : allele_traversals) {
+                traversals.push_back(allele >= 0 ? record.travs[allele_strands[allele].first]
+                                                 : SnarlTraversal());
+            }
+            snarl_caller.update_vcf_info(snarl, traversals, vcf_genotype, call_info,
+                                         sample_name(), variant);
+        });
 }
 
 string NestedFlowCaller::flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const {
@@ -439,7 +505,7 @@ string NestedFlowCaller::flatten_reference_allele(const string& nested_allele, c
                     assert(false);
                 } else{
                     const SnarlTraversal& traversal = record.travs[record.ref_trav_idx];
-                    string nested_snarl_allele = trav_string(graph, traversal, translation);
+                    string nested_snarl_allele = trav_string(graph, traversal, translation());
                     flat_allele += flatten_reference_allele(nested_snarl_allele, call_table);
                 }
             }       
@@ -481,7 +547,7 @@ string NestedFlowCaller::flatten_alt_allele(const string& nested_allele, int all
                     // we try to get the allele from the genotype if possible, but fallback on the fallback_allele
                     int trav_allele = fallback_allele >= 0 ? fallback_allele : record.genotype_by_ploidy[ploidy-1].first[allele];
                     const SnarlTraversal& traversal = record.travs[trav_allele];
-                    string nested_snarl_allele = trav_string(graph, traversal, translation);
+                    string nested_snarl_allele = trav_string(graph, traversal, translation());
                     flat_allele += flatten_alt_allele(nested_snarl_allele, allele, ploidy, call_table);
                 }                
             }  
@@ -538,8 +604,8 @@ string NestedFlowCaller::vcf_header(const PathHandleGraph& graph, const vector<s
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
-    header += "##SAMPLE=<ID=" + sample_name + ">\n";
-    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+    header += "##SAMPLE=<ID=" + sample_name() + ">\n";
+    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name();
     assert(output_vcf.openForOutput(header));
     header += "\n";
     return header;

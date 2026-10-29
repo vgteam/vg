@@ -8,6 +8,7 @@
 
 #include "vcf_record.hpp"
 #include "../src/path.hpp"
+#include "../src/site_emitter.hpp"
 #include "../src/traversal_clusters.hpp"
 
 namespace vg {

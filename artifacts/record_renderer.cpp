@@ -144,7 +144,7 @@ void RecordRenderer::render(StagedSiteTable& staged, const LineWriter& write_lin
     const size_t n_threads = staged.queue_count();
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t t = 0; t < n_threads; ++t) {
-        for (const StagedSite& rec : staged.queue(t)) {
+        for (StagedSite& rec : staged.queue(t)) {
             // Write the line from the genotype the linkage model chose, so that the ALT list, QUAL,
             // AD, GL and GQI agree with the call. It stays sorted, since the line is built from its
             // order, and the anchors put it in phase order themselves.

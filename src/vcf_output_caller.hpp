@@ -32,9 +32,9 @@ Region record_ref_region(const vcflib::Variant& record);
  * Writer of a sorted VCF, which variant callers inherit from or hold.
  *
  * Callers add records from any thread, and the writer buffers them compressed. `write_variants`
- * adds the nesting INFO tags, sorts the records and writes them. A caller that holds a writer
- * writes each site with its own subclass of `SiteEmitter`, and adds its header lines with
- * `add_format_header` and `add_info_header`.
+ * adds the nesting INFO tags, sorts the records and writes them. A caller builds the record of
+ * each site with a `SiteEmitter`, and adds its header lines with `add_format_header` and
+ * `add_info_header`.
  */
 class VCFOutputCaller {
 public:
@@ -128,126 +128,6 @@ public:
     /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
-    /**
-     * A strategy for emitting the records of individual sites. Subclass it to customize how a
-     * site is emitted.
-     */
-    class SiteEmitter {
-    public:
-        /// Make an emitter that adds records to `output`, which must outlive it.
-        ///
-        /// @param genotype_snarls Whether to write the record even for a reference call, with
-        /// alleles that were not called added, and to trim the alleles only as far as the site's
-        /// boundary nodes.
-        SiteEmitter(VCFOutputCaller& output, bool genotype_snarls);
-        virtual ~SiteEmitter() = default;
-
-        /**
-         * Build the record of `site` and add it to the output.
-         *
-         * A record with no ALT gets no line unless `genotype_snarls` is set.
-         *
-         * @return false only if add_variant refused a line the site wanted.
-         */
-        bool emit(const PathPositionHandleGraph& graph, const CalledSite& site);
-
-    protected:
-        // The alleles, which every subclass gives.
-
-        /// Return the sequence of traversal `trav` where it fills entry `genotype_index` of the
-        /// genotype.
-        virtual string spell(int trav, int genotype_index) = 0;
-
-        /// Return the visits of traversal `trav`.
-        virtual vector<NodeVisit> visits(int trav) = 0;
-
-        // Decisions about the site.
-
-        /// Return whether traversal `trav`, which is not the reference traversal, should be
-        /// treated as the same as the reference allele. By default no other traversal should be.
-        virtual bool same_as_reference(int trav, int ref_trav_idx);
-
-        /// Decide how the genotype should be phased. Return the phase set it should be in, or -1
-        /// for none, and replace the GT string `gt` with the phased one if it should be phased.
-        ///
-        /// `site_genotype` is in VCF allele numbers, and `trav_to_allele` gives the VCF allele of
-        /// each traversal in the genotype. By default the genotype should stay unphased, in no
-        /// phase set.
-        virtual int64_t phase(const vector<int>& site_genotype, const map<int, int>& trav_to_allele,
-                              string& gt);
-
-        /// Return the order in which the GL values that `fill_info` adds should be read. By default
-        /// they should be read in i-major order.
-        virtual GLLayout gl_layout();
-
-        /// Decide whether the site should be split into several records. If it should, write them
-        /// and return the number of lines written. If it should not, return -1, and the site gets
-        /// one record. By default the site should not be split.
-        virtual int write_blocks(const PathPositionHandleGraph& graph, const vector<int>& genotype,
-                                 int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout);
-
-        // Hooks, which do nothing by default.
-
-        /// Count the site, before its record is built.
-        virtual void count_site(const vector<int>& genotype, int ref_trav_idx);
-
-        /// Add the caller's INFO and FORMAT fields to `variant`.
-        ///
-        /// `site_trav` gives the traversal of each VCF allele, or -1 for "*". The record has its GT
-        /// and not yet its PS.
-        virtual void fill_info(const vector<int>& site_trav, const vector<int>& site_genotype,
-                               vcflib::Variant& variant);
-
-        /// Change the finished site record just before it is added to the output.
-        virtual void finish_record(vcflib::Variant& record);
-
-        /// Take note of a site whose records are done. `trav_to_allele` gives the VCF allele of
-        /// each called traversal, of the site's `traversal_count` traversals, and `has_line` says
-        /// whether the site got a line.
-        ///
-        /// If `write_blocks` split the site into several records, each record numbers its own
-        /// alleles, so `trav_to_allele` is empty and `traversal_count` is 0. `has_line` then says
-        /// whether any of those records got a line.
-        virtual void site_filed(const map<int, int>& trav_to_allele, size_t traversal_count,
-                                bool has_line);
-
-        /// The output the records go to.
-        VCFOutputCaller& output;
-        /// Whether to write the record even for a reference call, with alleles that were not
-        /// called added, and to trim the alleles only as far as the site's boundary nodes.
-        const bool genotype_snarls;
-
-    private:
-        /// Build the record for `site`, with GL in order `layout`. Traversals with the same
-        /// sequence become one allele. Where the genotype has an allele marker, the record has
-        /// "*" or ".", and a genotype with "." and no ALT gets "*" as its ALT, so that the record
-        /// is valid VCF.
-        SiteRecord build_record(const PathPositionHandleGraph& graph, const CalledSite& site,
-                                GLLayout layout);
-
-        /// Number the reference allele and the alleles of the called genotype of `site`, whose
-        /// REF is already in `record`. Traversals that spell the same sequence share one allele,
-        /// and the reference allele is number 0.
-        ///
-        /// Fill the empty `allele_to_gt` with the VCF allele number of each allele sequence, and
-        /// the empty `site_trav` with the traversal each VCF allele is spelled from, or -1 for
-        /// "*". Fill in `record.genotype` and `record.trav_to_allele` to match.
-        void number_called_alleles(const CalledSite& site, SiteRecord& record,
-                                   map<string, int>& allele_to_gt, vector<int>& site_trav);
-
-        /// Add up to the output's `max_uncalled_alleles` alleles of `site` that were not called,
-        /// in order of their sequences, to `allele_to_gt` and `site_trav`.
-        void add_uncalled_alleles(const CalledSite& site, map<string, int>& allele_to_gt,
-                                  vector<int>& site_trav);
-
-        /// Add a built site record to the output, unless `write_blocks` split the site into several
-        /// records, and tell `site_filed` how the site was filed.
-        ///
-        /// @return false only if add_variant refused a line the site wanted.
-        bool file_record(const PathPositionHandleGraph& graph, SiteRecord& record,
-                         const CalledSite& site, GLLayout gl_layout);
-    };
-
     /// Add a FORMAT line, without its newline, to the header that `vcf_header` writes, after the
     /// nesting INFO lines.
     void add_format_header(string line);
@@ -259,18 +139,15 @@ public:
     /**
      * Add the record for a called site to the output buffer.
      *
-     * The record has the called traversals as its alleles and the snarl caller's INFO and FORMAT
-     * fields.
+     * The record has the called traversals as its alleles, each spelled as the sequence of its
+     * traversal, and the snarl caller's INFO and FORMAT fields.
      *
-     * @param trav_to_string Spells an allele. When null, an allele is spelled as the sequence of
-     * its traversal.
      * @return false only if add_variant refused a line the site wanted.
      */
     bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                      const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy,
-                      const function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)>& trav_to_string = nullptr);
+                      const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy);
 
     /**
      * Return the VCF header of a caller that genotypes with `snarl_caller`.
@@ -289,12 +166,15 @@ public:
                                 const function<void(string& header)>& add_genotyper_lines) const;
 
     /// Get the node translation given to `set_translation`, or null.
-    const unordered_map<nid_t, pair<string, size_t>>* get_translation() const;
+    const NodeTranslation* translation() const;
+
+    /// Get the name of the sample the records are for.
+    const string& sample_name() const;
+
+    /// A record longer than this is refused.
+    static const int64_t max_vcf_line_length = 2000000000;
 
 protected:
-
-    /// The writer of a site called by a SnarlCaller, which `emit_variant` uses.
-    class SnarlTraversalEmitter;
 
     /// The FORMAT lines a caller added to the header.
     vector<string> format_header_lines;
@@ -317,18 +197,15 @@ protected:
     mutable vcflib::VariantCallFile output_vcf;
 
     /// Sample name
-    string sample_name;
+    string sample;
 
     /// The buffered records, one buffer per thread, each a sort key and the zstd-compressed line.
     /// A vcflib::Variant is too big to keep in memory for every record.
     mutable vector<vector<pair<BufferedRecordKey, string>>> output_variants;
 
 
-    /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
-    size_t max_uncalled_alleles = 5;
-
     // optional node translation to apply to snarl names in variant IDs
-    const unordered_map<nid_t, pair<string, size_t>>* translation;
+    const NodeTranslation* node_translation;
 
     // need to write LV/PS info tags
     bool include_nested;
@@ -342,8 +219,6 @@ protected:
     double allele_merge_threshold = 1.0;
     int64_t allele_merge_min_len = 0;
 
-    // prevent giant variants
-    static const int64_t max_vcf_line_length = 2000000000;
 
 private:
     /// The reference interval of each hidden record, by its ID, one table per thread like
