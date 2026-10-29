@@ -47,8 +47,8 @@ struct Ploidies {
  *
  * The genotyping uses no read support. A record can write its alleles in another order than the
  * one they were scored in, so the caller writing it says which scored allele each written allele
- * is (see `write_vcf_fields`). A record with an allele that was not scored, such as a star allele,
- * is written without GL, since GL needs an entry for every genotype.
+ * is (see `write_vcf_fields`). A record with an allele that was not scored is written without GL,
+ * since GL needs an entry for every genotype.
  */
 class ReadLikelihoodSnarlCaller {
 public:
@@ -193,7 +193,7 @@ public:
      * Do nothing when `call_info` is not this genotyper's.
      *
      * @param scored_allele For each written allele, the index of the scored allele it is, or -1
-     * for one that was not scored, such as a star allele.
+     * for one that was not scored.
      * @param genotype The genotype, in written alleles.
      */
     void write_vcf_fields(const vector<int>& scored_allele, const vector<int>& genotype,

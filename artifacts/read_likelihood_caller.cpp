@@ -455,7 +455,7 @@ vector<string> written_gl(const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInf
  *
  * Take it from the posterior of the all-reference genotype, renormalised against all the scored
  * genotypes. Only the column of the reference allele is needed, so a record with an unscored
- * allele, such as a star allele, still gets one.
+ * allele still gets one.
  *
  * @return QUAL, or 0 for a reference call or where the posterior is unknown.
  */
@@ -519,8 +519,8 @@ void ReadLikelihoodSnarlCaller::write_vcf_fields(const vector<int>& site_to_scor
     }
 
     // Write AD over the written alleles, rounded to integers. It need not sum to DP, since a read
-    // whose best allele was scored but not written has no entry. An allele with no scored column,
-    // such as a star allele, gets 0, since AD needs one entry per allele.
+    // whose best allele was scored but not written has no entry. An allele with no scored column
+    // gets 0, since AD needs one entry per allele.
     variant.format.push_back("AD");
     for (int k : site_to_scored) {
         long v = 0;

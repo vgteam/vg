@@ -7,8 +7,7 @@
  * The caller holds each site as its net handle in an `EditSnarlDecompositionOverlay`. It still
  * copies what a site's records need to know about the sites nested in it out of the overlay
  * (`SiteChildren`). An allele of a site is a `Traversal`, a walk of handles from the start bound of
- * the site to its end bound. A star allele, for a strand that does not cross the site, is an empty
- * walk.
+ * the site to its end bound.
  *
  * Namespace vg holds how edit sites are made. Namespace vg::multipass holds the caller's own types,
  * and the functions that read them from a decomposition.

@@ -65,7 +65,7 @@ static string call_vcf(const PathPositionHandleGraph& graph,
     SortedVCFWriter output("sample");
     MultiPassCaller caller(graph, genotyper, decomposition, output, "sample", traversal_finder,
                            ReferencePathTable({"ref"}, {0}, {2}), false,
-                           make_pair((size_t)0, numeric_limits<size_t>::max()), false, false);
+                           make_pair((size_t)0, numeric_limits<size_t>::max()));
     caller.set_nested_calling(true);
     caller.add_header_lines();
     genotyper.add_header_lines(output);

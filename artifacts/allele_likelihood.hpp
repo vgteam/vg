@@ -91,8 +91,7 @@ public:
      * Get the likelihood of read r under allele a, relative to the best allele of read r.
      *
      * It is 0 where allele a fits the read so much worse than the best that the ratio
-     * underflows. It is also 0 where allele a has no node visits, as the empty traversal of a
-     * star allele has, and cannot place the read.
+     * underflows. It is also 0 where allele a has no node visits, and so cannot place the read.
      */
     double rel(size_t r, size_t a) const;
 

@@ -80,16 +80,13 @@ public:
      * It skips a site unless its longest traversal is at least `allele_length_range.first` long
      * and none is longer than `allele_length_range.second`. With `genotype_snarls` it writes every
      * site, and trims alleles only as far as the boundary nodes, so that every sample gets the
-     * same alleles. With `top_down` it genotypes each child against the traversal sets its
-     * parent's called alleles allow. With `star_allele` it gives a parent allele that skips a
-     * child a star allele rather than a missing one.
+     * same alleles.
      */
     MultiPassCaller(const PathPositionHandleGraph& graph, ReadLikelihoodSnarlCaller& genotyper,
                     const SnarlDecomposition& decomposition, SortedVCFWriter& output,
                     const string& sample_name, SiteTraversalFinder& traversal_finder,
                     ReferencePathTable ref_paths, bool genotype_snarls,
-                    const pair<size_t, size_t>& allele_length_range, bool top_down,
-                    bool star_allele);
+                    const pair<size_t, size_t>& allele_length_range);
 
     /**
      * Run every pass and add the records to the output's buffer, then write the anchors and the
@@ -393,14 +390,6 @@ private:
     /// By default, uncalled sites are skipped, and alleles are trimmed to make variants small.
     /// This turns both off.
     bool genotype_snarls;
-
-    /// Genotype each child against the traversal sets its parent's called alleles allow (see
-    /// `TreeGenotyper`).
-    bool top_down = false;
-
-    /// Whether to give a star allele, rather than a missing one, to a parent allele that skips a
-    /// child, in top-down calling.
-    bool star_allele = false;
 
     /// The width, in node IDs, of the windows the direct pass batches top-level sites by, or 0
     /// for no batching.

@@ -820,9 +820,9 @@ void help_call(char** argv) {
          << "                            the ploidy of every reference path whose whole" << endl
          << "                            name REGEX matches. The first matching rule wins," << endl
          << "                            and unmatched paths get the ploidy from -d." << endl
-         << "      --top-down            genotype nested snarls after their parents, each" << endl
-         << "                            child's candidate alleles taken from its parent's" << endl
-         << "                            genotype" << endl
+         << "      --top-down            support-based caller only: genotype nested" << endl
+         << "                            snarls after their parents, each child's" << endl
+         << "                            candidate alleles taken from its parent's genotype" << endl
          << "      --bottom-up           genotype nested snarls before their parents" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "  -L, --cluster F           merge called alt alleles whose length-weighted" << endl
@@ -831,8 +831,8 @@ void help_call(char** argv) {
          << "      --cluster-min-len N   apply -L only at sites whose longest allele, less" << endl
          << "                            the prefix and suffix all alleles share, is at" << endl
          << "                            least N bp; 0 for every site [50]" << endl
-         << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
-         << "                            (requires --top-down)" << endl
+         << "  -Y, --star-allele         support-based caller only: use * alleles for" << endl
+         << "                            spanning haplotypes (requires --top-down)" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
@@ -1819,12 +1819,6 @@ int main_call(int argc, char** argv) {
         }
         atomize_blocks = false;
     }
-    if (atomize_blocks && top_down) {
-        if (is_explicit("atomize-blocks")) {
-            logger.error() << "--atomize-blocks cannot be combined with --top-down" << endl;
-        }
-        atomize_blocks = false;
-    }
 
     if (!vcf_filename.empty() && genotype_snarls) {
         logger.error() << "-v and -a options cannot be used together" << endl;
@@ -2078,6 +2072,12 @@ int main_call(int argc, char** argv) {
         }
         if (bottom_up) {
             modes.emplace_back("--bottom-up");
+        }
+        if (top_down) {
+            modes.emplace_back("--top-down");
+        }
+        if (star_allele) {
+            modes.emplace_back("-Y/--star-allele");
         }
         if (call_chains) {
             modes.emplace_back("-I/--chains");
@@ -2729,8 +2729,7 @@ int main_call(int argc, char** argv) {
                                                            ref_paths, ref_path_offsets,
                                                            ref_path_ploidies),
                                                        genotype_snarls,
-                                                       make_pair(min_allele_len, max_allele_len),
-                                                       top_down, star_allele));
+                                                       make_pair(min_allele_len, max_allele_len)));
         } else if (top_down) {
             // Use FlowCaller with nested mode enabled (top-down genotype propagation)
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
@@ -2826,20 +2825,6 @@ int main_call(int argc, char** argv) {
             return 1;
         }
         regenotype = false;
-    }
-    // --top-down gives each child snarl candidate traversals derived from its parent's called
-    // genotype, so re-genotyping, which can change that genotype afterwards, would leave the child
-    // genotyped against the wrong alleles. An explicit --regenotype with it is an error. One set by
-    // a preset is turned off.
-    if (regenotype && top_down && !is_explicit("regenotype")) {
-        regenotype = false;
-    }
-    if (regenotype && top_down) {
-        cerr << "error [vg call]: --regenotype cannot be combined with --top-down; --top-down"
-             << " derives each child's candidate traversals from its parent's called genotype, so"
-             << " re-genotyping a parent would leave its children genotyped against alleles it no"
-             << " longer carries" << endl;
-        return 1;
     }
     // Splitting homozygous sites, placing heterozygous reads by phase, and re-genotyping all use
     // each read's strand log-odds, which read phasing computes.

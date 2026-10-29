@@ -15,8 +15,7 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
                                  SortedVCFWriter& output, const string& sample_name,
                                  SiteTraversalFinder& traversal_finder,
                                  ReferencePathTable ref_paths, bool genotype_snarls,
-                                 const pair<size_t, size_t>& allele_length_range, bool top_down,
-                                 bool star_allele) :
+                                 const pair<size_t, size_t>& allele_length_range) :
     graph(graph),
     snarl_caller(genotyper),
     sites(decomposition, graph),
@@ -26,8 +25,6 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
     sample_name(sample_name),
     ref_paths(std::move(ref_paths)),
     genotype_snarls(genotype_snarls),
-    top_down(top_down),
-    star_allele(star_allele),
     splicer(graph, sites, phase_table),
     off_panel(graph, this->ref_paths),
     candidates(graph, traversal_finder, this->ref_paths, allele_length_range),
@@ -70,8 +67,6 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
         TreeGenotyper::Options{
             .nested_calling = nested_calling,
             .off_reference = off_reference_nesting,
-            .top_down = top_down,
-            .star_allele = star_allele,
             .edit_bar = off_panel.bar(),
         });
 

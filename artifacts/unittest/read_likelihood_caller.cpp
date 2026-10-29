@@ -452,11 +452,10 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     }
 }
 
-TEST_CASE("A record with a star allele still gets QUAL from the reference column",
+TEST_CASE("A record with an unscored allele still gets QUAL from the reference column",
           "[read_likelihood_caller]") {
-    // A nested site that one strand crosses is genotyped at ploidy 1 and written with a star
-    // allele for the other strand. The star allele's empty traversal matches no scored column,
-    // and QUAL needs only the reference allele's.
+    // A written allele that was not scored has no column, and QUAL needs only the reference
+    // allele's.
     CallerSite site;
     InMemorySiteReadSource source;
     for (int i = 0; i < 15; ++i) {
@@ -474,8 +473,7 @@ TEST_CASE("A record with a star allele still gets QUAL from the reference column
     REQUIRE(result.first == vector<int>({1}));
     const unique_ptr<SnarlCaller::CallInfo> call_info(std::move(result.second));
 
-    // Record alleles: reference, the called alternative, and the star allele, which was not
-    // scored.
+    // Record alleles: reference, the called alternative, and an allele that was not scored.
     const vector<int> scored_allele{0, 1, -1};
     vcflib::Variant variant;
     caller.write_vcf_fields(scored_allele, {1, 2}, call_info.get(), "s", variant);

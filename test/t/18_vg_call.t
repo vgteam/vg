@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 191
+plan tests 189
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -582,16 +582,14 @@ is "$NESTED_LINE_COUNT" "2" "nested vg call emits both top-level and child snarl
 
 rm -f nested_snp.vg nested_snp.gam nested_snp.pack nested_snp.vcf
 
-## Read-likelihood genotyping of a nested site, with a star allele
+## Read-likelihood genotyping of a deletion over a nested site
 # x = 1>2>3>5>6 and y1 = 1>6, which deletes the nested SNP: a het deletion over a haploid nested site.
 vg view -Fv nesting/nested_snp_in_del.gfa > ns.vg 2>/dev/null
 vg sim -x ns.vg -P x -n 150 -l 4 -a -s 7 > ns_het.gam 2>/dev/null
 vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 2 -a -s 8 >> ns_het.gam 2>/dev/null
 vg pack -x ns.vg -g ns_het.gam -o ns_het.pack 2>/dev/null
-vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
-is $(grep -v "^#" ns_rl.vcf | wc -l | tr -d ' ') "2" "nested read-likelihood emits both the parent and the child site"
+vg call ns.vg -k ns_het.pack -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
 is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "the parent deletion is called from boundary-to-boundary reads"
-is $(grep -v "^#" ns_rl.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "the nested site is a star allele, not a strand-artefact het SNP"
 rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf
 # Test: Star allele option validation (-Y requires --top-down)
 vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg

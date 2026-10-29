@@ -2068,8 +2068,7 @@ void GraphAlignedAlleleLikelihoodCalculator::score_row(
     for (size_t a = 0; a < alleles.steps.size(); ++a) {
         const vector<AlleleStep>& steps = alleles.steps[a];
         if (steps.empty()) {
-            // An allele with no visits, such as the empty traversal of a star allele, cannot place
-            // the read.
+            // An allele with no visits cannot place the read.
             row[a] = -numeric_limits<double>::infinity();
             continue;
         }
