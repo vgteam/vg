@@ -315,7 +315,7 @@ void MultiPassCaller::add_header_lines() {
         // FORMAT/PS is the VCF phase set, which phasing tools read. It is unrelated to INFO/PS,
         // vg's parent-snarl field; the two are in different namespaces, so both are legal, and
         // their descriptions say which is which.
-        output.add_format_header(
+        output.add_format_line(
             "##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase set: the phase of a "
             "genotype is comparable only with others carrying the same PS. One phase set per "
             "chain, so blocks are chromosome-scale -- much longer than a read-based phaser "
@@ -324,10 +324,10 @@ void MultiPassCaller::add_header_lines() {
             "snarl pointer\">");
     }
     if (off_panel.is_enabled()) {
-        output.add_info_header(OP_HEADER_LINE);
+        output.add_info_line(OP_HEADER_LINE);
     }
     if (block_records.is_enabled()) {
-        output.add_info_header(SB_HEADER_LINE);
+        output.add_info_line(SB_HEADER_LINE);
     }
 }
 

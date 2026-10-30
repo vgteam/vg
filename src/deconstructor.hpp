@@ -63,15 +63,16 @@ public:
     
 private:
 
-    // Find the samples, the paths that are not references, and the ploidy of each.
+    // Find the samples, from the paths that are not references, and the ploidy of each sample.
     void find_samples();
 
     // Declare in the header of `vcf_writer` the fields that the records have, other than GT and
     // the nesting tags. The samples must have been found.
     void declare_fields();
 
-    // Return the reference contigs, each named as the CHROM of its records, with the length of
-    // its longest reference path, counting the start of that path's subrange.
+    // Return the reference contigs, each named as the CHROM column of its records names it. The
+    // length of a contig is the furthest that any of its reference paths reaches, counting the
+    // start of the path's subrange.
     vector<SortedVCFWriter::ReferenceContig> reference_contigs() const;
 
     // Test if a path is the reference we're deconstructing against, seen through the

@@ -3063,13 +3063,13 @@ int main_call(int argc, char** argv) {
             site_emitter->allele_merge_threshold = cluster_threshold;
             site_emitter->allele_merge_min_len = cluster_min_allele_len;
         }
-        // The header lines of the read-likelihood caller's own fields come before the line of
-        // MAT, the field that records merged alleles.
+        // The fields of the read-likelihood caller come before MAT, the field that records merged
+        // alleles, and the genotyper's fields come after it.
         if (multipass_caller != nullptr) {
             multipass_caller->add_header_lines();
         }
         if (cluster_threshold < 1.0) {
-            vcf_caller->add_info_header(
+            vcf_caller->add_info_line(
                 "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
                 "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:SIMILARITY using "
                 "pre-merge allele numbers. AD and GL are folded onto the surviving allele and MAD "
@@ -3077,14 +3077,11 @@ int main_call(int argc, char** argv) {
                 "set. In a nested run this record gives the collapsed view of the site and its "
                 "child records the precise one, so they disagree by design.\">");
         }
-        // The genotyper's header lines.
-        string genotyper_header;
         if (multipass_caller != nullptr) {
-            read_likelihood_caller->update_vcf_header(genotyper_header);
+            read_likelihood_caller->add_header_lines(*vcf_caller);
         } else {
-            snarl_caller->update_vcf_header(genotyper_header);
+            snarl_caller->add_header_lines(*vcf_caller);
         }
-        vcf_caller->set_genotyper_header(std::move(genotyper_header));
         // The header declares the base paths found above, by the names the records have in their
         // CHROM column, rather than any path of the graph.
         auto* vcf_genotyper = dynamic_cast<VCFGenotyper*>(graph_caller.get());

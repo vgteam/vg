@@ -1304,9 +1304,9 @@ void Deconstructor::find_samples() {
 
 void Deconstructor::declare_fields() {
     if (show_path_info && !gbwt_sample_to_phase_range.empty()) {
-        vcf_writer.add_format_header(
-            "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg "
-            "path name for sample as well as its allele (can be many paths per sample)\">");
+        vcf_writer.add_format_line(
+            "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path "
+            "name for sample as well as its allele (can be many paths per sample)\">");
     }
     if (!gbwt_sample_to_phase_range.empty() || gbwt) {
         string conflict_line = "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample "
@@ -1315,31 +1315,34 @@ void Deconstructor::declare_fields() {
         if (!gbwt && show_path_info) {
             conflict_line += " (details in PI field)";
         }
-        vcf_writer.add_info_header(conflict_line + "\">");
+        vcf_writer.add_info_line(conflict_line + "\">");
     }
     if (!gbwt_sample_to_phase_range.empty() && cluster_threshold < 1) {
-        vcf_writer.add_format_header(
-            "##FORMAT=<ID=TS,Number=1,Type=Float,Description=\"Similarity between the "
-            "sample's actual path and its allele\">");
-        vcf_writer.add_format_header(
+        vcf_writer.add_format_line(
+            "##FORMAT=<ID=TS,Number=1,Type=Float,Description=\"Similarity between the sample's "
+            "actual path and its allele\">");
+        vcf_writer.add_format_line(
             "##FORMAT=<ID=TL,Number=1,Type=Integer,Description=\"Length difference between the "
             "sample's actual path and its allele\">");
     }
-    vcf_writer.add_info_header("##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Total number "
-                               "of alternate alleles in called genotypes\">");
-    vcf_writer.add_info_header("##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated "
-                               "allele frequency in the range (0,1]\">");
-    vcf_writer.add_info_header("##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of "
-                               "samples with data\">");
-    vcf_writer.add_info_header("##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number "
-                               "of alleles in called genotypes\">");
+    vcf_writer.add_info_line(
+        "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Total number of alternate alleles in "
+        "called genotypes\">");
+    vcf_writer.add_info_line(
+        "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated allele frequency in the range "
+        "(0,1]\">");
+    vcf_writer.add_info_line(
+        "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">");
+    vcf_writer.add_info_line(
+        "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called "
+        "genotypes\">");
     // An untangled traversal replaces AT.
     vcf_writer.set_declare_allele_traversals(!untangle_allele_traversals);
     if (untangle_allele_traversals) {
-        vcf_writer.add_info_header(
+        vcf_writer.add_info_line(
             "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with "
-            "reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with "
-            "'.' indicating non-reference nodes.\">");
+            "reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' "
+            "indicating non-reference nodes.\">");
     }
 }
 

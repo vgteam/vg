@@ -23,12 +23,16 @@ bool SortedVCFWriter::BufferedRecordKey::operator<(const BufferedRecordKey& othe
            < std::tie(other.contig, other.position, other.id, other.block);
 }
 
-void SortedVCFWriter::add_format_header(string line) {
-    format_header_lines.push_back(std::move(line));
+void SortedVCFWriter::add_info_line(string line) {
+    info_lines.push_back(std::move(line));
 }
 
-void SortedVCFWriter::add_info_header(string line) {
-    info_header_lines.push_back(std::move(line));
+void SortedVCFWriter::add_format_line(string line) {
+    format_lines.push_back(std::move(line));
+}
+
+void SortedVCFWriter::add_filter_line(string line) {
+    filter_lines.push_back(std::move(line));
 }
 
 const NodeTranslation* SortedVCFWriter::translation() const {
@@ -50,10 +54,6 @@ SortedVCFWriter::SortedVCFWriter(const string& sample_name) : sample(sample_name
     suppressed_ref_info.resize(get_thread_count());
 }
 
-void SortedVCFWriter::set_genotyper_header(string lines) {
-    genotyper_header = std::move(lines);
-}
-
 void SortedVCFWriter::set_sample_names(vector<string> names) {
     output_vcf.sampleNames = std::move(names);
 }
@@ -62,8 +62,8 @@ void SortedVCFWriter::set_declare_allele_traversals(bool declare) {
     declare_allele_traversals = declare;
 }
 
-void SortedVCFWriter::set_contigs(vector<ReferenceContig> contigs, bool only_with_records) {
-    this->contigs = std::move(contigs);
+void SortedVCFWriter::set_contigs(vector<ReferenceContig> declared, bool only_with_records) {
+    contigs = std::move(declared);
     only_contigs_with_records = only_with_records;
 }
 
@@ -82,19 +82,21 @@ string SortedVCFWriter::vcf_header(const unordered_set<string>* keep_contigs) co
     if (include_nested) {
         ss << nesting_info_headers();
     }
-    for (const string& line : format_header_lines) {
-        ss << line << endl;
-    }
     if (declare_allele_traversals) {
         ss << "##INFO=<ID=AT,Number=R,Type=String,"
            << "Description=\"Allele Traversal as path in graph\">" << endl;
     }
-    for (const string& line : info_header_lines) {
+    for (const string& line : info_lines) {
         ss << line << endl;
     }
     ss << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
-    ss << genotyper_header;
+    for (const string& line : format_lines) {
+        ss << line << endl;
+    }
     ss << "##FILTER=<ID=PASS,Description=\"All filters passed\">" << endl;
+    for (const string& line : filter_lines) {
+        ss << line << endl;
+    }
     for (const string& name : output_vcf.sampleNames) {
         ss << "##SAMPLE=<ID=" << name << ">" << endl;
     }
@@ -134,13 +136,13 @@ bool SortedVCFWriter::add_variant(vcflib::Variant& var, size_t block, bool hidde
 void SortedVCFWriter::write_variants(
     ostream& out_stream, const SnarlDecomposition* sites, const HandleGraph* graph,
     const function<string(const net_handle_t&)>& record_id_of_site) {
-    // The contigs with records are read before the buffer is emptied below.
+    // Find the contigs with records now, since sorting empties the buffers.
     unordered_set<string> output_contigs;
     if (only_contigs_with_records) {
         output_contigs = get_output_contigs();
     }
     string header = vcf_header(only_contigs_with_records ? &output_contigs : nullptr);
-    // Parsing the header takes off its last newline, so the file gets a copy.
+    // The file gets a copy of the header, because parsing removes the last newline.
     string parsed_header = header;
     output_vcf.openForOutput(parsed_header);
     out_stream << header;
@@ -303,15 +305,14 @@ void SortedVCFWriter::set_gref_levels(map<string, int> levels) {
 }
 
 unordered_set<string> SortedVCFWriter::get_output_contigs() const {
-    unordered_set<string> contigs;
-    // The sort key is (sequenceName, position) (see add_variant), so the contig is right
-    // there and nothing has to be decompressed.
+    unordered_set<string> with_records;
+    // The contig is in each record's sort key, so nothing has to be decompressed.
     for (const auto& thread_buf : output_variants) {
         for (const auto& [key, record] : thread_buf) {
-            contigs.insert(key.contig);
+            with_records.insert(key.contig);
         }
     }
-    return contigs;
+    return with_records;
 }
 
 

@@ -200,8 +200,9 @@ public:
                           const SnarlCaller::CallInfo* call_info, const string& sample_name,
                           vcflib::Variant& variant) const;
 
-    /// Add the header lines of the fields this genotyper writes.
-    void update_vcf_header(string& header) const;
+    /// Declare in the header of `writer` the FORMAT and FILTER fields that this genotyper
+    /// writes.
+    void add_header_lines(SortedVCFWriter& writer) const;
 
     /// Write the matrix for every site to this stream as TSV. Not owned.
     void set_likelihood_dump(ostream* dump_stream);

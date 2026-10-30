@@ -9,6 +9,7 @@
 #include <sstream>
 
 #include "../src/statistics.hpp"
+#include "../src/sorted_vcf_writer.hpp"
 #include "../src/utility.hpp"
 #include "../src/crash.hpp"
 
@@ -567,84 +568,87 @@ void ReadLikelihoodSnarlCaller::write_vcf_fields(const vector<int>& site_to_scor
     }
 }
 
-void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
-    header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Number of informative reads "
-              "overlapping the site\">\n";
-    header += "##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Reads whose best-fitting "
-        "allele is this one. **AD does not sum to DP**, for two reasons: a read fitting "
-        "several alleles equally splits its vote between them, and more importantly only "
-        "alleles that reached this record get a column, while the genotyper scored every "
-        "allele the site offered. At a site where many alleles were enumerated and few "
-        "emitted, most reads best-fit something absent here and the shortfall is large. "
-        "That shortfall is itself informative: it is how much of the evidence the emitted "
-        "alleles fail to explain. Not used by the genotype model, which gives each "
-        "haplotype a share of the reads set by the length of sequence unique to its allele "
-        "(an equal share under --flat-mixture), whatever the reads show\">\n";
-    header += "##FORMAT=<ID=DR,Number=1,Type=Float,Description=\"Observed reads at this site "
-              "divided by the number the called genotype predicts, from the rate of read starts per "
-              "base in the site's rate window, the fixed 16,384 bp reference bucket holding the "
-              "site and one bucket on each side, and the called alleles' traversal lengths. 1.0 "
-              "means the read count is exactly what the call implies. Values well above 1 are "
-              "collapsed repeats, where reads from several copies pile onto one; values near 0.5 "
-              "are a genotype claiming twice the sequence actually covered, which is what a missed "
-              "heterozygous deletion looks like. Both sides of the ratio count a read as 1 - e_r, "
-              "the probability it came from this locus at all, so a site whose mapping quality "
-              "matches its neighbourhood's is unaffected and only the difference shows; pass "
-              "--depth-count-raw to count whole reads instead. Reported whether or not "
-              "--depth-term is in use\">\n";
-    header += "##FORMAT=<ID=BL,Number=1,Type=Float,Description=\"Mean over reads of the best "
-        "raw alignment score any allele gave them. Measures whether reads fit anything at "
-        "this site, where GQ measures only the gap between the top two genotypes, so the "
-        "two are nearly independent. NOT normalised for site size or read overlap, so it "
-        "is comparable between calls at similar sites rather than across a whole genome\">\n";
-    header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, "
-              "log10-scaled P(reads | genotype) from the read-level likelihood model. Useful for "
-              "ranking; not a calibrated probability, and over-confident at high depth because "
-              "reads are treated as independent\">\n";
-    header += "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality, the "
-              "phred-scaled gap between the best and second-best genotype likelihood, scaled "
-              "by the fraction of reads the called genotype explains (sum(AD)/DP). The "
-              "likelihood ratio alone cannot see reads that fit an allele outside the call, "
-              "because those reads enter every genotype's likelihood and cancel; the scaling "
-              "restores them. It also means GQ here is a quality score rather than a "
-              "calibrated posterior. --no-share-quality turns this scaling off. With "
-              "--depth-quality A in effect, records whose called alleles change length by at "
-              "least 50 bp are also scaled by exp(-A * |ln DR|), so a call whose read count is "
-              "implausible for the sequence it claims ranks lower. GQI is the value with neither "
-              "scaling\">\n";
-    header += "##FORMAT=<ID=GQI,Number=1,Type=Integer,Description=\"Genotype Quality from the "
-              "likelihood ratio alone, with neither the explained-read-fraction scaling nor the "
-              "--depth-quality scaling. Equals GQ under --no-share-quality, except where "
-              "--depth-quality scales GQ\">\n";
-    header += "##FORMAT=<ID=GQN,Number=1,Type=Float,Description=\"Normalised Genotype Quality: "
-              "the likelihood-ratio gap as a fraction, in [0,1], of the gap this site could have "
-              "produced had every read fitted the call perfectly. Unlike GQ it means the same "
-              "thing at any depth and any ploidy, so one threshold works across a 5x diploid and "
-              "a 15x haploid contig. GQ cannot: it scales with depth, and it scales with ploidy "
-              "the other way, because at ploidy 1 the runner-up genotype is a different allele "
-              "outright and every read discriminates fully, where a diploid heterozygote's "
-              "runner-up differs on one strand only. On HG002 that makes hemizygous chrX calls "
-              "run a median GQ of 247 where chr7 diploid homozygotes at the same depth run 46. "
-              "Dividing GQ by depth does not fix this and measurably makes it worse, since it "
-              "corrects the smaller axis and leaves the larger. '.' where there was no gap to "
-              "normalise, which is not 0. NEGATIVE, and so in [-1,1] rather than [0,1], on a "
-              "record the linkage layer moved: there GQN is the settled genotype's margin over "
-              "the best alternative on the same scale, and a negative value says the panel "
-              "overrode the reads. Those records are the caller's highest false-positive density "
-              "-- 37.8% against 8.6% overall on 44x ONT chr20 -- so they are reported as a signed "
-              "number rather than blanked, which is what left --min-confidence unable to see "
-              "them\">\n";
-    header += "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the "
-              "natural-log-scaled posterior of the called genotype under a uniform prior. "
-              "Nats, not log10: unlike GL, exponentiate with e, so -2.303 means p=0.1\">\n";
-    header += "##FILTER=<ID=lowconf,Description=\"GQN below --min-confidence: the call used less "
-              "of the discrimination this site could offer than required. Unlike a GQ threshold "
-              "this means the same thing at any depth and any ploidy -- requiring GQ >= 10 costs a "
-              "5x diploid contig a third of its F1, where GQN >= 0.05 costs it 0.009 and gains a "
-              "haploid contig 0.017. Marks rather than drops. Off unless --min-confidence is "
-              "given\">\n";
-    header += "##FILTER=<ID=noreads,Description=\"No informative read overlaps the site, so the "
-              "read-level model has no evidence either way\">\n";
+void ReadLikelihoodSnarlCaller::add_header_lines(SortedVCFWriter& writer) const {
+    writer.add_format_line(
+        "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Number of informative reads "
+        "overlapping the site\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Reads whose best-fitting allele is "
+        "this one. **AD does not sum to DP**, for two reasons: a read fitting several alleles "
+        "equally splits its vote between them, and more importantly only alleles that reached this "
+        "record get a column, while the genotyper scored every allele the site offered. At a site "
+        "where many alleles were enumerated and few emitted, most reads best-fit something absent "
+        "here and the shortfall is large. That shortfall is itself informative: it is how much of "
+        "the evidence the emitted alleles fail to explain. Not used by the genotype model, which "
+        "gives each haplotype a share of the reads set by the length of sequence unique to its "
+        "allele (an equal share under --flat-mixture), whatever the reads show\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=DR,Number=1,Type=Float,Description=\"Observed reads at this site divided by "
+        "the number the called genotype predicts, from the rate of read starts per base in the "
+        "site's rate window, the fixed 16,384 bp reference bucket holding the site and one bucket "
+        "on each side, and the called alleles' traversal lengths. 1.0 means the read count is "
+        "exactly what the call implies. Values well above 1 are collapsed repeats, where reads "
+        "from several copies pile onto one; values near 0.5 are a genotype claiming twice the "
+        "sequence actually covered, which is what a missed heterozygous deletion looks like. Both "
+        "sides of the ratio count a read as 1 - e_r, the probability it came from this locus at "
+        "all, so a site whose mapping quality matches its neighbourhood's is unaffected and only "
+        "the difference shows; pass --depth-count-raw to count whole reads instead. Reported "
+        "whether or not --depth-term is in use\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=BL,Number=1,Type=Float,Description=\"Mean over reads of the best raw "
+        "alignment score any allele gave them. Measures whether reads fit anything at this site, "
+        "where GQ measures only the gap between the top two genotypes, so the two are nearly "
+        "independent. NOT normalised for site size or read overlap, so it is comparable between "
+        "calls at similar sites rather than across a whole genome\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log10-scaled "
+        "P(reads | genotype) from the read-level likelihood model. Useful for ranking; not a "
+        "calibrated probability, and over-confident at high depth because reads are treated as "
+        "independent\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality, the phred-scaled "
+        "gap between the best and second-best genotype likelihood, scaled by the fraction of reads "
+        "the called genotype explains (sum(AD)/DP). The likelihood ratio alone cannot see reads "
+        "that fit an allele outside the call, because those reads enter every genotype's "
+        "likelihood and cancel; the scaling restores them. It also means GQ here is a quality "
+        "score rather than a calibrated posterior. --no-share-quality turns this scaling off. With "
+        "--depth-quality A in effect, records whose called alleles change length by at least 50 bp "
+        "are also scaled by exp(-A * |ln DR|), so a call whose read count is implausible for the "
+        "sequence it claims ranks lower. GQI is the value with neither scaling\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=GQI,Number=1,Type=Integer,Description=\"Genotype Quality from the likelihood "
+        "ratio alone, with neither the explained-read-fraction scaling nor the --depth-quality "
+        "scaling. Equals GQ under --no-share-quality, except where --depth-quality scales GQ\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=GQN,Number=1,Type=Float,Description=\"Normalised Genotype Quality: the "
+        "likelihood-ratio gap as a fraction, in [0,1], of the gap this site could have produced "
+        "had every read fitted the call perfectly. Unlike GQ it means the same thing at any depth "
+        "and any ploidy, so one threshold works across a 5x diploid and a 15x haploid contig. GQ "
+        "cannot: it scales with depth, and it scales with ploidy the other way, because at ploidy "
+        "1 the runner-up genotype is a different allele outright and every read discriminates "
+        "fully, where a diploid heterozygote's runner-up differs on one strand only. On HG002 that "
+        "makes hemizygous chrX calls run a median GQ of 247 where chr7 diploid homozygotes at the "
+        "same depth run 46. Dividing GQ by depth does not fix this and measurably makes it worse, "
+        "since it corrects the smaller axis and leaves the larger. '.' where there was no gap to "
+        "normalise, which is not 0. NEGATIVE, and so in [-1,1] rather than [0,1], on a record the "
+        "linkage layer moved: there GQN is the settled genotype's margin over the best alternative "
+        "on the same scale, and a negative value says the panel overrode the reads. Those records "
+        "are the caller's highest false-positive density -- 37.8% against 8.6% overall on 44x ONT "
+        "chr20 -- so they are reported as a signed number rather than blanked, which is what left "
+        "--min-confidence unable to see them\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the "
+        "natural-log-scaled posterior of the called genotype under a uniform prior. Nats, not "
+        "log10: unlike GL, exponentiate with e, so -2.303 means p=0.1\">");
+    writer.add_filter_line(
+        "##FILTER=<ID=lowconf,Description=\"GQN below --min-confidence: the call used less of the "
+        "discrimination this site could offer than required. Unlike a GQ threshold this means the "
+        "same thing at any depth and any ploidy -- requiring GQ >= 10 costs a 5x diploid contig a "
+        "third of its F1, where GQN >= 0.05 costs it 0.009 and gains a haploid contig 0.017. Marks "
+        "rather than drops. Off unless --min-confidence is given\">");
+    writer.add_filter_line(
+        "##FILTER=<ID=noreads,Description=\"No informative read overlaps the site, so the "
+        "read-level model has no evidence either way\">");
 }
 
 

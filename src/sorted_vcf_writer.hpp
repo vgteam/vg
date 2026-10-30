@@ -59,7 +59,8 @@ public:
     explicit SortedVCFWriter(const string& sample_name);
 
     /**
-     * Add a record to the output.
+     * Add a record to the output. The record is attached to the writer's VCF file, which gives it
+     * the writer's sample columns, and is then kept as its text.
      *
      * A hidden record is not written. The writer keeps only its ID and the stretch of the
      * reference its REF covers, so that a record nested inside it can still be placed on the
@@ -72,8 +73,9 @@ public:
      */
     bool add_variant(vcflib::Variant& var, size_t block = 0, bool hidden = false);
 
-    /// A contig of the reference, to declare in a ##contig line of the header.
+    /// A contig of the reference, for a ##contig line of the header.
     struct ReferenceContig {
+        /// The name that the CHROM column of the records gives the contig.
         string name;
         size_t length = 0;
     };
@@ -83,22 +85,25 @@ public:
      *
      * @param only_with_records Declare only the contigs that have records.
      */
-    void set_contigs(vector<ReferenceContig> contigs, bool only_with_records = false);
+    void set_contigs(vector<ReferenceContig> declared, bool only_with_records = false);
 
-    /// Set whether the header declares the AT INFO field, the traversal of each allele. It does
-    /// unless this is set to false.
+    /// Set whether the header declares the AT INFO field, which holds the traversal of each
+    /// allele. The header declares it by default. A caller that writes no AT field turns it off.
     void set_declare_allele_traversals(bool declare);
 
-    /// Add a FORMAT line, without its newline, to the header.
-    void add_format_header(string line);
-    /// Add an INFO line, without its newline, to the header.
-    void add_info_header(string line);
-    /// Set the header lines of the genotyper that writes the records' fields, each with its
-    /// newline. They follow the line of GT.
-    void set_genotyper_header(string lines);
+    /// Add one ##INFO line, without its newline, to the header. The added INFO lines follow the
+    /// nesting and AT lines, in the order they were added.
+    void add_info_line(string line);
+    /// Add one ##FORMAT line, without its newline, to the header. The added FORMAT lines follow
+    /// the GT line, in the order they were added.
+    void add_format_line(string line);
+    /// Add one ##FILTER line, without its newline, to the header. The added FILTER lines follow
+    /// the PASS line, in the order they were added.
+    void add_filter_line(string line);
 
     /**
-     * Write the header, then the records, sorted, and empty the buffer.
+     * Write the header, then the records, sorted, and empty the buffer. Call it once, after
+     * every record and header line has been added.
      *
      * With nesting on, each record first gets the nesting INFO tags, which say where its site
      * lies in the snarl tree `sites` and where to find it on the reference. A record is matched
@@ -142,8 +147,13 @@ public:
 
 private:
     /**
-     * Return the text of the whole header. If `keep_contigs` is not null, only those of the
-     * contigs get ##contig lines.
+     * Return the text of the whole header, each line ending in a newline. If `keep_contigs`
+     * is not null, only the contigs in it get ##contig lines.
+     *
+     * The header starts with the fileformat line and the ##contig lines. The INFO, FORMAT and
+     * FILTER lines follow, grouped by type. Each group starts with the lines that the writer
+     * always writes, and then has the added lines. The ##SAMPLE lines and the column line come
+     * last.
      */
     string vcf_header(const unordered_set<string>* keep_contigs) const;
 
@@ -162,16 +172,18 @@ private:
      * The VCF file that the records belong to. Its sample names are the samples whose columns
      * the records have, in order.
      *
-     * This is a deliberate shortcut. vcflib expects a file to be opened with its header before
-     * any record of it exists, but the records are printed to text as they are added, and the
-     * header is known only at the end. So while records are added, the file holds only the
-     * sample names, which is all that printing a record reads. This is safe because a record is
-     * kept only as text once it is added, so nothing reads the file's INFO or FORMAT fields
-     * through it. The file is opened with the real header just before anything is written.
+     * We take a deliberate shortcut with this file. vcflib expects a file to be opened with its
+     * header before any of its records exist. Here the records are printed to text as they are
+     * added, and the header is known only at the end. So while records are added, the file holds
+     * only the sample names. A record attached to the file copies them, and printing the record
+     * reads only those copies. The shortcut is safe because nothing reads the INFO or FORMAT
+     * types of the file through a record before the header is in place: a record is kept only as
+     * text once it is added. The file is opened with the real header just before anything is
+     * written.
      */
     vcflib::VariantCallFile output_vcf;
 
-    /// The contigs that the header declares.
+    /// The contigs for the ##contig lines, in order.
     vector<ReferenceContig> contigs;
     /// Whether the header declares only the contigs that have records.
     bool only_contigs_with_records = false;
@@ -191,12 +203,12 @@ private:
     /// large snarl that only the reference and its own gref copy span.
     vector<unordered_map<string, Region>> suppressed_ref_info;
 
-    /// The FORMAT lines added to the header.
-    vector<string> format_header_lines;
-    /// The INFO lines added to the header.
-    vector<string> info_header_lines;
-    /// The header lines of the genotyper.
-    string genotyper_header;
+    /// The ##INFO lines added to the header.
+    vector<string> info_lines;
+    /// The ##FORMAT lines added to the header.
+    vector<string> format_lines;
+    /// The ##FILTER lines added to the header.
+    vector<string> filter_lines;
 
     /// The node translation that names nodes, or null to name them by ID.
     const NodeTranslation* node_translation = nullptr;
