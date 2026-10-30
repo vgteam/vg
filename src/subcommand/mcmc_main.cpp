@@ -242,9 +242,6 @@ int main_mcmc(int argc, char** argv) {
     // Create MCMC_Caller object
     MCMCCaller mcmc_caller(graph, *genome, *snarls, sample_name, ref_paths, ref_path_offsets, ref_path_lengths, cout);
 
-    // Write header to ofstream  
-    vcf_file_out << mcmc_caller.vcf_header(*graph, ref_paths, ref_path_lengths);
-    
     //current implimentation is writing VCF record after each variant processed
     mcmc_caller.call_top_level_snarls();
 

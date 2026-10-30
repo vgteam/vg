@@ -34,14 +34,22 @@ namespace vg {
             ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
         }
 
+        // The header declares each reference path with its given length, or else the length
+        // of the path in the graph.
+        vector<SortedVCFWriter::ReferenceContig> contigs;
+        for (size_t i = 0; i < ref_paths.size(); ++i) {
+            size_t length = i < ref_path_lengths.size()
+                ? ref_path_lengths[i]
+                : path_position_handle_graph->get_path_length(
+                    path_position_handle_graph->get_path_handle(ref_paths[i]));
+            contigs.push_back({ref_paths[i], length});
+        }
+        vcf_writer.set_contigs(std::move(contigs));
+
     }
     
     MCMCCaller:: ~MCMCCaller(){
 
-    }
-    string MCMCCaller::vcf_header(const PathPositionHandleGraph& pph_graph, const vector<string>& ref_paths,
-                                  const vector<size_t>& contig_length_overrides) const {
-        return vcf_writer.vcf_header(pph_graph, ref_paths, contig_length_overrides);
     }
 
 

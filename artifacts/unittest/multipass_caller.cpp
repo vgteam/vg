@@ -73,7 +73,7 @@ static string call_vcf(const PathPositionHandleGraph& graph,
     output.set_genotyper_header(genotyper_header);
     caller.call(GraphCaller::RecurseOnFail, []() {});
     stringstream vcf;
-    vcf << output.vcf_header(graph, {"ref"}, {});
+    output.set_contigs({{"ref", graph.get_path_length(graph.get_path_handle("ref"))}});
     output.write_variants(vcf);
     return vcf.str();
 }

@@ -48,7 +48,9 @@ vector<vector<string>> written_lines(SortedVCFWriter& output) {
     vector<vector<string>> lines;
     string line;
     while (getline(out, line)) {
-        lines.push_back(split_delims(line, "\t"));
+        if (!line.starts_with("#")) {
+            lines.push_back(split_delims(line, "\t"));
+        }
     }
     return lines;
 }

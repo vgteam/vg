@@ -115,12 +115,15 @@ vcflib::Variant nesting_record(const string& id, int64_t position, const string&
     return record;
 }
 
-/// Return the INFO fields of each record line of a VCF body, by the record's ID.
+/// Return the INFO fields of each record line of a VCF, by the record's ID.
 map<string, map<string, string>> info_by_id(const string& vcf) {
     map<string, map<string, string>> fields;
     stringstream lines(vcf);
     string line;
     while (getline(lines, line)) {
+        if (line.starts_with("#")) {
+            continue;
+        }
         vector<string> columns = split_delims(line, "\t");
         for (const string& field : split_delims(columns.at(7), ";")) {
             size_t equals = field.find('=');

@@ -72,16 +72,22 @@ public:
      */
     bool add_variant(vcflib::Variant& var, size_t block = 0, bool hidden = false);
 
+    /// A contig of the reference, to declare in a ##contig line of the header.
+    struct ReferenceContig {
+        string name;
+        size_t length = 0;
+    };
+
     /**
-     * Return a string with all the VCF header lines. If `keep_contigs` is not null, only those
-     * contigs get ##contig lines.
+     * Set the contigs that the header declares, in order.
      *
-     * A contig's length is its entry in `contig_length_overrides`, or else the length of the
-     * path of that name in `graph`.
+     * @param only_with_records Declare only the contigs that have records.
      */
-    string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                      const vector<size_t>& contig_length_overrides = {},
-                      const unordered_set<string>* keep_contigs = nullptr) const;
+    void set_contigs(vector<ReferenceContig> contigs, bool only_with_records = false);
+
+    /// Set whether the header declares the AT INFO field, the traversal of each allele. It does
+    /// unless this is set to false.
+    void set_declare_allele_traversals(bool declare);
 
     /// Add a FORMAT line, without its newline, to the header.
     void add_format_header(string line);
@@ -92,7 +98,7 @@ public:
     void set_genotyper_header(string lines);
 
     /**
-     * Write the records, sorted, and empty the buffer.
+     * Write the header, then the records, sorted, and empty the buffer.
      *
      * With nesting on, each record first gets the nesting INFO tags, which say where its site
      * lies in the snarl tree `sites` and where to find it on the reference. A record is matched
@@ -125,9 +131,6 @@ public:
     /// sample the writer was made for.
     void set_sample_names(vector<string> names);
 
-    /// Return the reference contigs that have any records in the buffer.
-    unordered_set<string> get_output_contigs() const;
-
     /// Run vcflib's vcffixup on a record, filling AC, AN and the like.
     void vcf_fixup(vcflib::Variant& var) const;
 
@@ -138,6 +141,15 @@ public:
     static const int64_t max_vcf_line_length = 2000000000;
 
 private:
+    /**
+     * Return the text of the whole header. If `keep_contigs` is not null, only those of the
+     * contigs get ##contig lines.
+     */
+    string vcf_header(const unordered_set<string>* keep_contigs) const;
+
+    /// Return the reference contigs that have any records in the buffer.
+    unordered_set<string> get_output_contigs() const;
+
     /// Add the nesting INFO tags to every buffered record, from the snarl tree `sites`, whose
     /// sites have the record IDs `record_id_of_site` gives.
     void update_nesting_info_tags(const SnarlDecomposition& sites,
@@ -145,8 +157,26 @@ private:
 
     /// The name of the sample the writer was made for.
     string sample;
-    /// The samples whose columns the records have, in order.
-    vector<string> sample_names;
+
+    /**
+     * The VCF file that the records belong to. Its sample names are the samples whose columns
+     * the records have, in order.
+     *
+     * This is a deliberate shortcut. vcflib expects a file to be opened with its header before
+     * any record of it exists, but the records are printed to text as they are added, and the
+     * header is known only at the end. So while records are added, the file holds only the
+     * sample names, which is all that printing a record reads. This is safe because a record is
+     * kept only as text once it is added, so nothing reads the file's INFO or FORMAT fields
+     * through it. The file is opened with the real header just before anything is written.
+     */
+    vcflib::VariantCallFile output_vcf;
+
+    /// The contigs that the header declares.
+    vector<ReferenceContig> contigs;
+    /// Whether the header declares only the contigs that have records.
+    bool only_contigs_with_records = false;
+    /// Whether the header declares the AT INFO field.
+    bool declare_allele_traversals = true;
 
     /// The buffered records, one buffer per thread, each a sort key and the zstd-compressed line.
     /// A vcflib::Variant is too big to keep in memory for every record.

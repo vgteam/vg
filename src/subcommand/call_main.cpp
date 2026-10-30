@@ -2916,9 +2916,6 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // The contigs of the VCF header, and their lengths.
-    vector<string> header_ref_paths;
-    vector<size_t> header_ref_lengths;
     if (!gaf_output) {
         // Init The VCF       
         SortedVCFWriter* vcf_caller = vcf_out;
@@ -3088,22 +3085,28 @@ int main_call(int argc, char** argv) {
             snarl_caller->update_vcf_header(genotyper_header);
         }
         vcf_caller->set_genotyper_header(std::move(genotyper_header));
-        // Make sure the basepath information we inferred above goes directy to the VCF header
-        // (and that it does *not* try to read it from the graph paths)
+        // The header declares the base paths found above, by the names the records have in their
+        // CHROM column, rather than any path of the graph.
         auto* vcf_genotyper = dynamic_cast<VCFGenotyper*>(graph_caller.get());
-        for (const auto& path_len : basepath_length_map) {
+        vector<string> contig_names;
+        vector<size_t> contig_lengths;
+        for (const auto& [path_name, length] : basepath_length_map) {
             // Use the locus name (eg "chrI") to match what SiteEmitter::emit()
             // writes to the CHROM column in data lines
-            string contig_name = PathMetadata::parse_locus_name(path_len.first);
-            header_ref_paths.push_back(contig_name != PathMetadata::NO_LOCUS_NAME ? contig_name : path_len.first);
-            if (vcf_genotyper == nullptr) {
-                header_ref_lengths.push_back(path_len.second);
-            }
+            string contig_name = PathMetadata::parse_locus_name(path_name);
+            contig_names.push_back(contig_name != PathMetadata::NO_LOCUS_NAME ? contig_name
+                                                                             : path_name);
+            contig_lengths.push_back(length);
         }
         if (vcf_genotyper != nullptr) {
             // The VCF being genotyped gives the lengths of its contigs.
-            header_ref_lengths = vcf_genotyper->contig_lengths(header_ref_paths);
+            contig_lengths = vcf_genotyper->contig_lengths(contig_names);
         }
+        vector<SortedVCFWriter::ReferenceContig> contigs;
+        for (size_t i = 0; i < contig_names.size(); ++i) {
+            contigs.push_back({contig_names[i], contig_lengths[i]});
+        }
+        vcf_caller->set_contigs(std::move(contigs), true);
     }
 
     if (multipass_caller != nullptr) {
@@ -3190,12 +3193,6 @@ int main_call(int argc, char** argv) {
         // Output VCF
         SortedVCFWriter* vcf_caller = vcf_out;
         assert(vcf_caller != nullptr);
-        // Write the header now, since the contigs with records are only known once calling is
-        // done. write_variants below empties the buffer that get_output_contigs reads.
-        unordered_set<string> output_contigs = vcf_caller->get_output_contigs();
-        cout << vcf_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths,
-                                       &output_contigs)
-             << flush;
         if (show_progress) logger.info() << "Writing VCF Variants" << endl;
         if (multipass_caller != nullptr) {
             // The read-likelihood caller places each record among the sites it called, which

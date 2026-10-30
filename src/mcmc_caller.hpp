@@ -48,10 +48,6 @@ namespace vg{
         /// Snarls are processed in parallel
         void call_top_level_snarls(bool recurse_on_fail = true) ;
 
-        /// print vcf header
-        string vcf_header(const PathPositionHandleGraph& graph, const vector<string>& ref_paths,
-                          const vector<size_t>& contig_length_overrides) const;
-
         /// The sorted VCF the records go to.
         SortedVCFWriter vcf_writer;
     

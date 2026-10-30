@@ -44,8 +44,8 @@ Region record_ref_region(const vcflib::Variant& record) {
                   record.position + (int64_t)record.ref.length() - 1};
 }
 
-SortedVCFWriter::SortedVCFWriter(const string& sample_name) :
-    sample(sample_name), sample_names{sample_name} {
+SortedVCFWriter::SortedVCFWriter(const string& sample_name) : sample(sample_name) {
+    output_vcf.sampleNames = {sample_name};
     output_variants.resize(get_thread_count());
     suppressed_ref_info.resize(get_thread_count());
 }
@@ -55,33 +55,29 @@ void SortedVCFWriter::set_genotyper_header(string lines) {
 }
 
 void SortedVCFWriter::set_sample_names(vector<string> names) {
-    sample_names = std::move(names);
+    output_vcf.sampleNames = std::move(names);
 }
 
-string SortedVCFWriter::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                                   const vector<size_t>& contig_length_overrides,
-                                   const unordered_set<string>* keep_contigs) const {
+void SortedVCFWriter::set_declare_allele_traversals(bool declare) {
+    declare_allele_traversals = declare;
+}
+
+void SortedVCFWriter::set_contigs(vector<ReferenceContig> contigs, bool only_with_records) {
+    this->contigs = std::move(contigs);
+    only_contigs_with_records = only_with_records;
+}
+
+string SortedVCFWriter::vcf_header(const unordered_set<string>* keep_contigs) const {
     stringstream ss;
-    ss << "##fileformat=VCFv4.2" << endl;    
-    for (int i = 0; i < contigs.size(); ++i) {
-        const string& contig = contigs[i];
-        if (keep_contigs != nullptr && !keep_contigs->contains(contig)) {
+    ss << "##fileformat=VCFv4.2" << endl;
+    for (const ReferenceContig& contig : contigs) {
+        if (keep_contigs != nullptr && !keep_contigs->contains(contig.name)) {
             // A reference contig that has no record is not worth declaring: with a gref cover
             // most contigs are fragments, and on a human chromosome a third of them carry
             // nothing.
             continue;
         }
-        size_t length;
-        if (i < contig_length_overrides.size()) {
-            // length override provided
-            length = contig_length_overrides[i];
-        } else {
-            length = 0;
-            for (handle_t handle : graph.scan_path(graph.get_path_handle(contig))) {
-                length += graph.get_length(handle);
-            }
-        }
-        ss << "##contig=<ID=" << contig << ",length=" << length << ">" << endl;
+        ss << "##contig=<ID=" << contig.name << ",length=" << contig.length << ">" << endl;
     }
     if (include_nested) {
         ss << nesting_info_headers();
@@ -89,15 +85,24 @@ string SortedVCFWriter::vcf_header(const PathHandleGraph& graph, const vector<st
     for (const string& line : format_header_lines) {
         ss << line << endl;
     }
-    ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
+    if (declare_allele_traversals) {
+        ss << "##INFO=<ID=AT,Number=R,Type=String,"
+           << "Description=\"Allele Traversal as path in graph\">" << endl;
+    }
     for (const string& line : info_header_lines) {
         ss << line << endl;
     }
     ss << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
     ss << genotyper_header;
     ss << "##FILTER=<ID=PASS,Description=\"All filters passed\">" << endl;
-    ss << "##SAMPLE=<ID=" << sample << ">" << endl;
-    ss << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample << endl;
+    for (const string& name : output_vcf.sampleNames) {
+        ss << "##SAMPLE=<ID=" << name << ">" << endl;
+    }
+    ss << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
+    for (const string& name : output_vcf.sampleNames) {
+        ss << "\t" << name;
+    }
+    ss << endl;
     return ss.str();
 }
 
@@ -110,8 +115,7 @@ bool SortedVCFWriter::add_variant(vcflib::Variant& var, size_t block, bool hidde
         }
         return true;
     }
-    var.sampleNames = sample_names;
-    var.setOutputSampleNames(sample_names);
+    var.setVariantCallFile(output_vcf);
     stringstream ss;
     ss << var;
     string dest;
@@ -130,6 +134,16 @@ bool SortedVCFWriter::add_variant(vcflib::Variant& var, size_t block, bool hidde
 void SortedVCFWriter::write_variants(
     ostream& out_stream, const SnarlDecomposition* sites, const HandleGraph* graph,
     const function<string(const net_handle_t&)>& record_id_of_site) {
+    // The contigs with records are read before the buffer is emptied below.
+    unordered_set<string> output_contigs;
+    if (only_contigs_with_records) {
+        output_contigs = get_output_contigs();
+    }
+    string header = vcf_header(only_contigs_with_records ? &output_contigs : nullptr);
+    // Parsing the header takes off its last newline, so the file gets a copy.
+    string parsed_header = header;
+    output_vcf.openForOutput(parsed_header);
+    out_stream << header;
     if (include_nested) {
         assert(sites != nullptr);
         if (record_id_of_site) {

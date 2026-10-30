@@ -63,8 +63,16 @@ public:
     
 private:
 
-    // initialize the vcf and get the header 
-    string get_vcf_header();
+    // Find the samples, the paths that are not references, and the ploidy of each.
+    void find_samples();
+
+    // Declare in the header of `vcf_writer` the fields that the records have, other than GT and
+    // the nesting tags. The samples must have been found.
+    void declare_fields();
+
+    // Return the reference contigs, each named as the CHROM of its records, with the length of
+    // its longest reference path, counting the start of that path's subrange.
+    vector<SortedVCFWriter::ReferenceContig> reference_contigs() const;
 
     // Test if a path is the reference we're deconstructing against, seen through the
     // other half of the base/gref pair (a gref path when deconstructing against the
@@ -75,10 +83,6 @@ private:
     // Samples that exist only as the other view (base or gref) of a selected reference.
     set<string> other_ref_samples;
 
-    // Add the ##contig lines to the header, which are known only once the records are made.
-    // Only the contigs in `keep_contigs` get a line.
-    string add_contigs_to_vcf_header(const string& vcf_header,
-                                     const unordered_set<string>& keep_contigs) const;
     
     // Simple flat processing: collect all snarls then process in parallel.
     // More memory-efficient when star alleles aren't needed.
