@@ -28,15 +28,16 @@ and hands them to `MultiPassCaller`:
   alleles from the panel's haplotypes, or `FlowTraversalFinder` under support enumeration;
 - the genotyper, a `ReadLikelihoodSnarlCaller`, with the likelihood calculator and read source it
   uses;
-- the output, a plain `VCFOutputCaller`, used as a buffer of records;
+- the output, a `SortedVCFWriter`, which buffers the records;
 - the linkage model's `LinkageCollector`, when the linkage model runs.
 
 `main_call` then sets the caller's options through its setters and calls `MultiPassCaller::call()`
 once. `call()` runs every pass, adds the records to the output's buffer, and writes the anchor
-file and the mosaic. `main_call` finally writes the VCF with `VCFOutputCaller::write_variants`,
+file and the mosaic. `main_call` finally writes the VCF with `SortedVCFWriter::write_variants`,
 which adds the nesting INFO tags where they are written, sorts the records and writes them. The
-tags place each record in the tree of the staged sites (`StagedSiteTree`), each under the sites
-that enclose it in the decomposition.
+tags place each record in the caller's snarl decomposition with its edit sites laid over it
+(`MultiPassCaller::site_decomposition`), each under the sites that enclose it there. A record is
+matched to its site by its ID (`MultiPassCaller::record_id_of_site`).
 
 ## How a run is organised
 
@@ -72,7 +73,7 @@ that enclose it in the decomposition.
 4. **Render.** `MultiPassCaller` sums each read's strand log-odds for the anchors
    (`ReadStrandTable::build_lambda`) and freezes the phase (`PhaseTable::freeze_for_render`).
    `RecordRenderer::render` then hands the nested sites that get a line of their own to the render
-   queues, builds each queued site's records once, from its chosen genotype, with a
+   queues, builds each queued site's records once, from its chosen genotype, with the caller's
    `MultiPassCaller::StagedSiteEmitter`, and collects each site's anchors.
 5. **Files and reports.** Write the anchor file (`AnchorCollector`) and the mosaic
    (`MosaicWriter`), and report the linkage, phasing, mosaic and block counts.
@@ -113,7 +114,7 @@ flowchart TD
     rescorer["GenotypeRescorer<br/>TemperFit"]:::widget
     history["RoundHistory"]:::widget
     renderer["RecordRenderer"]:::widget
-    output["VCFOutputCaller<br/>BlockRecordWriter"]:::output
+    output["SortedVCFWriter<br/>SiteEmitter<br/>BlockRecordWriter"]:::output
     anchors["AnchorCollector"]:::output
     mosaic["MosaicWriter"]:::output
 
@@ -183,7 +184,7 @@ grouped by the step they serve; the driver and its walk come first.
 | Output | `record_renderer.hpp` | `RecordRenderer`, which builds each staged site's records once and collects its anchors |
 | | `allele_splicer.hpp` | `AlleleSplicer`, which spells a site's alleles with the chosen alleles of the sites staged under it |
 | | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the dump and the summary |
-| | `vcf_output_caller.hpp`, `vcf_record.hpp` | `VCFOutputCaller`, the record buffer and VCF writer that vg's callers share, and `VCFOutputCaller::SiteEmitter`, which builds one site's record and which each caller subclasses |
+| | `sorted_vcf_writer.hpp`, `site_emitter.hpp`, `vcf_record.hpp` | `SortedVCFWriter`, the record buffer and VCF writer that vg's callers hold; `SiteEmitter`, which builds one site's record from the caller's allele and field callbacks, and which a caller subclasses to change its decisions; and the helpers that build a record |
 | | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks |
 | | `anchor.hpp`, `mosaic_writer.hpp` | the anchor file (`AnchorCollector`, `AnchorWriter`) and the mosaic file (`MosaicWriter`) |
 | Command line | `subcommand/call_main.cpp` | the options, grouped by subsystem, the `--preset` table, and the construction of every object above |
@@ -229,7 +230,7 @@ grouped by the step they serve; the driver and its walk come first.
 - **Nested.** Three senses:
   - **nested calling**, the descent into child chains in the direct pass
     (`MultiPassCaller::set_nested_calling`);
-  - `set_nested` and `include_nested` on `VCFOutputCaller`, which write the nesting INFO tags
+  - `set_nested` on `SortedVCFWriter`, which writes the nesting INFO tags
     (`LV`, `PS`, `CH`, ...);
   - `NestingPlacement`, a site's place under its parent.
 
@@ -285,12 +286,12 @@ that explains them.
    likelihoods; then how the rounds apply it and decide when to stop.
 10. **`anchor.hpp`.** Pins, slots and anchors, and the file that records them.
 11. **`symbolic_allele.hpp`, `block_records.hpp` and `record_renderer.hpp`, then
-    `vcf_output_caller.hpp` and `vcf_record.hpp`.** `symbolic_allele.hpp` compares a parent
-    site's allele with the reference allele when its differences lie inside child chains, and cuts
-    it into difference blocks, which `BlockRecordWriter` writes. `RecordRenderer` builds each
-    staged site's records with a `MultiPassCaller::StagedSiteEmitter`, the caller's subclass of
-    `VCFOutputCaller::SiteEmitter`. In `vcf_output_caller.hpp`, skip what serves only vg's
-    other callers.
+    `site_emitter.hpp`, `sorted_vcf_writer.hpp` and `vcf_record.hpp`.** `symbolic_allele.hpp`
+    compares a parent site's allele with the reference allele when its differences lie inside
+    child chains, and cuts it into difference blocks, which `BlockRecordWriter` writes.
+    `RecordRenderer` builds each staged site's records with a `MultiPassCaller::StagedSiteEmitter`,
+    the caller's subclass of `SiteEmitter`, and `SortedVCFWriter` buffers them, gives them the
+    nesting tags, sorts them and writes them.
 12. **`mosaic_writer.hpp`,** the mosaic file, and **`subcommand/call_main.cpp`,** the option table
     and how each option reaches the objects above.
 

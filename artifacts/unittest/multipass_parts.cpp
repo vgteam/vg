@@ -21,7 +21,7 @@
 #include "support/nested_graph.hpp"
 #include "../../src/graph_caller.hpp"
 #include "../../src/flow_caller.hpp"
-#include "../../src/vcf_output_caller.hpp"
+#include "../../src/sorted_vcf_writer.hpp"
 #include "../descent_policy.hpp"
 #include "../phase_table.hpp"
 #include "../read_strand_table.hpp"
@@ -37,7 +37,7 @@ using namespace vg::multipass;
 using namespace std;
 
 TEST_CASE("The buffered record order is total, so two runs cannot disagree", "[graph_caller]") {
-    using BufferedRecordKey = VCFOutputCaller::BufferedRecordKey;
+    using BufferedRecordKey = SortedVCFWriter::BufferedRecordKey;
 
     // Two records at the same position, distinguished only by the snarl they came from. This is the
     // case (contig, POS) cannot order, and it is not rare: a nested site sits at or near its
@@ -151,9 +151,8 @@ TEST_CASE("The nesting tags place each record under the records of the sites aro
     };
     REQUIRE(record_id_of_site(edit) == "4:1:G");
 
-    VCFOutputCaller output("sample");
+    SortedVCFWriter output("sample");
     output.set_nested(true);
-    output.genotyper_vcf_header(nested.graph, {"chr"}, {100}, [](string&) {});
     // The top-level site, the middle site written read backward, and the edit site. The site
     // 3..5 between the edit and the middle site has no record.
     vcflib::Variant top = nesting_record(">1>8", 3, "ATGCTGAGCATG");

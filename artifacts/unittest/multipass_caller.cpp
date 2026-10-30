@@ -12,7 +12,7 @@
 #include "../read_likelihood_caller.hpp"
 #include "../site_read_source.hpp"
 #include "../../src/traversal_support.hpp"
-#include "../../src/vcf_output_caller.hpp"
+#include "../../src/sorted_vcf_writer.hpp"
 #include "support/decomposition_pair.hpp"
 
 #include <bdsg/hash_graph.hpp>
@@ -62,14 +62,18 @@ static string call_vcf(const PathPositionHandleGraph& graph,
     GraphAlignedAlleleLikelihoodCalculator calculator(graph, source, qual_scorer, plain_scorer);
     ReadLikelihoodSnarlCaller genotyper(graph, calculator);
     PathTraversalFinder traversal_finder(graph);
-    VCFOutputCaller output("sample");
+    SortedVCFWriter output("sample");
     MultiPassCaller caller(graph, genotyper, decomposition, output, "sample", traversal_finder,
                            ReferencePathTable({"ref"}, {0}, {2}), false,
                            make_pair((size_t)0, numeric_limits<size_t>::max()), false, false);
     caller.set_nested_calling(true);
-    stringstream vcf;
-    vcf << caller.vcf_header(graph, {"ref"}, {});
+    caller.add_header_lines();
+    string genotyper_header;
+    genotyper.update_vcf_header(genotyper_header);
+    output.set_genotyper_header(genotyper_header);
     caller.call(GraphCaller::RecurseOnFail, []() {});
+    stringstream vcf;
+    vcf << output.vcf_header(graph, {"ref"}, {});
     output.write_variants(vcf);
     return vcf.str();
 }

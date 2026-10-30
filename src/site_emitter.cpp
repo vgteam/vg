@@ -6,7 +6,7 @@
 
 namespace vg {
 
-SiteEmitter::SiteEmitter(VCFOutputCaller& output) : output(output) {
+SiteEmitter::SiteEmitter(SortedVCFWriter& output) : output(output) {
     // Nothing to do
 }
 
@@ -35,7 +35,7 @@ const pair<string, vector<NodeVisit>>& SiteEmitter::spelling(const allele_source
                                                              Spellings& spelled, size_t trav) {
     auto found = spelled.find(trav);
     if (found == spelled.end()) {
-        found = spelled.emplace(trav, alleles(trav)).first;
+        found = spelled.try_emplace(trav, alleles(trav)).first;
     }
     return found->second;
 }
@@ -138,7 +138,7 @@ void SiteEmitter::number_called_alleles(const CalledSite& site, const allele_sou
     for (int trav : site.genotype) {
         if (trav == STAR_ALLELE_MARKER) {
             if (star_allele_idx < 0) {
-                star_allele_idx = allele_to_gt.size();
+                star_allele_idx = (int)allele_to_gt.size();
                 allele_to_gt["*"] = star_allele_idx;
                 site_trav.push_back(-1);
             }
@@ -155,7 +155,7 @@ void SiteEmitter::number_called_alleles(const CalledSite& site, const allele_sou
                 record.genotype.push_back(allele_to_gt[allele_string]);
             } else {
                 site_trav.push_back(trav);
-                record.genotype.push_back(allele_to_gt.size());
+                record.genotype.push_back((int)allele_to_gt.size());
                 allele_to_gt[allele_string] = record.genotype.back();
             }
             record.trav_to_allele[trav] = record.genotype.back();
@@ -178,7 +178,7 @@ void SiteEmitter::add_uncalled_alleles(const CalledSite& site, const allele_sour
         }
         ++considered;
         if (!allele_to_gt.contains(allele_string)) {
-            allele_to_gt[allele_string] = allele_to_gt.size();
+            allele_to_gt[allele_string] = (int)allele_to_gt.size();
             site_trav.push_back(trav);
         }
     }
@@ -209,7 +209,7 @@ bool SiteEmitter::file_record(const PathPositionHandleGraph& graph, const Called
         cerr << "Warning [vg call]: Skipping variant at " << out_variant.sequenceName << ":"
              << out_variant.position << " with ID=" << out_variant.id
              << " because its line length of " << ss.str().length()
-             << " exceeds vg's limit of " << VCFOutputCaller::max_vcf_line_length << endl;
+             << " exceeds vg's limit of " << SortedVCFWriter::max_vcf_line_length << endl;
     }
     return added;
 }

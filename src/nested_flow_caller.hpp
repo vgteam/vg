@@ -18,7 +18,7 @@
 #include "gref.hpp"
 #include "graph_caller.hpp"
 #include "site_emitter.hpp"
-#include "vcf_output_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "gaf_output_caller.hpp"
 #include "snarl_graph.hpp"
 
@@ -36,7 +36,7 @@ class SnarlGraph;
  * Should work on any graph but will not report cyclic traversals.
  * This class is being replaced by FlowCaller's nested mode.
  */
-class NestedFlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
+class NestedFlowCaller : public GraphCaller, public GAFOutputCaller {
 public:
     NestedFlowCaller(const PathPositionHandleGraph& graph,
                      SupportBasedSnarlCaller& snarl_caller,
@@ -56,10 +56,10 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
+    /// The sorted VCF the records go to.
+    SortedVCFWriter vcf_writer;
 
-    /// Writes the record of each called site.
+    /// Writes the record of each called site into `vcf_writer`.
     SiteEmitter site_emitter;
 
 protected:

@@ -13,7 +13,7 @@
 
 #include "Variant.h"
 #include "handle.hpp"
-#include "vcf_output_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "../artifacts/vcf_genotype_likelihoods.hpp"
 #include "../artifacts/vcf_record.hpp"
 
@@ -67,7 +67,7 @@ using field_writer_t = function<void(const vector<int>& allele_traversals,
 class SiteEmitter {
 public:
     /// Make an emitter that writes into `output`, which must outlive it.
-    explicit SiteEmitter(VCFOutputCaller& output);
+    explicit SiteEmitter(SortedVCFWriter& output);
     virtual ~SiteEmitter() = default;
 
     /// Write a record even for a reference call, with up to `max_uncalled_alleles` alleles that
@@ -133,7 +133,7 @@ protected:
                               bool has_line);
 
     /// The output the records go to.
-    VCFOutputCaller& output;
+    SortedVCFWriter& output;
 
 private:
     /// The spelling of each traversal that `emit` has asked the allele source for, by traversal.

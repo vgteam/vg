@@ -614,12 +614,12 @@ string site_name(nid_t start_node_id, bool start_backward, nid_t end_node_id, bo
     if (translation) {
         auto i = translation->find(start_node_id);
         if (i == translation->end()) {
-            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + start_node + " in translation file");
+            throw runtime_error("Error [vg]: Unable to find node " + start_node + " in translation file");
         }
         start_node = i->second.first;
         i = translation->find(end_node_id);
         if (i == translation->end()) {
-            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + end_node + " in translation file");
+            throw runtime_error("Error [vg]: Unable to find node " + end_node + " in translation file");
         }
         end_node = i->second.first;
     }

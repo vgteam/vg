@@ -12,7 +12,7 @@
 #include "handle.hpp"
 #include "traversal_finder.hpp"
 #include "graph_caller.hpp"
-#include "vcf_output_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "lru_cache.h"
 
 #include <gbwtgraph/utils.h>
@@ -31,14 +31,17 @@
 namespace vg{
 using namespace std;
 
-// note: added VCFOutputCaller parent class from vg call bring in sorted vcf output.  it would
-//       be nice to re-use more of the VCFOutputCaller code, much of which is still duplicated in
+// note: writes through a SortedVCFWriter, as vg call does, for sorted vcf output.  it would
+//       be nice to re-use more of vg call's VCF code, much of which is still duplicated in
 //       Deconstructor
-class Deconstructor : public VCFOutputCaller {
+class Deconstructor {
 public:
 
     Deconstructor();
     ~Deconstructor();
+
+    /// The sorted VCF the records go to.
+    SortedVCFWriter vcf_writer;
 
     // deconstruct the entire graph to cout.
     // Not even a little bit thread safe.
@@ -72,10 +75,10 @@ private:
     // Samples that exist only as the other view (base or gref) of a selected reference.
     set<string> other_ref_samples;
 
-    // the header needs to be initialized *before* construction for vcflib
-    // but we don't know all the non-ref contigs (in nested mode) until *after*
-    // construction.  end result: this hacky function to patch them in before printing
-    string add_contigs_to_vcf_header(const string& vcf_header) const;
+    // Add the ##contig lines to the header, which are known only once the records are made.
+    // Only the contigs in `keep_contigs` get a line.
+    string add_contigs_to_vcf_header(const string& vcf_header,
+                                     const unordered_set<string>& keep_contigs) const;
     
     // Simple flat processing: collect all snarls then process in parallel.
     // More memory-efficient when star alleles aren't needed.
@@ -107,7 +110,7 @@ private:
     //                     (only populated when site has exactly one reference traversal)
     bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end,
                           const ChildContext* in_context = nullptr,
-                          vector<ChildContext>* out_child_contexts = nullptr) const;
+                          vector<ChildContext>* out_child_contexts = nullptr);
 
     // get the traversals for a given site
     // this returns a combination of embedded path traversals and gbwt traversals
@@ -213,6 +216,9 @@ private:
     // traverse the current nested site (e.g., a deletion that spans a nested SNP)
     // only works with include_nested
     bool star_allele = false;
+
+    // deconstruct the nested snarls too, and write the nesting INFO tags
+    bool include_nested = false;
 };
 
 

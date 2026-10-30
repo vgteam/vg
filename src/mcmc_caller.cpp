@@ -8,7 +8,7 @@
 namespace vg {
 
     /**
-     * MCMCCaller : Inherits from VCFOutputCaller    
+     * MCMCCaller : Writes its calls through a SortedVCFWriter
      */         
     MCMCCaller::MCMCCaller(const PathPositionHandleGraph* path_position_handle_graph,
                            PhasedGenome& genome,
@@ -18,9 +18,9 @@ namespace vg {
                            const vector<size_t>& ref_path_offsets,
                            const vector<size_t>& ref_path_lengths,
                            ostream& out_stream) :
-        path_position_handle_graph(path_position_handle_graph), genome(genome), snarl_manager(snarl_manager), VCFOutputCaller(sample_name), 
+        path_position_handle_graph(path_position_handle_graph), genome(genome), snarl_manager(snarl_manager),
         sample_name(sample_name), ref_paths(ref_paths), ref_path_offsets(ref_path_offsets),
-        ref_path_lengths(ref_path_lengths), out_stream(out_stream) {
+        ref_path_lengths(ref_path_lengths), out_stream(out_stream), vcf_writer(sample_name) {
         
         if(path_position_handle_graph == nullptr){
             cerr << "graph is empty" <<endl;
@@ -40,16 +40,8 @@ namespace vg {
 
     }
     string MCMCCaller::vcf_header(const PathPositionHandleGraph& pph_graph, const vector<string>& ref_paths,
-                                const vector<size_t>& contig_length_overrides) const {
-      
-        string header = VCFOutputCaller::vcf_header(pph_graph, ref_paths, contig_length_overrides);
-        header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
-        header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
-        header += "##SAMPLE=<ID=" + sample_name + ">\n";
-        header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
-        assert(output_vcf.openForOutput(header));
-        header += "\n";
-        return header;
+                                  const vector<size_t>& contig_length_overrides) const {
+        return vcf_writer.vcf_header(pph_graph, ref_paths, contig_length_overrides);
     }
 
 
@@ -230,7 +222,7 @@ namespace vg {
     }
 
     void MCMCCaller::emit_variant(const Snarl& snarl, const vector<int>& genotype, SnarlTraversal ref_trav,
-                                 const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs) const{
+                                 const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs) {
         
         // convert traversal to string
         // function that converst SnarlTraversals to strings
@@ -323,7 +315,7 @@ namespace vg {
 
         // add variant to list 
         if (!out_variant.alt.empty()) {
-            add_variant(out_variant);
+            vcf_writer.add_variant(out_variant);
         }
         
 

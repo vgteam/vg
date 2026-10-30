@@ -412,7 +412,7 @@ rm -f minlen_ghost.gfa minlen_ghost.vg minlen_ghost.pack call_minlen_ghost.vcf
 rm -f merge_support.vg merge_support.gam merge_support.pack merge_a.gam merge_b.gam merge_plain.vcf merge_L.vcf
 
 # -L must be rejected rather than silently ignored: -v and -G/-T never reach
-# VCFOutputCaller::emit_variant at all, while -B reaches it but reports QUAL/XADL/lowxadl for a
+# SiteEmitter::emit at all, while -B reaches it but reports QUAL/XADL/lowxadl for a
 # het the merge would erase.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -L 0.6 -v small/x.vcf.gz >/dev/null 2>&1
 is "$?" 1 "-L is rejected when genotyping a VCF"

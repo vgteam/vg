@@ -21,7 +21,7 @@
 #include "../snarl_manager_decomposition.hpp"
 #include "../nested_flow_caller.hpp"
 #include "../vcf_genotyper.hpp"
-#include "../vcf_output_caller.hpp"
+#include "../sorted_vcf_writer.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../xg.hpp"
 #include "../gbzgraph.hpp"
@@ -2632,7 +2632,7 @@ int main_call(int argc, char** argv) {
     // through a MultiPassCaller, which writes its records through `multipass_output`.
     unique_ptr<GraphCaller> graph_caller;
     unique_ptr<SnarlManagerDecomposition> multipass_sites;
-    unique_ptr<VCFOutputCaller> multipass_output;
+    unique_ptr<SortedVCFWriter> multipass_output;
     unique_ptr<multipass::MultiPassCaller> multipass_caller;
     unique_ptr<TraversalFinder> traversal_finder;
     unique_ptr<gbwt::GBWT> gbwt_index_up;
@@ -2722,7 +2722,7 @@ int main_call(int argc, char** argv) {
                                << "call; find the snarls with vg snarls -A integrated, which makes none"
                                << endl;
             }
-            multipass_output.reset(new VCFOutputCaller(sample_name));
+            multipass_output.reset(new SortedVCFWriter(sample_name));
             multipass_caller.reset(new multipass::MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *read_likelihood_caller, *multipass_sites,
                                                        *multipass_output, sample_name,
@@ -2789,10 +2789,19 @@ int main_call(int argc, char** argv) {
         multipass_caller->set_max_snarl_edges(max_snarl_edges_opt);
     }
 
-    // Where the records go, or null if the caller does not write VCF.
-    VCFOutputCaller* const vcf_out =
-        multipass_caller != nullptr ? multipass_output.get()
-                                    : dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+    // Where the records go: the writer of whichever caller was built.
+    SortedVCFWriter* vcf_out = nullptr;
+    if (multipass_caller != nullptr) {
+        vcf_out = multipass_output.get();
+    } else if (auto* flow_caller = dynamic_cast<FlowCaller*>(graph_caller.get())) {
+        vcf_out = &flow_caller->vcf_writer;
+    } else if (auto* nested_caller = dynamic_cast<NestedFlowCaller*>(graph_caller.get())) {
+        vcf_out = &nested_caller->vcf_writer;
+    } else if (auto* legacy_caller = dynamic_cast<LegacyCaller*>(graph_caller.get())) {
+        vcf_out = &legacy_caller->vcf_writer;
+    } else if (auto* vcf_genotyper = dynamic_cast<VCFGenotyper*>(graph_caller.get())) {
+        vcf_out = &vcf_genotyper->vcf_writer;
+    }
 
     // Give the per-region ploidy, if any, to the caller.
     if (ploidy_regions.has_value()) {
@@ -2907,10 +2916,12 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    string header;
+    // The contigs of the VCF header, and their lengths.
+    vector<string> header_ref_paths;
+    vector<size_t> header_ref_lengths;
     if (!gaf_output) {
         // Init The VCF       
-        VCFOutputCaller* vcf_caller = vcf_out;
+        SortedVCFWriter* vcf_caller = vcf_out;
         assert(vcf_caller != nullptr);
         vcf_caller->set_nested(nesting_tags);
         if (multipass_caller != nullptr) {
@@ -3069,23 +3080,30 @@ int main_call(int argc, char** argv) {
                 "set. In a nested run this record gives the collapsed view of the site and its "
                 "child records the precise one, so they disagree by design.\">");
         }
+        // The genotyper's header lines.
+        string genotyper_header;
+        if (multipass_caller != nullptr) {
+            read_likelihood_caller->update_vcf_header(genotyper_header);
+        } else {
+            snarl_caller->update_vcf_header(genotyper_header);
+        }
+        vcf_caller->set_genotyper_header(std::move(genotyper_header));
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)
-        vector<string> header_ref_paths;
-        vector<size_t> header_ref_lengths;
-        bool need_overrides = dynamic_cast<VCFGenotyper*>(graph_caller.get()) == nullptr;
+        auto* vcf_genotyper = dynamic_cast<VCFGenotyper*>(graph_caller.get());
         for (const auto& path_len : basepath_length_map) {
             // Use the locus name (eg "chrI") to match what SiteEmitter::emit()
             // writes to the CHROM column in data lines
             string contig_name = PathMetadata::parse_locus_name(path_len.first);
             header_ref_paths.push_back(contig_name != PathMetadata::NO_LOCUS_NAME ? contig_name : path_len.first);
-            if (need_overrides) {
+            if (vcf_genotyper == nullptr) {
                 header_ref_lengths.push_back(path_len.second);
             }
         }
-        header = multipass_caller != nullptr
-                     ? multipass_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths)
-                     : vcf_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths);
+        if (vcf_genotyper != nullptr) {
+            // The VCF being genotyped gives the lengths of its contigs.
+            header_ref_lengths = vcf_genotyper->contig_lengths(header_ref_paths);
+        }
     }
 
     if (multipass_caller != nullptr) {
@@ -3170,11 +3188,14 @@ int main_call(int argc, char** argv) {
 
     if (!gaf_output) {
         // Output VCF
-        VCFOutputCaller* vcf_caller = vcf_out;
+        SortedVCFWriter* vcf_caller = vcf_out;
         assert(vcf_caller != nullptr);
-        // Prune the contigs now, since the contigs with records are only known once calling is
+        // Write the header now, since the contigs with records are only known once calling is
         // done. write_variants below empties the buffer that get_output_contigs reads.
-        cout << vcf_caller->prune_header_contigs(header, vcf_caller->get_output_contigs()) << flush;
+        unordered_set<string> output_contigs = vcf_caller->get_output_contigs();
+        cout << vcf_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths,
+                                       &output_contigs)
+             << flush;
         if (show_progress) logger.info() << "Writing VCF Variants" << endl;
         if (multipass_caller != nullptr) {
             // The read-likelihood caller places each record among the sites it called, which

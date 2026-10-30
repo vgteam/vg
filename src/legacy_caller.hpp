@@ -25,7 +25,7 @@
 #include "../artifacts/vcf_genotype_likelihoods.hpp"
 #include "graph_caller.hpp"
 #include "site_emitter.hpp"
-#include "vcf_output_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 
 namespace vg {
 
@@ -37,7 +37,7 @@ using vg::io::AlignmentEmitter;
  * the RepresentativeTraversalFinder to recursively find traversals
  * through arbitrary sites.   
  */
-class LegacyCaller : public GraphCaller, public VCFOutputCaller {
+class LegacyCaller : public GraphCaller {
 public:
     LegacyCaller(const PathPositionHandleGraph& graph,
                  SupportBasedSnarlCaller& snarl_caller,
@@ -51,10 +51,10 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
+    /// The sorted VCF the records go to.
+    SortedVCFWriter vcf_writer;
 
-    /// Writes the record of each called site.
+    /// Writes the record of each called site into `vcf_writer`.
     SiteEmitter site_emitter;
 
 protected:

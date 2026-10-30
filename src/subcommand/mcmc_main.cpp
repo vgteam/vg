@@ -249,7 +249,7 @@ int main_mcmc(int argc, char** argv) {
     mcmc_caller.call_top_level_snarls();
 
     // mcmc_caller.write_variants(cerr);
-    mcmc_caller.write_variants(vcf_file_out);
+    mcmc_caller.vcf_writer.write_variants(vcf_file_out);
     
     //close the vcf file
     vcf_file_out.close();

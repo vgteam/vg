@@ -6,7 +6,7 @@
 
 #include <omp.h>
 
-#include "vcf_output_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
@@ -18,24 +18,24 @@
 
 namespace vg {
 
-bool VCFOutputCaller::BufferedRecordKey::operator<(const BufferedRecordKey& other) const {
+bool SortedVCFWriter::BufferedRecordKey::operator<(const BufferedRecordKey& other) const {
     return std::tie(contig, position, id, block)
            < std::tie(other.contig, other.position, other.id, other.block);
 }
 
-void VCFOutputCaller::add_format_header(string line) {
+void SortedVCFWriter::add_format_header(string line) {
     format_header_lines.push_back(std::move(line));
 }
 
-void VCFOutputCaller::add_info_header(string line) {
+void SortedVCFWriter::add_info_header(string line) {
     info_header_lines.push_back(std::move(line));
 }
 
-const NodeTranslation* VCFOutputCaller::translation() const {
+const NodeTranslation* SortedVCFWriter::translation() const {
     return node_translation;
 }
 
-const string& VCFOutputCaller::sample_name() const {
+const string& SortedVCFWriter::sample_name() const {
     return sample;
 }
 
@@ -44,21 +44,33 @@ Region record_ref_region(const vcflib::Variant& record) {
                   record.position + (int64_t)record.ref.length() - 1};
 }
 
-VCFOutputCaller::VCFOutputCaller(const string& sample_name) : sample(sample_name), node_translation(nullptr), include_nested(false)
-{
+SortedVCFWriter::SortedVCFWriter(const string& sample_name) :
+    sample(sample_name), sample_names{sample_name} {
     output_variants.resize(get_thread_count());
     suppressed_ref_info.resize(get_thread_count());
 }
 
-VCFOutputCaller::~VCFOutputCaller() {
+void SortedVCFWriter::set_genotyper_header(string lines) {
+    genotyper_header = std::move(lines);
 }
 
-string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                                   const vector<size_t>& contig_length_overrides) const {
+void SortedVCFWriter::set_sample_names(vector<string> names) {
+    sample_names = std::move(names);
+}
+
+string SortedVCFWriter::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                                   const vector<size_t>& contig_length_overrides,
+                                   const unordered_set<string>* keep_contigs) const {
     stringstream ss;
     ss << "##fileformat=VCFv4.2" << endl;    
     for (int i = 0; i < contigs.size(); ++i) {
         const string& contig = contigs[i];
+        if (keep_contigs != nullptr && !keep_contigs->contains(contig)) {
+            // A reference contig that has no record is not worth declaring: with a gref cover
+            // most contigs are fragments, and on a human chromosome a third of them carry
+            // nothing.
+            continue;
+        }
         size_t length;
         if (i < contig_length_overrides.size()) {
             // length override provided
@@ -81,11 +93,16 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     for (const string& line : info_header_lines) {
         ss << line << endl;
     }
+    ss << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
+    ss << genotyper_header;
+    ss << "##FILTER=<ID=PASS,Description=\"All filters passed\">" << endl;
+    ss << "##SAMPLE=<ID=" << sample << ">" << endl;
+    ss << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample << endl;
     return ss.str();
 }
 
 
-bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block, bool hidden) const {
+bool SortedVCFWriter::add_variant(vcflib::Variant& var, size_t block, bool hidden) {
     if (hidden) {
         // Only the nesting tags read a hidden record.
         if (include_nested) {
@@ -93,11 +110,12 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block, bool hidde
         }
         return true;
     }
-    var.setVariantCallFile(output_vcf);
+    var.sampleNames = sample_names;
+    var.setOutputSampleNames(sample_names);
     stringstream ss;
     ss << var;
     string dest;
-    if (ss.str().length() > VCFOutputCaller::max_vcf_line_length) {
+    if (ss.str().length() > SortedVCFWriter::max_vcf_line_length) {
         return false;
     }         
     int ret = zstdutil::CompressString(ss.str(), dest);
@@ -109,7 +127,7 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block, bool hidde
     return true;
 }
 
-void VCFOutputCaller::write_variants(
+void SortedVCFWriter::write_variants(
     ostream& out_stream, const SnarlDecomposition* sites, const HandleGraph* graph,
     const function<string(const net_handle_t&)>& record_id_of_site) {
     if (include_nested) {
@@ -227,7 +245,7 @@ static int countSamplesWithData(vcflib::Variant& var) {
     return samples_with_data;
 }
 
-void VCFOutputCaller::vcf_fixup(vcflib::Variant& var) const {
+void SortedVCFWriter::vcf_fixup(vcflib::Variant& var) const {
     // copied from https://github.com/vgteam/vcflib/blob/master/src/vcffixup.cpp
     
     stringstream ns;
@@ -258,19 +276,19 @@ void VCFOutputCaller::vcf_fixup(vcflib::Variant& var) const {
     }
 }
 
-void VCFOutputCaller::set_translation(const unordered_map<nid_t, pair<string, size_t>>* translation) {
+void SortedVCFWriter::set_translation(const NodeTranslation* translation) {
     node_translation = translation;
 }
 
-void VCFOutputCaller::set_nested(bool nested) {
+void SortedVCFWriter::set_nested(bool nested) {
     include_nested = nested;
 }
 
-void VCFOutputCaller::set_gref_levels(map<string, int> levels) {
+void SortedVCFWriter::set_gref_levels(map<string, int> levels) {
     this->gref_levels = std::move(levels);
 }
 
-unordered_set<string> VCFOutputCaller::get_output_contigs() const {
+unordered_set<string> SortedVCFWriter::get_output_contigs() const {
     unordered_set<string> contigs;
     // The sort key is (sequenceName, position) (see add_variant), so the contig is right
     // there and nothing has to be decompressed.
@@ -282,67 +300,12 @@ unordered_set<string> VCFOutputCaller::get_output_contigs() const {
     return contigs;
 }
 
-string VCFOutputCaller::prune_header_contigs(const string& header,
-                                             const unordered_set<string>& keep) const {
-    static const string contig_prefix = "##contig=<ID=";
-    stringstream pruned;
-    vector<string> lines = split_delims(header, "\n");
-    for (const string& line : lines) {
-        if (line.compare(0, contig_prefix.size(), contig_prefix) == 0) {
-            // Parse the ID back out the same way it was written, rather than scanning for a
-            // delimiter: contig names are path names and nothing stops one containing ',' or
-            // '>'.  Both producers emit exactly ##contig=<ID=NAME,length=N> -- vcf_header()
-            // above and Deconstructor::add_contigs_to_vcf_header().
-            static const string contig_suffix = ",length=";
-            size_t id_start = contig_prefix.size();
-            size_t id_end = line.rfind(contig_suffix);
-            if (id_end == string::npos || id_end < id_start) {
-                // not a shape we wrote; leave it alone rather than guess
-                pruned << line << "\n";
-                continue;
-            }
-            string id = line.substr(id_start, id_end - id_start);
-            if (!keep.count(id)) {
-                continue;
-            }
-        }
-        pruned << line << "\n";
-    }
-    string result = pruned.str();
-    if (!header.empty() && header.back() != '\n' && !result.empty()) {
-        // input had no trailing newline, so don't invent one
-        result.pop_back();
-    }
-    return result;
-}
 
 
 
 
-string VCFOutputCaller::snarl_caller_vcf_header(const PathHandleGraph& graph,
-                                                const vector<string>& contigs,
-                                                const vector<size_t>& contig_length_overrides,
-                                                const SnarlCaller& snarl_caller) const {
-    return genotyper_vcf_header(graph, contigs, contig_length_overrides,
-                                [&](string& header) { snarl_caller.update_vcf_header(header); });
-}
 
-string VCFOutputCaller::genotyper_vcf_header(const PathHandleGraph& graph,
-                                             const vector<string>& contigs,
-                                             const vector<size_t>& contig_length_overrides,
-                                             const function<void(string& header)>& add_genotyper_lines) const {
-    string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);
-    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
-    add_genotyper_lines(header);
-    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
-    header += "##SAMPLE=<ID=" + sample + ">\n";
-    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample;
-    assert(output_vcf.openForOutput(header));
-    header += "\n";
-    return header;
-}
-
-string VCFOutputCaller::nesting_info_headers() {
+string SortedVCFWriter::nesting_info_headers() {
     stringstream ss;
     ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
     ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Nesting steps between VCF reference contigs: how many coordinate-system changes separate this record from a linear reference. Counted as the greater of the in-VCF ancestor hops and the record's own gref contig level, because counting only ancestors that happened to emit a record made a record on a gref fragment whose parent produced no line indistinguishable from one on the linear reference -- 29,843 of 41,669 off-reference records on a gref-covered chr20. So CH >= 1 no longer implies an in-VCF parent, and therefore no longer implies PS\">" << endl;
@@ -477,7 +440,7 @@ index_sites_by_record_name(const SnarlDecomposition& sites,
 ///
 /// The result has one list per buffer, in the order of the buffer.
 vector<vector<pair<string, Region>>> read_record_regions(
-    const vector<vector<pair<VCFOutputCaller::BufferedRecordKey, string>>>& buffers) {
+    const vector<vector<pair<SortedVCFWriter::BufferedRecordKey, string>>>& buffers) {
     vector<vector<pair<string, Region>>> placed(buffers.size());
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t b = 0; b < buffers.size(); ++b) {
@@ -499,7 +462,7 @@ vector<vector<pair<string, Region>>> read_record_regions(
 
 }
 
-void VCFOutputCaller::update_nesting_info_tags(
+void SortedVCFWriter::update_nesting_info_tags(
     const SnarlDecomposition& sites,
     const function<string(const net_handle_t&)>& record_id_of_site) {
 
@@ -580,8 +543,8 @@ void VCFOutputCaller::update_nesting_info_tags(
     auto is_top_level = [&](const string& name) {
         auto it = name_to_snarl.find(name);
         if (it == name_to_snarl.end()) return true; // not found, treat as top-level
-        net_handle_t snarl = it->second;
-        while (!sites.is_root(snarl = parent_site(sites, snarl))) {
+        for (net_handle_t snarl = parent_site(sites, it->second); !sites.is_root(snarl);
+             snarl = parent_site(sites, snarl)) {
             string cur_name = name_of(snarl);
             string flipped_name = flipped_name_of(snarl);
             if (chrom_of_name.contains(cur_name) || chrom_of_name.contains(flipped_name)) {
@@ -642,10 +605,9 @@ void VCFOutputCaller::update_nesting_info_tags(
         // chrom_index is complete after pass 1, so this lookup always hits.
         uint32_t my_chrom_id = chrom_index.at(my_chrom);
         uint32_t prev_chrom_id = my_chrom_id;
-        net_handle_t snarl = name_to_snarl.at(name);
-
         // walk up the snarl tree
-        while (!sites.is_root(snarl = parent_site(sites, snarl))) {
+        for (net_handle_t snarl = parent_site(sites, name_to_snarl.at(name));
+             !sites.is_root(snarl); snarl = parent_site(sites, snarl)) {
             string cur_name = name_of(snarl);
 
             // Since it is possible that the snarl is actually flipped in the vcf, check for the

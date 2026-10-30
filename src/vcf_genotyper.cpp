@@ -32,8 +32,8 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            bool gaf_output,
                            size_t trav_padding) :
     GraphCaller(snarl_caller, snarl_manager),
-    VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
+    vcf_writer(sample_name),
     graph(graph),
     input_vcf(variant_file),
     traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta, snarl_caller.get_skip_allele_fn()),
@@ -90,7 +90,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
         if (traversals_only) {
             assert(gaf_output);
             // todo: can't get ref position here without pathposition graph
-            emit_gaf_traversals(graph, snarl_name(snarl, translation()), travs, ref_trav_idx, "", -1);
+            emit_gaf_traversals(graph, snarl_name(snarl, vcf_writer.translation()), travs, ref_trav_idx, "", -1);
             return true;
         }
         
@@ -116,7 +116,7 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
         if (gaf_output) {
             // todo: can't get ref position here without pathposition graph
-            emit_gaf_variant(graph, snarl_name(snarl, translation()), travs, trav_genotype, ref_trav_idx, "", -1);
+            emit_gaf_variant(graph, snarl_name(snarl, vcf_writer.translation()), travs, trav_genotype, ref_trav_idx, "", -1);
             return true;
         }
 
@@ -167,14 +167,14 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
             // add the genotype
             out_variant.format.push_back("GT");
-            auto& genotype_vector = out_variant.samples[sample_name()]["GT"];
+            auto& genotype_vector = out_variant.samples[vcf_writer.sample_name()]["GT"];
             genotype_vector.push_back(vcf_genotype);
 
             // add some info
-            snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, trav_call_info, sample_name(), out_variant);
+            snarl_caller.update_vcf_info(snarl, vcf_traversals, vcf_alleles, trav_call_info, vcf_writer.sample_name(), out_variant);
 
             // print the variant
-            add_variant(out_variant);
+            vcf_writer.add_variant(out_variant);
         }
         return true;
     }
@@ -183,26 +183,13 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
 }
 
-string VCFGenotyper::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
-                                const vector<size_t>& contig_length_overrides) const {
-    assert(contig_length_overrides.empty()); // using this override makes no sense
-
-    // get the contig length overrides from the VCF
-    vector<size_t> vcf_contig_lengths;
+vector<size_t> VCFGenotyper::contig_lengths(const vector<string>& contigs) const {
+    vector<size_t> lengths;
     auto length_map = scan_contig_lengths();
-    for (int i = 0; i < ref_paths.size(); ++i) {
-        vcf_contig_lengths.push_back(length_map[ref_paths[i]]);
+    for (const string& contig : contigs) {
+        lengths.push_back(length_map[contig]);
     }
-    
-    string header = VCFOutputCaller::vcf_header(graph, ref_paths, vcf_contig_lengths);
-    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
-    snarl_caller.update_vcf_header(header);
-    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
-    header += "##SAMPLE=<ID=" + sample_name() + ">\n";
-    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name();
-    assert(output_vcf.openForOutput(header));
-    header += "\n";
-    return header;
+    return lengths;
 }
 
 tuple<string, size_t, size_t> VCFGenotyper::get_ref_positions(const vector<vcflib::Variant*>& variants) const {

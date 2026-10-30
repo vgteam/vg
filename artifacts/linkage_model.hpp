@@ -658,7 +658,7 @@ public:
 
     /// The quality inputs of the call a site was recorded with.
     ///
-    /// `VCFOutputCaller::write_variants` needs them to rewrite the quality fields of a record
+    /// `SortedVCFWriter::write_variants` needs them to rewrite the quality fields of a record
     /// whose genotype the model changed.
     struct DirectQuality {
         /// The fraction of the site's reads whose best allele is in the direct call.
@@ -827,7 +827,7 @@ public:
     /// Get the quality of each live site whose genotype the model changed when its level was last
     /// resolved, by record key.
     ///
-    /// `VCFOutputCaller::write_variants` rewrites GQ, GQN and FILTER on each such record's
+    /// `SortedVCFWriter::write_variants` rewrites GQ, GQN and FILTER on each such record's
     /// rendered line from these, since the posterior exists only here. `RecordRenderer::anchor_gqn`
     /// uses them for the anchors' gqn column.
     ///

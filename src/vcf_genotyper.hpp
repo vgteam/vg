@@ -24,7 +24,7 @@
 #include "gref.hpp"
 #include "../artifacts/vcf_genotype_likelihoods.hpp"
 #include "graph_caller.hpp"
-#include "vcf_output_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "gaf_output_caller.hpp"
 
 namespace vg {
@@ -35,7 +35,7 @@ using vg::io::AlignmentEmitter;
 /**
  * VCFGenotyper : Genotype variants in a given VCF file
  */
-class VCFGenotyper : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
+class VCFGenotyper : public GraphCaller, public GAFOutputCaller {
 public:
     VCFGenotyper(const PathHandleGraph& graph,
                  SnarlCaller& snarl_caller,
@@ -55,8 +55,12 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
+    /// Return the length of each of `contigs` that the header of the input VCF gives, or 0 for
+    /// a contig it does not give.
+    vector<size_t> contig_lengths(const vector<string>& contigs) const;
+
+    /// The sorted VCF the records go to.
+    SortedVCFWriter vcf_writer;
 
 protected:
 

@@ -465,8 +465,8 @@ int main_deconstruct(int argc, char** argv) {
     if (show_progress) {
         logger.info() << "Deconstructing top-level snarls" << endl;
     }
-    dd.set_translation(translation.get());
-    dd.set_nested(all_snarls);
+    dd.vcf_writer.set_translation(translation.get());
+    dd.vcf_writer.set_nested(all_snarls);
     dd.deconstruct(refpaths, graph, snarl_manager.get(), nesting_sites.get(),
                    all_snarls,
                    context_jaccard_window,

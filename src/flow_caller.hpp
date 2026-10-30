@@ -19,7 +19,7 @@
 #include "gref.hpp"
 #include "graph_caller.hpp"
 #include "site_emitter.hpp"
-#include "vcf_output_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "gaf_output_caller.hpp"
 
 namespace vg {
@@ -36,7 +36,7 @@ using vg::io::AlignmentEmitter;
  * Designed to replace LegacyCaller, as it should miss fewer obviously
  * good traversals, and is not dependent on old protobuf-based structures.
  */
-class FlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
+class FlowCaller : public GraphCaller, public GAFOutputCaller {
 public:
     /// Original constructor for non-nested mode
     FlowCaller(const PathPositionHandleGraph& graph,
@@ -76,16 +76,16 @@ public:
 
     bool call_snarl(const Snarl& snarl) override;
 
-    string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                      const vector<size_t>& contig_length_overrides = {}) const override;
-
     /// Skip snarls with more edges than this, counting those of nested snarls.
     ///
     /// `call_top_level_snarls` then calls the children of a skipped snarl as if they were
     /// top-level snarls. Zero, the default, removes the limit.
     void set_max_snarl_edges(size_t edges);
 
-    /// Writes the record of each called site.
+    /// The sorted VCF the records go to.
+    SortedVCFWriter vcf_writer;
+
+    /// Writes the record of each called site into `vcf_writer`.
     SiteEmitter site_emitter;
 
 protected:

@@ -12,7 +12,7 @@ namespace vg::multipass {
 MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
                                  ReadLikelihoodSnarlCaller& genotyper,
                                  const SnarlDecomposition& decomposition,
-                                 VCFOutputCaller& output, const string& sample_name,
+                                 SortedVCFWriter& output, const string& sample_name,
                                  SiteTraversalFinder& traversal_finder,
                                  ReferencePathTable ref_paths, bool genotype_snarls,
                                  const pair<size_t, size_t>& allele_length_range, bool top_down,
@@ -151,7 +151,7 @@ void MultiPassCaller::report_descent_instrumentation() const {
 }
 
 MultiPassCaller::StagedSiteEmitter::StagedSiteEmitter(MultiPassCaller& caller,
-                                                      VCFOutputCaller& output) :
+                                                      SortedVCFWriter& output) :
     SiteEmitter(output), caller(caller) {
     // Nothing to do
 }
@@ -331,11 +331,6 @@ void MultiPassCaller::add_header_lines() {
     }
 }
 
-string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                                   const vector<size_t>& contig_length_overrides) const {
-    return output.genotyper_vcf_header(graph, contigs, contig_length_overrides,
-                                       [this](string& header) { snarl_caller.update_vcf_header(header); });
-}
 
 
 

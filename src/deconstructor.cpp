@@ -9,7 +9,7 @@ using namespace std;
 
 
 namespace vg {
-Deconstructor::Deconstructor() : VCFOutputCaller("") {
+Deconstructor::Deconstructor() : vcf_writer("") {
 }
 Deconstructor::~Deconstructor(){
 }
@@ -312,7 +312,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
             int allele_trav_no = ai_pair.second.second;
             // update the traversal info
             add_allele_path_to_info(v, allele_no, visits_of(*graph, travs[allele_trav_no]), reversed,
-                                    translation());
+                                    vcf_writer.translation());
         }
     }
 
@@ -670,7 +670,7 @@ unordered_map<string, vector<int>> Deconstructor::add_star_traversals(vector<Tra
 
 bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end,
                                      const ChildContext* in_context,
-                                     vector<ChildContext>* out_child_contexts) const {
+                                     vector<ChildContext>* out_child_contexts) {
 
 
     vector<Traversal> travs;
@@ -896,9 +896,9 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // PS follows automatically.  chrom_of_name is keyed on the emitted ID, and the
         // ancestor walk in update_nesting_info_tags() already looks up both spellings, so the
         // parent it records is whichever one the VCF actually contains.
-        v.id = use_start ? site_name(*graph, snarl_start, snarl_end, translation())
+        v.id = use_start ? site_name(*graph, snarl_start, snarl_end, vcf_writer.translation())
                          : site_name(*graph, graph->flip(snarl_end), graph->flip(snarl_start),
-                                     translation());
+                                     vcf_writer.translation());
             
         // Convert the snarl traversals to strings and add them to the variant
         vector<bool> use_trav(travs.size());
@@ -1112,14 +1112,14 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // we only bother printing out sites with at least 1 non-reference allele
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
             // run vcffixup to add some basic INFO like AC
-            vcf_fixup(v);
-            bool added = add_variant(v);
+            vcf_writer.vcf_fixup(v);
+            bool added = vcf_writer.add_variant(v);
             if (!added) {
                 stringstream ss;
                 ss << v;
                 cerr << "Warning [vg deconstruct]: Skipping variant at " << v.sequenceName << ":" << v.position
                      << " with ID=" << v.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
-                     << VCFOutputCaller::max_vcf_line_length << endl;
+                     << SortedVCFWriter::max_vcf_line_length << endl;
                 return false;
             }
         } else {
@@ -1127,7 +1127,7 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             // for its RC/RS/RD: we are the only thing standing between it and the reference, and
             // once we return there is nothing left that knows where this snarl sits. So the
             // record goes to the writer hidden, which keeps just the interval.
-            add_variant(v, 0, true);
+            vcf_writer.add_variant(v, 0, true);
         }
     }
     return true;
@@ -1327,7 +1327,7 @@ string Deconstructor::get_vcf_header() {
     stream << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">" << endl;
     stream << "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">" << endl;
     if (include_nested) {
-        stream << nesting_info_headers();
+        stream << SortedVCFWriter::nesting_info_headers();
     }
     if (untangle_allele_traversals) {
         stream << "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' indicating non-reference nodes.\">" << endl;
@@ -1343,7 +1343,8 @@ string Deconstructor::get_vcf_header() {
     return stream.str();
 }
 
-string Deconstructor::add_contigs_to_vcf_header(const string& vcf_header) const {
+string Deconstructor::add_contigs_to_vcf_header(const string& vcf_header,
+                                                const unordered_set<string>& keep_contigs) const {
 
     vector<string> header_lines = split_delims(vcf_header, "\n");
 
@@ -1384,6 +1385,10 @@ string Deconstructor::add_contigs_to_vcf_header(const string& vcf_header) const 
         ref_path_to_length[locus_name] = std::max(ref_path_to_length[locus_name], path_len + offset);
     }
     for (auto& ref_path_len : ref_path_to_length) {
+        if (!keep_contigs.contains(ref_path_len.first)) {
+            // A reference contig that has no record is not worth declaring.
+            continue;
+        }
         patched_header << "##contig=<ID=" << ref_path_len.first << ",length=" << ref_path_len.second << ">" << endl;
     }
 
@@ -1521,7 +1526,13 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     }
 
     string hstr = this->get_vcf_header();
-    assert(output_vcf.openForOutput(hstr));
+    // The records have a column for each sample of the header, in its order.
+    vcf_writer.set_sample_names(vector<string>(sample_names.begin(), sample_names.end()));
+    // The header is written with the contig lines once the records are made, so its newline is
+    // left off until then.
+    if (!hstr.empty() && hstr.back() == '\n') {
+        hstr.pop_back();
+    }
 
     // Use top-down processing only when star alleles are needed (requires context passing).
     // Otherwise use simpler flat processing which is more memory-efficient.
@@ -1533,14 +1544,13 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         deconstruct_graph(snarl_manager);
     }
 
-    // Prune after add_contigs_to_vcf_header, which is what emits the ##contig lines, and
-    // before write_variants, which drains the buffer get_output_contigs() reads.
-    string patched_header = this->add_contigs_to_vcf_header(output_vcf.header);
-    patched_header = this->prune_header_contigs(patched_header, this->get_output_contigs());
+    // Read the contigs that have records before write_variants, which empties the buffer that
+    // get_output_contigs() reads.
+    string patched_header = this->add_contigs_to_vcf_header(hstr, vcf_writer.get_output_contigs());
     cout << patched_header << endl;
 
     // write variants in sorted order
-    write_variants(cout, nesting_sites, graph);
+    vcf_writer.write_variants(cout, nesting_sites, graph);
 }
 
 }

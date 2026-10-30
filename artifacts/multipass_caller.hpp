@@ -39,7 +39,7 @@
 #include "staged_site.hpp"
 #include "tree_genotyper.hpp"
 #include "../src/site_emitter.hpp"
-#include "../src/vcf_output_caller.hpp"
+#include "../src/sorted_vcf_writer.hpp"
 
 namespace vg::multipass {
 
@@ -65,7 +65,7 @@ using namespace std;
  * 4. The anchor file and the mosaic are written, and the passes are reported.
  *
  * It walks the sites of a `SnarlDecomposition` itself, rather than being a `GraphCaller`. It
- * writes its records through a `VCFOutputCaller`, to which it adds its own header lines and
+ * writes its records through a `SortedVCFWriter`, to which it adds its own header lines and
  * record steps.
  */
 class MultiPassCaller {
@@ -85,7 +85,7 @@ public:
      * child a star allele rather than a missing one.
      */
     MultiPassCaller(const PathPositionHandleGraph& graph, ReadLikelihoodSnarlCaller& genotyper,
-                    const SnarlDecomposition& decomposition, VCFOutputCaller& output,
+                    const SnarlDecomposition& decomposition, SortedVCFWriter& output,
                     const string& sample_name, SiteTraversalFinder& traversal_finder,
                     ReferencePathTable ref_paths, bool genotype_snarls,
                     const pair<size_t, size_t>& allele_length_range, bool top_down,
@@ -134,10 +134,6 @@ public:
     /// Add the header lines of this caller's own fields to the output. Call it once, after the
     /// settings that add fields (phasing, off-panel variants and block records).
     void add_header_lines();
-
-    /// Make the VCF header, with the lines of the read-likelihood genotyper.
-    string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                      const vector<size_t>& contig_length_overrides = {}) const;
 
     /// Set the ploidy of regions, in place of the ploidy of their contigs.
     void set_ploidy_regions(PloidyRegions regions) { ploidy_regions = std::move(regions); }
@@ -247,7 +243,7 @@ private:
     class StagedSiteEmitter : public SiteEmitter {
     public:
         /// Make an emitter for the sites of `caller`, writing into `output`. Both must outlive it.
-        StagedSiteEmitter(MultiPassCaller& caller, VCFOutputCaller& output);
+        StagedSiteEmitter(MultiPassCaller& caller, SortedVCFWriter& output);
 
     protected:
         bool same_as_reference(const CalledSite& site, int trav) override;
@@ -375,7 +371,7 @@ private:
     SiteWalker walker;
 
     /// Where the records go.
-    VCFOutputCaller& output;
+    SortedVCFWriter& output;
 
     /// Writes the record of each staged site into `output`.
     StagedSiteEmitter site_emitter;

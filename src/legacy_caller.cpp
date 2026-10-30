@@ -27,8 +27,8 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            const vector<size_t>& ref_path_offsets,
                            const vector<int>& ref_path_ploidies) :
     GraphCaller(snarl_caller, snarl_manager),
-    VCFOutputCaller(sample_name),
-    site_emitter(*this),
+    vcf_writer(sample_name),
+    site_emitter(vcf_writer),
     graph(graph),
     ref_paths(ref_paths) {
 
@@ -189,14 +189,17 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
             was_called = site_emitter.emit(
                 graph, site,
                 [&](size_t allele) {
-                    return make_pair(trav_string(graph, called_traversals[allele], translation()),
+                    return make_pair(trav_string(graph, called_traversals[allele],
+                                                 vcf_writer.translation()),
                                      visits_of(called_traversals[allele]));
                 },
                 [&](const vector<int>& allele_traversals, const vector<int>& vcf_genotype,
                     vcflib::Variant& record) {
-                    snarl_caller.update_vcf_info(snarl, traversals_of(called_traversals,
-                                                                      allele_traversals),
-                                                 vcf_genotype, call_info, sample_name(), record);
+                    snarl_caller.update_vcf_info(snarl,
+                                                 traversals_of(called_traversals,
+                                                               allele_traversals),
+                                                 vcf_genotype, call_info,
+                                                 vcf_writer.sample_name(), record);
                 });
 
         }
@@ -212,18 +215,6 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
     return was_called;
 }
 
-string LegacyCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
-                                const vector<size_t>& contig_length_overrides) const {
-    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
-    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
-    snarl_caller.update_vcf_header(header);
-    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
-    header += "##SAMPLE=<ID=" + sample_name() + ">\n";
-    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name();
-    assert(output_vcf.openForOutput(header));
-    header += "\n";
-    return header;
-}
 
 pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy,
                                                                           const string& ref_path_name, pair<size_t, size_t> ref_interval) const {

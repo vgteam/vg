@@ -11,7 +11,7 @@
 #include <omp.h>
 
 #include "mosaic_writer.hpp"
-#include "../src/vcf_output_caller.hpp"
+#include "../src/sorted_vcf_writer.hpp"
 #include "../src/graph_caller.hpp"
 #include "symbolic_allele.hpp"
 #include "read_likelihood_caller.hpp"

@@ -42,7 +42,7 @@ struct Bubble {
 };
 
 /// Return the data lines `output` writes, split into columns.
-vector<vector<string>> written_lines(VCFOutputCaller& output) {
+vector<vector<string>> written_lines(SortedVCFWriter& output) {
     stringstream out;
     output.write_variants(out);
     vector<vector<string>> lines;
@@ -58,8 +58,7 @@ vector<vector<string>> written_lines(VCFOutputCaller& output) {
 TEST_CASE("A SiteEmitter writes a called site as one record", "[site_emitter]") {
     Bubble bubble;
     bdsg::PositionOverlay graph(&bubble.base);
-    VCFOutputCaller output("sample");
-    output.genotyper_vcf_header(graph, {"ref"}, {}, [](string&) {});
+    SortedVCFWriter output("sample");
     SiteEmitter emitter(output);
 
     // The two traversals, and how often the emitter asks for each.

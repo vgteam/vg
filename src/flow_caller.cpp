@@ -24,9 +24,9 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        bool genotype_snarls,
                        const pair<size_t, size_t>& allele_length_range) :
     GraphCaller(snarl_caller, snarl_manager),
-    VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
-    site_emitter(*this),
+    vcf_writer(sample_name),
+    site_emitter(vcf_writer),
     graph(graph),
     traversal_finder(traversal_finder),
     ref_paths(ref_paths),
@@ -62,9 +62,9 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        bool nested,
                        bool star_allele) :
     GraphCaller(snarl_caller, snarl_manager),
-    VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
-    site_emitter(*this),
+    vcf_writer(sample_name),
+    site_emitter(vcf_writer),
     graph(graph),
     traversal_finder(traversal_finder),
     ref_paths(ref_paths),
@@ -129,7 +129,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                                    visit_handle(graph, site.snarl.end()),
                                                    ref_path_name,
                                                    ref_offset_of(ref_offsets, ref_path_name));
-        emit_gaf_traversals(graph, snarl_name(site.snarl, translation()), site.travs, site.ref_trav_idx, contig, position, &support_finder);
+        emit_gaf_traversals(graph, snarl_name(site.snarl, vcf_writer.translation()), site.travs,
+                            site.ref_trav_idx, contig, position, &support_finder);
     } else {
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
         bool added = true;
@@ -218,22 +219,23 @@ bool FlowCaller::emit_site(const CandidateFinder::Site& site, const vector<int>&
         return site_emitter.emit(
             graph, called,
             [&](size_t allele) {
-                return make_pair(trav_string(graph, site.travs[allele], translation()),
+                return make_pair(trav_string(graph, site.travs[allele], vcf_writer.translation()),
                                  visits_of(site.travs[allele]));
             },
             [&](const vector<int>& allele_traversals, const vector<int>& vcf_genotype,
                 vcflib::Variant& record) {
                 snarl_caller.update_vcf_info(site.snarl,
                                              traversals_of(site.travs, allele_traversals),
-                                             vcf_genotype, call_info, sample_name(), record);
+                                             vcf_genotype, call_info,
+                                             vcf_writer.sample_name(), record);
             });
     }
     const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
     auto [contig, position] = get_ref_position(graph, visit_handle(graph, site.snarl.start()),
                                                visit_handle(graph, site.snarl.end()),
                                                site.ref_path_name, ref_offset);
-    emit_gaf_variant(graph, snarl_name(site.snarl, translation()), site.travs, genotype, site.ref_trav_idx,
-                     contig, position, &support_finder);
+    emit_gaf_variant(graph, snarl_name(site.snarl, vcf_writer.translation()), site.travs,
+                     genotype, site.ref_trav_idx, contig, position, &support_finder);
     return true;
 }
 
@@ -271,8 +273,4 @@ void FlowCaller::call_children(const CandidateFinder::Site& site, const vector<i
     }
 }
 
-string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides) const {
-    return snarl_caller_vcf_header(graph, contigs, contig_length_overrides, snarl_caller);
-}
 }
