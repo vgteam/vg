@@ -110,6 +110,10 @@ bool PathCoordinate::operator<(const PathCoordinate& other) const {
     return std::tie(rank, start, end, is_reverse) < std::tie(other.rank, other.start, other.end, other.is_reverse);
 }
 
+std::string PathCoordinate::text() const {
+    return path + ':' + std::to_string(start + 1) + '-' + std::to_string(end) + ':' + (is_reverse ? '-' : '+');
+}
+
 GraphFeature make_graph_feature(const GBWTGraph& graph, const GrefIndex* gref,
                                 WalkInterval interval, std::vector<std::string> fields) {
     GraphFeature result;

@@ -14,6 +14,7 @@
 #include <functional>
 #include <iosfwd>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace vg {
@@ -41,6 +42,19 @@ struct WalkInterval {
     /// Return the total length of the nodes on the walk.
     size_t walk_length(const gbwtgraph::GBWTGraph& graph) const;
 };
+
+/**
+ * Parse a walk written as in GAF, such as >1<2>3.
+ *
+ * Each visit is > (forward) or < (reverse), followed by a node ID.
+ *
+ * @throws std::runtime_error if the text is not such a walk, or if it visits a
+ * node that is not in the graph.
+ */
+std::vector<handlegraph::handle_t> parse_walk(std::string_view text, const gbwtgraph::GBWTGraph& graph);
+
+/// Return the walk written as parse_walk() reads it.
+std::string walk_text(const std::vector<handlegraph::handle_t>& walk, const gbwtgraph::GBWTGraph& graph);
 
 /// Write the interval as the 12 required columns of a GAF record. The query is
 /// the interval's sequence under the given name, aligned exactly. The caller

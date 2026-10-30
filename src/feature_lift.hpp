@@ -89,6 +89,8 @@ struct PathCoordinate {
 
     /// Return true if this coordinate comes first in the priority order.
     bool operator<(const PathCoordinate& other) const;
+    /// Return the coordinate as PATH:START-END:STRAND, 1-based and inclusive.
+    std::string text() const;
 };
 
 /**

@@ -8,6 +8,7 @@
 #include <gbwtgraph/utils.h>
 
 #include <algorithm>
+#include <charconv>
 #include <ostream>
 #include <sstream>
 #include <stdexcept>
@@ -74,13 +75,40 @@ size_t WalkInterval::walk_length(const GBWTGraph& graph) const {
     return total;
 }
 
+std::vector<handle_t> parse_walk(std::string_view text, const GBWTGraph& graph) {
+    std::vector<handle_t> walk;
+    for (size_t i = 0; i < text.size();) {
+        size_t j = text.find_first_of("<>", i + 1);
+        if (j == std::string_view::npos) {
+            j = text.size();
+        }
+        nid_t id = 0;
+        auto parsed = std::from_chars(text.data() + i + 1, text.data() + j, id);
+        if ((text[i] != '>' && text[i] != '<') || parsed.ec != std::errc() || parsed.ptr != text.data() + j) {
+            throw std::runtime_error("not a walk of node IDs: " + std::string(text));
+        }
+        if (!graph.has_node(id)) {
+            throw std::runtime_error("node " + std::to_string(id) + " is not in the graph");
+        }
+        walk.push_back(graph.get_handle(id, text[i] == '<'));
+        i = j;
+    }
+    return walk;
+}
+
+std::string walk_text(const std::vector<handle_t>& walk, const GBWTGraph& graph) {
+    std::string text;
+    for (const handle_t& handle : walk) {
+        text += graph.get_is_reverse(handle) ? '<' : '>';
+        text += std::to_string(graph.get_id(handle));
+    }
+    return text;
+}
+
 void write_gaf_columns(std::ostream& out, const GBWTGraph& graph, const std::string& name,
                        const WalkInterval& interval) {
-    out << name << '\t' << interval.length << "\t0\t" << interval.length << "\t+\t";
-    for (const handle_t& handle : interval.walk) {
-        out << (graph.get_is_reverse(handle) ? '<' : '>') << graph.get_id(handle);
-    }
-    out << '\t' << interval.walk_length(graph) << '\t' << interval.offset << '\t'
+    out << name << '\t' << interval.length << "\t0\t" << interval.length << "\t+\t" << walk_text(interval.walk, graph)
+        << '\t' << interval.walk_length(graph) << '\t' << interval.offset << '\t'
         << (interval.offset + interval.length) << '\t' << interval.length << '\t' << interval.length << "\t255";
 }
 
@@ -113,21 +141,10 @@ WalkInterval parse_gaf_columns(const std::string& line, const GBWTGraph& graph, 
 
     name = columns[0];
     WalkInterval interval;
-    const std::string& walk = columns[5];
-    for (size_t i = 0; i < walk.size();) {
-        if (walk[i] != '>' && walk[i] != '<') {
-            fail("not a walk of node IDs");
-        }
-        size_t j = walk.find_first_of("<>", i + 1);
-        if (j == std::string::npos) {
-            j = walk.size();
-        }
-        nid_t id = number(walk.substr(i + 1, j - i - 1));
-        if (!graph.has_node(id)) {
-            fail("node " + std::to_string(id) + " not in the graph");
-        }
-        interval.walk.push_back(graph.get_handle(id, walk[i] == '<'));
-        i = j;
+    try {
+        interval.walk = parse_walk(columns[5], graph);
+    } catch (const std::runtime_error& e) {
+        fail(e.what());
     }
     size_t start = number(columns[7]), end = number(columns[8]);
     if (interval.walk.empty() || start >= end || end > interval.walk_length(graph)) {
