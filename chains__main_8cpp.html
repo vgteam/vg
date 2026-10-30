@@ -76,7 +76,6 @@ $(function() {
 <div class="textblock"><code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gbwt__helper_8hpp.html">../gbwt_helper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarl__distance__index_8hpp.html">../snarl_distance_index.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="decomposition__neighbors_8hpp.html">../decomposition_neighbors.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarls_8hpp.html">../snarls.hpp</a>&quot;</code><br />
 <code>#include &lt;sdsl/int_vector.hpp&gt;</code><br />
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
@@ -107,8 +106,6 @@ Functions</h2></td></tr>
 <tr class="separator:a3a49db5e4c55cf3811725384b6eb1770"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a434d83892ecf918ca08f7aaaf15858e0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="chains__main_8cpp.html#a434d83892ecf918ca08f7aaaf15858e0">help_chains</a> (char **argv)</td></tr>
 <tr class="separator:a434d83892ecf918ca08f7aaaf15858e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1596cda19f41003d3d8920bba123a0a5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="chains__main_8cpp.html#a1596cda19f41003d3d8920bba123a0a5">follow_chain</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t chain_id, <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> curr)</td></tr>
-<tr class="separator:a1596cda19f41003d3d8920bba123a0a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa5137186c538748b0c4a2950de8cba52"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="chains__main_8cpp.html#aa5137186c538748b0c4a2950de8cba52">try_append</a> (gbwt::vector_type &amp;chain, gbwt::node_type start, gbwt::node_type end)</td></tr>
 <tr class="separator:aa5137186c538748b0c4a2950de8cba52"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -187,46 +184,6 @@ Functions</h2></td></tr>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>chain_id</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a1596cda19f41003d3d8920bba123a0a5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1596cda19f41003d3d8920bba123a0a5">&#9670;&nbsp;</a></span>follow_chain()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> follow_chain </td>
-          <td>(</td>
-          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
-          <td class="paramname"><em>distance_index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>chain_id</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a>&#160;</td>
-          <td class="paramname"><em>curr</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
