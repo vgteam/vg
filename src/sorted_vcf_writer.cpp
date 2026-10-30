@@ -58,10 +58,6 @@ void SortedVCFWriter::set_sample_names(vector<string> names) {
     output_vcf.sampleNames = std::move(names);
 }
 
-void SortedVCFWriter::set_declare_allele_traversals(bool declare) {
-    declare_allele_traversals = declare;
-}
-
 void SortedVCFWriter::set_contigs(vector<ReferenceContig> declared, bool only_with_records) {
     contigs = std::move(declared);
     only_contigs_with_records = only_with_records;
@@ -81,10 +77,6 @@ string SortedVCFWriter::vcf_header(const unordered_set<string>* keep_contigs) co
     }
     if (include_nested) {
         ss << nesting_info_headers();
-    }
-    if (declare_allele_traversals) {
-        ss << "##INFO=<ID=AT,Number=R,Type=String,"
-           << "Description=\"Allele Traversal as path in graph\">" << endl;
     }
     for (const string& line : info_lines) {
         ss << line << endl;

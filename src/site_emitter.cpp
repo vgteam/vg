@@ -7,7 +7,9 @@
 namespace vg {
 
 SiteEmitter::SiteEmitter(SortedVCFWriter& output) : output(output) {
-    // Nothing to do
+    // Every record has AT.
+    output.add_info_line(
+        "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">");
 }
 
 bool SiteEmitter::same_as_reference(const CalledSite&, int) {

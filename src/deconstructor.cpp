@@ -1303,6 +1303,12 @@ void Deconstructor::find_samples() {
 }
 
 void Deconstructor::declare_fields() {
+    // The records have AT unless they have UT, its untangled form, which is declared last.
+    if (!untangle_allele_traversals) {
+        vcf_writer.add_info_line(
+            "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in "
+            "graph\">");
+    }
     if (show_path_info && !gbwt_sample_to_phase_range.empty()) {
         vcf_writer.add_format_line(
             "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path "
@@ -1336,8 +1342,6 @@ void Deconstructor::declare_fields() {
     vcf_writer.add_info_line(
         "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called "
         "genotypes\">");
-    // An untangled traversal replaces AT.
-    vcf_writer.set_declare_allele_traversals(!untangle_allele_traversals);
     if (untangle_allele_traversals) {
         vcf_writer.add_info_line(
             "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with "

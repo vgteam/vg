@@ -66,7 +66,8 @@ using field_writer_t = function<void(const vector<int>& allele_traversals,
  */
 class SiteEmitter {
 public:
-    /// Make an emitter that writes into `output`, which must outlive it.
+    /// Make an emitter that writes into `output`, which must outlive it, and declare the AT
+    /// field in the header of `output`.
     explicit SiteEmitter(SortedVCFWriter& output);
     virtual ~SiteEmitter() = default;
 

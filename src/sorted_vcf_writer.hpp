@@ -87,12 +87,8 @@ public:
      */
     void set_contigs(vector<ReferenceContig> declared, bool only_with_records = false);
 
-    /// Set whether the header declares the AT INFO field, which holds the traversal of each
-    /// allele. The header declares it by default. A caller that writes no AT field turns it off.
-    void set_declare_allele_traversals(bool declare);
-
     /// Add one ##INFO line, without its newline, to the header. The added INFO lines follow the
-    /// nesting and AT lines, in the order they were added.
+    /// nesting lines, in the order they were added.
     void add_info_line(string line);
     /// Add one ##FORMAT line, without its newline, to the header. The added FORMAT lines follow
     /// the GT line, in the order they were added.
@@ -187,8 +183,6 @@ private:
     vector<ReferenceContig> contigs;
     /// Whether the header declares only the contigs that have records.
     bool only_contigs_with_records = false;
-    /// Whether the header declares the AT INFO field.
-    bool declare_allele_traversals = true;
 
     /// The buffered records, one buffer per thread, each a sort key and the zstd-compressed line.
     /// A vcflib::Variant is too big to keep in memory for every record.
