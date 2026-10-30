@@ -30,8 +30,16 @@ void help_clip(char** argv) {
          << "stub clipping options:" << endl
          << "  -s, --stubs                clip out all stubs, i.e. nodes with degree-0 sides" << endl
          << "                             that aren't on reference" << endl
-         << "  -S, --stubbify-paths       clip out all edges neccessary so that selected" << endl
-         << "                             reference paths have exactly two stubs" << endl
+         << "  -S, --stubbify-paths       clip out the edges on the outer sides of selected" << endl
+         << "                             reference paths' end nodes, so the paths end in" << endl
+         << "                             stubs (edges a reference path walks are kept)" << endl
+         << "  -k, --keep-connected       with -S, only clip edges from an end back into" << endl
+         << "                             the graph, and edges tying a piece to more than one" << endl
+         << "                             end: a piece hanging off one end stays attached, so" << endl
+         << "                             no node is cut off the reference (a dead end of a" << endl
+         << "                             piece that only loops gets a tip, by cutting the" << endl
+         << "                             edges on one side of one node). run it after any" << endl
+         << "                             -s or -d, which can leave an end on a cycle again" << endl
          << "snarl selection and clipping options:" << endl
          << "  -n, --min-nodes N          clip out snarls with >N nodes" << endl
          << "  -e, --min-edges N          clip out snarls with >N edges" << endl
@@ -48,14 +56,17 @@ void help_clip(char** argv) {
          << "  -g, --net-edges            only clip net-edges inside snarls" << endl
          << "  -G, --top-net-edges        only clip net-edges inside top-level snarls" << endl
          << "big deletion edge clipping options:" << endl
-         << "  -D, --max-deletion-edge N  clip out all edges whose endpoints have" << endl
-         << "                             distance > N on a reference path" << endl
+         << "  -D, --max-deletion-edge N  clip out edges so that no jump found within the" << endl
+         << "                             -c context spans > N bp on a reference path" << endl
+         << "                             (one edge per jump, the one fewest paths cross;" << endl
+         << "                             edges that reference paths walk are never clipped)" << endl
          << "  -c, --context N            search up to at most N steps from reference paths" << endl
-         << "                             for candidate deletion edges [1]" << endl
+         << "                             for candidate deletion edges [the -D value]" << endl
          << "general options: " << endl
          << "  -P, --path-prefix STR      do not clip out alleles on paths beginning with STR" << endl
          << "                             (specify such references with -P or -b; may repeat)" << endl
          << "  -m, --min-fragment-len N   don't write novel path fragment if < N bp long" << endl
+         << "                             (which can leave nodes no path covers)" << endl
          << "  -B, --output-bed           write BED-style file of intervals," << endl
          << "                             instead of clipped grap. columns 4-9 are:" << endl
          << "                             snarl node-count edge-count shallow-node-count" << endl
@@ -77,6 +88,7 @@ int main_clip(int argc, char** argv) {
     bool depth_clipping = false;
     bool stub_clipping = false;
     bool stubbify_reference = false;
+    bool keep_connected = false;
 
     size_t min_nodes = 0;
     size_t min_edges = 0;
@@ -110,6 +122,7 @@ int main_clip(int argc, char** argv) {
             {"depth", required_argument, 0, 'd'},
             {"stubs", no_argument, 0, 's'},
             {"stubbify-paths", no_argument, 0, 'S'},
+            {"keep-connected", no_argument, 0, 'k'},
             {"min-nodes", required_argument, 0, 'n'},
             {"min-edges", required_argument, 0, 'e'},
             {"min-bases", required_argument, 0, 'i'},
@@ -133,7 +146,7 @@ int main_clip(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?b:d:sSn:e:i:N:E:a:l:L:A:gGD:c:P:r:m:Bt:v",
+        c = getopt_long (argc, argv, "h?b:d:sSkn:e:i:N:E:a:l:L:A:gGD:c:P:r:m:Bt:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -158,7 +171,10 @@ int main_clip(int argc, char** argv) {
             break;
         case 'S':
             stubbify_reference = true;
-            break;            
+            break;
+        case 'k':
+            keep_connected = true;
+            break;
         case 'n':
             min_nodes = parse<size_t>(optarg);
             snarl_option = true;
@@ -252,6 +268,16 @@ int main_clip(int argc, char** argv) {
         logger.error() << "-S can only be used with -P" << endl;
     }
 
+    if (keep_connected && !stubbify_reference) {
+        logger.error() << "-k can only be used with -S" << endl;
+    }
+
+    // -s would strip the dead ends that -k keeps, but not any cycles among them, which it would leave
+    // hanging off the reference ends with no tip
+    if (keep_connected && stub_clipping) {
+        logger.error() << "-k cannot be used with -s" << endl;
+    }
+
     if (only_net_edges && only_top_net_edges) {
         logger.error() << "-g and -G cannot be used together: choose one" << endl;
     }
@@ -273,7 +299,7 @@ int main_clip(int argc, char** argv) {
     vector<Region> bed_regions;
 
     // need the path positions unless we're doing depth, deletion or stub clipping without regions
-    bool need_pp = !(bed_path.empty() && (min_depth >= 0 || max_deletion >= 0 || stub_clipping));
+    bool need_pp = !(bed_path.empty() && (min_depth >= 0 || max_deletion >= 0 || stub_clipping || stubbify_reference));
 
     // need snarls if input regions are provided, or doing snarl based clipping
     bool need_snarls = snarl_option || !bed_path.empty();
@@ -426,7 +452,7 @@ int main_clip(int argc, char** argv) {
             // do the whole graph
             if (stubbify_reference) {
                 // important that this is done first, as it can actually create non-reference stubs that'd need removal below
-                stubbify_ref_paths(graph.get(), ref_prefixes, min_fragment_len, verbose);
+                stubbify_ref_paths(graph.get(), ref_prefixes, min_fragment_len, keep_connected, verbose);
             }
             if (stub_clipping) {
                 clip_stubs(graph.get(), ref_prefixes, min_fragment_len, verbose);
