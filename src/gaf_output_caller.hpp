@@ -1,13 +1,16 @@
 #ifndef VG_GAF_OUTPUT_CALLER_HPP_INCLUDED
 #define VG_GAF_OUTPUT_CALLER_HPP_INCLUDED
 
+#include <atomic>
 #include <iostream>
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <cmath>
 #include <limits>
 #include <unordered_set>
 #include <tuple>
+#include <gbwt/cached_gbwt.h>
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"

@@ -1,0 +1,35 @@
+{
+  "small": {
+    "f1": 0.9791588977884409,
+    "truth_tp": 274028,
+    "truth_fn": 5868,
+    "query_fp": 5759
+  },
+  "snv": {
+    "f1": 0.9966321339192331,
+    "truth_tp": 222636,
+    "truth_fn": 901,
+    "query_fp": 587
+  },
+  "indel": {
+    "f1": 0.9134760539408237,
+    "truth_tp": 51392,
+    "truth_fn": 4967,
+    "query_fp": 5172
+  },
+  "sv": {
+    "f1": 0.7437779636285567,
+    "TP-base": 1130,
+    "FN": 412,
+    "FP": 362
+  },
+  "sv_refined": {
+    "f1": 0.8914230361070039
+  },
+  "phasing": {
+    "assessed_pairs": 170026,
+    "switch_errors": 683,
+    "switches": 11,
+    "flips": 336
+  }
+}

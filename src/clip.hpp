@@ -30,12 +30,15 @@ void visit_contained_snarls(const PathPositionHandleGraph* graph, const vector<R
  * naming conventions from Paths class in path.hpp
  * If a chopped path has a fragment with length < min_fragment_len, don't bother writing the new path
  * The fragments_per_path map is optional, and will collect some stats if present
+ * With keep_short_at_deleted_nodes, fragments that end at a deleted node are written whatever their length
+ * (vg simplify's behaviour, from when this was how min_fragment_len worked everywhere)
  */
 void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph,
                                  const unordered_set<nid_t>& nodes_to_delete,
                                  const unordered_set<edge_t>& edges_to_delete,
                                  int64_t min_fragment_len,
-                                 unordered_map<string, size_t>* fragments_per_path = nullptr);
+                                 unordered_map<string, size_t>* fragments_per_path = nullptr,
+                                 bool keep_short_at_deleted_nodes = false);
 
 
 /**
@@ -98,9 +101,14 @@ void clip_contained_stubs(MutablePathMutableHandleGraph* graph, PathPositionHand
 
 
 /**
- * stubbify reference
+ * stubbify reference: clip the edges on the outer sides of the reference paths' first and last nodes
+ * (except those a reference path walks). with keep_connected, only clip the ones that lead from an end back
+ * into the graph, or tie a piece to more than one end: a piece hanging off one end stays attached, so no node
+ * is cut off from the reference. a dead end of a piece that only loops gets a tip by having the edges on one
+ * of its node sides cut, since vg haplotypes can't use a graph whose reference end leads only into cycles.
  */
-void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose);
+void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len,
+                        bool keep_connected, bool verbose);
 
 }
 

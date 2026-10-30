@@ -1,5 +1,4 @@
 #include "recombinator.hpp"
-#include "decomposition_neighbors.hpp"
 
 #include "gref.hpp"
 #include "statistics.hpp"
@@ -255,21 +254,6 @@ bool HaplotypePartitioner::contains_reversals(handle_t handle) const {
     return false;
 }
 
-net_handle_t follow_chain(const SnarlDistanceIndex& distance_index, const gbwtgraph::GBZ& gbz, size_t chain_id, net_handle_t curr) {
-    net_handle_t next = curr;
-    size_t successors = 0;
-    for_each_neighbor(distance_index, next, &gbz.graph, false, [&](const net_handle_t& child) {
-        successors++;
-        next = child;
-    });
-    if (successors != 1) {
-        std::string msg = "HaplotypePartitioner::follow_chain(): chain " + std::to_string(chain_id) +
-            " has " + std::to_string(successors) + " successors for a child";
-        throw std::runtime_error(msg);
-    }
-    return next;
-}
-
 std::vector<HaplotypePartitioner::Subchain>
 HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const Parameters& parameters) const {
     std::vector<Subchain> result;
@@ -279,10 +263,13 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
     handle_t snarl_start = empty_gbwtgraph_handle();
     bool has_start = false;
     bool was_snarl = false;
-    // Closed interval of net handles.
-    net_handle_t curr = this->distance_index.get_bound(chain.chain, false, true);
+    // Closed interval of net handles, from the start bound to the end bound.
+    // We list the children of the chain instead of stepping with
+    // follow_net_edges(), which gives only traversals that a walk can take and
+    // so cannot step over a snarl that no walk crosses. Such snarls are split
+    // below.
     net_handle_t chain_end = this->distance_index.get_bound(chain.chain, true, false);
-    while (true) {
+    this->distance_index.for_each_child(chain.chain, [&](const net_handle_t& curr) -> bool {
         if (this->distance_index.is_node(curr)) {
             handle_t handle = this->distance_index.get_handle(curr, &this->gbz.graph);
             if (was_snarl) {
@@ -309,11 +296,8 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
         }
 
         // We check the loop condition here, as we have an inclusive endpoint.
-        if (curr == chain_end) {
-            break;
-        }
-        curr = follow_chain(this->distance_index, this->gbz, chain.offset, curr);
-    }
+        return curr != chain_end;
+    });
     if (was_snarl && has_start) {
         // If the chain ends with a snarl, we take it as a suffix.
         snarls.push_back({ Haplotypes::Subchain::suffix, snarl_start, empty_gbwtgraph_handle(), 0, 0 });

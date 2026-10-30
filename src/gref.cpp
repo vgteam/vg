@@ -956,9 +956,7 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
     // Reference intervals are included, not assumed to be at the top.  A reference contig can
     // itself sit inside a top-level snarl of another one: on chrOther-v2.1,
     // chrUn_KI270442v1 is nested in chr16_KI270728v1_random, and deconstruct reports it at
-    // CH=1 accordingly.  Treating every reference contig as level 0 made the column disagree
-    // with CH on 8 of 25 chrOther contigs while agreeing perfectly on every single-contig
-    // chromosome, which is why the chr22/chr14/chrY gates could not see it.
+    // CH=1 accordingly.
     for (int64_t i = 0; i < n; ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
         path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
@@ -978,21 +976,10 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
             if (i < this->num_ref_intervals) {
                 return false;
             }
-            // Two runs of the same haplotype are rejected as parent and child.  This is a
-            // heuristic, not a proof, and the distinction matters: the runs are disjoint in
-            // SEQUENCE, which is not the same as being disjoint in SNARL CONTAINMENT, and
-            // owner_of_snarl() below tests the latter.  Two fragments from one haplotype at
-            // disjoint intervals can genuinely nest.
-            //
-            // It is kept because it earns its place empirically -- on chr22, 10 of 48 wrong
-            // parents were the fragment's own source path and 0 of 127 correct ones were -- and
-            // because the failure it prevents is the one e20e1f277 was reverted for.  The cost
-            // is a suspected 2 contigs in 144,145 on whole-genome CHM13 (chr5_1998_alt and
-            // chr5_2201_alt, which get level 1 where the VCF chain says 2 through
-            // chr5_113_alt, all three off HG04160#1#CM088426.1).  Not proven to be this guard
-            // rather than the depth or both-bounds tests; settling that needs instrumentation.
-            // Do not relax it without gating on those two contigs AND on chr22 and
-            // chrOther-v2.1 staying byte-identical.
+            // Two runs of the same haplotype are rejected as parent and child. This is a heuristic:
+            // runs that are disjoint in sequence can still nest in the snarl tree.
+            // TODO: On whole-genome CHM13 it may be what gives chr5_1998_alt and chr5_2201_alt
+            // level 1 where INFO/CH says 2.
             if (graph->get_path_handle_of_step(this->gref_intervals[owner].first) == my_source) {
                 return false;
             }

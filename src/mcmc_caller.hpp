@@ -12,7 +12,7 @@
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "graph_caller.hpp"
-#include "vcf_output_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "traversal_finder.hpp"
 #include "phased_genome.hpp"
 #include "region.hpp"
@@ -21,7 +21,7 @@ namespace vg{
 
     using namespace std;
 
-    class MCMCCaller : public VCFOutputCaller {
+    class MCMCCaller {
     public:    
         PhasedGenome& genome;
         SnarlManager& snarl_manager;
@@ -48,9 +48,8 @@ namespace vg{
         /// Snarls are processed in parallel
         void call_top_level_snarls(bool recurse_on_fail = true) ;
 
-        /// print vcf header
-        virtual string vcf_header(const PathPositionHandleGraph& graph, const vector<string>& ref_paths,
-                                const vector<size_t>& contig_length_overrides) const ;
+        /// The sorted VCF the records go to.
+        SortedVCFWriter vcf_writer;
     
     protected:  
         /// path position handle graph
@@ -70,7 +69,7 @@ namespace vg{
                                  vcflib::Variant& variant) const;
 
         /// print a vcf variant 
-        void emit_variant(const Snarl& snarl, const vector<int>& genotype, SnarlTraversal ref_trav, const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs) const;
+        void emit_variant(const Snarl& snarl, const vector<int>& genotype, SnarlTraversal ref_trav, const string& ref_path_name, const vector<SnarlTraversal>& haplo_travs);
 
         /// Call a given snarl, and print the output to out_stream
         bool call_snarl(const Snarl& snarl);
