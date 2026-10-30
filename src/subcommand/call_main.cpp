@@ -853,7 +853,12 @@ int main_call(int argc, char** argv) {
     bool   phased_output = true;
     string mosaic_out;
     string anchors_out;
-    bool no_off_ref_nesting = false;
+    // Whether to genotype off-reference chains: nested chains that the reference paths do not
+    // pass through. Their variants have no position on the reference, so they only get VCF records
+    // when a gref fragment path (see gref.hpp) gives them a contig of their own. Selecting such a
+    // path as a reference turns this on, as does --anchors-out. VG_CALL_OFF_REF_NESTING turns it
+    // on without either, for testing.
+    bool off_ref_nesting = getenv("VG_CALL_OFF_REF_NESTING") != nullptr;
     AnchorParams anchor_params;
     /// Counts of how the anchor code placed reads in this run.
     AnchorCounters anchor_run_counters;
@@ -1571,7 +1576,7 @@ int main_call(int argc, char** argv) {
             nested_calling = true;
             break;
         case OPT_NO_OFF_REF_NESTING:
-            no_off_ref_nesting = true;
+            off_ref_nesting = false;
             break;
         case OPT_NO_NESTED:
             nested_calling = false;
@@ -2342,13 +2347,6 @@ int main_call(int argc, char** argv) {
                        << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
     }
 
-    // Whether to genotype off-reference chains: nested chains that the reference paths do not
-    // pass through. Their variants have no position on the reference, so they only get VCF records
-    // when a gref fragment path (see gref.hpp) gives them a contig of their own. Selecting such a
-    // path as a reference turns this on, as does --anchors-out (below). VG_CALL_NO_REF_NESTED
-    // turns it on without either, for testing.
-    bool off_ref_nesting = getenv("VG_CALL_NO_REF_NESTED") != nullptr;
-
     for (const string& ref_path : ref_paths) {
         // Only a fragment counts. The gref copy of a base contig is the reference under another
         // name, and gives no chain a contig of its own. A clipped fragment is a subpath, so its
@@ -2366,7 +2364,7 @@ int main_call(int argc, char** argv) {
 
     // Off-reference chains have anchors even without VCF records, so --anchors-out turns their
     // genotyping on unless --no-off-ref-nesting is given.
-    if (!anchors_out.empty() && !no_off_ref_nesting) {
+    if (!anchors_out.empty() && !is_explicit("off-ref-nesting")) {
         off_ref_nesting = true;
         if (show_progress) {
             logger.info() << "anchors requested: descending into chains the reference does not "
@@ -2452,7 +2450,7 @@ int main_call(int argc, char** argv) {
     
     // Make a Packed Support Caller
     unique_ptr<SnarlCaller> snarl_caller;
-    // The read-likelihood genotyper, which takes the place of `snarl_caller`.
+    // The read-likelihood genotyper.
     unique_ptr<ReadLikelihoodSnarlCaller> read_likelihood_caller;
     vg::algorithms::BinnedDepthIndex depth_index;
 
@@ -2917,15 +2915,14 @@ int main_call(int argc, char** argv) {
     }
 
     if (!gaf_output) {
-        // Init The VCF       
-        SortedVCFWriter* vcf_caller = vcf_out;
-        assert(vcf_caller != nullptr);
-        vcf_caller->set_nested(nesting_tags);
+        // Init The VCF
+        assert(vcf_out != nullptr);
+        vcf_out->set_nested(nesting_tags);
         if (multipass_caller != nullptr) {
             multipass_caller->set_off_reference_nesting(off_ref_nesting);
         }
-        vcf_caller->set_gref_levels(std::move(gref_levels));
-        vcf_caller->set_translation(translation.get());
+        vcf_out->set_gref_levels(std::move(gref_levels));
+        vcf_out->set_translation(translation.get());
 
         // The linkage model compares genotypes with the haplotypes (-z or -g), and uses the
         // read-likelihood genotyper's likelihoods. If either is missing, the default weight is set
@@ -3069,7 +3066,7 @@ int main_call(int argc, char** argv) {
             multipass_caller->add_header_lines();
         }
         if (cluster_threshold < 1.0) {
-            vcf_caller->add_info_line(
+            vcf_out->add_info_line(
                 "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
                 "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:SIMILARITY using "
                 "pre-merge allele numbers. AD and GL are folded onto the surviving allele and MAD "
@@ -3078,9 +3075,9 @@ int main_call(int argc, char** argv) {
                 "child records the precise one, so they disagree by design.\">");
         }
         if (multipass_caller != nullptr) {
-            read_likelihood_caller->add_header_lines(*vcf_caller);
+            read_likelihood_caller->add_header_lines(*vcf_out);
         } else {
-            snarl_caller->add_header_lines(*vcf_caller);
+            snarl_caller->add_header_lines(*vcf_out);
         }
         // The header declares the base paths found above, by the names the records have in their
         // CHROM column, rather than any path of the graph.
@@ -3103,7 +3100,7 @@ int main_call(int argc, char** argv) {
         for (size_t i = 0; i < contig_names.size(); ++i) {
             contigs.push_back({contig_names[i], contig_lengths[i]});
         }
-        vcf_caller->set_contigs(std::move(contigs), true);
+        vcf_out->set_contigs(std::move(contigs), true);
     }
 
     if (multipass_caller != nullptr) {
@@ -3188,19 +3185,18 @@ int main_call(int argc, char** argv) {
 
     if (!gaf_output) {
         // Output VCF
-        SortedVCFWriter* vcf_caller = vcf_out;
-        assert(vcf_caller != nullptr);
+        assert(vcf_out != nullptr);
         if (show_progress) logger.info() << "Writing VCF Variants" << endl;
         if (multipass_caller != nullptr) {
             // The read-likelihood caller places each record among the sites it called, which
             // include its edit sites.
-            vcf_caller->write_variants(
+            vcf_out->write_variants(
                 cout, &multipass_caller->site_decomposition(), graph,
                 [&](const net_handle_t& site) {
                     return multipass_caller->record_id_of_site(site);
                 });
         } else {
-            vcf_caller->write_variants(cout, nesting_sites.get(), graph);
+            vcf_out->write_variants(cout, nesting_sites.get(), graph);
         }
         if (show_progress) logger.info() << "VCF complete" << endl;        
     }

@@ -316,4 +316,4 @@ candidate alleles need explaining. Unit tests are in `src/unittest/<module>.cpp`
 - `--anchors-out` changes more than the output. It turns on the genotyping of off-reference chains,
   which adds groups and sites to read phasing, so the written phase can change, and under
   `--regenotype` genotypes too. Choosing a gRef path as the reference turns that genotyping on as
-  well, and the environment variable `VG_CALL_NO_REF_NESTED` turns it on by itself, for testing.
+  well, and the environment variable `VG_CALL_OFF_REF_NESTING` turns it on by itself, for testing.
