@@ -21,7 +21,9 @@ change that is meant to move the output, the scores say whether accuracy rose or
 the change is accepted, its run becomes the new baseline (see "Moving the baseline").
 
 The baseline is vg `202fc35d3`, the last commit that Benedict Paten regression-tested on
-his own data. On both contigs, `caa925e81` and `f5b4e6b5c` reproduce it exactly.
+his own data. On both contigs, `caa925e81` and `f5b4e6b5c` reproduce it exactly. The baseline
+`calls.vcf` comes from `21ce1a951`, which groups the INFO, FORMAT and FILTER lines of the VCF
+header by type. Its records are the same as those of `202fc35d3`.
 
 ## Running it
 
@@ -58,7 +60,7 @@ it cannot find them, and `compare.sh` then reports that the scores differ.
 
 ## The inputs
 
-Shlok Negi made these with his `vgcall-wg-benchmark-wf` Snakemake workflow. When the gate
+The `vgcall-wg-benchmark-wf` Snakemake workflow of the user `shnegi` made these. When the gate
 was made, the workflow was at
 `/private/groups/migalab/shnegi/vg_anchors_project/vgcall-wg-benchmark-wf` on the UCSC
 Genomics Institute's cluster, and `config.sh` defaults to the files there. If they have
@@ -83,7 +85,7 @@ ties them to their graphs.
 themselves too; that takes several minutes.
 
 The baseline was scored with aardvark 1.0.0, the release binary
-(`aardvark-v1.0.0-x86_64-unknown-linux-gnu`). Shlok kept a copy at
+(`aardvark-v1.0.0-x86_64-unknown-linux-gnu`). `shnegi` kept a copy at
 `/private/groups/migalab/shnegi/apps/aardvark/v1.0.0/aardvark-v1.0.0-x86_64-unknown-linux-gnu/aardvark`,
 which `config.sh` falls back to if `aardvark` is not on `PATH`.
 
@@ -121,28 +123,30 @@ Each arm is
 
 - **short**: `--read-likelihood --mismap-max 0.95 --read-phasing --regenotype`, which is
   Benedict Paten's Illumina gate arm.
-- **ont**: `--read-likelihood --preset ont`, as Shlok's whole-genome workflow runs it.
+- **ont**: `--read-likelihood --preset ont`, as the `vgcall-wg-benchmark-wf` workflow runs it on
+  the whole genome.
 
 Both write anchors, so that the gate covers the anchor code on both read types.
 
 ## What the baseline must hit
 
 The md5s are in `expected.tsv`. They were taken from `202fc35d3`, and `caa925e81` and
-`f5b4e6b5c` reproduce them. The headers of the mosaic and anchors files name the vg version and
+`f5b4e6b5c` reproduce them. The md5s of `calls.vcf` were taken from `21ce1a951`, whose header
+has the same lines in another order. The headers of the mosaic and anchors files name the vg version and
 the paths of the graph and reads, so their `#vg-version`, `#graph` and `#reads` lines are left out
 of the md5s:
 
 | contig | arm | `calls.vcf` | `mosaic.tsv` | `anchors.tsv` |
 |---|---|---|---|---|
-| chr20 | short | `28d7ce959bb875d5e6830fe2b3b09e41` (110,945 records) | `6ad75227e7dfa6a56adda5e37adf6d38` | `f27a6fcc5334e116dd3c72a0ac1101a2` |
-| chr20 | ont | `1e9dce357c2c42192685e80f17c03497` (118,127 records) | `8cb0405ab11fcb465caa3c860dc09af6` | `2f72b2671a1c823dc78732829c5e0de3` |
-| chr6 | short | `6d65871118d9499eca8bbd82b3183fbe` (298,898 records) | `e4c05278623836422f252723e2c52e45` | `4ce059ee0f723c6063af1a37d524f698` |
-| chr6 | ont | `e4cfaca67c353bedf0270563e17bee34` (300,803 records) | `51318e5d1e0e3a0f4c52e53087d7dd00` | `d83b5d69edb13f36bbe99a70b40b93c4` |
+| chr20 | short | `42b225daaddc854d38641707fc200de9` (110,945 records) | `6ad75227e7dfa6a56adda5e37adf6d38` | `f27a6fcc5334e116dd3c72a0ac1101a2` |
+| chr20 | ont | `ca4caf175f42f458b6ba4143b5678689` (118,127 records) | `8cb0405ab11fcb465caa3c860dc09af6` | `2f72b2671a1c823dc78732829c5e0de3` |
+| chr6 | short | `d1af6962f9bbd4e293640894b96ebe49` (298,898 records) | `e4c05278623836422f252723e2c52e45` | `4ce059ee0f723c6063af1a37d524f698` |
+| chr6 | ont | `b1cffcbcb42527029e9a9c1178fe5dfa` (300,803 records) | `51318e5d1e0e3a0f4c52e53087d7dd00` | `d83b5d69edb13f36bbe99a70b40b93c4` |
 
 The output does not depend on the run or on the build. On chr20, a second run, a run at
-`THREADS=16`, and Shlok's static build of `202fc35d3` (built with `-march=nehalem`, and
-kept at `/private/groups/migalab/shnegi/apps/vg-builds/vg_202fc35d3`) all gave these same
-md5s. The chr6 baseline was called at `THREADS=24`. So any difference comes from the
+`THREADS=16`, and a static build of `202fc35d3` by `shnegi` (built with `-march=nehalem`, and
+kept at `/private/groups/migalab/shnegi/apps/vg-builds/vg_202fc35d3`) all gave the same
+md5s as `202fc35d3`. The chr6 baseline was called at `THREADS=24`. So any difference comes from the
 code. stderr matches too, once its lines are sorted, timings
 are masked, and the output paths it names are ignored.
 
@@ -159,7 +163,7 @@ regions on each contig, they are:
 The small-variant scores are aardvark's genotype-level (`GT`) F1, for `ALL`, `Snv` and
 `JointIndel`. Before scoring, records are split per ALT and kept only if PASS. Records under
 50 bp are scored against `smvar` by aardvark, and all records against `stvar` by `truvari
-bench --pick ac --passonly`, then by `truvari refine`. This is how Shlok's workflow scores. The
+bench --pick ac --passonly`, then by `truvari refine`. This is how the `vgcall-wg-benchmark-wf` workflow scores. The
 phasing counts are `whatshap compare` against the truth VCF's phase over the whole contig. A flip
 is one site phased against both of its neighbours, which whatshap's raw count reports as two
 switch errors. The scoring is deterministic: identical calls gave identical scores.
@@ -217,7 +221,7 @@ His short-read tier-2 inputs, from PR 4990's discussion:
 
 His truth was the T2T-Q100 draft (`NIST_HG002_DraftBenchmark_defrabbV0.019-20241113`,
 `CHM13v2.0_HG2-T2TQ100-V1.1_smvar.vcf.gz`, md5 `fdc6d410b904779e8f116b60e54f8e27`, and its
-BED, md5 `6cfff916d4652a9c630700ea4424b965`). Shlok's v5.0q differs from it only slightly.
+BED, md5 `6cfff916d4652a9c630700ea4424b965`). The v5.0q truth differs from it only slightly.
 
 For `caa925e81` against `202fc35d3`, he reported these chr20 numbers. They come from "the
 chr20 graph we used to gate `202fc35`", which is not the tier-2 34-haplotype graph. So they

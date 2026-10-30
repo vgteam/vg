@@ -15,7 +15,7 @@ SAMPLE=HG002
 THREADS=${THREADS:-32}
 
 # The sampled graphs and their reads. Each GAF was mapped to its own graph, so a GAF works
-# only with the GBZ of its read set. The defaults are where Shlok Negi's workflow left them
+# only with the GBZ of its read set. The defaults are where `shnegi`'s workflow left them
 # when the gate was made. prep.sh checks the files by md5, wherever they are.
 WF=/private/groups/migalab/shnegi/vg_anchors_project/vgcall-wg-benchmark-wf
 SHORT_GBZ=${SHORT_GBZ:-$WF/results/sampled/novaseq-pcrfree-30x/oct9-pgrealign-gref.hs32-refCHM13-banHG002.gbz}
@@ -29,7 +29,7 @@ TRUTH_DIR=${TRUTH_DIR:-$REGRESS_DIR/truth}
 
 # Scoring tools. aardvark is required for small-variant scores; truvari and whatshap are
 # optional, and their scores are skipped when they are missing.
-# The baseline was scored with aardvark 1.0.0. The fallback is where Shlok Negi kept a copy
+# The baseline was scored with aardvark 1.0.0. The fallback is where `shnegi` kept a copy
 # of that release's binary.
 AARDVARK=${AARDVARK:-$(command -v aardvark \
     || echo /private/groups/migalab/shnegi/apps/aardvark/v1.0.0/aardvark-v1.0.0-x86_64-unknown-linux-gnu/aardvark)}
@@ -39,7 +39,7 @@ TRUVARI=${TRUVARI:-$(PATH="$TOOLS_VENV/bin:$PATH" command -v truvari || true)}
 WHATSHAP=${WHATSHAP:-$(PATH="$TOOLS_VENV/bin:$PATH" command -v whatshap || true)}
 
 # The arguments of each arm, after the graph, reference path, sample and threads.
-# ont: what Shlok Negi's whole-genome workflow runs on E821 reads, as one contig.
+# ont: what the vgcall-wg-benchmark-wf workflow runs on E821 reads, as one contig.
 # short: Benedict Paten's Illumina gate arm for PR 4990.
 ARM_ont="--read-likelihood --preset ont"
 ARM_short="--read-likelihood --mismap-max 0.95 --read-phasing --regenotype"

@@ -3,7 +3,7 @@
 #
 #   score.sh <run directory from call.sh>
 #
-# This scores the way Shlok Negi's vgcall-wg-benchmark-wf does. We split multiallelic
+# This scores the way the vgcall-wg-benchmark-wf workflow of user shnegi does. We split multiallelic
 # records and keep only PASS records. aardvark scores the records under 50 bp against the
 # small-variant truth. truvari scores all records against the structural truth, with
 # bench and then refine. whatshap compares the phasing with the truth's.
