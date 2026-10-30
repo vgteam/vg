@@ -7,6 +7,9 @@
   - Until then, to try a change to a library such as libbdsg: run `make` in the dependency's own directory, copy its `.a` into `lib/`, delete `bin/vg`, and run `make -o lib/libbdsg.a` (naming the library you changed), which relinks without remaking the library or recompiling vg.
 - You may be getting errors from `clangd`. If these errors seem spurious, stop and demand a `clangd` that works properly.
 
+## Waiting for Background Work
+- Never wait for a process by polling `pgrep -f` or `pkill -f` with a pattern. The shell running the check has the pattern in its own command line, so the check finds itself and never ends. Wait on the job itself instead: run it in the background and wait to be told it finished, `wait` on its PID, or poll for a file the job writes as its last step.
+
 ## Testing
 
 ### Running Bash-TAP Tests
@@ -31,6 +34,7 @@ To run all unit tests:
 - Macros: `TEST_CASE("name", "[tags]")`, `SECTION("name")`, `REQUIRE(cond)`
 - Namespace: `vg::unittest`
 - Directory: `src/unittest/`
+- Unit tests exercise library code, so test names and comments name the library setting (a setter or field) or describe the behaviour, never a command-line option.
 
 ### Running All Tests
 ```bash
@@ -150,9 +154,19 @@ Some words mean something narrower, or something else, inside one module. In tha
 - *temporary index*: the mutable description of a snarl tree from which the index is built.
 - *prefix sum*: When computing distances, for a node in a chain, the distance from the start of the chain to the start of the node.
 
+## Machine-Written Files
+- New source files, unit tests and write-ups that you write go in `artifacts/`, `artifacts/unittest/` and `artifacts/doc/`, not in `src/` or `doc/`. A file moves to `src/` or `doc/` only when a person has read it and cleared it for reading. See `artifacts/README.md`.
+- A file in `artifacts/` other than a `README.md` must not share a name with a file in `src/` or `doc/`, since objects, unit test binaries and includes are found by name. Check this yourself when you add a file.
+
 ## Writing Classes and Functions
 - When adding, splitting or reviewing classes and structs, use the `class-identity` skill.
 - Before finishing a task that adds or redesigns a class or adds a function, lint them with the `lint-new-code` skill. Keep each class and function it makes you split coherent by the `class-identity` skill.
 
 ## Writing Comments
 - Before finishing a task in which you wrote or changed code comments, use the `intelligible-comments` skill to rewrite them so that a programmer new to the code understands each one on one reading.
+- Name a setting by what it means, or by its name in the library code, never by a command-line option. This holds in library comments and in unit tests: their comments, `TEST_CASE` and `SECTION` names, and messages. Only `src/subcommand/` names options. The `lint_prose.py` script in the `intelligible-comments` skill checks this, but finds only long options such as `--min-mapq`, so check for short ones such as `-L` yourself.
+- Do not write "gate", "gated" or "gating" for the condition under which something happens. Say what must be true for it to happen ("the depth discount applies where the alleles differ in length by 50 bp or more"). The same script checks this.
+- Say what a thing is. Do not define it by likeness or by reference to something else ("oriented like the start and end of a Snarl", "in the order `find_traversals()` uses"). If the next sentence explains the thing, delete the indirect one.
+
+## Documentation
+- When writing or reviewing doc comments or design docs, follow `.claude/skills/explanatory-comments/SKILL.md`. (Yes, there are two different skills for working on comments. This one is more about what ought to be explained, and how to organize ideas, rather than how to write them out in words.) 

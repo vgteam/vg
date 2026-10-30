@@ -32,11 +32,13 @@ fix what it finds there. Problems in code you did not touch belong to another ch
 
 ## Run it
 
-4. **Analyze the files that hold your new code,** headers and sources, in one run:
+4. **Analyze the files that hold your new code,** headers and sources, in one run. New code
+   lives in `artifacts/`, or `artifacts/unittest/` for tests, until a person clears it for
+   `src/`:
    ```bash
    npx -y github:adamnovak/extension-problems-cli --extension "$EXT" \
        --compile-commands compile_commands.json --format pretty \
-       src/new_thing.hpp src/new_thing.cpp
+       artifacts/new_thing.hpp artifacts/new_thing.cpp
    ```
    Leave out `--compile-commands` for files other than C and C++, such as Python scripts. A run
    on a few files takes about a minute. The first run on a machine also downloads the C++

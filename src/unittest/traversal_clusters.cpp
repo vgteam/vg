@@ -1,7 +1,7 @@
 /// \file traversal_clusters.cpp
 ///
-/// Unit tests for traversal similarity, the metric behind -L/--cluster in vg deconstruct,
-/// vg call and vg simplify.
+/// Unit tests for traversal similarity, the metric that vg deconstruct, vg call and vg simplify
+/// use to cluster traversals.
 ///
 /// These exercise weighted_traversal_similarity directly rather than through a caller, where a
 /// similarity of 0 is indistinguishable from "these alleles really are unrelated".

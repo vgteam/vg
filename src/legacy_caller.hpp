@@ -1,23 +1,31 @@
 #ifndef VG_LEGACY_CALLER_HPP_INCLUDED
 #define VG_LEGACY_CALLER_HPP_INCLUDED
 
+#include <atomic>
 #include <iostream>
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <cmath>
 #include <limits>
 #include <unordered_set>
 #include <tuple>
+#include <gbwt/cached_gbwt.h>
 #include "handle.hpp"
+#include "../artifacts/linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
+#include "../artifacts/regenotype.hpp"
 #include "snarl_caller.hpp"
+#include "../artifacts/symbolic_allele.hpp"
 #include "region.hpp"
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
+#include "../artifacts/vcf_genotype_likelihoods.hpp"
 #include "graph_caller.hpp"
-#include "vcf_output_caller.hpp"
+#include "site_emitter.hpp"
+#include "sorted_vcf_writer.hpp"
 
 namespace vg {
 
@@ -29,7 +37,7 @@ using vg::io::AlignmentEmitter;
  * the RepresentativeTraversalFinder to recursively find traversals
  * through arbitrary sites.   
  */
-class LegacyCaller : public GraphCaller, public VCFOutputCaller {
+class LegacyCaller : public GraphCaller {
 public:
     LegacyCaller(const PathPositionHandleGraph& graph,
                  SupportBasedSnarlCaller& snarl_caller,
@@ -43,8 +51,11 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
+    /// The sorted VCF the records go to.
+    SortedVCFWriter vcf_writer;
+
+    /// Writes the record of each called site into `vcf_writer`.
+    SiteEmitter site_emitter;
 
 protected:
 

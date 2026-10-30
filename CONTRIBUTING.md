@@ -72,6 +72,23 @@ make compile_commands.json
 
 This builds vg's dependencies, if needed, but not vg itself.
 
+### Dev Containers
+
+vg includes a devcontainer setup, but it is only expected to work on UCSC's behind-the-firewall infrastructure, because it mounts shared data that will not be available in other environments.
+
+To use the dev container, make sure you have a supported release of Node, and run:
+
+```
+npx @devcontainers/cli up --remove-existing-container
+```
+
+To get a shell in the container, use:
+```
+npx @devcontainers/cli exec bash
+```
+
+(Make sure to only do this if you are not already operating inside the dev container.)
+
 ### Command-line unit tests
 
 We have a suite of Bash-TAP tests within `test/t/`. Run with `prove -v` for proper error handling.
@@ -264,6 +281,9 @@ In order to correctly set up a command-line option it must be put in four separa
     - `shortform` must be a single character (NOT a bare non-quoted integer) or an `ALL_CAPS` variable name.
     Note that `ALL_CAPS` variables must be before the `long_options[]` array as `constexpr int`s.
     Shortforms may repeat, and the first longform is retained. This is to allow longform aliases.
+    - The options may instead be grouped in a `std::map` from group name to `std::vector<struct option>`,
+    named `long_options_by_<something>`, with one entry per line as above and the map ending with `};`.
+    `vg call` groups its options by the subsystem they configure this way, and builds getopt's array from the groups.
 - **`getopt_long` string**: all options with a shortform must appear here. Order does not matter.
 Options which take an argument must have a `:` after their shortform.
 The `vg gamcompare` one is `"h?d:r:I:n:o:Ta:st:"`.

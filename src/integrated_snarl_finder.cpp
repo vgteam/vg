@@ -4,6 +4,7 @@
 ///
 
 #include "integrated_snarl_finder.hpp"
+#include "algorithms/weakly_connected_components_dense.hpp"
 
 #include "algorithms/three_edge_connected_components.hpp"
 #include "subgraph_overlay.hpp"
@@ -1870,7 +1871,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
 
 SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
 
-    vector<unordered_set<id_t>> weak_components = handlealgs::weakly_connected_components(graph);
+    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components_dense(*graph);
     vector<SnarlManager> snarl_managers(weak_components.size());
 
     #pragma omp parallel for schedule(dynamic, 1)
@@ -1889,6 +1890,9 @@ SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
             // delete our component graph overlay
             delete subgraph;
         }
+        // Free the node set of the component now, on the thread that used it. Together the sets
+        // hold every node of the graph, which would otherwise be freed on one thread at the end.
+        unordered_set<id_t>().swap(weak_components[i]);
     }
 
     // merge the managers into the biggest one.
@@ -1900,9 +1904,8 @@ SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
     }
     for (size_t i = 0; i < snarl_managers.size(); ++i) {
         if (i != biggest_snarl_idx) {
-            snarl_managers[i].for_each_snarl_unindexed([&](const Snarl* snarl) {
-                snarl_managers[biggest_snarl_idx].add_snarl(*snarl);
-            });
+            // Move the snarls, since the other managers are not used again.
+            snarl_managers[biggest_snarl_idx].take_snarls(snarl_managers[i]);
         }
     }
     snarl_managers[biggest_snarl_idx].finish();

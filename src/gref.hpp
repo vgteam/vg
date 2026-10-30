@@ -188,15 +188,6 @@ public:
     // gref path traverses its boundaries.  level is then the length of that chain, uniformly:
     // an outermost reference contig is 0, a reference contig nested inside another is 1, a
     // fragment hanging off the base reference is 1, one inside a level-1 fragment is 2.
-    //
-    // This is the measurement e20e1f277 reverted a column for getting wrong.  That version
-    // counted hops over interval adjacency, which is a fact about the graph, while INFO/CH
-    // counts coordinate-system changes among ancestors, which is a fact about the caller; they
-    // agreed on only 76% of chr22 fragments.  The difference then was that the cover had no
-    // snarl decomposition and had to approximate containment.  It has one now, and it is the
-    // same decomposition deconstruct recurses, so this computes the caller's answer directly
-    // instead of a proxy for it.  Gate any change here on agreement with INFO/CH, not on
-    // whether the numbers look plausible.
     void assign_nesting(const bdsg::SnarlDistanceIndex& distance_index);
 
     // Write the table of gref fragments, one row each, preceded by a '#' header naming the

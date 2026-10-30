@@ -611,6 +611,14 @@ protected:
 
     /// Call off the search as soon as a traversal of this length (bp) is encountered
     size_t max_traversal_length;
+
+    /// The length in bp of the nodes inside a site above which find_traversals searches it with
+    /// the greedy average-flow heuristic.
+    size_t greedy_avg_threshold;
+
+    /// Return whether the snarl from start to end (not including the boundaries)
+    /// is big enough that we should use the greedy average-flow heuristic.
+    bool use_greedy_avg(const handle_t& start, const handle_t& end) const;
     
 public:
     
@@ -625,15 +633,22 @@ public:
      * @param max_traversal_length A length in bases. When a search finds a
      * traversal longer than this, not counting the site's bounds, it stops
      * and returns the traversals found so far, including that one.
+     * @param greedy_avg_threshold A length in bases. A site with more than
+     * this many bases inside its bounds is searched with the greedy
+     * average-flow heuristic.
      */
     FlowTraversalFinder(const HandleGraph& graph,
                         size_t K,
                         function<double(handle_t)> node_weight_callback,
                         function<double(edge_t)> edge_weight_callback,
-                        size_t max_traversal_length = numeric_limits<size_t>::max());
+                        size_t max_traversal_length = numeric_limits<size_t>::max(),
+                        size_t greedy_avg_threshold = numeric_limits<size_t>::max());
 
     /**
      * Find the K widest (most flow) traversals through a site.
+     *
+     * We search a site longer than greedy_avg_threshold with the greedy
+     * average-flow heuristic.
      *
      * @return The traversals, widest first.
      */

@@ -2,6 +2,7 @@
 #define VG_UTILITY_HPP_INCLUDED
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <sstream>
 #include <omp.h>
@@ -60,6 +61,16 @@ std::vector<std::string>& split_delims(const std::string &s, const std::string& 
                                        size_t max_cuts = numeric_limits<size_t>::max());
 std::vector<std::string> split_delims(const std::string &s, const std::string& delims,
                                       size_t max_cuts = numeric_limits<size_t>::max());
+
+/// Split a string at every character in `delims`, keeping empty fields.
+///
+/// "a,,b" gives "a", "", "b", and "" gives one empty field.
+std::vector<std::string> split_delims_keep_empty(const std::string& s, const std::string& delims);
+
+/// Join strings with `delim` between each pair.
+///
+/// This undoes split_delims_keep_empty with the one delimiter `delim`, if no part contains it.
+std::string join_delim(const std::vector<std::string>& parts, char delim);
 
 /// Check if a string starts with another string
 bool starts_with(const std::string& value, const std::string& prefix);
