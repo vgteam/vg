@@ -500,8 +500,13 @@ int main_lift(int argc, char** argv) {
             catalog.emplace(calls, decomposer, gref, graph);
             nested_features = add_nested_features(*catalog, graph, gref_pointer, features);
             if (progress) {
-                cerr << "[vg lift] " << catalog->variants().size() << " nested variants on "
-                     << catalog->contigs().size() << " gref alt contigs" << endl;
+                const auto& contigs = catalog->contigs();
+                size_t contigs_with_variants = count_if(contigs.begin(), contigs.end(),
+                                                        [](const NestedVariantCatalog::Contig& contig) {
+                                                            return !contig.variants.empty();
+                                                        });
+                cerr << "[vg lift] " << catalog->variants().size() << " nested variants on " << contigs_with_variants
+                     << " gref alt contigs, of " << contigs.size() << " that ALT alleles read" << endl;
             }
         }
     } else {
