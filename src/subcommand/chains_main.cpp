@@ -14,7 +14,6 @@
 
 #include "../gbwt_helper.hpp"
 #include "../snarl_distance_index.hpp"
-#include "../decomposition_neighbors.hpp"
 #include "../snarls.hpp"
 
 #include <sdsl/int_vector.hpp>
@@ -248,21 +247,6 @@ void write_gfa_paths(const std::vector<sdsl::int_vector<>>& chains, std::ostream
     }
 }
 
-net_handle_t follow_chain(const SnarlDistanceIndex& distance_index, const HandleGraph& graph, 
-                          size_t chain_id, net_handle_t curr) {
-    net_handle_t next = curr;
-    size_t successors = 0;
-    for_each_neighbor(distance_index, next, &graph, false, [&](const net_handle_t& child) {
-        successors++;
-        next = child;
-    });
-    if (successors != 1) {
-        logging::error("follow_chain()") << "chain " << chain_id 
-                                         << " has " << successors << " successors for a child";
-    }
-    return next;
-}
-
 void try_append(gbwt::vector_type& chain, gbwt::node_type start, gbwt::node_type end) {
     if (start == gbwt::ENDMARKER || end == gbwt::ENDMARKER) {
         return;
@@ -279,12 +263,14 @@ gbwt::vector_type extract_chain(const SnarlDistanceIndex& distance_index, const 
                                 net_handle_t chain, size_t chain_id) {
     gbwt::vector_type result;
 
-    // Closed interval of net handles.
-    net_handle_t curr = distance_index.get_bound(chain, false, true);
+    // Closed interval of net handles, from the start bound to the end bound.
+    // We list the children of the chain instead of stepping with
+    // follow_net_edges(), which gives only traversals that a walk can take and
+    // so cannot step over a snarl that no walk crosses.
     net_handle_t chain_end = distance_index.get_bound(chain, true, false);
     gbwt::node_type prev = gbwt::ENDMARKER; // Possible start of a snarl.
     bool was_snarl = false;
-    while (true) {
+    distance_index.for_each_child(chain, [&](const net_handle_t& curr) -> bool {
         if (distance_index.is_node(curr)) {
             handle_t handle = distance_index.get_handle(curr, &graph);
             gbwt::node_type node = handle_to_gbwt(graph, handle);
@@ -299,11 +285,8 @@ gbwt::vector_type extract_chain(const SnarlDistanceIndex& distance_index, const 
         } else {
             was_snarl = false;
         }
-        if (curr == chain_end) {
-            break;
-        }
-        curr = follow_chain(distance_index, graph, chain_id, curr);
-    }
+        return curr != chain_end;
+    });
 
     for (auto handle : result) {
         nid_t id = gbwt::Node::id(handle);
