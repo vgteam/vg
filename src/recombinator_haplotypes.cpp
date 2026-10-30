@@ -335,11 +335,12 @@ std::int64_t KmerPresenceMatrix::diploid_score(
     const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
 ) const {
     // Accessed by `3 * classification + num_present`.
-    constexpr static std::array<std::int8_t, 12> SCORE_MATRIX {
+    constexpr static std::array<std::int8_t, 15> SCORE_MATRIX {
         1, 0, -1, // Absent
         0, 1, 0,  // Heterozygous
         -1, 0, 1, // Present
         0, 0, 0,  // Frequent
+        0, 0, 0,  // Ignored
     };
 
     Iterator first_iter(*this, first);

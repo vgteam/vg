@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 94
+plan tests 96
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -35,6 +35,12 @@ vg haplotypes --validate --subchain-length 300 -k haplotype-sampling/HG003.kff -
 is $? 0 "sampling the haplotypes directly"
 cmp indirect.gbz direct.gbz
 is $? 0 "the outputs are identical"
+
+# Ignore homopolymers of length 3 or more
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --ignore-homopolymers 3 -g ignored.gbz full.gbz
+is $? 0 "sampling with ignore homopolymers"
+cmp ignored.gbz direct.gbz
+is $? 1 "the output changes when ignoring homopolymers"
 
 # Sample without reference
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff -g no_ref.gbz full.gbz
@@ -313,7 +319,7 @@ is $(grep -c "error.*are not compatible" log.txt) 1 "an appropriate error messag
 
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
-rm -f indirect.gbz direct.gbz no_ref.gbz ban_ref.gbz
+rm -f indirect.gbz direct.gbz ignored.gbz no_ref.gbz ban_ref.gbz
 rm -f hicov.gbz hicov8.gbz hicov_pansn.gbz hicov_log.txt
 rm -f halfcov.gbz halfcov6.gbz halfcov_pansn.gbz bothcov_log.txt
 rm -f exclude.gbz exclude_pansn.gbz exclude_log.txt
