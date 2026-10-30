@@ -68,6 +68,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classvg_1_1FlowTraversalFinder-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -89,8 +90,8 @@ Inheritance diagram for vg::FlowTraversalFinder:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a41fcbda99d30b3aa4dc7dbec01fcd974"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowTraversalFinder.html#a41fcbda99d30b3aa4dc7dbec01fcd974">FlowTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1FlowTraversalFinder.html#ad092938a00c2c7c2b046d88fe47c73a8">graph</a>, size_t <a class="el" href="classvg_1_1FlowTraversalFinder.html#a6f3d138926abc87592571c2182faf31e">K</a>, function&lt; double(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; <a class="el" href="classvg_1_1FlowTraversalFinder.html#a345a65197b9a0cd215d616dfcfcd5519">node_weight_callback</a>, function&lt; double(<a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a>)&gt; <a class="el" href="classvg_1_1FlowTraversalFinder.html#ab47146aa9a038f781c2931b7bacb76a6">edge_weight_callback</a>, size_t <a class="el" href="classvg_1_1FlowTraversalFinder.html#a1dbaa147e49e103151629a210977c58b">max_traversal_length</a>=numeric_limits&lt; size_t &gt;::max())</td></tr>
-<tr class="separator:a41fcbda99d30b3aa4dc7dbec01fcd974"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a00c1ad1cac4a3ba4f04f847535294617"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowTraversalFinder.html#a00c1ad1cac4a3ba4f04f847535294617">FlowTraversalFinder</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1FlowTraversalFinder.html#ad092938a00c2c7c2b046d88fe47c73a8">graph</a>, size_t <a class="el" href="classvg_1_1FlowTraversalFinder.html#a6f3d138926abc87592571c2182faf31e">K</a>, function&lt; double(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; <a class="el" href="classvg_1_1FlowTraversalFinder.html#a345a65197b9a0cd215d616dfcfcd5519">node_weight_callback</a>, function&lt; double(<a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a>)&gt; <a class="el" href="classvg_1_1FlowTraversalFinder.html#ab47146aa9a038f781c2931b7bacb76a6">edge_weight_callback</a>, size_t <a class="el" href="classvg_1_1FlowTraversalFinder.html#a1dbaa147e49e103151629a210977c58b">max_traversal_length</a>=numeric_limits&lt; size_t &gt;::max(), size_t <a class="el" href="classvg_1_1FlowTraversalFinder.html#ac83eda7958aad04dbaaf6c32a1fce219">greedy_avg_threshold</a>=numeric_limits&lt; size_t &gt;::max())</td></tr>
+<tr class="separator:a00c1ad1cac4a3ba4f04f847535294617"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3bf6dff88b07d23e8877ed263d951d40"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowTraversalFinder.html#a3bf6dff88b07d23e8877ed263d951d40">find_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site)</td></tr>
 <tr class="separator:a3bf6dff88b07d23e8877ed263d951d40"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3a98435210220ec4c041594095e9ba5a"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowTraversalFinder.html#a3a98435210220ec4c041594095e9ba5a">find_traversals</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;snarl_start, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;snarl_end) override</td></tr>
@@ -109,6 +110,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a131a390168c5261f8cefc41aa3625675 inherit pub_methods_classvg_1_1SiteTraversalFinder"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SiteTraversalFinder.html#a131a390168c5261f8cefc41aa3625675">~SiteTraversalFinder</a> ()=default</td></tr>
 <tr class="separator:a131a390168c5261f8cefc41aa3625675 inherit pub_methods_classvg_1_1SiteTraversalFinder"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a361e7af6c83cebb0be9691c54ed18b59"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowTraversalFinder.html#a361e7af6c83cebb0be9691c54ed18b59">use_greedy_avg</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;start, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;end) const</td></tr>
+<tr class="separator:a361e7af6c83cebb0be9691c54ed18b59"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
 <tr class="memitem:ad092938a00c2c7c2b046d88fe47c73a8"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowTraversalFinder.html#ad092938a00c2c7c2b046d88fe47c73a8">graph</a></td></tr>
@@ -124,14 +130,16 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a1dbaa147e49e103151629a210977c58b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowTraversalFinder.html#a1dbaa147e49e103151629a210977c58b">max_traversal_length</a></td></tr>
 <tr class="memdesc:a1dbaa147e49e103151629a210977c58b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call off the search as soon as a traversal of this length (bp) is encountered.  <a href="classvg_1_1FlowTraversalFinder.html#a1dbaa147e49e103151629a210977c58b">More...</a><br /></td></tr>
 <tr class="separator:a1dbaa147e49e103151629a210977c58b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac83eda7958aad04dbaaf6c32a1fce219"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowTraversalFinder.html#ac83eda7958aad04dbaaf6c32a1fce219">greedy_avg_threshold</a></td></tr>
+<tr class="separator:ac83eda7958aad04dbaaf6c32a1fce219"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Finds traversals with the most flow. <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data.">Node</a> and edge weights are specified using the callbacks and can be used, ex, to yield read supports. <br  />
  If one traversal is requested, then the path with the highest flow (whose node or edge with the minimum weight is maximum) is returned. If K traversals are specified, then the K highest flow traversals are returned. This is designed to be a replacement for <a class="el" href="classvg_1_1RepresentativeTraversalFinder.html">RepresentativeTraversalFinder</a>. It should do a better job of enumerating off-reference traversals, and will of course guarantee to return all the optimal traversals (in the context of max flow). Unlike <a class="el" href="classvg_1_1RepresentativeTraversalFinder.html">RepresentativeTraversalFinder</a>, it does not currently support nested snarls, so all traversals returned are explicit. <br  />
  It is possible that it will blow up on massive snarls, espeically for large Ks. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a41fcbda99d30b3aa4dc7dbec01fcd974"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a41fcbda99d30b3aa4dc7dbec01fcd974">&#9670;&nbsp;</a></span>FlowTraversalFinder()</h2>
+<a id="a00c1ad1cac4a3ba4f04f847535294617"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a00c1ad1cac4a3ba4f04f847535294617">&#9670;&nbsp;</a></span>FlowTraversalFinder()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -164,7 +172,13 @@ Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_traversal_length</em> = <code>numeric_limits&lt;size_t&gt;::max()</code>&#160;</td>
+          <td class="paramname"><em>max_traversal_length</em> = <code>numeric_limits&lt;size_t&gt;::max()</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>greedy_avg_threshold</em> = <code>numeric_limits&lt;size_t&gt;::max()</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -181,6 +195,7 @@ Protected Attributes</h2></td></tr>
     <tr><td class="paramname">node_weight_callback</td><td>A function giving the flow through a node. </td></tr>
     <tr><td class="paramname">edge_weight_callback</td><td>A function giving the flow through an edge. </td></tr>
     <tr><td class="paramname">max_traversal_length</td><td>A length in bases. When a search finds a traversal longer than this, not counting the site's bounds, it stops and returns the traversals found so far, including that one. </td></tr>
+    <tr><td class="paramname">greedy_avg_threshold</td><td>A length in bases. A site with more than this many bases inside its bounds is searched with the greedy average-flow heuristic. </td></tr>
   </table>
   </dd>
 </dl>
@@ -252,6 +267,7 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Find the K widest (most flow) traversals through a site.</p>
+<p>We search a site longer than greedy_avg_threshold with the greedy average-flow heuristic.</p>
 <dl class="section return"><dt>Returns</dt><dd>The traversals, widest first. </dd></dl>
 
 <p>Implements <a class="el" href="classvg_1_1TraversalFinder.html#a53611f0deaac0fcfb0a440f272c69637">vg::TraversalFinder</a>.</p>
@@ -388,6 +404,43 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a361e7af6c83cebb0be9691c54ed18b59"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a361e7af6c83cebb0be9691c54ed18b59">&#9670;&nbsp;</a></span>use_greedy_avg()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::FlowTraversalFinder::use_greedy_avg </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>end</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return whether the snarl from start to end (not including the boundaries) is big enough that we should use the greedy average-flow heuristic. </p>
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
 <a id="ab47146aa9a038f781c2931b7bacb76a6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab47146aa9a038f781c2931b7bacb76a6">&#9670;&nbsp;</a></span>edge_weight_callback</h2>
@@ -431,6 +484,29 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>The graph to search, unless a search is given an overlay graph to use instead. </p>
+
+</div>
+</div>
+<a id="ac83eda7958aad04dbaaf6c32a1fce219"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac83eda7958aad04dbaaf6c32a1fce219">&#9670;&nbsp;</a></span>greedy_avg_threshold</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::FlowTraversalFinder::greedy_avg_threshold</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>The length in bp of the nodes inside a site above which find_traversals searches it with the greedy average-flow heuristic. </p>
 
 </div>
 </div>

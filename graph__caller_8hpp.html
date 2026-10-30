@@ -73,13 +73,16 @@ $(function() {
 <div class="title">graph_caller.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;iostream&gt;</code><br />
+<div class="textblock"><code>#include &lt;atomic&gt;</code><br />
+<code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;algorithm&gt;</code><br />
+<code>#include &lt;array&gt;</code><br />
 <code>#include &lt;functional&gt;</code><br />
 <code>#include &lt;cmath&gt;</code><br />
 <code>#include &lt;limits&gt;</code><br />
 <code>#include &lt;unordered_set&gt;</code><br />
 <code>#include &lt;tuple&gt;</code><br />
+<code>#include &lt;gbwt/cached_gbwt.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarls_8hpp.html">snarls.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="traversal__finder_8hpp.html">traversal_finder.hpp</a>&quot;</code><br />
@@ -88,6 +91,8 @@ $(function() {
 <code>#include &quot;<a class="el" href="zstdutil_8hpp.html">zstdutil.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gref_8hpp.html">gref.hpp</a>&quot;</code><br />
+<code>#include &quot;../artifacts/ploidy_regions.hpp&quot;</code><br />
+<code>#include &quot;../artifacts/site_scheduler.hpp&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>

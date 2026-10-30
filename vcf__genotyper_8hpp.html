@@ -73,23 +73,30 @@ $(function() {
 <div class="title">vcf_genotyper.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;iostream&gt;</code><br />
+<div class="textblock"><code>#include &lt;atomic&gt;</code><br />
+<code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;algorithm&gt;</code><br />
+<code>#include &lt;array&gt;</code><br />
 <code>#include &lt;functional&gt;</code><br />
 <code>#include &lt;cmath&gt;</code><br />
 <code>#include &lt;limits&gt;</code><br />
 <code>#include &lt;unordered_set&gt;</code><br />
 <code>#include &lt;tuple&gt;</code><br />
+<code>#include &lt;gbwt/cached_gbwt.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
+<code>#include &quot;../artifacts/linkage_model.hpp&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarls_8hpp.html">snarls.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="traversal__finder_8hpp.html">traversal_finder.hpp</a>&quot;</code><br />
+<code>#include &quot;../artifacts/regenotype.hpp&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarl__caller_8hpp.html">snarl_caller.hpp</a>&quot;</code><br />
+<code>#include &quot;../artifacts/symbolic_allele.hpp&quot;</code><br />
 <code>#include &quot;<a class="el" href="region_8hpp.html">region.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="zstdutil_8hpp.html">zstdutil.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gref_8hpp.html">gref.hpp</a>&quot;</code><br />
+<code>#include &quot;../artifacts/vcf_genotype_likelihoods.hpp&quot;</code><br />
 <code>#include &quot;<a class="el" href="graph__caller_8hpp.html">graph_caller.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="vcf__output__caller_8hpp.html">vcf_output_caller.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="sorted__vcf__writer_8hpp.html">sorted_vcf_writer.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gaf__output__caller_8hpp.html">gaf_output_caller.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>

@@ -425,6 +425,8 @@ Functions</h2></td></tr>
 <tr class="separator:a4af5e9c480c0dc7d0843cf981cd52c32"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abe9cb62b2ae1c6eb08b10f172980788d"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#abe9cb62b2ae1c6eb08b10f172980788d">walk_haplotype_names</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const gbwt::GBWT &amp;haplotypes, const <a class="el" href="structvg_1_1algorithms_1_1walk__t.html">walk_t</a> &amp;walk)</td></tr>
 <tr class="separator:abe9cb62b2ae1c6eb08b10f172980788d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b5d52dd7b34850593edd530ef1cb3a9"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4b5d52dd7b34850593edd530ef1cb3a9">weakly_connected_components_dense</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
+<tr class="separator:a4b5d52dd7b34850593edd530ef1cb3a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
@@ -5470,6 +5472,28 @@ template&lt;typename TECCNode &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4b5d52dd7b34850593edd530ef1cb3a9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b5d52dd7b34850593edd530ef1cb3a9">&#9670;&nbsp;</a></span>weakly_connected_components_dense()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &gt; vg::algorithms::weakly_connected_components_dense </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return the weakly connected components of <code>graph</code>, each as the set of its node IDs.</p>
+<p>Search each component depth-first, starting from the first of its nodes in the graph's own order, and mark the nodes reached in an array indexed by node ID. This gives the components, and inserts the nodes in each, in the same order as <code><a class="el" href="namespacehandlegraph_1_1algorithms.html#a96c80b09388c6d079754c66d2f7362e5">handlealgs::weakly_connected_components()</a></code>, and runs much faster on a large graph, since that function marks nodes in a hash set.</p>
+<p>The array has one entry per ID from the smallest node ID to the largest, so the node IDs should be dense.</p>
+<p>TODO: Offer this in libhandlegraph alongside <code><a class="el" href="namespacehandlegraph_1_1algorithms.html#a96c80b09388c6d079754c66d2f7362e5">handlealgs::weakly_connected_components()</a></code>. </p>
 
 </div>
 </div>

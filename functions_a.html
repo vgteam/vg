@@ -116,9 +116,6 @@ $(function() {
 , <a class="el" href="classvg_1_1Packer.html#a8a8cb2dd528dc7cc178e32e69e42212b">vg::Packer</a>
 , <a class="el" href="classvg_1_1SnarlManagerDecomposition_1_1TraversalSet.html#a2a9a1a2c82cff9b53f3ef0cf63523881">vg::SnarlManagerDecomposition::TraversalSet</a>
 </li>
-<li>add_allele_path_to_info()
-: <a class="el" href="classvg_1_1VCFOutputCaller.html#a0d1f292cf9ad7db29e0a02e5395c7f02">vg::VCFOutputCaller</a>
-</li>
 <li>add_annotations()
 : <a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html#aa9c2fadd69e58abfea065ae09917ced7">vg::MinimizerMapper::aligner_stats_t</a>
 , <a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t_1_1stat__set__t.html#af46d15924e533706d6999dcb9619d6e6">vg::MinimizerMapper::aligner_stats_t::stat_set_t</a>
@@ -138,9 +135,6 @@ $(function() {
 </li>
 <li>add_connection()
 : <a class="el" href="classvg_1_1subpath__t.html#abfcffaca080591fc341c4129574c9e21">vg::subpath_t</a>
-</li>
-<li>add_contigs_to_vcf_header()
-: <a class="el" href="classvg_1_1Deconstructor.html#a2b32d4a11d7945c680274ef7ce23cbdd">vg::Deconstructor</a>
 </li>
 <li>add_decomposed_tail_alignments()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a99e7522a1341bc3d5e7d0876156d0e24">vg::MultipathAlignmentGraph</a>
@@ -174,8 +168,14 @@ $(function() {
 <li>add_exon()
 : <a class="el" href="classvg_1_1Transcriptome.html#a8c292f8d6d1d176e5df367a25dd70e5f">vg::Transcriptome</a>
 </li>
+<li>add_filter_line()
+: <a class="el" href="classvg_1_1SortedVCFWriter.html#ae1e792e5718fd30a8580dd61c0e46c4e">vg::SortedVCFWriter</a>
+</li>
 <li>add_flag()
 : <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a0ebe2ec7ea9ace231976a5daa534cfe8">vg::subcommand::OptionGroup&lt; Receiver &gt;</a>
+</li>
+<li>add_format_line()
+: <a class="el" href="classvg_1_1SortedVCFWriter.html#a6796532e7ee376313513724c911a6a80">vg::SortedVCFWriter</a>
 </li>
 <li>add_globals()
 : <a class="el" href="classvg_1_1DiagramExplainer.html#a61051fae11426259dc7318dbb51c8ab6">vg::DiagramExplainer</a>
@@ -194,6 +194,14 @@ $(function() {
 </li>
 <li>add_haplotype_transcripts()
 : <a class="el" href="classvg_1_1Transcriptome.html#a2d0ed7b746222e68f5224838a70c39f4">vg::Transcriptome</a>
+</li>
+<li>add_header_lines()
+: <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a5c36e684c4de3f87a352b3ddad58c61f">vg::PoissonSupportSnarlCaller</a>
+, <a class="el" href="classvg_1_1RatioSupportSnarlCaller.html#adac571d7b8c3e257848602e2a286b5f7">vg::RatioSupportSnarlCaller</a>
+, <a class="el" href="classvg_1_1SnarlCaller.html#a2e5af8cf7041f81c88e0b841f1223ca9">vg::SnarlCaller</a>
+</li>
+<li>add_info_line()
+: <a class="el" href="classvg_1_1SortedVCFWriter.html#a8ffa4371e9f51534da3f068b291d3b80">vg::SortedVCFWriter</a>
 </li>
 <li>add_interval()
 : <a class="el" href="classvg_1_1GrefCover.html#acd39de959af583dc13c805e778427853">vg::GrefCover</a>
@@ -240,7 +248,7 @@ $(function() {
 : <a class="el" href="classvg_1_1PrimerFinder.html#a19d6fa9b346fb83dc961e3aaabc7216f">vg::PrimerFinder</a>
 </li>
 <li>add_range()
-: <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a0b79a42c43d7298df155e03227b46265">vg::subcommand::OptionGroup&lt; Receiver &gt;</a>
+: <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#ab3c186b02ca9139ee143df5d25fb045d">vg::subcommand::OptionGroup&lt; Receiver &gt;</a>
 </li>
 <li>add_reachability_edges()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a2bf6b811ae4c3f0c993d3ac4a11359f0">vg::MultipathAlignmentGraph</a>
@@ -291,11 +299,14 @@ $(function() {
 <li>add_unary_child()
 : <a class="el" href="classvg_1_1NetGraph.html#a3780b053c5632c4425b7057d34bffe3a">vg::NetGraph</a>
 </li>
+<li>add_uncalled_alleles()
+: <a class="el" href="classvg_1_1SiteEmitter.html#a43e511d3c3eff136ec6b4af87af31a57">vg::SiteEmitter</a>
+</li>
 <li>add_value()
 : <a class="el" href="structvg_1_1varint__vector__t.html#a30b862ab93cd6934985fc61abb14df6f">vg::varint_vector_t</a>
 </li>
 <li>add_variant()
-: <a class="el" href="classvg_1_1VCFOutputCaller.html#a2cc880b6121547ff0cdd5ac9a7b1b505">vg::VCFOutputCaller</a>
+: <a class="el" href="classvg_1_1SortedVCFWriter.html#a95e914ffa9e630959604ef9d99bdba98">vg::SortedVCFWriter</a>
 </li>
 <li>add_variants()
 : <a class="el" href="classvg_1_1VariantAdder.html#a4cf25deb4e0e2270c76e2fcd0f3dbf99">vg::VariantAdder</a>
@@ -341,6 +352,9 @@ $(function() {
 </li>
 <li>advance_on_path_by_distance()
 : <a class="el" href="classvg_1_1NGSSimulator.html#ab3b4e064f4b0ed000fd917d1a70cb1e7">vg::NGSSimulator</a>
+</li>
+<li>Affinity()
+: <a class="el" href="structvg_1_1Genotyper_1_1Affinity.html#a656eb6bfb6f19acffa2a492964b1047e">vg::Genotyper::Affinity</a>
 </li>
 <li>affinity
 : <a class="el" href="structvg_1_1Genotyper_1_1Affinity.html#a77332c5a3e180693907d5b6d28c7ca32">vg::Genotyper::Affinity</a>
@@ -388,7 +402,7 @@ $(function() {
 , <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#adf2a3fbebf346c3b581d553165c15a02">vg::MultipathAlignmentGraph</a>
 , <a class="el" href="classvg_1_1QualAdjAligner.html#a60a05caded7bb5ce0c3ead69d9b6d618">vg::QualAdjAligner</a>
 , <a class="el" href="classvg_1_1SSWAligner.html#adc9985aac608bfb4819cd7436b969b62">vg::SSWAligner</a>
-, <a class="el" href="classvg_1_1VG.html#ac24d1defbcca2158cda5fbd272fadae0">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a09fa1d70c31c354915773e59a1a9b55c">vg::VG</a>
 </li>
 <li>align_banded()
 : <a class="el" href="classvg_1_1Mapper.html#ad09b7612066e797594b98151fab355cc">vg::Mapper</a>
@@ -447,7 +461,7 @@ $(function() {
 , <a class="el" href="classvg_1_1QualAdjAligner.html#a412004ae1888c1ddab78c9059064a948">vg::QualAdjAligner</a>
 </li>
 <li>align_qual_adjusted()
-: <a class="el" href="classvg_1_1VG.html#a5532978af43e5c4e5e4f471069e53344">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#a58919649b2a29d36fd965ba453046baf">vg::VG</a>
 </li>
 <li>align_sequence_between()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a91d146b213790ff33782fe34522a7eb0">vg::MinimizerMapper</a>
@@ -474,9 +488,9 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathMapper.html#a068b38611f12b7e4677b39d43da715f9">vg::MultipathMapper</a>
 </li>
 <li>align_xdrop()
-: <a class="el" href="classvg_1_1Aligner.html#aade5564021486501a88d5036871d0677">vg::Aligner</a>
+: <a class="el" href="classvg_1_1Aligner.html#a82ea41424387a8efbac5c74c23717a9a">vg::Aligner</a>
 , <a class="el" href="classvg_1_1GSSWAligner.html#a71da93203b17beaffac6d7e6bbfe7c0b">vg::GSSWAligner</a>
-, <a class="el" href="classvg_1_1QualAdjAligner.html#af30b106ac9479ad0826355666930c041">vg::QualAdjAligner</a>
+, <a class="el" href="classvg_1_1QualAdjAligner.html#a4a2b61c0d556839626937d302f385471">vg::QualAdjAligner</a>
 </li>
 <li>Aligner()
 : <a class="el" href="classvg_1_1Aligner.html#afc36af0a511564efaaa79eeb3c32fe6a">vg::Aligner</a>
@@ -593,9 +607,6 @@ $(function() {
 , <a class="el" href="structvg_1_1Genotype.html#a1703c340c8866d2c62bfb0f602e9f423">vg::Genotype</a>
 , <a class="el" href="structvg_1_1Locus.html#adc1277c0f4db113e9124b115350f284c">vg::Locus</a>
 </li>
-<li>allele_core_length()
-: <a class="el" href="classvg_1_1VCFOutputCaller.html#aec277a6e87140ca432e4e584b2857c46">vg::VCFOutputCaller</a>
-</li>
 <li>allele_length_range
 : <a class="el" href="classvg_1_1FlowCaller.html#a5b9bcf3a7c3863815ee585846990a853">vg::FlowCaller</a>
 </li>
@@ -603,10 +614,10 @@ $(function() {
 : <a class="el" href="structvg_1_1Locus.html#afde669bf5bab01c5cc7a56d97a3aedcc">vg::Locus</a>
 </li>
 <li>allele_merge_min_len
-: <a class="el" href="classvg_1_1VCFOutputCaller.html#ae0d25b9addef8a4f0e6d21630f4f9d58">vg::VCFOutputCaller</a>
+: <a class="el" href="classvg_1_1SiteEmitter.html#af087409524e1d61ee48380d85a8c0b2f">vg::SiteEmitter</a>
 </li>
 <li>allele_merge_threshold
-: <a class="el" href="classvg_1_1VCFOutputCaller.html#a893b66573f35537a5a7fe74f280ecc5c">vg::VCFOutputCaller</a>
+: <a class="el" href="classvg_1_1SiteEmitter.html#ac6e90abb59159b227b4719ed245fcd0b">vg::SiteEmitter</a>
 </li>
 <li>alleles
 : <a class="el" href="structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#ad85e96e34ed648807222b3a4ee027732">haplo::linear_haplo_structure::SNVvector</a>
@@ -763,7 +774,7 @@ $(function() {
 : <a class="el" href="classvg_1_1NGSSimulator.html#ac9767a14ddba8d462c562c8d3b60af6c">vg::NGSSimulator</a>
 </li>
 <li>apply_edit()
-: <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#a9238af0b01ae60e19f699cf715c1b2b7">vg::GraphSynchronizer::Lock</a>
+: <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#ac45f1f724164cda30c1f792423d6e05c">vg::GraphSynchronizer::Lock</a>
 </li>
 <li>apply_full_length_edit()
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#a5d529df21455c13e5c1644ad91c4f55e">vg::GraphSynchronizer::Lock</a>
@@ -828,7 +839,7 @@ $(function() {
 : <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a210a76195aa014e3fcfbebdedc3906c3">vg::subcommand::OptionGroup&lt; Receiver &gt;</a>
 </li>
 <li>ArgSpec()
-: <a class="el" href="structvg_1_1subcommand_1_1ArgSpec.html#a78e4d05575c29900e19e72fe4854fb48">vg::subcommand::ArgSpec&lt; T, Receiver &gt;</a>
+: <a class="el" href="structvg_1_1subcommand_1_1ArgSpec.html#a5c2f438f67a728d5921ceefc4414dea1">vg::subcommand::ArgSpec&lt; T, Receiver &gt;</a>
 </li>
 <li>array_end()
 : <a class="el" href="classvg_1_1ProblemDumpExplainer.html#a7696c7a5ed73ae3a701d4aeb3b2f53b0">vg::ProblemDumpExplainer</a>

@@ -533,6 +533,11 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SeqComplexity.html">SeqComplexity</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1CalledSite.html">CalledSite</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a called site for translation into VCF.  <a href="structvg_1_1CalledSite.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SiteEmitter.html">SiteEmitter</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SmallSnarlSimplifier.html">SmallSnarlSimplifier</a></td></tr>
@@ -563,6 +568,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NetGraph.html">NetGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SortedVCFWriter.html">SortedVCFWriter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SourceSinkOverlay.html">SourceSinkOverlay</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -696,8 +703,6 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFGenotyper.html">VCFGenotyper</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html">VCFOutputCaller</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Version.html">Version</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Class for holding vg version and build environment information.  <a href="classvg_1_1Version.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -812,10 +817,6 @@ Typedefs</h2></td></tr>
 <tr class="separator:a0942a662fe36dad76d2d0e310ec66e3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7143bc6d4008d03bc4a0ac4d4ba26948"><td class="memItemLeft" align="right" valign="top">typedef unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7143bc6d4008d03bc4a0ac4d4ba26948">Handle2Component</a></td></tr>
 <tr class="separator:a7143bc6d4008d03bc4a0ac4d4ba26948"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aca943ce2fa16c8a5b58fb4eba6cbd4e0"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aca943ce2fa16c8a5b58fb4eba6cbd4e0">TraversalSet</a> = vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;</td></tr>
-<tr class="separator:aca943ce2fa16c8a5b58fb4eba6cbd4e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a479028acde6fe8bdacc1bcfda9ee9b94"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a479028acde6fe8bdacc1bcfda9ee9b94">ChildTraversalSets</a> = vector&lt; <a class="el" href="namespacevg.html#aca943ce2fa16c8a5b58fb4eba6cbd4e0">TraversalSet</a> &gt;</td></tr>
-<tr class="separator:a479028acde6fe8bdacc1bcfda9ee9b94"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a29090bbc6b842c2362f9da44a4a57c"><td class="memItemLeft" align="right" valign="top">typedef std::map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, std::vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> * &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7a29090bbc6b842c2362f9da44a4a57c">EdgeMapping</a></td></tr>
 <tr class="separator:a7a29090bbc6b842c2362f9da44a4a57c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a14bb99a367d188bb86fcfec1fd3c9999"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a14bb99a367d188bb86fcfec1fd3c9999">key_type</a> = gbwtgraph::DefaultMinimizerIndex::key_type</td></tr>
@@ -882,6 +883,10 @@ Typedefs</h2></td></tr>
 <tr class="separator:a1ff09b399af11722aeee121ae6f4fd9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1aa2d026eb3edc0c692e19e5a493feef"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; uint32_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef">pareto_point</a></td></tr>
 <tr class="separator:a1aa2d026eb3edc0c692e19e5a493feef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aae60e2b18750c707a34c304adbc4f21a"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aae60e2b18750c707a34c304adbc4f21a">allele_source_t</a> = function&lt; pair&lt; string, vector&lt; NodeVisit &gt; &gt;(size_t allele)&gt;</td></tr>
+<tr class="separator:aae60e2b18750c707a34c304adbc4f21a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81f8d93c81735d8d37338f9d3b9bd58d"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a81f8d93c81735d8d37338f9d3b9bd58d">field_writer_t</a> = function&lt; void(const vector&lt; int &gt; &amp;allele_traversals, const vector&lt; int &gt; &amp;genotype, vcflib::Variant &amp;record)&gt;</td></tr>
+<tr class="separator:a81f8d93c81735d8d37338f9d3b9bd58d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aceea01d66677e39af71921f1bb1911f0"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> = vector&lt; pair&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, bool &gt; &gt;</td></tr>
 <tr class="separator:aceea01d66677e39af71921f1bb1911f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7392de2ef03532b2ec3461ebb178c75a"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7392de2ef03532b2ec3461ebb178c75a">real_t</a> = long double</td></tr>
@@ -2349,6 +2354,15 @@ Functions</h2></td></tr>
 <tr class="separator:acc960c295c1e3088dc8e71ab1af5c4d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e91a5d33d2da100b1173bc336ea90ff"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9e91a5d33d2da100b1173bc336ea90ff">add_descendants_to_subgraph</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;parent, std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph)</td></tr>
 <tr class="separator:a9e91a5d33d2da100b1173bc336ea90ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3c4409546e1b92c57694a428036c13f5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3c4409546e1b92c57694a428036c13f5">visit_handle</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit)</td></tr>
+<tr class="memdesc:a3c4409546e1b92c57694a428036c13f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the handle of a visit to a node: the node, oriented as the visit reads it.  <a href="namespacevg.html#a3c4409546e1b92c57694a428036c13f5">More...</a><br /></td></tr>
+<tr class="separator:a3c4409546e1b92c57694a428036c13f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a446abf54d0f85b2db41b156b448bce2d"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a446abf54d0f85b2db41b156b448bce2d">snarl_name</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const NodeTranslation *translation, bool in_brackets)</td></tr>
+<tr class="separator:a446abf54d0f85b2db41b156b448bce2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e1947117989a62cb2dabdcdff87485e"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8e1947117989a62cb2dabdcdff87485e">trav_string</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav, const NodeTranslation *translation)</td></tr>
+<tr class="separator:a8e1947117989a62cb2dabdcdff87485e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a443587adef3dd8e18b5fa12b3869ff4e"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a443587adef3dd8e18b5fa12b3869ff4e">traversals_of</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;travs, const vector&lt; int &gt; &amp;numbers)</td></tr>
+<tr class="separator:a443587adef3dd8e18b5fa12b3869ff4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a43f061abac718e0386965aa537398e74"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a43f061abac718e0386965aa537398e74">start_backward</a> (const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &amp;chain)</td></tr>
 <tr class="separator:a43f061abac718e0386965aa537398e74"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acab8d2ef076a0e866c7849aace290124"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acab8d2ef076a0e866c7849aace290124">end_backward</a> (const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &amp;chain)</td></tr>
@@ -2373,6 +2387,8 @@ Functions</h2></td></tr>
 <tr class="separator:aefacc656d2c444dfd6e0e445218265cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0627b5d536b881a355d8b419b6f329c6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1ChainIterator.html">ChainIterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0627b5d536b881a355d8b419b6f329c6">chain_end_from</a> (const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &amp;chain, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *start_snarl, bool snarl_orientation)</td></tr>
 <tr class="separator:a0627b5d536b881a355d8b419b6f329c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7133c7423995d89ae8d59a1b4743d859"><td class="memItemLeft" align="right" valign="top">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7133c7423995d89ae8d59a1b4743d859">site_contents</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;start, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;end, bool include_boundary_nodes)</td></tr>
+<tr class="separator:a7133c7423995d89ae8d59a1b4743d859"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1da5277daea16b80ffc4ab75175b1882"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1da5277daea16b80ffc4ab75175b1882">to_edge</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;v1, const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;v2)</td></tr>
 <tr class="memdesc:a1da5277daea16b80ffc4ab75175b1882"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make an edge_t from a pair of visits.  <a href="namespacevg.html#a1da5277daea16b80ffc4ab75175b1882">More...</a><br /></td></tr>
 <tr class="separator:a1da5277daea16b80ffc4ab75175b1882"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2442,6 +2458,8 @@ Functions</h2></td></tr>
 <tr class="separator:a2c04918053577c402e4f2cab61abd754"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae64d7810e64af7119f1b1b3a2d08d797"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae64d7810e64af7119f1b1b3a2d08d797">to_rev_node_traversal</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
 <tr class="separator:ae64d7810e64af7119f1b1b3a2d08d797"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a715af7586c5be7a2b584e02001bbcae8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Region.html">Region</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a715af7586c5be7a2b584e02001bbcae8">record_ref_region</a> (const vcflib::Variant &amp;record)</td></tr>
+<tr class="separator:a715af7586c5be7a2b584e02001bbcae8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0889d5f2083ed24eb49c9484a24173d1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0889d5f2083ed24eb49c9484a24173d1">from_hit</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;hit_pos, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &amp;mem, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> &amp;aligner)</td></tr>
 <tr class="separator:a0889d5f2083ed24eb49c9484a24173d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e61398cd459bb9ba3a1ced205491712"><td class="memItemLeft" align="right" valign="top">tuple&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>, int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9e61398cd459bb9ba3a1ced205491712">trimmed_end</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, int64_t len, bool from_end, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> &amp;aligner)</td></tr>
@@ -2722,6 +2740,10 @@ Functions</h2></td></tr>
 <tr class="separator:acb2577b9163299f775898c17bcd3f72d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a335fce1edcad06f9840edcfad2c53e34"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a335fce1edcad06f9840edcfad2c53e34">split_delims</a> (const std::string &amp;s, const std::string &amp;delims, size_t max_cuts)</td></tr>
 <tr class="separator:a335fce1edcad06f9840edcfad2c53e34"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afbf84513b6b1da41bbc66a01746421a5"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afbf84513b6b1da41bbc66a01746421a5">split_delims_keep_empty</a> (const std::string &amp;s, const std::string &amp;delims)</td></tr>
+<tr class="separator:afbf84513b6b1da41bbc66a01746421a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5b4f3346f25b2b438f60b987b08c7b30"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5b4f3346f25b2b438f60b987b08c7b30">join_delim</a> (const std::vector&lt; std::string &gt; &amp;parts, char delim)</td></tr>
+<tr class="separator:a5b4f3346f25b2b438f60b987b08c7b30"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7b58d5d004a85a09906301781567970a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7b58d5d004a85a09906301781567970a">starts_with</a> (const std::string &amp;value, const std::string &amp;prefix)</td></tr>
 <tr class="memdesc:a7b58d5d004a85a09906301781567970a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check if a string starts with another string.  <a href="namespacevg.html#a7b58d5d004a85a09906301781567970a">More...</a><br /></td></tr>
 <tr class="separator:a7b58d5d004a85a09906301781567970a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2973,12 +2995,23 @@ Variables</h2></td></tr>
 <tr class="separator:aa9c9573184fc9275ea2b23866e4275b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a466eef41b2208daa1c649e71022cdc44"><td class="memItemLeft" align="right" valign="top">const std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a466eef41b2208daa1c649e71022cdc44">whitespace</a> = &quot; \t\n\v\f\r&quot;</td></tr>
 <tr class="separator:a466eef41b2208daa1c649e71022cdc44"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9782a963c939f361b5d333d1c384ff59"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9782a963c939f361b5d333d1c384ff59">STAR_ALLELE_MARKER</a> = -2</td></tr>
-<tr class="separator:a9782a963c939f361b5d333d1c384ff59"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a79c052ca8e58a01a27433f8f3c10a3ca"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a79c052ca8e58a01a27433f8f3c10a3ca">MISSING_ALLELE_MARKER</a> = -1</td></tr>
-<tr class="separator:a79c052ca8e58a01a27433f8f3c10a3ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
+<a id="aae60e2b18750c707a34c304adbc4f21a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aae60e2b18750c707a34c304adbc4f21a">&#9670;&nbsp;</a></span>allele_source_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg.html#aae60e2b18750c707a34c304adbc4f21a">vg::allele_source_t</a> = typedef function&lt;pair&lt;string, vector&lt;NodeVisit&gt; &gt;(size_t allele)&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Spell traversal <code>allele</code> of a site: its sequence, and its visits. The visits are empty for a traversal with no walk through the graph. </p>
+
+</div>
+</div>
 <a id="a4ab10687f0a0cca11ecfd062d9bb0a07"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4ab10687f0a0cca11ecfd062d9bb0a07">&#9670;&nbsp;</a></span>benchtime</h2>
 
@@ -3009,21 +3042,6 @@ Variables</h2></td></tr>
 <p>Snarls are defined at the Protobuf level, but here is how we define chains as real objects.</p>
 <p>A chain is a sequence of Snarls, in either normal (false) or reverse (true) orientation.</p>
 <p>The <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> is going to have one official copy of each chain stored, and it will give you a pointer to it on demand. </p>
-
-</div>
-</div>
-<a id="a479028acde6fe8bdacc1bcfda9ee9b94"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a479028acde6fe8bdacc1bcfda9ee9b94">&#9670;&nbsp;</a></span>ChildTraversalSets</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">using <a class="el" href="namespacevg.html#a479028acde6fe8bdacc1bcfda9ee9b94">vg::ChildTraversalSets</a> = typedef vector&lt;<a class="el" href="namespacevg.html#aca943ce2fa16c8a5b58fb4eba6cbd4e0">TraversalSet</a>&gt;</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>One TraversalSet per parent allele (index matches parent genotype). For a diploid parent with genotype [0,1], element 0 contains traversals consistent with parent allele 0, element 1 with parent allele 1. </p>
 
 </div>
 </div>
@@ -3094,6 +3112,27 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a81f8d93c81735d8d37338f9d3b9bd58d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81f8d93c81735d8d37338f9d3b9bd58d">&#9670;&nbsp;</a></span>field_writer_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg.html#a81f8d93c81735d8d37338f9d3b9bd58d">vg::field_writer_t</a> = typedef function&lt;void(const vector&lt;int&gt;&amp; allele_traversals, const vector&lt;int&gt;&amp; genotype, vcflib::Variant&amp; record)&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Write the genotyper's fields into a record, given which traversal each VCF allele is spelled from (-1 for "*") and the genotype in VCF allele numbers. It is expected to fill:</p>
+<ul>
+<li>AD, the read support of each allele.</li>
+<li>GL, the genotype likelihoods, in the emitter's <code>gl_layout</code> order.</li>
+<li>DP and GQ.</li>
+<li>Any other INFO or FORMAT field the genotyper reports, and FILTER. </li>
+</ul>
 
 </div>
 </div>
@@ -3652,21 +3691,6 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="aca943ce2fa16c8a5b58fb4eba6cbd4e0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aca943ce2fa16c8a5b58fb4eba6cbd4e0">&#9670;&nbsp;</a></span>TraversalSet</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">using <a class="el" href="namespacevg.html#aca943ce2fa16c8a5b58fb4eba6cbd4e0">vg::TraversalSet</a> = typedef vector&lt;<a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>&gt;</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>A set of traversals through a child snarl that are consistent with a single parent allele. Multiple traversals can exist if the child has internal variation within a shared region. </p>
 
 </div>
 </div>
@@ -15377,6 +15401,36 @@ template&lt;typename T , typename U &gt; </div>
 
 </div>
 </div>
+<a id="a5b4f3346f25b2b438f60b987b08c7b30"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b4f3346f25b2b438f60b987b08c7b30">&#9670;&nbsp;</a></span>join_delim()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string vg::join_delim </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>parts</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char&#160;</td>
+          <td class="paramname"><em>delim</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Join strings with <code>delim</code> between each pair.</p>
+<p>This undoes split_delims_keep_empty with the one delimiter <code>delim</code>, if no part contains it. </p>
+
+</div>
+</div>
 <a id="ae8290bb0f46f4410bd8d19a9214f42d9"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae8290bb0f46f4410bd8d19a9214f42d9">&#9670;&nbsp;</a></span>kff_bytes()</h2>
 
@@ -23597,6 +23651,25 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
+<a id="a715af7586c5be7a2b584e02001bbcae8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a715af7586c5be7a2b584e02001bbcae8">&#9670;&nbsp;</a></span>record_ref_region()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Region.html">Region</a> vg::record_ref_region </td>
+          <td>(</td>
+          <td class="paramtype">const vcflib::Variant &amp;&#160;</td>
+          <td class="paramname"><em>record</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return the stretch of the reference that the REF of <code>record</code> covers, 1-based and end-inclusive, as VCF POS is. </p>
+
+</div>
+</div>
 <a id="aab16fbb8659a66f16f2004fcc3e8f9db"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aab16fbb8659a66f16f2004fcc3e8f9db">&#9670;&nbsp;</a></span>regress()</h2>
 
@@ -26130,6 +26203,48 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="a7133c7423995d89ae8d59a1b4743d859"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7133c7423995d89ae8d59a1b4743d859">&#9670;&nbsp;</a></span>site_contents()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;, unordered_set&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; &gt; vg::site_contents </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>include_boundary_nodes</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return the nodes and edges of a site, including those inside its child sites.</p>
+<p>The site is entered by reading <code>start</code> and left by reading <code>end</code>. We search the graph from the bounds and stop only at them, so we find tips as well as walks. The two boundary nodes are included if <code>include_boundary_nodes</code> is set. </p>
+
+</div>
+</div>
 <a id="ad477b45059373004136e69022e802e0b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad477b45059373004136e69022e802e0b">&#9670;&nbsp;</a></span>slope()</h2>
 
@@ -26155,6 +26270,41 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a446abf54d0f85b2db41b156b448bce2d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a446abf54d0f85b2db41b156b448bce2d">&#9670;&nbsp;</a></span>snarl_name()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::snarl_name </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
+          <td class="paramname"><em>snarl</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const NodeTranslation *&#160;</td>
+          <td class="paramname"><em>translation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>in_brackets</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return the name of a snarl, as <code>site_name</code> gives it from the snarl's boundary visits: "&gt;3435&lt;12222", or "(&gt;3435&lt;12222)" with <code>in_brackets</code>. Nodes are named by <code>translation</code> if it is not null. </p>
 
 </div>
 </div>
@@ -26703,6 +26853,36 @@ template&lt;class RandomIt , class Compare &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="afbf84513b6b1da41bbc66a01746421a5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afbf84513b6b1da41bbc66a01746421a5">&#9670;&nbsp;</a></span>split_delims_keep_empty()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; std::string &gt; vg::split_delims_keep_empty </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>s</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>delims</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Split a string at every character in <code>delims</code>, keeping empty fields.</p>
+<p>"a,,b" gives "a", "", "b", and "" gives one empty field. </p>
 
 </div>
 </div>
@@ -29548,6 +29728,41 @@ template&lt;class Alignment1 , class Alignment2 &gt; </div>
 
 </div>
 </div>
+<a id="a8e1947117989a62cb2dabdcdff87485e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e1947117989a62cb2dabdcdff87485e">&#9670;&nbsp;</a></span>trav_string()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::trav_string </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;&#160;</td>
+          <td class="paramname"><em>trav</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const NodeTranslation *&#160;</td>
+          <td class="paramname"><em>translation</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return the text of a traversal: the sequence of each node it visits, in the orientation of the visit, and the name of each child snarl it visits, in brackets (see <code>snarl_name</code>). </p>
+
+</div>
+</div>
 <a id="a6a885124cc3018dc7cd6d2001b6b54f5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6a885124cc3018dc7cd6d2001b6b54f5">&#9670;&nbsp;</a></span>traversal_to_string() <span class="overload">[1/2]</span></h2>
 
@@ -29608,6 +29823,35 @@ template&lt;class Alignment1 , class Alignment2 &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Make a <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> into the string it represents, including notes for nested child snarls. </p>
+
+</div>
+</div>
+<a id="a443587adef3dd8e18b5fa12b3869ff4e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a443587adef3dd8e18b5fa12b3869ff4e">&#9670;&nbsp;</a></span>traversals_of()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; vg::traversals_of </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>travs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; int &gt; &amp;&#160;</td>
+          <td class="paramname"><em>numbers</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return the traversal of <code>travs</code> that each of <code>numbers</code> gives, or an empty traversal for a negative number, which stands for the "*" allele. </p>
 
 </div>
 </div>
@@ -30473,6 +30717,36 @@ template&lt;class PathType &gt; </div>
 
 </div>
 </div>
+<a id="a3c4409546e1b92c57694a428036c13f5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3c4409546e1b92c57694a428036c13f5">&#9670;&nbsp;</a></span>visit_handle()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::visit_handle </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;&#160;</td>
+          <td class="paramname"><em>visit</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Return the handle of a visit to a node: the node, oriented as the visit reads it. </p>
+
+</div>
+</div>
 <a id="aec4813274fc2af3d83679e128fdeb32f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aec4813274fc2af3d83679e128fdeb32f">&#9670;&nbsp;</a></span>vpmax()</h2>
 
@@ -31136,52 +31410,6 @@ template&lt;class StringLike &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a id="a79c052ca8e58a01a27433f8f3c10a3ca"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a79c052ca8e58a01a27433f8f3c10a3ca">&#9670;&nbsp;</a></span>MISSING_ALLELE_MARKER</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">constexpr int vg::MISSING_ALLELE_MARKER = -1</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">constexpr</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Special marker value for missing alleles in genotype vectors. Used when a parent allele doesn't traverse a child snarl and star_allele mode is disabled. Outputs as '.' in VCF to maintain consistent ploidy. </p>
-
-</div>
-</div>
-<a id="a9782a963c939f361b5d333d1c384ff59"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9782a963c939f361b5d333d1c384ff59">&#9670;&nbsp;</a></span>STAR_ALLELE_MARKER</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">constexpr int vg::STAR_ALLELE_MARKER = -2</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">constexpr</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Special marker value for star alleles in genotype vectors. A star allele (*) represents a haplotype that spans a nested site in the parent but doesn't have a defined traversal at the child level. </p>
 
 </div>
 </div>

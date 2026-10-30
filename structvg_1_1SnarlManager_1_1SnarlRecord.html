@@ -80,6 +80,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad230c1701326adfb7d3bbcb57628be43"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html">SnarlRecord</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#ad230c1701326adfb7d3bbcb57628be43">operator=</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;other)</td></tr>
 <tr class="memdesc:ad230c1701326adfb7d3bbcb57628be43"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allow assignment from a <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a> object, fluffing it up into a full <a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html">SnarlRecord</a>.  <a href="structvg_1_1SnarlManager_1_1SnarlRecord.html#ad230c1701326adfb7d3bbcb57628be43">More...</a><br /></td></tr>
 <tr class="separator:ad230c1701326adfb7d3bbcb57628be43"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aefb90918c890d92b84871980e549a510"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html">SnarlRecord</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#aefb90918c890d92b84871980e549a510">operator=</a> (<a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&amp;other)</td></tr>
+<tr class="memdesc:aefb90918c890d92b84871980e549a510"><td class="mdescLeft">&#160;</td><td class="mdescRight">Assign from a <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>, moving its contents rather than copying them.  <a href="structvg_1_1SnarlManager_1_1SnarlRecord.html#aefb90918c890d92b84871980e549a510">More...</a><br /></td></tr>
+<tr class="separator:aefb90918c890d92b84871980e549a510"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -87,9 +90,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:acad9926afa69d4de3d5424ac1f03582d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0bfacb041ef897faedba2cf2585c9fb0"><td class="memItemLeft" align="right" valign="top">vector&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#a0bfacb041ef897faedba2cf2585c9fb0">children</a></td></tr>
 <tr class="separator:a0bfacb041ef897faedba2cf2585c9fb0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4d3d44b4a07fd7598a414eae1f5a2d33"><td class="memItemLeft" align="right" valign="top">deque&lt; <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#a4d3d44b4a07fd7598a414eae1f5a2d33">child_chains</a></td></tr>
-<tr class="memdesc:a4d3d44b4a07fd7598a414eae1f5a2d33"><td class="mdescLeft">&#160;</td><td class="mdescRight">This holds chains over the child snarls.  <a href="structvg_1_1SnarlManager_1_1SnarlRecord.html#a4d3d44b4a07fd7598a414eae1f5a2d33">More...</a><br /></td></tr>
-<tr class="separator:a4d3d44b4a07fd7598a414eae1f5a2d33"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae9f7f539f715a3125301304eecb1d64b"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; deque&lt; <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#ae9f7f539f715a3125301304eecb1d64b">child_chains</a></td></tr>
+<tr class="separator:ae9f7f539f715a3125301304eecb1d64b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae00d40d340f5114917a9f6ca1cec0460"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#ae00d40d340f5114917a9f6ca1cec0460">parent</a> = nullptr</td></tr>
 <tr class="separator:ae00d40d340f5114917a9f6ca1cec0460"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a37d7d2aa3460ba15b3a51ac4eedefd76"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#a37d7d2aa3460ba15b3a51ac4eedefd76">parent_chain</a> = nullptr</td></tr>
@@ -105,7 +107,7 @@ Public Attributes</h2></td></tr>
 <div class="textblock"><p>To support the Snarl*-driven API, we use a struct that lays out a snarl followed by indexing metadata, one after the other in memory. We can just cast a Snarl* to a pointer to one of these to get access to all the metadata. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="ad230c1701326adfb7d3bbcb57628be43"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad230c1701326adfb7d3bbcb57628be43">&#9670;&nbsp;</a></span>operator=()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ad230c1701326adfb7d3bbcb57628be43">&#9670;&nbsp;</a></span>operator=() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -132,20 +134,39 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<h2 class="groupheader">Member Data Documentation</h2>
-<a id="a4d3d44b4a07fd7598a414eae1f5a2d33"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4d3d44b4a07fd7598a414eae1f5a2d33">&#9670;&nbsp;</a></span>child_chains</h2>
+<a id="aefb90918c890d92b84871980e549a510"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aefb90918c890d92b84871980e549a510">&#9670;&nbsp;</a></span>operator=() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">deque&lt;<a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a>&gt; vg::SnarlManager::SnarlRecord::child_chains</td>
+          <td class="memname"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html">SnarlManager::SnarlRecord</a> &amp; vg::SnarlManager::SnarlRecord::operator= </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>This holds chains over the child snarls. </p>
+<p>Assign from a <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>, moving its contents rather than copying them. </p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Data Documentation</h2>
+<a id="ae9f7f539f715a3125301304eecb1d64b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae9f7f539f715a3125301304eecb1d64b">&#9670;&nbsp;</a></span>child_chains</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unique_ptr&lt;deque&lt;<a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a>&gt; &gt; vg::SnarlManager::SnarlRecord::child_chains</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>The chains over the child snarls, or null for a snarl with no children. Since mostly snarls don't have any children, using a null pointer for them saves space overall. </p>
 
 </div>
 </div>
@@ -243,8 +264,9 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<hr/>The documentation for this struct was generated from the following file:<ul>
+<hr/>The documentation for this struct was generated from the following files:<ul>
 <li>src/<a class="el" href="snarls_8hpp.html">snarls.hpp</a></li>
+<li>src/<a class="el" href="snarls_8cpp.html">snarls.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

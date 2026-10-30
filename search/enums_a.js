@@ -1,8 +1,8 @@
 var searchData=
 [
-  ['operatingmode_14941',['OperatingMode',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667',1,'HaplotypesConfig']]],
-  ['optionformat_14942',['OptionFormat',['../namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9f',1,'vg::subcommand']]],
-  ['order_14943',['Order',['../classvg_1_1StreamSorter.html#a1a4cb8aac1bb3f9bd9c01456b8cc046b',1,'vg::StreamSorter']]],
-  ['order_14944',['order',['../structReferenceInterval.html#a3c371a05bdf7a0977a0bec01cff2894a',1,'ReferenceInterval']]],
-  ['output_5fformat_5ft_14945',['output_format_t',['../classvg_1_1MultipathAlignmentEmitter.html#a9a078e9c7bfe62603e8f359b62519b0b',1,'vg::MultipathAlignmentEmitter']]]
+  ['operatingmode_15092',['OperatingMode',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667',1,'HaplotypesConfig']]],
+  ['optionformat_15093',['OptionFormat',['../namespacevg_1_1subcommand.html#a33e0e4354eca54aaf6140771963f7e9f',1,'vg::subcommand']]],
+  ['order_15094',['order',['../structReferenceInterval.html#a3c371a05bdf7a0977a0bec01cff2894a',1,'ReferenceInterval']]],
+  ['order_15095',['Order',['../classvg_1_1StreamSorter.html#a1a4cb8aac1bb3f9bd9c01456b8cc046b',1,'vg::StreamSorter']]],
+  ['output_5fformat_5ft_15096',['output_format_t',['../classvg_1_1MultipathAlignmentEmitter.html#a9a078e9c7bfe62603e8f359b62519b0b',1,'vg::MultipathAlignmentEmitter']]]
 ];

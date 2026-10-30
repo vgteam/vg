@@ -114,6 +114,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:afdcb932a1a891671acbdaaf445aee0b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad41eeea8a375f91349a475a1782c3160"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#ad41eeea8a375f91349a475a1782c3160">add_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;new_snarl)</td></tr>
 <tr class="separator:ad41eeea8a375f91349a475a1782c3160"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abc078c673e4822f1c38aeaf6ca8c0cf3"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#abc078c673e4822f1c38aeaf6ca8c0cf3">add_snarl</a> (<a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&amp;new_snarl)</td></tr>
+<tr class="memdesc:abc078c673e4822f1c38aeaf6ca8c0cf3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add the given snarl to the <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>, moving its contents in rather than copying them.  <a href="classvg_1_1SnarlManager.html#abc078c673e4822f1c38aeaf6ca8c0cf3">More...</a><br /></td></tr>
+<tr class="separator:abc078c673e4822f1c38aeaf6ca8c0cf3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2da4b634b448f6a9cfa55106c481c508"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a2da4b634b448f6a9cfa55106c481c508">take_snarls</a> (<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;other)</td></tr>
+<tr class="separator:a2da4b634b448f6a9cfa55106c481c508"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a634d4253e7fa5c09aa00f909f171bc61"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a634d4253e7fa5c09aa00f909f171bc61">flip</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl)</td></tr>
 <tr class="memdesc:a634d4253e7fa5c09aa00f909f171bc61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reverses the orientation of a managed snarl.  <a href="classvg_1_1SnarlManager.html#a634d4253e7fa5c09aa00f909f171bc61">More...</a><br /></td></tr>
 <tr class="separator:a634d4253e7fa5c09aa00f909f171bc61"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -198,6 +203,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a053c63fb829fbb9204b1b1a5502e94dd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a053c63fb829fbb9204b1b1a5502e94dd">for_each_snarl_unindexed</a> (const function&lt; void(const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *)&gt; &amp;lambda) const</td></tr>
 <tr class="memdesc:a053c63fb829fbb9204b1b1a5502e94dd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over snarls as they are stored in deque&lt;SnarlRecords&gt;  <a href="classvg_1_1SnarlManager.html#a053c63fb829fbb9204b1b1a5502e94dd">More...</a><br /></td></tr>
 <tr class="separator:a053c63fb829fbb9204b1b1a5502e94dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aed44638dfc71a46c3a5fbc647124caa5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#aed44638dfc71a46c3a5fbc647124caa5">for_each_snarl_unindexed_parallel</a> (const function&lt; void(const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *)&gt; &amp;lambda) const</td></tr>
+<tr class="separator:aed44638dfc71a46c3a5fbc647124caa5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb68da18eef20aa324c498444a9ed77f"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#adb68da18eef20aa324c498444a9ed77f">manage</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;not_owned) const</td></tr>
 <tr class="separator:adb68da18eef20aa324c498444a9ed77f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff971d38975386cfc73d44560027110a"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#aff971d38975386cfc73d44560027110a">discrete_uniform_sample</a> (minstd_rand0 &amp;random_engine) const</td></tr>
@@ -233,6 +240,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a50fd20deea9859d27991e276b224d7d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae5015eacc04d12d02ef5196fb23f3075"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#ae5015eacc04d12d02ef5196fb23f3075">regularize</a> ()</td></tr>
 <tr class="separator:ae5015eacc04d12d02ef5196fb23f3075"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a21e2cb045747533b92ec5d6c6e52ffa8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a21e2cb045747533b92ec5d6c6e52ffa8">regularize_chain</a> (const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> *chain)</td></tr>
+<tr class="separator:a21e2cb045747533b92ec5d6c6e52ffa8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afcca3b74e960b6931598188e0b9ae7a8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Visit.html">Visit</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#afcca3b74e960b6931598188e0b9ae7a8">next_snarl</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;here) const</td></tr>
 <tr class="separator:afcca3b74e960b6931598188e0b9ae7a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af49cb83d06b303717c94da67974fb0d6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Visit.html">Visit</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#af49cb83d06b303717c94da67974fb0d6">prev_snarl</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;here) const</td></tr>
@@ -441,7 +450,7 @@ template&lt;typename SnarlIterator &gt; </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
 <a id="ad41eeea8a375f91349a475a1782c3160"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad41eeea8a375f91349a475a1782c3160">&#9670;&nbsp;</a></span>add_snarl()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ad41eeea8a375f91349a475a1782c3160">&#9670;&nbsp;</a></span>add_snarl() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -456,6 +465,26 @@ template&lt;typename SnarlIterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Add the given snarl to the <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>. After all snarls have been added, <a class="el" href="classvg_1_1SnarlManager.html#aacf5fd439b35298107ddf2900559259c">finish()</a> must be called to compute chains and indexes. We don't let precomputed chains be added, because we want chain orientations relative to snarls to be deterministic given an order of snarls. Returns a pointer to the managed snarl copy. Only this function may add in new Snarls. </p>
+
+</div>
+</div>
+<a id="abc078c673e4822f1c38aeaf6ca8c0cf3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abc078c673e4822f1c38aeaf6ca8c0cf3">&#9670;&nbsp;</a></span>add_snarl() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * vg::SnarlManager::add_snarl </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&amp;&#160;</td>
+          <td class="paramname"><em>new_snarl</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Add the given snarl to the <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>, moving its contents in rather than copying them. </p>
 
 </div>
 </div>
@@ -670,7 +699,7 @@ template&lt;typename SnarlIterator &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns the Nodes and Edges contained in this <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>, including those in child Snarls (optionally includes <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>'s own boundary Nodes) </p>
+<p>Returns the Nodes and Edges contained in this <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>, including those in child Snarls (optionally includes <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>'s own boundary Nodes). </p>
 
 </div>
 </div>
@@ -848,6 +877,26 @@ template&lt;typename SnarlIterator &gt; </div>
 </div><div class="memdoc">
 
 <p>Iterate over snarls as they are stored in deque&lt;SnarlRecords&gt; </p>
+
+</div>
+</div>
+<a id="aed44638dfc71a46c3a5fbc647124caa5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aed44638dfc71a46c3a5fbc647124caa5">&#9670;&nbsp;</a></span>for_each_snarl_unindexed_parallel()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::SnarlManager::for_each_snarl_unindexed_parallel </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>lambda</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Run the lambda on every snarl once, on several threads, in no particular order.</p>
+<p>This doesn't open any nested parallel regions, so the lambda can use omp_get_thread_num() to keep per-thread results. </p>
 
 </div>
 </div>
@@ -1357,6 +1406,34 @@ template&lt;typename SnarlIterator &gt; </div>
 
 </div>
 </div>
+<a id="a21e2cb045747533b92ec5d6c6e52ffa8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a21e2cb045747533b92ec5d6c6e52ffa8">&#9670;&nbsp;</a></span>regularize_chain()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::SnarlManager::regularize_chain </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> *&#160;</td>
+          <td class="paramname"><em>chain</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Orient a chain and its snarls so that the snarls agree with the chain, and at least half of them go from a lower node ID to a higher one.</p>
+<p>This is safe to run on multiple chains in parallel. </p>
+
+</div>
+</div>
 <a id="afdcb932a1a891671acbdaaf445aee0b2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afdcb932a1a891671acbdaaf445aee0b2">&#9670;&nbsp;</a></span>serialize()</h2>
 
@@ -1544,6 +1621,26 @@ template&lt;typename SnarlIterator &gt; </div>
 </div><div class="memdoc">
 
 <p>Returns a map from all <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a> start boundaries to the <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a> they point into. </p>
+
+</div>
+</div>
+<a id="a2da4b634b448f6a9cfa55106c481c508"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2da4b634b448f6a9cfa55106c481c508">&#9670;&nbsp;</a></span>take_snarls()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::SnarlManager::take_snarls </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Move every snarl of <code>other</code> into this manager with <a class="el" href="classvg_1_1SnarlManager.html#ad41eeea8a375f91349a475a1782c3160">add_snarl()</a>, after the snarls it already holds.</p>
+<p>The snarls are added in the order <code>other</code> stores them. Afterwards <code>other</code> holds empty snarls, and can only be destroyed. </p>
 
 </div>
 </div>

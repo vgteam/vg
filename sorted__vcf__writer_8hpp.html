@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.9.1"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/vcf_output_caller.hpp File Reference</title>
+<title>vg: src/sorted_vcf_writer.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -69,32 +69,33 @@ $(function() {
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
-<a href="#var-members">Variables</a>  </div>
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">vcf_output_caller.hpp File Reference</div>  </div>
+<div class="title">sorted_vcf_writer.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;iostream&gt;</code><br />
-<code>#include &lt;algorithm&gt;</code><br />
-<code>#include &lt;functional&gt;</code><br />
-<code>#include &lt;cmath&gt;</code><br />
-<code>#include &lt;limits&gt;</code><br />
+<div class="textblock"><code>#include &lt;functional&gt;</code><br />
+<code>#include &lt;iostream&gt;</code><br />
+<code>#include &lt;map&gt;</code><br />
+<code>#include &lt;string&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
 <code>#include &lt;unordered_set&gt;</code><br />
-<code>#include &lt;tuple&gt;</code><br />
+<code>#include &lt;utility&gt;</code><br />
+<code>#include &lt;vector&gt;</code><br />
+<code>#include &lt;<a class="el" href="snarl__decomposition_8hpp.html">handlegraph/snarl_decomposition.hpp</a>&gt;</code><br />
+<code>#include &quot;Variant.h&quot;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="snarls_8hpp.html">snarls.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="traversal__finder_8hpp.html">traversal_finder.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="snarl__caller_8hpp.html">snarl_caller.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="region_8hpp.html">region.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="zstdutil_8hpp.html">zstdutil.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="gref_8hpp.html">gref.hpp</a>&quot;</code><br />
+<code>#include &quot;../artifacts/vcf_record.hpp&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html">vg::VCFOutputCaller</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SortedVCFWriter.html">vg::SortedVCFWriter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1VCFOutputCaller_1_1SuppressedRef.html">vg::VCFOutputCaller::SuppressedRef</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SortedVCFWriter_1_1BufferedRecordKey.html">vg::SortedVCFWriter::BufferedRecordKey</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SortedVCFWriter_1_1ReferenceContig.html">vg::SortedVCFWriter::ReferenceContig</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A contig of the reference, for a ##contig line of the header.  <a href="structvg_1_1SortedVCFWriter_1_1ReferenceContig.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -102,12 +103,10 @@ Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
-Variables</h2></td></tr>
-<tr class="memitem:a9782a963c939f361b5d333d1c384ff59"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9782a963c939f361b5d333d1c384ff59">vg::STAR_ALLELE_MARKER</a> = -2</td></tr>
-<tr class="separator:a9782a963c939f361b5d333d1c384ff59"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a79c052ca8e58a01a27433f8f3c10a3ca"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a79c052ca8e58a01a27433f8f3c10a3ca">vg::MISSING_ALLELE_MARKER</a> = -1</td></tr>
-<tr class="separator:a79c052ca8e58a01a27433f8f3c10a3ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:a715af7586c5be7a2b584e02001bbcae8"><td class="memItemLeft" align="right" valign="top">Region&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a715af7586c5be7a2b584e02001bbcae8">vg::record_ref_region</a> (const vcflib::Variant &amp;record)</td></tr>
+<tr class="separator:a715af7586c5be7a2b584e02001bbcae8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

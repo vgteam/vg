@@ -69,6 +69,7 @@ $(function() {
   <div class="summary">
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classvg_1_1GraphCaller-members.html">List of all members</a>  </div>
@@ -93,11 +94,8 @@ Inheritance diagram for vg::GraphCaller:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
-<tr class="memitem:a12de4df65cc92e2d62f057c56cb46ac5"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a> { <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a>
-, <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ade8537831952f7d91199da0ded53a8d2">RecurseAlways</a>
-, <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ad50ac99caa8bae55f8d5d8ed7a4aef04">RecurseNever</a>
- }</td></tr>
-<tr class="separator:a12de4df65cc92e2d62f057c56cb46ac5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa6b91746d4c15ac15c3a593f202fd3f1"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a> = vg::RecurseType</td></tr>
+<tr class="separator:aa6b91746d4c15ac15c3a593f202fd3f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -105,9 +103,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a621386ff80a0fe3289719c75c282bc5a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a443486cd8ab78a5392b5ed47506ca4c4"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a443486cd8ab78a5392b5ed47506ca4c4">~GraphCaller</a> ()</td></tr>
 <tr class="separator:a443486cd8ab78a5392b5ed47506ca4c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a905253c21cb1a94605587ac7759d4aa6"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a905253c21cb1a94605587ac7759d4aa6">call_top_level_snarls</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a> recurse_type=<a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a>)</td></tr>
+<tr class="memitem:a905253c21cb1a94605587ac7759d4aa6"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a905253c21cb1a94605587ac7759d4aa6">call_top_level_snarls</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a> recurse_type=<a class="el" href="classvg_1_1GraphCaller.html#ad8a9c82f61235fad05740f21bfb708aa">RecurseOnFail</a>)</td></tr>
 <tr class="separator:a905253c21cb1a94605587ac7759d4aa6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae39e4d55f2c5599a941957a080f3cd10"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#ae39e4d55f2c5599a941957a080f3cd10">call_top_level_chains</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t max_edges, size_t max_trivial, <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a> recurise_type=<a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a>)</td></tr>
+<tr class="memitem:ae39e4d55f2c5599a941957a080f3cd10"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#ae39e4d55f2c5599a941957a080f3cd10">call_top_level_chains</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t max_edges, size_t max_trivial, <a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a> recurise_type=<a class="el" href="classvg_1_1GraphCaller.html#ad8a9c82f61235fad05740f21bfb708aa">RecurseOnFail</a>)</td></tr>
 <tr class="separator:ae39e4d55f2c5599a941957a080f3cd10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6064d47ccef10174fab1037764a3cf29"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29">call_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl)=0</td></tr>
 <tr class="memdesc:a6064d47ccef10174fab1037764a3cf29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call a given snarl, and print the output to out_stream.  <a href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29">More...</a><br /></td></tr>
@@ -115,12 +113,25 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a1005b4de9fde3d23adcd1d35f8fece09"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a1005b4de9fde3d23adcd1d35f8fece09">set_show_progress</a> (bool <a class="el" href="classvg_1_1GraphCaller.html#a1179324159b5518ebd0eb7d5fb71edd5">show_progress</a>)</td></tr>
 <tr class="memdesc:a1005b4de9fde3d23adcd1d35f8fece09"><td class="mdescLeft">&#160;</td><td class="mdescRight">toggle progress messages  <a href="classvg_1_1GraphCaller.html#a1005b4de9fde3d23adcd1d35f8fece09">More...</a><br /></td></tr>
 <tr class="separator:a1005b4de9fde3d23adcd1d35f8fece09"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a485e89dcbb328479fb57533a436dfb2b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a485e89dcbb328479fb57533a436dfb2b">set_snarl_batching</a> (size_t window_size)</td></tr>
+<tr class="separator:a485e89dcbb328479fb57533a436dfb2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3ece97ca943b74c0b0f2cf38c2e9a80a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a3ece97ca943b74c0b0f2cf38c2e9a80a">set_ploidy_regions</a> (PloidyRegions regions)</td></tr>
+<tr class="separator:a3ece97ca943b74c0b0f2cf38c2e9a80a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:ad8a9c82f61235fad05740f21bfb708aa"><td class="memItemLeft" align="right" valign="top">static constexpr <a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#ad8a9c82f61235fad05740f21bfb708aa">RecurseOnFail</a> = RecurseType::OnFail</td></tr>
+<tr class="separator:ad8a9c82f61235fad05740f21bfb708aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba2c478d7b20937cabb96639b19e92b2"><td class="memItemLeft" align="right" valign="top">static constexpr <a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#aba2c478d7b20937cabb96639b19e92b2">RecurseAlways</a> = RecurseType::Always</td></tr>
+<tr class="separator:aba2c478d7b20937cabb96639b19e92b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a443f3c05e07a98ee64d87126ed8a7545"><td class="memItemLeft" align="right" valign="top">static constexpr <a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a443f3c05e07a98ee64d87126ed8a7545">RecurseNever</a> = RecurseType::Never</td></tr>
+<tr class="separator:a443f3c05e07a98ee64d87126ed8a7545"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:ab68875a5e1aa9028dc4442f8ee827571"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#ab68875a5e1aa9028dc4442f8ee827571">break_chain</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &amp;chain, size_t max_edges, size_t max_trivial)</td></tr>
-<tr class="memdesc:ab68875a5e1aa9028dc4442f8ee827571"><td class="mdescLeft">&#160;</td><td class="mdescRight">Break up a chain into bits that we want to call using size heuristics.  <a href="classvg_1_1GraphCaller.html#ab68875a5e1aa9028dc4442f8ee827571">More...</a><br /></td></tr>
-<tr class="separator:ab68875a5e1aa9028dc4442f8ee827571"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a09153f147102122bcd7fcbb2cb154398"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a09153f147102122bcd7fcbb2cb154398">break_chain</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &amp;chain, size_t max_edges, size_t max_trivial) const</td></tr>
+<tr class="memdesc:a09153f147102122bcd7fcbb2cb154398"><td class="mdescLeft">&#160;</td><td class="mdescRight">Break up a chain into bits that we want to call using size heuristics.  <a href="classvg_1_1GraphCaller.html#a09153f147102122bcd7fcbb2cb154398">More...</a><br /></td></tr>
+<tr class="separator:a09153f147102122bcd7fcbb2cb154398"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -130,29 +141,29 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a55afa68762956066ccbea2e332342266"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a55afa68762956066ccbea2e332342266">snarl_manager</a></td></tr>
 <tr class="memdesc:a55afa68762956066ccbea2e332342266"><td class="mdescLeft">&#160;</td><td class="mdescRight">Our snarls.  <a href="classvg_1_1GraphCaller.html#a55afa68762956066ccbea2e332342266">More...</a><br /></td></tr>
 <tr class="separator:a55afa68762956066ccbea2e332342266"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a279aed76541f26967fa0217b76c98f27"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a279aed76541f26967fa0217b76c98f27">snarl_batch_window</a> = 0</td></tr>
+<tr class="separator:a279aed76541f26967fa0217b76c98f27"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1179324159b5518ebd0eb7d5fb71edd5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a1179324159b5518ebd0eb7d5fb71edd5">show_progress</a></td></tr>
 <tr class="memdesc:a1179324159b5518ebd0eb7d5fb71edd5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Toggle progress messages.  <a href="classvg_1_1GraphCaller.html#a1179324159b5518ebd0eb7d5fb71edd5">More...</a><br /></td></tr>
 <tr class="separator:a1179324159b5518ebd0eb7d5fb71edd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba4b5b9ae74a7c4e08facc9eb8fef209"><td class="memItemLeft" align="right" valign="top">PloidyRegions&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#aba4b5b9ae74a7c4e08facc9eb8fef209">ploidy_regions</a></td></tr>
+<tr class="memdesc:aba4b5b9ae74a7c4e08facc9eb8fef209"><td class="mdescLeft">&#160;</td><td class="mdescRight">The ploidy of regions of the reference, which overrides the ploidy of their paths.  <a href="classvg_1_1GraphCaller.html#aba4b5b9ae74a7c4e08facc9eb8fef209">More...</a><br /></td></tr>
+<tr class="separator:aba4b5b9ae74a7c4e08facc9eb8fef209"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="classvg_1_1GraphCaller.html">GraphCaller</a>: Use the snarl decomposition to call snarls in a graph </p>
-</div><h2 class="groupheader">Member Enumeration Documentation</h2>
-<a id="a12de4df65cc92e2d62f057c56cb46ac5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a12de4df65cc92e2d62f057c56cb46ac5">&#9670;&nbsp;</a></span>RecurseType</h2>
+</div><h2 class="groupheader">Member Typedef Documentation</h2>
+<a id="aa6b91746d4c15ac15c3a593f202fd3f1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa6b91746d4c15ac15c3a593f202fd3f1">&#9670;&nbsp;</a></span>RecurseType</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">enum <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">vg::GraphCaller::RecurseType</a></td>
+          <td class="memname">using <a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">vg::GraphCaller::RecurseType</a> =  vg::RecurseType</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c"></a>RecurseOnFail&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a12de4df65cc92e2d62f057c56cb46ac5ade8537831952f7d91199da0ded53a8d2"></a>RecurseAlways&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a12de4df65cc92e2d62f057c56cb46ac5ad50ac99caa8bae55f8d5d8ed7a4aef04"></a>RecurseNever&#160;</td><td class="fielddoc"></td></tr>
-</table>
 
 </div>
 </div>
@@ -211,8 +222,8 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="ab68875a5e1aa9028dc4442f8ee827571"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab68875a5e1aa9028dc4442f8ee827571">&#9670;&nbsp;</a></span>break_chain()</h2>
+<a id="a09153f147102122bcd7fcbb2cb154398"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a09153f147102122bcd7fcbb2cb154398">&#9670;&nbsp;</a></span>break_chain()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -247,7 +258,7 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -287,7 +298,7 @@ Protected Attributes</h2></td></tr>
 
 <p>Call a given snarl, and print the output to out_stream. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VCFGenotyper.html#a1e3a89bae885b463272873e538815151">vg::VCFGenotyper</a>, <a class="el" href="classvg_1_1NestedFlowCaller.html#a519712fdd96921a721be77a5f7d12638">vg::NestedFlowCaller</a>, <a class="el" href="classvg_1_1LegacyCaller.html#a732a1385c9846d9605db70139d8e275b">vg::LegacyCaller</a>, and <a class="el" href="classvg_1_1FlowCaller.html#abe755bb8027b80711002dc229fe3399a">vg::FlowCaller</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1FlowCaller.html#a391cb7b5ea608108dc54bef1fcd82442">vg::FlowCaller</a>, <a class="el" href="classvg_1_1VCFGenotyper.html#a1e3a89bae885b463272873e538815151">vg::VCFGenotyper</a>, <a class="el" href="classvg_1_1NestedFlowCaller.html#a519712fdd96921a721be77a5f7d12638">vg::NestedFlowCaller</a>, and <a class="el" href="classvg_1_1LegacyCaller.html#a732a1385c9846d9605db70139d8e275b">vg::LegacyCaller</a>.</p>
 
 </div>
 </div>
@@ -321,8 +332,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a>&#160;</td>
-          <td class="paramname"><em>recurise_type</em> = <code><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a></code>&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a>&#160;</td>
+          <td class="paramname"><em>recurise_type</em> = <code><a class="el" href="classvg_1_1GraphCaller.html#ad8a9c82f61235fad05740f21bfb708aa">RecurseOnFail</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -358,8 +369,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a>&#160;</td>
-          <td class="paramname"><em>recurse_type</em> = <code><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a></code>&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a>&#160;</td>
+          <td class="paramname"><em>recurse_type</em> = <code><a class="el" href="classvg_1_1GraphCaller.html#ad8a9c82f61235fad05740f21bfb708aa">RecurseOnFail</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -373,7 +384,28 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Run <a class="el" href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29" title="Call a given snarl, and print the output to out_stream.">call_snarl()</a> on every top-level snarl in the manager. For any that return false, try the children, etc. (when recurse_on_fail true) Snarls are processed in parallel </p>
+<p>Run <a class="el" href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29" title="Call a given snarl, and print the output to out_stream.">call_snarl()</a> on every top-level snarl in the manager, in parallel, and then on children as <code>recurse_type</code> says.</p>
+<p>RecurseAlways calls the children of every snarl, RecurseOnFail the children of each snarl whose call returned false, and RecurseNever no children. Calling continues down the snarl tree the same way.</p>
+<p>Each snarl is its own parallel job, unless set_snarl_batching(w) was called. Then each job calls, in node-ID order, the top-level snarls whose lower boundary node ID is in one window [k*w, (k+1)*w). Children are always one job each, started in node-ID order. </p>
+
+</div>
+</div>
+<a id="a3ece97ca943b74c0b0f2cf38c2e9a80a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3ece97ca943b74c0b0f2cf38c2e9a80a">&#9670;&nbsp;</a></span>set_ploidy_regions()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::GraphCaller::set_ploidy_regions </td>
+          <td>(</td>
+          <td class="paramtype">PloidyRegions&#160;</td>
+          <td class="paramname"><em>regions</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Set the ploidy of the regions of the reference that <code>regions</code> covers, in place of the ploidy of their paths. </p>
 
 </div>
 </div>
@@ -397,7 +429,117 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a485e89dcbb328479fb57533a436dfb2b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a485e89dcbb328479fb57533a436dfb2b">&#9670;&nbsp;</a></span>set_snarl_batching()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::GraphCaller::set_snarl_batching </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>window_size</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Make call_top_level_snarls call top-level snarls in batches, by windows of <code>window_size</code> node IDs.</p>
+<p>This suits a <a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> that loads its reads one window of node IDs at a time. A size of 0 gives one job per snarl. </p>
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="aba4b5b9ae74a7c4e08facc9eb8fef209"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aba4b5b9ae74a7c4e08facc9eb8fef209">&#9670;&nbsp;</a></span>ploidy_regions</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">PloidyRegions vg::GraphCaller::ploidy_regions</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>The ploidy of regions of the reference, which overrides the ploidy of their paths. </p>
+
+</div>
+</div>
+<a id="aba2c478d7b20937cabb96639b19e92b2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aba2c478d7b20937cabb96639b19e92b2">&#9670;&nbsp;</a></span>RecurseAlways</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr <a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a> vg::GraphCaller::RecurseAlways = RecurseType::Always</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a443f3c05e07a98ee64d87126ed8a7545"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a443f3c05e07a98ee64d87126ed8a7545">&#9670;&nbsp;</a></span>RecurseNever</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr <a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a> vg::GraphCaller::RecurseNever = RecurseType::Never</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad8a9c82f61235fad05740f21bfb708aa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad8a9c82f61235fad05740f21bfb708aa">&#9670;&nbsp;</a></span>RecurseOnFail</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr <a class="el" href="classvg_1_1GraphCaller.html#aa6b91746d4c15ac15c3a593f202fd3f1">RecurseType</a> vg::GraphCaller::RecurseOnFail = RecurseType::OnFail</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a1179324159b5518ebd0eb7d5fb71edd5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1179324159b5518ebd0eb7d5fb71edd5">&#9670;&nbsp;</a></span>show_progress</h2>
 
@@ -419,6 +561,29 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Toggle progress messages. </p>
+
+</div>
+</div>
+<a id="a279aed76541f26967fa0217b76c98f27"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a279aed76541f26967fa0217b76c98f27">&#9670;&nbsp;</a></span>snarl_batch_window</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::GraphCaller::snarl_batch_window = 0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>The width, in node IDs, of the windows that top-level snarls are batched by, or 0 for no batching. </p>
 
 </div>
 </div>

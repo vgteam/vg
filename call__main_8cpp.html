@@ -67,6 +67,8 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
+<a href="#typedef-members">Typedefs</a> &#124;
 <a href="#func-members">Functions</a> &#124;
 <a href="#var-members">Variables</a>  </div>
   <div class="headertitle">
@@ -77,25 +79,48 @@ $(function() {
 <code>#include &lt;unistd.h&gt;</code><br />
 <code>#include &lt;getopt.h&gt;</code><br />
 <code>#include &lt;regex&gt;</code><br />
+<code>#include &lt;algorithm&gt;</code><br />
 <code>#include &lt;list&gt;</code><br />
 <code>#include &lt;fstream&gt;</code><br />
+<code>#include &lt;sstream&gt;</code><br />
 <code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="path_8hpp.html">../path.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="graph__caller_8hpp.html">../graph_caller.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="flow__caller_8hpp.html">../flow_caller.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="legacy__caller_8hpp.html">../legacy_caller.hpp</a>&quot;</code><br />
+<code>#include &quot;../../artifacts/multipass_caller.hpp&quot;</code><br />
+<code>#include &quot;<a class="el" href="snarl__manager__decomposition_8hpp.html">../snarl_manager_decomposition.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="nested__flow__caller_8hpp.html">../nested_flow_caller.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="vcf__genotyper_8hpp.html">../vcf_genotyper.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="vcf__output__caller_8hpp.html">../vcf_output_caller.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="sorted__vcf__writer_8hpp.html">../sorted_vcf_writer.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="integrated__snarl__finder_8hpp.html">../integrated_snarl_finder.hpp</a>&quot;</code><br />
 <code>#include &quot;../xg.hpp&quot;</code><br />
 <code>#include &quot;<a class="el" href="gbzgraph_8hpp.html">../gbzgraph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gbwtgraph__helper_8hpp.html">../gbwtgraph_helper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gref_8hpp.html">../gref.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="traversal__clusters_8hpp.html">../traversal_clusters.hpp</a>&quot;</code><br />
+<code>#include &quot;../../artifacts/read_likelihood_caller.hpp&quot;</code><br />
+<code>#include &quot;../../artifacts/site_read_source.hpp&quot;</code><br />
 <code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
 <code>#include &lt;bdsg/overlays/overlay_helper.hpp&gt;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structOptionGroup.html">OptionGroup</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structReadInputOptions.html">ReadInputOptions</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structPresetSetting.html">PresetSetting</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">One option that a &ndash;preset sets.  <a href="structPresetSetting.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a1aab8d76365ec91d88798a4c48e7de0c"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="call__main_8cpp.html#a1aab8d76365ec91d88798a4c48e7de0c">PanelHaplotype</a> = pair&lt; size_t, size_t &gt;</td></tr>
+<tr class="memdesc:a1aab8d76365ec91d88798a4c48e7de0c"><td class="mdescLeft">&#160;</td><td class="mdescRight">A haplotype of the panel: a GBWT sample number and a phase.  <a href="call__main_8cpp.html#a1aab8d76365ec91d88798a4c48e7de0c">More...</a><br /></td></tr>
+<tr class="separator:a1aab8d76365ec91d88798a4c48e7de0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:ab92ccd67b3c20b7be7c46281c4cabfb3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="call__main_8cpp.html#ab92ccd67b3c20b7be7c46281c4cabfb3">help_call</a> (char **argv)</td></tr>
@@ -107,10 +132,33 @@ Functions</h2></td></tr>
 Variables</h2></td></tr>
 <tr class="memitem:a13ec9ed7d9123a89c59b5f26287bc53d"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="call__main_8cpp.html#a13ec9ed7d9123a89c59b5f26287bc53d">DEFAULT_SAMPLE_NAME</a> = &quot;SAMPLE&quot;</td></tr>
 <tr class="separator:a13ec9ed7d9123a89c59b5f26287bc53d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4951a12225e11e44bc6a6d530fcd2845"><td class="memItemLeft" align="right" valign="top">const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="call__main_8cpp.html#a4951a12225e11e44bc6a6d530fcd2845">DEFAULT_GAM_INDEX_WINDOW</a> = 256</td></tr>
+<tr class="separator:a4951a12225e11e44bc6a6d530fcd2845"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab8b73bd953715b8a2cba221ebde58636"><td class="memItemLeft" align="right" valign="top">const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="call__main_8cpp.html#ab8b73bd953715b8a2cba221ebde58636">DEFAULT_GAF_BASE_WINDOW</a> = 16384</td></tr>
+<tr class="separator:ab8b73bd953715b8a2cba221ebde58636"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ed3735388f577c166843db9850f4875"><td class="memItemLeft" align="right" valign="top">const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="call__main_8cpp.html#a0ed3735388f577c166843db9850f4875">DEFAULT_GAF_INDEX_WINDOW</a> = 16384</td></tr>
+<tr class="separator:a0ed3735388f577c166843db9850f4875"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg call" subcommand, which calls variation from an augmented graph </p>
-</div><h2 class="groupheader">Function Documentation</h2>
+</div><h2 class="groupheader">Typedef Documentation</h2>
+<a id="a1aab8d76365ec91d88798a4c48e7de0c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1aab8d76365ec91d88798a4c48e7de0c">&#9670;&nbsp;</a></span>PanelHaplotype</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="call__main_8cpp.html#a1aab8d76365ec91d88798a4c48e7de0c">PanelHaplotype</a> =  pair&lt;size_t, size_t&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>A haplotype of the panel: a GBWT sample number and a phase. </p>
+
+</div>
+</div>
+<h2 class="groupheader">Function Documentation</h2>
 <a id="ab92ccd67b3c20b7be7c46281c4cabfb3"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab92ccd67b3c20b7be7c46281c4cabfb3">&#9670;&nbsp;</a></span>help_call()</h2>
 
@@ -154,10 +202,56 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Counts of how the anchor code placed reads in this run.</p>
 
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>
+<a id="ab8b73bd953715b8a2cba221ebde58636"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab8b73bd953715b8a2cba221ebde58636">&#9670;&nbsp;</a></span>DEFAULT_GAF_BASE_WINDOW</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const size_t DEFAULT_GAF_BASE_WINDOW = 16384</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>A GAF-Base query decodes whole blocks of alignments in a gaf-base process, so its window is wide, to serve many sites per query. It is also much wider than the node-ID span of a long read, so that few reads cross a window boundary and are fetched twice. </p>
+
+</div>
+</div>
+<a id="a0ed3735388f577c166843db9850f4875"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0ed3735388f577c166843db9850f4875">&#9670;&nbsp;</a></span>DEFAULT_GAF_INDEX_WINDOW</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const size_t DEFAULT_GAF_INDEX_WINDOW = 16384</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>An indexed GAF query is a seek, but its window is as wide as that of GAF-Base, so that the two fetch the same windows, and few long reads cross a window boundary and are decoded twice. </p>
+
+</div>
+</div>
+<a id="a4951a12225e11e44bc6a6d530fcd2845"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4951a12225e11e44bc6a6d530fcd2845">&#9670;&nbsp;</a></span>DEFAULT_GAM_INDEX_WINDOW</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const size_t DEFAULT_GAM_INDEX_WINDOW = 256</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>A GAM index query is a seek in an open file, so its window is narrow, to avoid fetching reads that no site needs. </p>
+
+</div>
+</div>
 <a id="a13ec9ed7d9123a89c59b5f26287bc53d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a13ec9ed7d9123a89c59b5f26287bc53d">&#9670;&nbsp;</a></span>DEFAULT_SAMPLE_NAME</h2>
 
