@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 52
+plan tests 53
 
 # A triallelic SNP with the haplotypes stored as W lines at offset 1000 of contig c,
 # as Minigraph-Cactus stores haplotype fragments
@@ -245,6 +245,21 @@ vg deconstruct -P x -a lift.ends.gbz > lift.ends.vcf 2> /dev/null
 vg lift lift.ends.gbz lift.ends.vcf 2> /dev/null | grep '^gref' | awk -F '\t' '{ print $2, $4, length($4), $5, $10, $11 }' > lift.ends.txt
 is "$(cut -d ' ' -f 1,3- lift.ends.txt | tr '\n' ';') $(head -1 lift.ends.txt | cut -d ' ' -f 2)" "1 2 C 1|0 .|0;1 61 T 0|1 .|0; TC" "variants at the start and the end of an alt contig are broken out, padded after at the start"
 
+# A walk on the reference that shares a contig's last node doesn't read the contig: node 4 is a
+# SNP allele that s#1 carries and that ends t#2's insertion, the alt contig
+printf 'H\tVN:Z:1.0\nS\t1\tACGTACGTACGTACGTACGT\nS\t2\tGATTACAGATTACAGATTAC\nS\t3\tA\nS\t4\tG\nS\t9\tCATGCATGCATGCATGCATG\n' > lift.touch.gfa
+printf 'S\t5\tTTTCCTCATGCAATTCAAAACCATGTCCGT\nS\t6\tA\nS\t7\tCC\nS\t8\tAATGTAGGCGAAATAGTAAACCATTTTAC\n' >> lift.touch.gfa
+for edge in 1,2 2,3 3,9 2,4 4,9 1,5 5,6 5,7 6,8 7,8 8,4; do
+    printf 'L\t%s\t+\t%s\t+\t0M\n' ${edge%,*} ${edge#*,} >> lift.touch.gfa
+done
+printf 'P\tx\t1+,2+,3+,9+\t*\nW\ts\t1\tc\t1000\t1061\t>1>2>4>9\nW\ts\t2\tc\t1000\t1061\t>1>2>3>9\n' >> lift.touch.gfa
+printf 'W\tt\t1\tc\t1000\t1101\t>1>5>6>8>4>9\nW\tt\t2\tc\t1000\t1102\t>1>5>7>8>4>9\n' >> lift.touch.gfa
+vg paths -x lift.touch.gfa -Q x --compute-gref > lift.touch.gref.vg
+vg convert -f lift.touch.gref.vg > lift.touch.gref.gfa
+vg gbwt -G lift.touch.gref.gfa --gbz-format -g lift.touch.gbz
+vg deconstruct -P x -a lift.touch.gbz > lift.touch.vcf 2> /dev/null
+is "$(vg lift lift.touch.gbz lift.touch.vcf 2> /dev/null | grep '^gref' | cut -f 2,4,5,10,11 | tr '\t' ' ' | tr '\n' ';')" "31 CC A ./. 1|0;" "a walk on the reference that shares a contig's last node does not read the contig"
+
 # A contig inside a contig: s#2 and t#1 detour from gref_x_1_alt onto gref_x_2_alt, which
 # has a SNP between them
 printf 'H\tVN:Z:1.0\nS\t1\tACGTACGTACGTACGTACGT\nS\t9\tCATGCATGCATGCATGCATG\n' > lift.nest.gfa
@@ -278,6 +293,7 @@ rm -f lift.pg.vcf lift.pg.vcf.gz lift.pg.lifted.vcf lift.pg.err lift.foreign.vcf
 rm -f lift.snp3.gfa lift.snp3.gref.vg lift.snp3.gref.gfa lift.snp3.gbz lift.snp3.vcf lift.snp3.lifted.vcf lift.snp3.rev.vcf
 rm -f lift.snp3.conflict.vcf lift.snp3.conflict.lifted.vcf lift.snp3.conflict.err
 rm -f lift.ends.gfa lift.ends.gref.vg lift.ends.gref.gfa lift.ends.gbz lift.ends.vcf lift.ends.txt
+rm -f lift.touch.gfa lift.touch.gref.vg lift.touch.gref.gfa lift.touch.gbz lift.touch.vcf
 rm -f lift.nest.gfa lift.nest.gref.vg lift.nest.gref.gfa lift.nest.gbz lift.nest.vcf lift.nest.lifted.txt
 rm -f lift.cycle.gref.vg lift.cycle.gref.gfa lift.cycle.gbz lift.cycle.vcf
 

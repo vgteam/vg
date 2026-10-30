@@ -76,7 +76,12 @@ std::vector<ContigPass> ContigDecomposer::decompose(const std::vector<handle_t>&
     std::unordered_map<uint32_t, size_t> latest;
     for (size_t step = 0; step < walk.size(); step++) {
         const GrefIndex::Position& place = gref.find(graph.get_id(walk[step]));
-        if (place.path == GrefIndex::NO_PATH || !is_contig(place.path)) {
+        if (place.path == GrefIndex::NO_PATH) {
+            continue;
+        }
+        if (!is_contig(place.path)) {
+            // The walk is back on the reference, so it has left every contig.
+            latest.clear();
             continue;
         }
         Visit visit { step, place.path, graph.get_is_reverse(walk[step]) != place.is_reverse, place.offset,
@@ -124,6 +129,10 @@ ContigPass ContigDecomposer::make_pass(const std::vector<handle_t>& walk, std::v
     }
     auto on_contig = [&](size_t i) {
         return gref.find(graph.get_id(step(i))).path == pass.contig;
+    };
+    auto on_reference = [&](size_t i) {
+        uint32_t path = gref.find(graph.get_id(step(i))).path;
+        return path != GrefIndex::NO_PATH && !is_contig(path);
     };
 
     // The walk's nodes strictly between two steps replace the contig's bases
@@ -182,7 +191,8 @@ ContigPass ContigDecomposer::make_pass(const std::vector<handle_t>& walk, std::v
     };
 
     // A pass that joins the contig after its start replaces the contig's head
-    // if an earlier node precedes the contig's first node.
+    // if an earlier node precedes the contig's first node, and the walk comes
+    // from it without passing through the reference.
     const Visit& head = visits.front();
     pass.start = head.start;
     if (head.start > 0) {
@@ -190,6 +200,9 @@ ContigPass ContigDecomposer::make_pass(const std::vector<handle_t>& walk, std::v
             if (graph.has_edge(step(i), first_node)) {
                 add_variant(0, head.start, i, head.step);
                 pass.start = 0;
+                break;
+            }
+            if (on_reference(i)) {
                 break;
             }
         }
@@ -204,7 +217,8 @@ ContigPass ContigDecomposer::make_pass(const std::vector<handle_t>& walk, std::v
         }
     }
     // A pass that leaves the contig before its end replaces the contig's tail
-    // if a later node follows the contig's last node.
+    // if a later node follows the contig's last node, and the walk reaches it
+    // without returning to the reference first.
     const Visit& tail = visits.back();
     pass.end = tail.end;
     if (tail.end < length) {
@@ -212,6 +226,9 @@ ContigPass ContigDecomposer::make_pass(const std::vector<handle_t>& walk, std::v
             if (graph.has_edge(last_node, step(i))) {
                 add_variant(tail.end, length, tail.step, i);
                 pass.end = length;
+                break;
+            }
+            if (on_reference(i)) {
                 break;
             }
         }

@@ -84,6 +84,13 @@ struct ContigPass {
  * node replace the contig's tail. Otherwise the walk really leaves the contig,
  * and the pass ends at its last visit. The start of the contig works the same
  * way, with a node that precedes the contig's first node.
+ *
+ * The reference lies outside every contig, so a walk that visits it has left
+ * them all. Its next visit to a contig starts a new pass, and a variant at the
+ * start or end of a contig cannot run across the reference. Only the node that
+ * closes such a variant can be a reference node, next to where the contig
+ * branches off. A walk on the reference that shares a node with a contig, such
+ * as a common SNP allele, therefore reads only that node.
  */
 class ContigDecomposer {
 public:
