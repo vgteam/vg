@@ -163,6 +163,16 @@ inline void append_cigar_operation(const int length, const char operation, vecto
  * tlen_max is given, it is a limit on the magnitude of tlen to consider the
  * read properly paired.
  *
+ * bam_header = the file's metadata
+ * alignment = vg's representation of the read (name, sequence, quality scores)
+ * refseq (reference sequence) = what chromosome it was placed on (chr1)
+ * refpos (reference position) = what sequence offset it was placed at on that chromosome
+ * (124566). This follows SAM/BAM conventions, and gives the lowest position in the reference
+ * regardless of read orientation.
+ * refrev (reference reverse-ness) = whether it was placed on the reverse strand (true) or
+ * forward strand (false)
+ * cigar = the alignment description (50M 2I)
+ *
  * Remember to clean up with bam_destroy1(b);
  */
 bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
