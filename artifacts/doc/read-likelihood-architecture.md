@@ -85,8 +85,7 @@ but phasing is not written (`--no-phased`), the `PhaseTable` stays empty, so rea
 re-genotyping do nothing, and nested calling is off. Without nested calling, `DescentPolicy` lists
 no children. By default, `SiteWalker` walks the children of a top-level site that cannot be
 genotyped as top-level sites; `--all-snarls` makes it walk the children of every site, and turns
-nested calling off. `--top-down` makes `TreeGenotyper` genotype each child against the traversals
-its parent's called alleles allow, and `SiteWalker` walk no children.
+nested calling off.
 
 The linkage pass drops a child that no allele of its parent's chosen genotype crosses, and can
 bring back a child that an earlier linkage pass dropped. A child whose parent has too many

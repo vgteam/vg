@@ -80,16 +80,13 @@ public:
      * It skips a site unless its longest traversal is at least `allele_length_range.first` long
      * and none is longer than `allele_length_range.second`. With `genotype_snarls` it writes every
      * site, and trims alleles only as far as the boundary nodes, so that every sample gets the
-     * same alleles. With `top_down` it genotypes each child against the traversal sets its
-     * parent's called alleles allow. With `star_allele` it gives a parent allele that skips a
-     * child a star allele rather than a missing one.
+     * same alleles.
      */
     MultiPassCaller(const PathPositionHandleGraph& graph, ReadLikelihoodSnarlCaller& genotyper,
                     const SnarlDecomposition& decomposition, SortedVCFWriter& output,
                     const string& sample_name, SiteTraversalFinder& traversal_finder,
                     ReferencePathTable ref_paths, bool genotype_snarls,
-                    const pair<size_t, size_t>& allele_length_range, bool top_down,
-                    bool star_allele);
+                    const pair<size_t, size_t>& allele_length_range);
 
     /**
      * Run every pass and add the records to the output's buffer, then write the anchors and the
@@ -154,6 +151,10 @@ public:
     /// Such a chain has no REF or POS, so it gets no record, but it still takes part in the
     /// linkage model and gets anchors.
     void set_off_reference_nesting(bool on) { off_reference_nesting = on; }
+
+    /// Set whether groups of each site's walks, from `candidate_groups`, choose its genotype. The
+    /// walks then choose within the chosen groups.
+    void set_group_candidates(bool on) { group_candidates = on; }
 
     /// Write one record per difference block between the reference and the symbolic allele of
     /// each called strand, instead of one record per site.
@@ -394,14 +395,6 @@ private:
     /// This turns both off.
     bool genotype_snarls;
 
-    /// Genotype each child against the traversal sets its parent's called alleles allow (see
-    /// `TreeGenotyper`).
-    bool top_down = false;
-
-    /// Whether to give a star allele, rather than a missing one, to a parent allele that skips a
-    /// child, in top-down calling.
-    bool star_allele = false;
-
     /// The width, in node IDs, of the windows the direct pass batches top-level sites by, or 0
     /// for no batching.
     size_t snarl_batch_window = 0;
@@ -419,6 +412,9 @@ private:
     /// Whether to genotype and file chains that the reference walk does not cross, rather than
     /// skip them.
     bool off_reference_nesting = false;
+
+    /// Whether groups of each site's walks, from `candidate_groups`, choose its genotype.
+    bool group_candidates = false;
 
     /// Every phased site.
     ///

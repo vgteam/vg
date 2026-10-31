@@ -222,6 +222,14 @@ Direct genotyping computes the site likelihood $\mathcal{L}(G)$ of every genotyp
 made from the site's candidate alleles. It is described in
 [read-likelihood-direct-genotyping.md](read-likelihood-direct-genotyping.md). The genotype with the
 highest $\mathcal{L}(G)$ is the site's direct call.
+Where the site's candidate alleles have groups (see
+[Choosing among alleles that differ inside child chains](#choosing-among-alleles-that-differ-inside-child-chains)),
+the [grouped likelihood](read-likelihood-direct-genotyping.md#groups-of-alleles)
+$\tilde{\mathcal{L}}(G)$ takes the place of $\mathcal{L}(G)$ here, in the [VCF fields](#vcf-fields),
+in the linkage model and in [re-genotyping](#re-genotyping-from-the-phase), whose corrections are
+added to it. `GQN` then divides a difference in $\ln \tilde{\mathcal{L}}(G)$ by the achievable gap
+of $\mathcal{L}(G)$, which takes no account of the groups (see
+[Normalised quality](#normalised-quality)).
 
 A tie, as when every read fits the tied genotypes equally well, goes to the homozygous reference
 genotype if it is one of the tied genotypes. Otherwise it goes to the tied genotype that comes
@@ -365,6 +373,18 @@ these cases:
 - When the reference paths include a [gRef fragment](#graph). A chain on a gRef fragment then gets
   records, with the fragment as their contig.
 
+### Choosing among alleles that differ inside child chains
+
+Several candidate alleles of a site can take one route and differ only inside a child chain. The
+reads that fit the route are then split among those alleles, so a genotype of alleles that take
+other routes can fit the reads better. With `--group-candidates`, on by default, vg groups the
+candidate alleles of each site that differ only inside child chains: two alleles share a group when
+their [symbolic forms](#reporting-each-difference-once) are equal. The groups then choose the site's
+genotype, and the alleles choose within the chosen groups, by the
+[grouped likelihood](read-likelihood-direct-genotyping.md#groups-of-alleles). Grouping does not
+depend on nested calling: under `--no-nested`, the site's records report the differences inside its
+child chains from the alleles chosen within the groups. `--no-group-candidates` turns grouping off.
+
 ## Phasing
 
 Phasing decides each genotype's phase: which strand carries which allele. At ploidy 2, a site's
@@ -425,9 +445,8 @@ phasing](read-likelihood-read-phasing.md#read-phasing).
 strand, and so corrects each site's likelihoods, at the start of every round after the first (see
 [Rounds](#rounds)). Off-reference chains, and chains that a block record spells out, keep the
 likelihoods of the direct pass. It needs `--read-phasing` and, like it, is off by default and on
-under `--preset ont` and `--preset hifi`. It cannot be combined with `--top-down`: an explicit
-`--regenotype` with it is an error, and a preset's is turned off. The correction is described in
-[Re-genotyping from the phase](read-likelihood-read-phasing.md#re-genotyping-from-the-phase).
+under `--preset ont` and `--preset hifi`. The correction is described
+in [Re-genotyping from the phase](read-likelihood-read-phasing.md#re-genotyping-from-the-phase).
 
 ## Output
 
@@ -607,11 +626,10 @@ options change only quality fields and `FILTER`.
 
 #### Nesting tags
 
-`vg call` has two other ways of genotyping nested sites, chosen by general options that also work
-with `--read-likelihood`: `--all-snarls` genotypes every site on its own, and `--top-down` genotypes
-children after their parents and takes a child's candidate alleles from its parent's genotype. With
-either, and whenever [off-reference chains](#which-child-chains-are-genotyped) are genotyped,
-records carry vg's nesting INFO tags:
+`vg call` has one other way of genotyping nested sites, chosen by a general option that also works
+with `--read-likelihood`: `--all-snarls` genotypes every site on its own. With it, and whenever
+[off-reference chains](#which-child-chains-are-genotyped) are genotyped, records carry vg's nesting
+INFO tags:
 
 - `INFO/LV` counts the record's enclosing sites that have records on the record's own contig.
 - `INFO/CH` counts the changes of contig on the way up from the record through the records of its
@@ -835,9 +853,9 @@ the Ploidy row, `--cluster` and `--cluster-min-len`. Its other options are rejec
 that modify `--anchors-out` (`--no-off-ref-nesting` among them), `--mosaic-out` and `--regenotype`
 are also rejected when those are not in use. Other general options used on this page, such as
 `--genotype-snarls`, `--sample`, `--snarls`, `--ref-path`, `--path-prefix`, `--ref-sample`,
-`--all-snarls`, `--top-down`, `--translation` and `--gbz-translation`, are described by
-`vg call --help`. `--read-likelihood` cannot be combined with `--bottom-up`, `--chains`, `--gaf`,
-`--traversals`, `--vcf` or `--legacy`.
+`--all-snarls`, `--translation` and `--gbz-translation`, are described by `vg call --help`.
+`--read-likelihood` cannot be combined with `--bottom-up`, `--top-down`, `--star-allele`,
+`--chains`, `--gaf`, `--traversals`, `--vcf` or `--legacy`.
 
 | Part | Options |
 |---|---|
@@ -848,7 +866,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Mixture weights](read-likelihood-direct-genotyping.md#mixture-weights) | `--flat-mixture` |
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
-| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
+| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
 | [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
 | [Phasing](#phasing) | `--phased`, `--no-phased`, `--read-phasing`, `--no-read-phasing`, `--phase-min-q`, `--phase-coherence`, `--phase-coh-rounds`, `--phase-break`, `--phase-relink`, `--phase-hang`, `--phase-prior`, `--phase-cap` |
 | [Re-genotyping](#re-genotyping-from-the-phase) | `--regenotype`, `--no-regenotype`, `--regeno-temper`, `--regeno-ceiling`, `--regeno-passes`, `--regeno-haploid`, `--no-regeno-haploid`, `--regeno-ledger` |

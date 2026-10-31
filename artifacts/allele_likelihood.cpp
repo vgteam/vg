@@ -149,6 +149,12 @@ vector<double> AlleleReadLikelihoods::mixture_weights(const vector<int>& genotyp
 }
 
 double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) const {
+    return genotype_likelihood(genotype, matrix);
+}
+
+double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype,
+                                                  const vector<double>& rows,
+                                                  bool with_depth) const {
     if (genotype.empty()) {
         return 0.0;
     }
@@ -165,7 +171,7 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
             if (allele < 0 || (size_t)allele >= n_alleles) {
                 continue;
             }
-            mixture += weights[i] * rel(r, (size_t)allele);
+            mixture += weights[i] * rows.at(r * n_alleles + (size_t)allele);
         }
 
         // Mix in the chance that the read is mismapped, in which case its likelihood is the row
@@ -174,16 +180,19 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
         total += log((1.0 - e_r) * mixture + e_r);
     }
 
-    if (uses_depth_term()) {
-        // Add ln of the tempered density f^beta / Z_beta at the observed count, with beta the
-        // depth weight. Z_beta grows with lambda when beta < 1, so without it we would favour
-        // the genotypes that expect more reads.
-        double lambda = expected_reads(genotype);
-        total += depth_weight * ln_poisson_pmf(observed_reads(), lambda)
-                 - ln_tempered_poisson_normaliser(lambda, depth_weight);
-    }
+    return with_depth ? total + depth_term(genotype) : total;
+}
 
-    return total;
+double AlleleReadLikelihoods::depth_term(const vector<int>& genotype) const {
+    if (!uses_depth_term()) {
+        return 0.0;
+    }
+    // Take ln of the tempered density f^beta / Z_beta at the observed count, with beta the depth
+    // weight. Z_beta grows with lambda when beta < 1, so without it we would favour the genotypes
+    // that expect more reads.
+    double lambda = expected_reads(genotype);
+    return depth_weight * ln_poisson_pmf(observed_reads(), lambda)
+           - ln_tempered_poisson_normaliser(lambda, depth_weight);
 }
 
 double AlleleReadLikelihoods::achievable_gap(const vector<int>& called,
@@ -278,9 +287,32 @@ vector<vector<int>> AlleleReadLikelihoods::enumerate_genotypes(size_t num_allele
 }
 
 vector<pair<vector<int>, double>> AlleleReadLikelihoods::score_genotypes(int ploidy) const {
+    return score_genotypes(enumerate_genotypes(n_alleles, ploidy));
+}
+
+vector<pair<vector<int>, double>> AlleleReadLikelihoods::score_genotypes(
+    const vector<vector<int>>& genotypes, const vector<int>* group_of, bool with_depth) const {
+    assert(group_of == nullptr || group_of->size() == n_alleles);
+    // With groups, give each read's entry for an allele the read's best entry in the allele's
+    // group.
+    vector<double> shared;
+    if (group_of != nullptr && n_alleles > 0) {
+        shared.resize(matrix.size());
+        vector<double> best(*std::ranges::max_element(*group_of) + 1);
+        for (size_t r = 0; r < n_reads; ++r) {
+            std::ranges::fill(best, 0.0);
+            for (size_t a = 0; a < n_alleles; ++a) {
+                best[(*group_of)[a]] = max(best[(*group_of)[a]], rel(r, a));
+            }
+            for (size_t a = 0; a < n_alleles; ++a) {
+                shared[r * n_alleles + a] = best[(*group_of)[a]];
+            }
+        }
+    }
+    const vector<double>& rows = group_of != nullptr ? shared : matrix;
     vector<pair<vector<int>, double>> scored;
-    for (auto& genotype : enumerate_genotypes(n_alleles, ploidy)) {
-        double ll = genotype_likelihood(genotype);
+    for (auto& genotype : genotypes) {
+        double ll = genotype_likelihood(genotype, rows, with_depth);
         scored.emplace_back(genotype, ll);
     }
     return scored;
@@ -2068,8 +2100,7 @@ void GraphAlignedAlleleLikelihoodCalculator::score_row(
     for (size_t a = 0; a < alleles.steps.size(); ++a) {
         const vector<AlleleStep>& steps = alleles.steps[a];
         if (steps.empty()) {
-            // An allele with no visits, such as the empty traversal of a star allele, cannot place
-            // the read.
+            // An allele with no visits cannot place the read.
             row[a] = -numeric_limits<double>::infinity();
             continue;
         }
