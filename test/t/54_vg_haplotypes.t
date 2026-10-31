@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 95
+plan tests 97
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -230,6 +230,27 @@ vg haplotypes --validate --subchain-length 300 -k haplotype-sampling/HG003.kff -
 is $(vg paths -L -x generic_out.gbz | grep -c '^recombination#[0-9]*#x[0-9]*#') 8 "a generic gref reference does not rename the generated haplotypes"
 is "$(vg paths -L -x generic_out.gbz | grep -v '_alt' | grep -v '^recombination' | sort)" "$(vg paths -L -x generic.gbz | grep -v '_alt' | grep -v '#' | sort)" "generic reference paths keep their subranges"
 
+# A gref cover is never a haplotype candidate, as its copy of the reference would take slots
+# from real haplotypes. Reads tiling GRCh38 make the reference the first pick, and would make
+# its copy the next, so a gref graph must sample the same nodes and edges as the graph it was
+# computed from. Giraffe counts the kmers, as it has no way to ban the gref sample.
+vg paths -F -x full.gbz -Q GRCh38 | awk '/^>/ { if (s) tile(); s = ""; next } { s = s $0 }
+    function tile() { for (i = 1; i + 149 <= length(s); i += 5) { r = substr(s, i, 150); q = r; gsub(/./, "I", q); print "@r" ++n "\n" r "\n+\n" q } }
+    END { tile() }' > grch38.fq
+vg gbwt -G generic.gfa --gbz-format -g generic_base.gbz -r generic_base.ri
+vg index -j generic_base.dist generic_base.gbz
+vg haplotypes --subchain-length 300 -H generic_base.hapl generic_base.gbz
+vg haplotypes --subchain-length 300 -H generic.hapl generic.gbz
+rm -f cand_*
+for graph in full gref generic_base generic; do
+    vg giraffe -Z ${graph}.gbz --haplotype-name ${graph}.hapl --no-diploid-sampling --num-haplotypes 4 \
+        --index-basename cand_${graph} -N GRCH -f grch38.fq > /dev/null 2> /dev/null
+done
+cmp -s <(topology cand_full.GRCH.gbz) <(topology cand_gref.GRCH.gbz)
+is $? 0 "the gref graph samples the same nodes and edges as the base graph"
+cmp -s <(topology cand_generic_base.GRCH.gbz) <(topology cand_generic.GRCH.gbz)
+is $? 0 "the same holds for a generic gref reference"
+
 # Giraffe integration, guessed output name
 rm -f full.HG003.* default.gam
 vg giraffe --progress -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
@@ -341,6 +362,7 @@ rm -f gref.pg gref.gfa gref.gbz gref.ri gref.dist gref.hapl gref.fa
 rm -f gref_base.gbz gref_ref.gbz gref_ref.fa gref_long.gbz
 rm -f gref_ref.ri gref_ref.dist gref_ref2.gbz gref_ref2.fa
 rm -f generic.gfa generic.pg generic_gref.gfa generic.gbz generic.ri generic.dist generic_out.gbz
+rm -f grch38.fq generic.hapl generic_base.gbz generic_base.ri generic_base.dist generic_base.hapl cand_*
 rm -f full.HG003.* default.gam
 rm -f sampled.003HG.* specified.gam
 rm -f GRCh38.HG003.* HG003_GRCh38.gam
