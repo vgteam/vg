@@ -1,0 +1,5 @@
+@HD	VN:Z:1.0
+pair/1	20	0	20	+	>1	400	0	20	20	20	90	cs:Z::20	fn:Z:pair/2	tp:A:P
+pair/2	20	0	20	+	<1	400	300	320	20	20	17	cs:Z::20	fp:Z:pair/1	tp:A:P
+pair/1	20	0	20	+	>2	400	0	20	20	20	90	cs:Z::20	fn:Z:pair/2	tp:A:S
+pair/2	20	0	20	+	<2	400	200	220	20	20	17	cs:Z::20	fp:Z:pair/1	tp:A:S
