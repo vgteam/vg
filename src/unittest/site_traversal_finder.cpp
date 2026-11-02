@@ -128,6 +128,9 @@ TEST_CASE("Traversal finders find the same traversals from a site's bound handle
     size_t path_found = 0;
     size_t gbwt_found = 0;
     size_t flow_found = 0;
+    size_t switching_found = 0;
+    // How many site orientations the switching finder searched each way.
+    vector<size_t> greedy_sites(2, 0);
     for (size_t repeat = 0; repeat < 30; repeat++) {
         VG graph;
         small_random_graph(generator, &graph);
@@ -154,21 +157,46 @@ TEST_CASE("Traversal finders find the same traversals from a site's bound handle
         PathTraversalFinder path_finder(graph);
         GBWTTraversalFinder gbwt_finder(graph, gbwt_index);
         FlowTraversalFinder flow_finder(graph, 4, node_weight, edge_weight);
+        // Searches a site with more than 10 bp inside it by greedy average flow.
+        FlowTraversalFinder switching_finder(graph, 4, node_weight, edge_weight,
+                                             numeric_limits<size_t>::max(), 10);
 
-        manager.for_each_snarl_preorder([&path_finder, &gbwt_finder, &flow_finder, &graph,
-                                         &path_found, &gbwt_found, &flow_found](const Snarl* snarl) {
+        manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             for (bool reversed : {false, true}) {
                 Snarl site = site_of(*snarl, reversed);
                 path_found += require_interfaces_agree(path_finder, graph, site);
                 gbwt_found += require_interfaces_agree(gbwt_finder, graph, site);
                 flow_found += require_interfaces_agree(flow_finder, graph, site);
+                switching_found += require_interfaces_agree(switching_finder, graph, site);
                 require_weighted_interfaces_agree(flow_finder, graph, site);
+
+                // The switching finder searches greedily exactly when the
+                // nodes inside the site, which are the same in both
+                // orientations, total more than 10 bp.
+                handle_t start = graph.get_handle(site.start().node_id(), site.start().backward());
+                handle_t end = graph.get_handle(site.end().node_id(), site.end().backward());
+                size_t inside = 0;
+                for (nid_t id : site_contents(graph, start, end, false).first) {
+                    inside += graph.get_length(graph.get_handle(id));
+                }
+                bool greedy = inside > 10;
+                greedy_sites[greedy]++;
+                vector<SnarlTraversal> switched = switching_finder.find_traversals(site);
+                vector<SnarlTraversal> expected = flow_finder.find_weighted_traversals(site, greedy).first;
+                REQUIRE(switched.size() == expected.size());
+                for (size_t j = 0; j < switched.size(); j++) {
+                    REQUIRE(switched[j] == expected[j]);
+                }
             }
         });
     }
     REQUIRE(path_found > 0);
     REQUIRE(gbwt_found > 0);
     REQUIRE(flow_found > 0);
+    REQUIRE(switching_found > 0);
+    for (size_t count : greedy_sites) {
+        REQUIRE(count > 0);
+    }
 }
 
 }

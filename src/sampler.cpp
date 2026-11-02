@@ -551,7 +551,6 @@ Alignment Sampler::alignment_with_error(size_t length,
             }
         }
     } else {
-        size_t iter = 0;
         while (iter++ < max_tries) {
             aln = alignment(length);
             if (aln.sequence().size() == length
@@ -560,7 +559,8 @@ Alignment Sampler::alignment_with_error(size_t length,
             }
         }
     }
-    if (iter == max_tries) {
+    // A successful try breaks out with iter at most max_tries.
+    if (iter > max_tries) {
         logger.warn() << "could not generate alignment of sufficient length in "
                       << max_tries << " tries. Graph may be too small, or indel rate too high." << endl;
     }

@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <fstream>
 #include <deque>
+#include <memory>
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/protobuf_iterator.hpp>
 #include "vg.hpp"
@@ -402,6 +403,18 @@ protected:
 };
     
 /**
+ * Return the nodes and edges of a site, including those inside its child sites.
+ *
+ * The site is entered by reading `start` and left by reading `end`. We search the graph from the
+ * bounds and stop only at them, so we find tips as well as walks. The two boundary nodes are
+ * included if `include_boundary_nodes` is set.
+ */
+pair<unordered_set<id_t>, unordered_set<edge_t> > site_contents(const HandleGraph& graph,
+                                                                 const handle_t& start,
+                                                                 const handle_t& end,
+                                                                 bool include_boundary_nodes);
+
+/**
  * A structure to keep track of the tree relationships between Snarls and perform utility algorithms
  * on them
  */
@@ -448,6 +461,16 @@ public:
     /// Returns a pointer to the managed snarl copy.
     /// Only this function may add in new Snarls.
     const Snarl* add_snarl(const Snarl& new_snarl);
+
+    /// Add the given snarl to the SnarlManager, moving its contents in rather than copying them.
+    const Snarl* add_snarl(Snarl&& new_snarl);
+
+    /// Move every snarl of `other` into this manager with add_snarl(), after the snarls it already
+    /// holds.
+    ///
+    /// The snarls are added in the order `other` stores them. Afterwards `other` holds empty
+    /// snarls, and can only be destroyed.
+    void take_snarls(SnarlManager& other);
     
     /// Reverses the orientation of a managed snarl.
     void flip(const Snarl* snarl);
@@ -543,7 +566,7 @@ public:
                                                                        bool include_boundary_nodes) const;
         
     /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (optionally
-    /// includes Snarl's own boundary Nodes)
+    /// includes Snarl's own boundary Nodes).
     pair<unordered_set<id_t>, unordered_set<edge_t> > deep_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                     bool include_boundary_nodes) const;
         
@@ -592,6 +615,12 @@ public:
 
     /// Iterate over snarls as they are stored in deque<SnarlRecords>
     void for_each_snarl_unindexed(const function<void(const Snarl*)>& lambda) const;
+
+    /// Run the lambda on every snarl once, on several threads, in no particular order.
+    ///
+    /// This doesn't open any nested parallel regions, so the lambda can
+    /// use omp_get_thread_num() to keep per-thread results.
+    void for_each_snarl_unindexed_parallel(const function<void(const Snarl*)>& lambda) const;
         
     /// Given a Snarl that we don't own (like from a Visit), find the
     /// pointer to the managed copy of that Snarl.
@@ -632,8 +661,10 @@ private:
         /// SnarlRecord does not own its children.
         vector<const Snarl*> children;
         
-        /// This holds chains over the child snarls.
-        deque<Chain> child_chains;
+        /// The chains over the child snarls, or null for a snarl with no children.
+        /// Since mostly snarls don't have any children, using a null pointer for them
+        /// saves space overall.
+        unique_ptr<deque<Chain>> child_chains;
         
         /// This points to the parent SnarlRecord (as a snarl), or null if we
         /// are a root snarl or have not been told of our parent yet.
@@ -654,6 +685,9 @@ private:
             (*(Snarl*)this) = other;
             return *this;
         }
+
+        /// Assign from a Snarl, moving its contents rather than copying them.
+        SnarlRecord& operator=(Snarl&& other);
     };
     
     /// Get the const SnarlRecord for a const managed snarl
@@ -712,6 +746,12 @@ private:
     ///
     /// Depends on the indexes from build_indexes() having been built.
     void regularize();
+
+    /// Orient a chain and its snarls so that the snarls agree with the chain, and at least half of
+    /// them go from a lower node ID to a higher one.
+    ///
+    /// This is safe to run on multiple chains in parallel.
+    void regularize_chain(const Chain* chain);
         
     // Chain computation uses these pseudo-chain-traversal functions, which
     // walk around based on the snarl boundary index. This basically gets
