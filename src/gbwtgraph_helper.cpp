@@ -324,9 +324,6 @@ size_t MinimizerIndexParameters::estimate_keys(size_t sequence_length) const {
     }
     // Expected density of minimizers / closed syncmers in random sequence.
     double density = (this->use_syncmers ? 2.0 / (this->k - this->w_or_s + 1) : 2.0 / (this->w_or_s + 1));
-    // Repeats and kmers shared between alleles make the number of distinct keys
-    // smaller. On HPRC chromosome graphs with k = 29, w = 11, it is ~0.84 * density
-    // * length. Bias the estimate low to avoid doubling the hash table.
     return sequence_length * density * KEY_ESTIMATE_FACTOR;
 }
 

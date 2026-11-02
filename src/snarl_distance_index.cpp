@@ -65,9 +65,8 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
     SnarlDistanceIndex::TemporaryDistanceIndex temp_index = make_temporary_distance_index(graph, snarl_finder, size_limit, only_top_level_chain_distances);
 
     if (!silence_warnings && temp_index.use_oversized_snarls) {
-        cerr << "warning: distance index uses oversized snarls, (the biggest has "
-             << temp_index.most_oversized_snarl_size << " nodes), which may make mapping slow" << endl;
-        cerr << "\ttry increasing --snarl-limit when building the distance index" << endl;
+        cerr << "note: using hub labeling for oversized snarls (largest: "
+             << temp_index.most_oversized_snarl_size << " nodes)" << endl;
     }
 
     //And fill in the permanent distance index
@@ -77,10 +76,9 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
 }
 namespace {
 
-/// A view of a weakly connected component of a graph. Because no edges leave
-/// the component, edges and handles are passed through to the backing graph
-/// unchanged. Nodes are iterated in increasing id order, as in the backing
-/// graph.
+/// A weakly connected component of a graph, given as sorted node ids. No edges
+/// leave the component, so edges pass through to the backing graph unchanged.
+/// Serial iteration visits nodes in id order.
 class ComponentOverlay : public HandleGraph {
 public:
     /// The node ids must be sorted and form a weakly connected component.
@@ -177,9 +175,8 @@ void fill_in_distance_index_by_component(SnarlDistanceIndex* distance_index, con
         most_oversized_snarl_size = std::max(most_oversized_snarl_size, temp_index.most_oversized_snarl_size);
     }
     if (!silence_warnings && use_oversized_snarls) {
-        cerr << "warning: distance index uses oversized snarls, (the biggest has "
-             << most_oversized_snarl_size << " nodes), which may make mapping slow" << endl;
-        cerr << "\ttry increasing --snarl-limit when building the distance index" << endl;
+        cerr << "note: using hub labeling for oversized snarls (largest: "
+             << most_oversized_snarl_size << " nodes)" << endl;
     }
     distance_index->get_snarl_tree_records(indexes, graph);
 }
