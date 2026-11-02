@@ -995,7 +995,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-tail-gap", 150)
         .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
-        .add_entry<double>("min-unique-node-fraction", 0.1)
+        .add_entry<double>("min-unique-node-fraction", 0.2)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
         .add_entry<int>("wfa-max-distance", 240)
@@ -1048,7 +1048,7 @@ int main_giraffe(int argc, char** argv) {
         // Lowering this can reduce wrong reads in mapping experiments, but
         // seems to *increase* miscalls; see
         // https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1779202719223779?thread_ts=1779127572.303779&cid=CJ2EHEH1A
-        .add_entry<double>("min-chain-score-per-base", 0.052)
+        .add_entry<double>("min-chain-score-per-base", 0.1)
         .add_entry<int>("max-min-chain-score", 1900.0)
         .add_entry<size_t>("min-indel-avoid-bases", 50)
         .add_entry<size_t>("max-skipped-bases", 1000)
@@ -1058,7 +1058,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-tail-gap", 150)
         .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
-        .add_entry<double>("min-unique-node-fraction", 0.1)
+        .add_entry<double>("min-unique-node-fraction", 0.2)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
         .add_entry<int>("wfa-max-distance", 240)
