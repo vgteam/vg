@@ -7,6 +7,7 @@
 
 #include "snarl_distance_index.hpp"
 #include "integrated_snarl_finder.hpp"
+#include "subgraph_overlay.hpp"
 
 #include <gbwtgraph/algorithms.h>
 #include <omp.h>
@@ -74,67 +75,6 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
     indexes.emplace_back(&temp_index);
     distance_index->get_snarl_tree_records(indexes, graph);
 }
-namespace {
-
-/// A weakly connected component of a graph, given as sorted node ids. No edges
-/// leave the component, so edges pass through to the backing graph unchanged.
-/// Serial iteration visits nodes in id order.
-class ComponentOverlay : public HandleGraph {
-public:
-    /// The node ids must be sorted and form a weakly connected component.
-    ComponentOverlay(const HandleGraph* backing, const std::vector<nid_t>* nodes) :
-        backing(backing), nodes(nodes) {}
-
-    bool has_node(nid_t node_id) const {
-        return std::binary_search(nodes->begin(), nodes->end(), node_id);
-    }
-    handle_t get_handle(const nid_t& node_id, bool is_reverse = false) const {
-        return backing->get_handle(node_id, is_reverse);
-    }
-    nid_t get_id(const handle_t& handle) const { return backing->get_id(handle); }
-    bool get_is_reverse(const handle_t& handle) const { return backing->get_is_reverse(handle); }
-    handle_t flip(const handle_t& handle) const { return backing->flip(handle); }
-    size_t get_length(const handle_t& handle) const { return backing->get_length(handle); }
-    std::string get_sequence(const handle_t& handle) const { return backing->get_sequence(handle); }
-    size_t get_node_count() const { return nodes->size(); }
-    nid_t min_node_id() const { return nodes->front(); }
-    nid_t max_node_id() const { return nodes->back(); }
-    size_t get_degree(const handle_t& handle, bool go_left) const { return backing->get_degree(handle, go_left); }
-    char get_base(const handle_t& handle, size_t index) const { return backing->get_base(handle, index); }
-    std::string get_subsequence(const handle_t& handle, size_t index, size_t size) const {
-        return backing->get_subsequence(handle, index, size);
-    }
-
-protected:
-    bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const {
-        return backing->follow_edges(handle, go_left, iteratee);
-    }
-    bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const {
-        if (parallel) {
-            std::atomic<bool> keep_going(true);
-            #pragma omp parallel for schedule(dynamic, 1024)
-            for (size_t i = 0; i < nodes->size(); i++) {
-                if (keep_going && !iteratee(backing->get_handle((*nodes)[i], false))) {
-                    keep_going = false;
-                }
-            }
-            return keep_going;
-        }
-        for (nid_t node_id : *nodes) {
-            if (!iteratee(backing->get_handle(node_id, false))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-private:
-    const HandleGraph* backing;
-    const std::vector<nid_t>* nodes;
-};
-
-} // anonymous namespace
-
 void fill_in_distance_index_by_component(SnarlDistanceIndex* distance_index, const HandleGraph* graph,
                                          const std::unordered_map<nid_t, size_t>& extra_node_weight,
                                          size_t size_limit, bool only_top_level_chain_distances,
@@ -161,7 +101,9 @@ void fill_in_distance_index_by_component(SnarlDistanceIndex* distance_index, con
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t i = 0; i < order.size(); i++) {
         size_t component = order[i];
-        ComponentOverlay overlay(graph, &components[component]);
+        std::unordered_set<nid_t> nodes(components[component].begin(), components[component].end());
+        std::vector<nid_t>().swap(components[component]);
+        SubgraphOverlay overlay(graph, &nodes);
         IntegratedSnarlFinder snarl_finder(overlay, extra_node_weight);
         temp_indexes[component] = make_temporary_distance_index(&overlay, &snarl_finder, size_limit, only_top_level_chain_distances);
     }
