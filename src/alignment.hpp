@@ -269,10 +269,10 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b,
 pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,
     const int64_t& pos2, const vector<pair<int, char>>& cigar2);
 
-/// Return the half-open reference interval covering matched/mismatched CIGAR bases.
-/// Internal deletions/skips contribute to the span; terminal deletions and clips do not.
-/// If there are no mapped bases, returns {INT64_MAX, INT64_MIN}. The caller must ensure
-/// reference-consuming lengths plus pos fit in int64_t.
+/// Return the start and end (end exclusive) of the reference region covered by
+/// the aligned bases in the CIGAR. Deletions in the middle are included;
+/// clips and deletions at the ends are not.
+/// If nothing is aligned, returns {INT64_MAX, INT64_MIN}.
 pair<int64_t, int64_t> reference_bounds(const int64_t& pos, const vector<pair<int, char>>& cigar);
 
 

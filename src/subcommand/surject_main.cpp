@@ -54,8 +54,8 @@ void help_surject(char** argv) {
          << "      --fragment-stdev X   paired diploid fragment standard deviation" << endl
          << "                            default: learn from confident pairs; otherwise score-only" << endl
          << "      --fragment-sample-size N  confident pairs for learning [1000]" << endl
-         << "      --fragment-buffer-size N  buffered fragments before finalizing [10000]" << endl
-         << "                            also bounded to 64 MiB, except a single large group" << endl
+         << "      --fragment-buffer-size N  max read pairs to hold while learning" << endl
+         << "                            fragment lengths [10000]" << endl
          << "  -M, --multimap            include secondary alignments to all" << endl
          << "                            overlapping paths instead of just primary" << endl
          << "  -G, --gaf-input           input file is GAF instead of GAM" << endl
@@ -68,8 +68,9 @@ void help_surject(char** argv) {
          << "  -U, --force-unpaired      surject reads as unpaired even if they appear paired" << endl
          << "  -f, --max-frag-len N      reads with fragment lengths greater than N won't be" << endl
          << "                            marked properly paired in HTS formats." << endl
-         << "                            0 for unlimited. (default: unlimited; paired diploid" << endl
-         << "                            uses mean + 6 stdev when a model is available)" << endl
+         << "                            0 for unlimited. Paired diploid mode defaults to" << endl
+         << "                            mean + 6 standard deviations when a fragment-length" << endl
+         << "                            model is available; otherwise unlimited." << endl
          << "  -u, --supplementary       divide into supplementary alignments as necessary" << endl
          << "  -B, --left-align          attempt to left-align indels" << endl
          << "  -l, --subpath-local       let the multipath mapping surjection produce local" << endl
@@ -705,7 +706,7 @@ int main_surject(int argc, char** argv) {
             auto finish_learning = [&]() {
                 if (distribution.curr_sample_size() >= 2 && isfinite(distribution.mean())
                     && isfinite(distribution.std_dev())) {
-                    // Avoid a singular Gaussian for constant observed fragment lengths.
+                    // Use a minimum standard deviation of 1 bp so fragment scoring remains defined.
                     set_model(distribution.mean(), max(1.0, distribution.std_dev()));
                     logger.info() << "Learned diploid fragment mean " << pairing.fragment_model->mean
                                   << ", stdev " << pairing.fragment_model->stddev << " from "
@@ -715,6 +716,7 @@ int main_surject(int argc, char** argv) {
                                   << "using alignment scores only. Supply --fragment-mean and --fragment-stdev "
                                   << "to use a fixed model." << endl;
                 }
+                // Fragment length model is final; groups can now run in parallel.
                 model_ready = true;
                 for (auto& group : buffered) {
                     emit_candidates(surjector.surject_diploid_paired(group, paths, pairing, subpath_global, spliced));
@@ -739,7 +741,6 @@ int main_surject(int argc, char** argv) {
                     if (model_ready) {
                         emit_candidates(std::move(candidates));
                     } else {
-                        // The grouped reader keeps callbacks serial until the model is frozen.
                         // Train without a fragment score, avoiding circular selection by that score.
                         auto length = surjector.diploid_fragment_length(candidates);
                         if (length) distribution.register_fragment_length(*length);

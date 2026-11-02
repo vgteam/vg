@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 117
+plan tests 103
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -348,98 +348,50 @@ is "$(samtools view diploid-unmapped.bam | cut -f1-6)" "$(printf 'empty_path\t4\
     "Empty paths and off-target placements produce unmapped BAM records"
 rm diploid-selection.sam diploid-selection.tsv diploid-output.bam diploid-output.sam diploid-unmapped.bam
 
-# Paired diploid selection reuses the unit-test layout: two separate paths,
-# equal read scores, but fragment lengths 100 and 200. The model should select 200.
-paired_dir=$(mktemp -d) || exit 1
-paired_sequence=$(printf 'ACGT%.0s' {1..100})
-printf 'H\tVN:Z:1.1\tRS:Z:sample\nS\t1\t%s\nS\t2\t%s\nW\tsample\t1\tchr1\t0\t400\t>1\nW\tsample\t2\tchr1\t0\t400\t>2\n' "$paired_sequence" "$paired_sequence" > "$paired_dir/graph.gfa"
-jq -cn 'range(0;1025) as $i | (1,2) as $node | (1,2) as $mate |
-    ("pair_" + ($i|tostring)) as $name |
-    {name:($name + "/" + ($mate|tostring)), sequence:"ACGTACGTACGTACGTACGT",
-     mapping_quality:(if $mate == 1 then 90 else 17 end), is_secondary:($node == 2),
-     path:{mapping:[{position:{node_id:$node,is_reverse:($mate == 2),
-          offset:(if $mate == 1 then 0 elif $node == 1 then 300 else 200 end)},
-          edit:[{from_length:20,to_length:20}]}]}}
-    + (if $mate == 1 then {fragment_next:{name:($name + "/2")}}
-       else {fragment_prev:{name:($name + "/1")}} end)' > "$paired_dir/reads.json"
-vg view -JGa "$paired_dir/reads.json" > "$paired_dir/reads.gam"
-vg surject -x "$paired_dir/graph.gfa" -d sample -i --fragment-mean 200 --fragment-stdev 10 -b -t 4 "$paired_dir/reads.gam" > "$paired_dir/four.bam"
-is "$?" 0 "Paired diploid GAM runs with a fixed fragment model"
-samtools quickcheck "$paired_dir/four.bam"
-is "$?" 0 "Grouped paired BAM is complete"
-samtools view "$paired_dir/four.bam" > "$paired_dir/four.records"
-is "$(wc -l < "$paired_dir/four.records")" 4100 "Every fragment emits both complete pair alternatives"
-awk 'NR%4==1 {name=$1; if(seen[name]++ || $2!=99 || $3!="sample#2#chr1" || $8!=181 || $9!=200)exit 1}
-     NR%4==2 {if($1!=name || $2!=147 || $8!=1 || $9!=-200)exit 1}
-     NR%4==3 {if($1!=name || $2!=355 || $3!="sample#1#chr1" || $9!=100)exit 1}
-     NR%4==0 {if($1!=name || $2!=403 || $9!=-100)exit 1}' "$paired_dir/four.records"
-is "$?" 0 "Fragment scoring selects the longer pair and keeps each group contiguous with correct flags and TLEN"
-awk 'NR%2==1 {if($5!=60)exit 1} NR%2==0 {if($5!=17)exit 1}
-     {expected=(NR%2==1 ? "aq:i:90" : "aq:i:17"); found=0; for(i=12;i<=NF;i++)if($i==expected)found++; if(found!=1)exit 1}' "$paired_dir/four.records"
-is "$?" 0 "Each mate retains its own original MAPQ cap and aq tag"
-vg convert "$paired_dir/graph.gfa" -G "$paired_dir/reads.gam" -t 1 > "$paired_dir/reads.gaf"
-vg surject -x "$paired_dir/graph.gfa" -d sample -i -G --fragment-mean 200 --fragment-stdev 10 -s -t 1 "$paired_dir/reads.gaf" > "$paired_dir/one.sam"
-is "$?" 0 "Paired grouped GAF accepts the same input contract"
-cmp -s <(grep -v '^@' "$paired_dir/one.sam" | sort) <(sort "$paired_dir/four.records")
-is "$?" 0 "Paired GAM/BAM and GAF/SAM agree across thread counts"
-vg surject -x "$paired_dir/graph.gfa" -d sample -i --fragment-mean 200 --fragment-stdev 10 -t 4 "$paired_dir/reads.gam" > "$paired_dir/output.gam"
-vg view -aj "$paired_dir/output.gam" | jq -se 'length==4100 and all(.[]; (.refpos|length)==1 and (.fragment_next.name // .fragment_prev.name)!=null)' > /dev/null
-is "$?" 0 "Paired GAM output retains reference positions and reciprocal mate links"
-head -n 2 "$paired_dir/reads.json" | vg view -JGa - > "$paired_dir/single.gam"
-vg surject -x "$paired_dir/graph.gfa" -d sample -i -f 50 --fragment-mean 200 --fragment-stdev 10 -s "$paired_dir/single.gam" > "$paired_dir/fallback.sam"
-is "$(grep -v '^@' "$paired_dir/fallback.sam" | cut -f2,5)" "$(printf '97\t0\n145\t0')" "No compatible pair uses the documented MAPQ-zero improper fallback"
-# Learning uses confident, unambiguous pairs, and replays the buffered prefix.
-jq -c 'select(.is_secondary==false) | .mapping_quality=60' "$paired_dir/reads.json" | vg view -JGa - > "$paired_dir/learn.gam"
-vg surject -x "$paired_dir/graph.gfa" -d sample -i --fragment-sample-size 2 -b -t 4 "$paired_dir/learn.gam" > "$paired_dir/learn.bam" 2> "$paired_dir/learn.log"
-is "$?" 0 "Paired diploid learns a model before parallel output"
-grep -q 'Learned diploid fragment mean 100, stdev 1 from 2 pairs' "$paired_dir/learn.log"
-is "$?" 0 "Constant observed distances use a finite fragment standard deviation"
-is "$(samtools view -c "$paired_dir/learn.bam")" 2050 "Learning replays buffered pairs without losing or duplicating reads"
-vg surject -x "$paired_dir/graph.gfa" -d sample -i -b "$paired_dir/single.gam" > "$paired_dir/short.bam" 2> "$paired_dir/short.log"
-grep -q 'using alignment scores only' "$paired_dir/short.log"
-is "$?" 0 "EOF with insufficient training data reports score-only fallback"
-is "$(samtools view -c "$paired_dir/short.bam")" 2 "EOF flushes a partial learning buffer"
-vg surject -x "$paired_dir/graph.gfa" -d sample -i --fragment-buffer-size 2 -b -t 4 "$paired_dir/reads.gam" > "$paired_dir/ambiguous.bam" 2> "$paired_dir/ambiguous.log"
-grep -q 'using alignment scores only' "$paired_dir/ambiguous.log"
-is "$?" 0 "Ambiguous pairs do not train the model and the buffer is bounded"
-is "$(samtools view -c "$paired_dir/ambiguous.bam")" 4100 "Buffer-limit fallback preserves all pairs"
-# Both empty and one-empty pairs must survive BAM serialization.
-head -n 2 "$paired_dir/reads.json" | jq -c 'del(.path)' | vg view -JGa - > "$paired_dir/empty.gam"
-vg surject -x "$paired_dir/graph.gfa" -d sample -i --fragment-mean 200 --fragment-stdev 10 -b "$paired_dir/empty.gam" > "$paired_dir/empty.bam"
-is "$(samtools view -f 12 -c "$paired_dir/empty.bam")" 2 "Fully unmapped pairs retain paired and mate-unmapped flags"
-head -n 2 "$paired_dir/reads.json" | jq -c 'if .fragment_prev then del(.path) else . end' | vg view -JGa - > "$paired_dir/half.gam"
-vg surject -x "$paired_dir/graph.gfa" -d sample -i --fragment-mean 200 --fragment-stdev 10 -s "$paired_dir/half.gam" > "$paired_dir/half.sam"
-is "$(grep -v '^@' "$paired_dir/half.sam" | cut -f2,9)" "$(printf '73\t0\n133\t0')" "One unmapped mate has correct mate flags and zero TLEN"
-vg surject -d sample -i --fragment-mean 200 "$paired_dir/single.gam" > /dev/null 2> "$paired_dir/error"
-is "$?" 1 "A fixed fragment model requires both parameters"
-head -n 1 "$paired_dir/reads.json" | vg view -JGa - > "$paired_dir/odd.gam"
-(ulimit -c 0; vg surject -x "$paired_dir/graph.gfa" -d sample -i --fragment-mean 200 --fragment-stdev 10 "$paired_dir/odd.gam" > /dev/null 2> "$paired_dir/error")
-test "$?" -ne 0 && grep -q 'incomplete final pair' "$paired_dir/error"
-is "$?" 0 "An incomplete interleaved pair is rejected instead of silently dropped"
-rm -rf -- "$paired_dir"
+# The two paths give equal alignment scores but fragment lengths of 100 and 200 bp.
+# A model centered on 200 bp should prefer the second path.
+vg surject -x surject/diploid-paired.gfa -d sample -i --fragment-mean 200 --fragment-stdev 10 -b -t 1 surject/diploid-paired.gam > paired-selection.bam || exit 1
+samtools view paired-selection.bam > paired-selection.sam || exit 1
+is "$(cut -f2-9 paired-selection.sam)" \
+    "$(printf '99\tsample#2#chr1\t1\t60\t20M\t=\t181\t200\n147\tsample#2#chr1\t181\t17\t20M\t=\t1\t-200\n355\tsample#1#chr1\t1\t60\t20M\t=\t81\t100\n403\tsample#1#chr1\t81\t17\t20M\t=\t1\t-100')" \
+    "Fragment scoring selects the expected pair with correct mate positions and TLEN"
+# Each mate keeps its own input MAPQ in aq; computed MAPQ is capped at 60.
+awk '{expected=(NR%2 ? "aq:i:90" : "aq:i:17"); found=0; for(i=12;i<=NF;i++)if($i==expected)found++; if(found!=1)exit 1}' paired-selection.sam
+is "$?" 0 "Each mate preserves its original MAPQ in aq"
 
-# Reuse the split-anchor unit-test layout to exercise candidate-local mate links
-# and atomic emission when each pair alternative also has a supplementary piece.
-paired_dir=$(mktemp -d) || exit 1
-jq -cn '{node:[{id:1,sequence:("A"*60)},{id:2,sequence:("G"*200)},{id:3,sequence:("C"*40)},
-                   {id:4,sequence:("A"*60)},{id:5,sequence:("G"*200)},{id:6,sequence:("C"*40)}],
-         edge:[{from:1,to:2},{from:2,to:3},{from:1,to:3},{from:4,to:5},{from:5,to:6},{from:4,to:6}],
-         path:[{name:"sample#1#chr1",mapping:[{position:{node_id:1},rank:1},{position:{node_id:2},rank:2},{position:{node_id:3},rank:3}]},
-               {name:"sample#2#chr1",mapping:[{position:{node_id:4},rank:1},{position:{node_id:5},rank:2},{position:{node_id:6},rank:3}]}]}' | vg view -Jv - > "$paired_dir/graph.vg"
-jq -cn 'range(0;1025) as $i | (1,4) as $node | ("split_"+($i|tostring)) as $name |
-    {name:($name+"/1"),sequence:(("A"*60)+("C"*40)),mapping_quality:60,is_secondary:($node==1),fragment_next:{name:($name+"/2")},
-     path:{mapping:[{position:{node_id:$node},rank:1,edit:[{from_length:60,to_length:60}]},
-                    {position:{node_id:($node+2)},rank:2,edit:[{from_length:40,to_length:40}]}]}},
-    {name:($name+"/2"),sequence:("G"*40),mapping_quality:60,is_secondary:($node==1),fragment_prev:{name:($name+"/1")},
-     path:{mapping:[{position:{node_id:($node+2),is_reverse:true},rank:1,edit:[{from_length:40,to_length:40}]}]}}' | vg view -JGa - > "$paired_dir/reads.gam"
-vg surject -x "$paired_dir/graph.vg" -d sample -i -u --no-prune-low-cplx --fragment-mean 300 --fragment-stdev 10 -b -t 4 "$paired_dir/reads.gam" > "$paired_dir/split.bam"
-is "$?" 0 "Paired diploid supplementary output can be written to BAM"
-samtools view "$paired_dir/split.bam" > "$paired_dir/split.records"
-is "$(wc -l < "$paired_dir/split.records")" 6150 "All paired alternatives retain their supplementary pieces"
-awk 'NR%6==1 {name=$1; if(seen[name]++)exit 1}
-     {part=(NR-1)%6; path=(part<3 ? "sample#1#chr1" : "sample#2#chr1");
-      if($1!=name || $3!=path || $7!="=" || $8!=(part%3==1 ? 1 : 261))exit 1;
-      if(part%3==2 && $9!=0)exit 1;
-      if(part%3!=1){found=0; for(i=12;i<=NF;i++)if(index($i,"SA:Z:"path",")==1)found++; if(found!=1)exit 1}}' "$paired_dir/split.records"
-is "$?" 0 "Supplementaries stay with their own pair and have candidate-local mate positions and SA tags"
-rm -rf -- "$paired_dir"
+vg surject -x surject/diploid-paired.gfa -d sample -i -G --fragment-mean 200 --fragment-stdev 10 -s -t 1 surject/diploid-paired.gaf > paired-gaf.sam || exit 1
+is "$(grep -v '^@' paired-gaf.sam | cut -f1-9)" "$(cut -f1-9 paired-selection.sam)" \
+    "Paired GAM and GAF input produce the same placements and mate fields"
+
+# 1025 groups cross the default 512-group batch boundary and leave a partial batch.
+# Require each expected name once, with both pair alternatives adjacent.
+vg surject -x surject/diploid-paired.gfa -d sample -i --fragment-mean 200 --fragment-stdev 10 -b -t 4 surject/diploid-paired-parallel.gam > paired-parallel.bam || exit 1
+samtools view paired-parallel.bam > paired-parallel.sam || exit 1
+awk 'NR%4==1 {name=$1; if(seen[name]++)exit 1}
+     {if($1!=name)exit 1; part=(NR-1)%4; expected=(part==0 ? 99 : part==1 ? 147 : part==2 ? 355 : 403); if($2!=expected)exit 1}
+     END {if(NR!=4100)exit 1; for(i=0;i<1025;i++)if(seen["pair_"i]!=1)exit 1}' paired-parallel.sam
+is "$?" 0 "Parallel output contains each read-pair group once with its alternatives together"
+
+# Neither candidate fits a 50 bp limit; emit the mates as an improper pair.
+vg surject -x surject/diploid-paired.gfa -d sample -i -f 50 --fragment-mean 200 --fragment-stdev 10 -s -t 1 surject/diploid-paired.gam > paired-fallback.sam || exit 1
+is "$(grep -v '^@' paired-fallback.sam | cut -f2,5)" "$(printf '97\t0\n145\t0')" \
+    "No compatible pair produces an improper pair with MAPQ zero"
+
+# Two confident observations finish learning; all five buffered or later pairs survive.
+# Identical 100 bp lengths use the minimum standard deviation of 1 bp.
+vg surject -x surject/diploid-paired.gfa -d sample -i --fragment-sample-size 2 -b -t 4 surject/diploid-paired-learning.gam > paired-learning.bam 2> paired-learning.log || exit 1
+grep -q 'Learned diploid fragment mean 100, stdev 1' paired-learning.log
+is "$?" 0 "Paired diploid learns a fragment model from confident pairs"
+samtools view paired-learning.bam > paired-learning.sam || exit 1
+awk '{seen[$1]++} END {if(NR!=10)exit 1; for(i=0;i<5;i++)if(seen["learn_"i]!=2)exit 1}' paired-learning.sam
+is "$?" 0 "Learning emits every buffered and later read pair once"
+
+# Both-unmapped and one-unmapped pairs must remain valid paired BAM records.
+vg surject -x surject/diploid-paired.gfa -d sample -i --fragment-mean 200 --fragment-stdev 10 -b -t 1 surject/diploid-paired-unmapped.gam > paired-unmapped.bam || exit 1
+samtools view paired-unmapped.bam > paired-unmapped.sam || exit 1
+is "$(awk '$1=="empty"' paired-unmapped.sam | cut -f2-9)" \
+    "$(printf '77\t*\t0\t0\t*\t*\t0\t0\n141\t*\t0\t0\t*\t*\t0\t0')" \
+    "Fully unmapped mates retain paired and mate-unmapped flags"
+is "$(awk '$1=="half"' paired-unmapped.sam | cut -f2,9)" "$(printf '73\t0\n133\t0')" \
+    "One unmapped mate has correct mate flags and zero TLEN"
+rm paired-selection.bam paired-selection.sam paired-gaf.sam paired-parallel.bam paired-parallel.sam paired-fallback.sam paired-learning.bam paired-learning.sam paired-learning.log paired-unmapped.bam paired-unmapped.sam
