@@ -117,7 +117,7 @@ TEST_CASE( "Deletion allele supports found correctly",
     function<double(edge_t)> edge_weight = [&](edge_t e) {
         return edge_supports.at(e);
     };
-    FlowTraversalFinder trav_finder(graph, snarl_manager, 100, node_weight, edge_weight);
+    FlowTraversalFinder trav_finder(graph, 100, node_weight, edge_weight);
     pair<vector<SnarlTraversal>, vector<double>> weighted_travs = trav_finder.find_weighted_traversals(snarl);
     REQUIRE(weighted_travs.first.size() == 3);
     REQUIRE(weighted_travs.first[0] == trav_0);

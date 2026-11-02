@@ -1,6 +1,8 @@
 #include "utility.hpp"
 #include "statistics.hpp"
 
+#include <htslib/hfile.h>
+
 #include <set>
 #include <mutex>
 #include <dirent.h>
@@ -214,6 +216,31 @@ std::vector<std::string> &split_delims(const std::string &s, const std::string& 
 std::vector<std::string> split_delims(const std::string &s, const std::string& delims, size_t max_cuts) {
     std::vector<std::string> elems;
     return split_delims(s, delims, elems, max_cuts);
+}
+
+std::vector<std::string> split_delims_keep_empty(const std::string& s, const std::string& delims) {
+    std::vector<std::string> elems;
+    size_t start = 0;
+    while (true) {
+        const size_t at = s.find_first_of(delims, start);
+        elems.emplace_back(s.substr(start, at == std::string::npos ? std::string::npos
+                                                                    : at - start));
+        if (at == std::string::npos) {
+            return elems;
+        }
+        start = at + 1;
+    }
+}
+
+std::string join_delim(const std::vector<std::string>& parts, char delim) {
+    std::string out;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        if (i) {
+            out += delim;
+        }
+        out += parts[i];
+    }
+    return out;
 }
 
 bool starts_with(const std::string& value, const std::string& prefix) {
@@ -767,6 +794,14 @@ string require_exists(const Logger& logger, const string& filename) {
         logger.error() << "file \"" << filename << "\" does not exist" << endl;
     }
     return filename;
+}
+
+string require_exists_or_url(const Logger& logger, const string& filename) {
+    if (hisremote(filename.c_str())) {
+        // htslib knows how to open this as a URL.
+        return filename;
+    }
+    return require_exists(logger, filename);
 }
 
 string require_non_gzipped(const Logger& logger, const string& filename) {

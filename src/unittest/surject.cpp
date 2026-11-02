@@ -7,6 +7,8 @@
 #include "catch.hpp"
 #include "surjector.hpp"
 #include "aligner.hpp"
+#include "alignment.hpp"
+#include "annotation.hpp"
 
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/overlays/path_position_overlays.hpp"
@@ -22,9 +24,154 @@ public:
     
     using Surjector::extract_overlapping_paths;
     using Surjector::filter_redundant_path_chunks;
+    using Surjector::prune_and_trim_anchors;
     
 };
 
+
+TEST_CASE("Mapper-declared tails control anchor pruning",
+          "[surject][tail-pruning]") {
+    bdsg::HashGraph graph;
+    auto path = graph.create_path_handle("ref");
+    vector<handle_t> nodes{
+        graph.create_handle("ACGT"),
+        graph.create_handle("TGCA"),
+        graph.create_handle("GACT")
+    };
+    graph.create_edge(nodes[0], nodes[1]);
+    graph.create_edge(nodes[1], nodes[2]);
+
+    vector<pair<step_handle_t, step_handle_t>> ranges;
+    for (auto node : nodes) {
+        auto step = graph.append_step(path, node);
+        ranges.emplace_back(step, step);
+    }
+    const auto original_ranges = ranges;
+
+    bdsg::PositionOverlay pos_graph(&graph);
+    TestSurjector surjector(&pos_graph);
+    surjector.prune_suspicious_anchors = false;
+    surjector.prune_tail_region_anchors = true;
+    surjector.max_anchors = 1000;
+
+    const string sequence = "ACGTTGCAGACT";
+    vector<Surjector::path_chunk_t> chunks(3);
+    for (size_t i = 0; i < chunks.size(); ++i) {
+        chunks[i].first.first = sequence.begin() + 4 * i;
+        chunks[i].first.second = sequence.begin() + 4 * (i + 1);
+        auto* mapping = chunks[i].second.add_mapping();
+        mapping->mutable_position()->set_node_id(graph.get_id(nodes[i]));
+        auto* edit = mapping->add_edit();
+        edit->set_from_length(4);
+        edit->set_to_length(4);
+    }
+
+    size_t left_tail = 0;
+    size_t right_tail = 0;
+    vector<size_t> expected{0, 1, 2};
+
+    SECTION("Disabled flag preserves anchors inside declared tails") {
+        surjector.prune_tail_region_anchors = false;
+        left_tail = 4;
+        right_tail = 4;
+    }
+    SECTION("Zero tail lengths preserve all anchors") {
+    }
+    SECTION("Left tail removes its fully contained anchor") {
+        left_tail = 4;
+        expected = {1, 2};
+    }
+    SECTION("Right tail removes its fully contained anchor") {
+        right_tail = 4;
+        expected = {0, 1};
+    }
+    SECTION("Both tails leave only the middle anchor") {
+        left_tail = 4;
+        right_tail = 4;
+        expected = {1};
+    }
+    SECTION("Anchors crossing tail boundaries are retained") {
+        left_tail = 3;
+        right_tail = 3;
+    }
+
+    surjector.prune_and_trim_anchors(sequence, chunks, ranges,
+                                    left_tail, right_tail);
+
+    REQUIRE(chunks.size() == expected.size());
+    REQUIRE(ranges.size() == expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+        const auto original = expected[i];
+        CHECK(chunks[i].first.first == sequence.begin() + 4 * original);
+        CHECK(chunks[i].first.second == sequence.begin() + 4 * (original + 1));
+        REQUIRE(chunks[i].second.mapping_size() == 1);
+        CHECK(chunks[i].second.mapping(0).position().node_id()
+              == graph.get_id(nodes[original]));
+        CHECK(ranges[i] == original_ranges[original]);
+    }
+}
+
+
+TEST_CASE("Tail pruning follows read intervals regardless of node or target-path orientation",
+          "[surject][tail-pruning]") {
+    // Three 4-base anchors cover read intervals [0,4), [4,8), [8,12).
+    // A 4-base tail contains an anchor; a 3-base tail only overlaps one.
+    // Changing node orientations or reversing the read on ref must not swap the tails.
+    for (bool reverse_middle_node : {false, true}) {
+        for (bool reverse_relative_to_path : {false, true}) {
+            bdsg::HashGraph graph;
+            vector<handle_t> nodes{graph.create_handle("ACGT"),
+                                   graph.create_handle(reverse_middle_node ? "GCTT" : "AAGC"),
+                                   graph.create_handle("GACT")};
+            if (reverse_middle_node) nodes[1] = graph.flip(nodes[1]);
+            auto path = graph.create_path_handle("ref");
+            vector<step_handle_t> steps;
+            for (size_t i = 0; i < nodes.size(); ++i) {
+                steps.push_back(graph.append_step(path, nodes[i]));
+                if (i) graph.create_edge(nodes[i - 1], nodes[i]);
+            }
+            // Reverse the read traversal; the stored target path stays unchanged.
+            if (reverse_relative_to_path) {
+                reverse(nodes.begin(), nodes.end());
+                reverse(steps.begin(), steps.end());
+                for (auto& node : nodes) node = graph.flip(node);
+            }
+            string sequence;
+            for (auto node : nodes) sequence += graph.get_sequence(node);
+            bdsg::PositionOverlay pos_graph(&graph);
+            TestSurjector surjector(&pos_graph);
+            surjector.prune_suspicious_anchors = false;
+            surjector.prune_tail_region_anchors = true;
+            for (bool prune_left : {false, true}) {
+                INFO("middle node locally reversed = " << reverse_middle_node
+                     << ", read reversed relative to target path = " << reverse_relative_to_path
+                     << ", pruning = " << (prune_left ? "left" : "right"));
+                vector<Surjector::path_chunk_t> chunks(3);
+                vector<pair<step_handle_t, step_handle_t>> ranges;
+                for (size_t i = 0; i < nodes.size(); ++i) {
+                    chunks[i].first = {sequence.begin() + 4 * i, sequence.begin() + 4 * (i + 1)};
+                    auto* mapping = chunks[i].second.add_mapping();
+                    mapping->mutable_position()->set_node_id(graph.get_id(nodes[i]));
+                    mapping->mutable_position()->set_is_reverse(graph.get_is_reverse(nodes[i]));
+                    auto* edit = mapping->add_edit();
+                    edit->set_from_length(4);
+                    edit->set_to_length(4);
+                    ranges.emplace_back(steps[i], steps[i]);
+                }
+                surjector.prune_and_trim_anchors(sequence, chunks, ranges,
+                                                prune_left ? 4 : 3, prune_left ? 3 : 4);
+                REQUIRE(chunks.size() == 2);
+                REQUIRE(ranges.size() == 2);
+                for (size_t i = 0; i < chunks.size(); ++i) {
+                    const size_t original = i + (prune_left ? 1 : 0);
+                    CHECK(chunks[i].first.first == sequence.begin() + 4 * original);
+                    CHECK(chunks[i].second.mapping(0).position().node_id() == graph.get_id(nodes[original]));
+                    CHECK(ranges[i].first == steps[original]);
+                }
+            }
+        }
+    }
+}
 
 TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[surject]" ) {
     
