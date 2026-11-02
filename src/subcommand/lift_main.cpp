@@ -15,6 +15,7 @@
 #include "../feature_lift.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../gref.hpp"
+#include "../haplotype_depth.hpp"
 #include "../nested_variants.hpp"
 #include "../utility.hpp"
 #include "../vcf_alleles.hpp"
@@ -26,6 +27,7 @@ using namespace vg::subcommand;
 void help_lift(char** argv) {
     cerr << "usage: " << argv[0] << " lift [options] graph.gbz features.bed > features.gaf" << endl
          << "       " << argv[0] << " lift [options] graph.gbz variants.vcf > variants.lifted.vcf" << endl
+         << "       " << argv[0] << " lift --depth [options] graph.gbz [regions.bed] > depth.bedGraph" << endl
          << "Lift features to the graph and the gref, and to each path that visits them." << endl
          << "A feature can be on a cover sequence (a gref path of the GBZ or a tig of" << endl
          << "vg unitigs) or on any path in the GBZ, named without a subrange or phase" << endl
@@ -62,6 +64,18 @@ void help_lift(char** argv) {
          << "are among the carriers of the contig. A VCF that already has records on alt" << endl
          << "contigs gets none added." << endl
          << endl
+         << "With --depth, write how many haplotypes read each base of the gref paths, or" << endl
+         << "of the paths chosen with -Q, as bedGraph: the path, the 0-based start and end" << endl
+         << "of a run of bases of equal depth, and the depth, which is the number of" << endl
+         << "distinct haplotypes (sample and haplotype number) that read them. Runs of" << endl
+         << "depth 0 are written too. Haplotype paths count, and reference paths with" << endl
+         << "--references; gref paths and generic paths never do. A regions BED, on paths" << endl
+         << "named and placed as features are, limits the count to the bases inside it," << endl
+         << "and a path without regions counts nothing. Given one assembly's QC flags as" << endl
+         << "regions, the depth is the number of haplotypes flagged there; given the" << endl
+         << "regions each assembly's QC could assess, it is the number assessed. Unlike" << endl
+         << "vg depth -P, this counts haplotypes, not path names." << endl
+         << endl
          << "options:" << endl
          << "  -u, --tigs FILE         GAF of the tigs, from vg unitigs -g" << endl
          << "  -c, --canonical FILE    write each feature once to FILE as BED at its path" << endl
@@ -80,8 +94,14 @@ void help_lift(char** argv) {
          << "                          the feature splits a place." << endl
          << "  -b, --blocks            write places as BED12, with a block for each stretch" << endl
          << "                          that holds feature bases" << endl
-         << "  -Q, --paths-by PREFIX   only write places on paths whose name starts with" << endl
-         << "                          PREFIX (may repeat)" << endl
+         << "  -Q, --paths-by PREFIX   only write places (with --depth, rows) on paths whose" << endl
+         << "                          name starts with PREFIX (may repeat). With --depth," << endl
+         << "                          the default is the gref paths." << endl
+         << "      --depth             write the depth of haplotypes along paths as bedGraph" << endl
+         << "                          (see above); takes no -u, -c, -P, -a, -m or -b" << endl
+         << "      --visits            with --depth, count the visits of haplotype paths" << endl
+         << "                          instead of distinct haplotypes" << endl
+         << "      --references        with --depth, count reference paths as haplotypes" << endl
          << "  -t, --threads N         number of threads to use [all available]" << endl
          << "  -p, --progress          show progress" << endl
          << "  -h, --help              print this help message to stderr and exit" << endl;
@@ -380,6 +400,82 @@ static void write_lifted_vcf(const string& vcf_file, const VcfCalls& calls, cons
     }
 }
 
+/// Return true if the name starts with one of the prefixes.
+static bool starts_with_any(const string& name, const vector<string>& prefixes) {
+    return std::any_of(prefixes.begin(), prefixes.end(), [&](const string& prefix) {
+        return name.compare(0, prefix.size(), prefix) == 0;
+    });
+}
+
+/**
+ * Write the depth of haplotypes along paths as bedGraph on standard output.
+ *
+ * The paths are the gref paths, or those whose names start with one of the
+ * prefixes, in name order and then in order along each full path.
+ *
+ * @param regions_file A BED of the regions to count in, or empty to count
+ * every base.
+ */
+static void write_depth(const gbwtgraph::GBZ& gbz, const string& graph_file, const string& regions_file,
+                        HaplotypeDepth::Options options, const vector<string>& path_prefixes, const Logger& logger,
+                        bool progress) {
+    unique_ptr<PathRegions> regions;
+    if (!regions_file.empty()) {
+        get_input_file(regions_file, [&](istream& in) {
+            try {
+                regions = make_unique<PathRegions>(in);
+            } catch (const runtime_error& e) {
+                logger.error() << e.what() << endl;
+            }
+        });
+        options.regions = regions.get();
+    }
+    HaplotypeDepth depth(gbz, options);
+    if (progress) {
+        cerr << "[vg lift] counted " << depth.haplotype_count() << " haplotypes";
+        if (regions) {
+            cerr << ", " << depth.haplotypes_without_regions() << " of them without regions";
+        }
+        cerr << endl;
+    }
+    const vector<string>& unmatched = depth.uncounted_region_paths();
+    if (!unmatched.empty()) {
+        logger.warn() << unmatched.size() << " paths in " << regions_file << ", such as " << unmatched.front()
+                      << ", are not counted paths in " << graph_file << ", so their regions are ignored" << endl;
+    }
+
+    struct OutputPath {
+        string name;
+        uint64_t start;
+        gbwt::size_type id;
+    };
+    vector<OutputPath> outputs;
+    for_each_path_start(gbz.index, [&](gbwt::size_type path_id, const string& name, uint64_t start) {
+        if (path_prefixes.empty() ? GrefCover::is_gref_derived(name) : starts_with_any(name, path_prefixes)) {
+            outputs.push_back({ name, start, path_id });
+        }
+    });
+    std::sort(outputs.begin(), outputs.end(), [](const OutputPath& a, const OutputPath& b) {
+        return std::tie(a.name, a.start) < std::tie(b.name, b.start);
+    });
+    if (outputs.empty()) {
+        logger.warn() << "no " << (path_prefixes.empty() ? "gref paths" : "paths chosen with -Q") << " in "
+                      << graph_file << ", so no depth is written" << endl;
+    }
+    size_t rows = 0;
+    for (const OutputPath& path : outputs) {
+        PathSteps steps(gbz.graph, path.id);
+        depth.for_each_run(steps, path.start, [&](uint64_t start, uint64_t end, uint32_t value) {
+            cout << path.name << '\t' << start << '\t' << end << '\t' << value << '\n';
+            rows++;
+        });
+    }
+    cout.flush();
+    if (progress) {
+        cerr << "[vg lift] " << rows << " depth rows on " << outputs.size() << " paths" << endl;
+    }
+}
+
 int main_lift(int argc, char** argv) {
     Logger logger("vg lift");
     if (argc == 2) {
@@ -395,11 +491,20 @@ int main_lift(int argc, char** argv) {
     double min_match = 0;
     bool blocks = false;
     bool progress = false;
+    bool depth_mode = false;
+    HaplotypeDepth::Options depth_options;
+
+    constexpr int OPT_DEPTH = 1001;
+    constexpr int OPT_VISITS = 1002;
+    constexpr int OPT_REFERENCES = 1003;
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] = {
+            {"depth", no_argument, 0, OPT_DEPTH},
+            {"visits", no_argument, 0, OPT_VISITS},
+            {"references", no_argument, 0, OPT_REFERENCES},
             {"tigs", required_argument, 0, 'u'},
             {"canonical", required_argument, 0, 'c'},
             {"priority", required_argument, 0, 'P'},
@@ -448,12 +553,39 @@ int main_lift(int argc, char** argv) {
         case 'p':
             progress = true;
             break;
+        case OPT_DEPTH:
+            depth_mode = true;
+            break;
+        case OPT_VISITS:
+            depth_options.count_visits = true;
+            break;
+        case OPT_REFERENCES:
+            depth_options.count_references = true;
+            break;
         case 'h':
         case '?':
         default:
             help_lift(argv);
             return 1;
         }
+    }
+    if (!depth_mode && (depth_options.count_visits || depth_options.count_references)) {
+        logger.error() << "--visits and --references need --depth" << endl;
+    }
+    if (depth_mode) {
+        if (!tigs_file.empty() || !canonical_file.empty() || !priority_prefixes.empty() || !assemblies_file.empty()
+            || min_match > 0 || blocks) {
+            logger.error() << "--depth takes no -u, -c, -P, -a, -m or -b" << endl;
+        }
+        if (optind + 1 != argc && optind + 2 != argc) {
+            logger.error() << "expected a GBZ file and optionally a regions BED" << endl;
+        }
+        string graph_file = require_exists(logger, argv[optind]);
+        string regions_file = optind + 2 == argc ? argv[optind + 1] : "";
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, graph_file, progress);
+        write_depth(gbz, graph_file, regions_file, depth_options, path_prefixes, logger, progress);
+        return 0;
     }
     if (optind + 2 != argc) {
         logger.error() << "expected a GBZ file and a BED or VCF file" << endl;
@@ -555,15 +687,7 @@ int main_lift(int argc, char** argv) {
             return name.compare(0, GrefCover::gref_prefix.size(), GrefCover::gref_prefix) == 0;
         };
         auto selected = [&](const string& name) {
-            if (path_prefixes.empty()) {
-                return true;
-            }
-            for (const string& prefix : path_prefixes) {
-                if (name.compare(0, prefix.size(), prefix) == 0) {
-                    return true;
-                }
-            }
-            return false;
+            return path_prefixes.empty() || starts_with_any(name, path_prefixes);
         };
         size_t written = 0;
         auto visit = [&](const string& name, const vector<PathOccurrence>& places) {

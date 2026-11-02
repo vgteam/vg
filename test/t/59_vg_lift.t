@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 53
+plan tests 62
 
 # A triallelic SNP with the haplotypes stored as W lines at offset 1000 of contig c,
 # as Minigraph-Cactus stores haplotype fragments
@@ -287,6 +287,40 @@ vg convert -f lift.cycle.gref.vg > lift.cycle.gref.gfa
 vg gbwt -G lift.cycle.gref.gfa --gbz-format -g lift.cycle.gbz 2> /dev/null
 vg deconstruct -P x -a lift.cycle.gbz > lift.cycle.vcf 2> /dev/null
 is "$(vg lift lift.cycle.gbz lift.cycle.vcf 2> /dev/null | grep '^gref' | cut -f 1,2,4,5,10,11 | tr '\t' ' ')" "gref_x_1_alt 2 A T 0|1 0|1" "a walk that passes along a contig twice counts once"
+
+# Depth of haplotypes along the gref. In lift.gbz, both haplotypes skip the reference's SNP base.
+is "$(vg lift --depth lift.gbz | tr '\t\n' ' ;')" "gref_x 0 100 2;gref_x 100 101 0;gref_x 101 201 2;" "the depth counts the haplotypes that read each gref base, with runs of depth 0"
+
+printf 's#1#c\t1000\t1050\n' > lift.depth.bed
+is "$(vg lift --depth lift.gbz lift.depth.bed | tr '\t\n' ' ;')" "gref_x 0 50 1;gref_x 50 201 0;" "regions limit the depth to their bases, and a haplotype without regions counts nothing"
+
+is "$(vg lift --depth -Q 's#2' lift.gbz lift.depth.bed | tr '\t\n' ' ;')" "s#2#c 1000 1050 1;s#2#c 1050 1201 0;" "-Q writes the depth along other paths, in contig coordinates"
+
+printf 'zz#1#c\t0\t10\n' >> lift.depth.bed
+vg lift --depth lift.gbz lift.depth.bed 2>&1 > /dev/null | grep -q "1 paths in lift.depth.bed, such as zz#1#c, are not counted paths"
+is $? 0 "regions on paths that are not counted get a warning"
+
+vg lift --depth -a lift.depth.asm.bed lift.gbz 2>&1 | grep -q "takes no -u, -c, -P, -a, -m or -b"
+is $? 0 "--depth rejects the options that lift features"
+
+# A haplotype that reads node 2 twice, a haplotype that reads the graph in reverse, and a
+# reference path
+printf 'H\tVN:Z:1.1\tRS:Z:ref\nS\t1\tAAAAAAAAAA\nS\t2\tCCCC\nS\t3\tGGGGGGGGGG\nL\t1\t+\t2\t+\t0M\nL\t2\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\n' > lift.loop.gfa
+printf 'W\tref\t0\tx\t0\t24\t>1>2>3\nW\ts\t1\tc\t0\t28\t>1>2>2>3\nW\ts\t2\tc\t0\t24\t<3<2<1\n' >> lift.loop.gfa
+vg paths -x lift.loop.gfa -Q ref --compute-gref > lift.loop.gref.vg
+vg convert -f lift.loop.gref.vg > lift.loop.gref.gfa
+vg gbwt -G lift.loop.gref.gfa --gbz-format -g lift.loop.gbz
+is "$(vg lift --depth lift.loop.gbz | tr '\t\n' ' ;') $(vg lift --depth --visits lift.loop.gbz | cut -f 4 | tr '\n' ' ')" "gref_ref#0#x 0 24 2; 2 3 2 " "a haplotype that reads a node twice counts once, and twice as visits"
+
+is "$(vg lift --depth --references lift.loop.gbz | cut -f 4)" "3" "--references counts reference paths too"
+
+printf 's#2#c\t0\t5\n' > lift.loop.bed
+is "$(vg lift --depth lift.loop.gbz lift.loop.bed | tr '\t\n' ' ;')" "gref_ref#0#x 0 19 0;gref_ref#0#x 19 24 1;" "regions on a haplotype that reads the gref in reverse count the gref bases it reads"
+
+printf 's#1#c\t11\t13\ns#1#c\t15\t17\n' > lift.loop.bed
+is "$(vg lift --depth lift.loop.gbz lift.loop.bed | cut -f 2-4 | tr '\t\n' ' ;') $(vg lift --depth --visits lift.loop.gbz lift.loop.bed | cut -f 4 | tr '\n' ' ')" "0 11 0;11 13 1;13 24 0; 0 2 0 " "regions that cut a node count each of its bases once per haplotype"
+
+rm -f lift.depth.bed lift.depth.asm.bed lift.loop.gfa lift.loop.gref.vg lift.loop.gref.gfa lift.loop.gbz lift.loop.bed
 
 rm -f lift.vcf.gfa lift.vcf.gref.vg lift.vcf.gref.gfa lift.vcf.gbz lift.decon.vcf lift.decon.bed lift.decon.lifted.vcf
 rm -f lift.pg.vcf lift.pg.vcf.gz lift.pg.lifted.vcf lift.pg.err lift.foreign.vcf
