@@ -53,7 +53,6 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
         this->eval_bonus = option.eval_bonus;
         this->source = option_number;
         this->paths = option.paths;
-        this->rec_num = option.rec_num;
     }
 }
 
@@ -64,18 +63,16 @@ TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t o
 }
 
 TracedScore TracedScore::add_points(int adjustment) const {
-    return {this->score + adjustment, this->eval_bonus, this->source, this->paths, this->rec_num};
+    return {this->score + adjustment, this->eval_bonus, this->source, this->paths};
 }
 
 TracedScore TracedScore::set_shared_paths(const std::pair<size_t, size_t>& new_paths) const {
     size_t updated_paths;
-    size_t rec_num = this->rec_num;
     if(new_paths.first == new_paths.second) {
        // if the paths are the same, there is no recombination inside the anchor. check if there is a recombination between anchors now
         if ((this->paths & new_paths.first) == 0) {
            // there is a recombination between anchors, so we "reset" the current paths
             updated_paths = new_paths.first;
-            rec_num++;
         } else {
             // there is no recombination between anchors, so we update the current paths
             updated_paths = this->paths & new_paths.first;
@@ -88,8 +85,7 @@ TracedScore TracedScore::set_shared_paths(const std::pair<size_t, size_t>& new_p
         this->score,
         this->eval_bonus,
         this->source,
-        updated_paths,
-        rec_num
+        updated_paths
     };
 }
 
@@ -110,11 +106,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                                                  size_t max_graph_lookback_bases,
                                                  size_t max_read_lookback_bases) {
     
-    // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
-    return [&seeds, &zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases](
+    return [&zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases](
         const VectorView<Anchor>& to_chain,
-        const SnarlDistanceIndex& distance_index,
-        const HandleGraph& graph,
         size_t max_indel_bases,
         const transition_iteratee& callback
     ) {
@@ -136,7 +129,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // This holds source, dest, and graph distance.
         // We will fill it all in and then sort it by destination read position.
         std::vector<transition_info> all_transitions = 
-            generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
+            generate_zip_tree_transitions(zip_code_tree, max_graph_lookback_bases,
                                           max_read_lookback_bases, max_indel_bases, to_chain,
                                           seed_to_starting, seed_to_ending);
 
@@ -154,7 +147,6 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 }
 
 std::vector<transition_info> generate_zip_tree_transitions(
-    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,
@@ -398,8 +390,6 @@ int check_recombination(const TracedScore& from, const Anchor& to) {
 }
 
 vector<TracedScore> chain_items_dp(const VectorView<Anchor>& to_chain,
-                                   const SnarlDistanceIndex& distance_index,
-                                   const HandleGraph& graph,
                                    const transition_iterator& for_each_transition,
                                    const ChainScoringScheme& scoring_scheme,
                                    size_t max_indel_bases,
@@ -582,8 +572,6 @@ vector<TracedScore> chain_items_dp(const VectorView<Anchor>& to_chain,
 
     // Run our DP step over all the transitions.
     for_each_transition(to_chain,
-                        distance_index,
-                        graph,
                         max_indel_bases,
                         iteratee);
         
@@ -636,10 +624,7 @@ vector<TracedScore> chain_items_dp(const VectorView<Anchor>& to_chain,
 #endif
         }
 #ifdef debug_chaining
-        std::cerr << "[REC INFO] Recombination number for chain: "
-                  << best_score.rec_num << "\tscore: "
-                  << best_score.score << "\tpaths: "
-                  << best_score.paths << std::endl;
+        std::cerr << "[REC INFO] score: " << best_score.score << "\tpaths: " << best_score.paths << std::endl;
 #endif
     }
 
@@ -679,13 +664,11 @@ vector<SparseAnchorChain> chain_items_traceback(const vector<TracedScore>& chain
         size_t here = trace_from;
 #ifdef debug_chaining
         std::cerr << "[REC INFO] Starting traceback at item #" << here
-                  << " with recs: " << chain_scores[here].rec_num
-                  << " score: " << chain_scores[here].score << std::endl;
+                  << " with score: " << chain_scores[here].score << std::endl;
 #endif
         while (here != TracedScore::nowhere()) {
 #ifdef debug_chaining
-            std::cerr << "\trecs: " << chain_scores[here].rec_num
-                      << " paths:\t" << std::bitset<64>(chain_scores[here].paths) << std::endl;
+            std::cerr << "\tpaths:\t" << std::bitset<64>(chain_scores[here].paths) << std::endl;
             std::cerr << "\t\tanchor #" << here << ": " << to_chain[here] << std::endl;
 #endif
             // Mark here as used. Happens once per item, and so limits runtime.
@@ -770,8 +753,6 @@ void mark_rec_count(const VectorView<Anchor>& to_chain, vector<SparseAnchorChain
 }
 
 vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
-                                           const SnarlDistanceIndex& distance_index,
-                                           const HandleGraph& graph,
                                            const transition_iterator& for_each_transition,
                                            const ChainScoringScheme& scoring_scheme,
                                            size_t max_chains,
@@ -783,7 +764,7 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
     }
         
     // We actually need to do DP
-    vector<TracedScore> chain_scores = chain_items_dp(to_chain, distance_index, graph, for_each_transition,
+    vector<TracedScore> chain_scores = chain_items_dp(to_chain, for_each_transition,
                                                       scoring_scheme, max_indel_bases, show_work);
     
     // Then do the tracebacks
@@ -806,14 +787,10 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
 }
 
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
-                                  const SnarlDistanceIndex& distance_index,
-                                  const HandleGraph& graph,
                                   const transition_iterator& for_each_transition,
                                   const ChainScoringScheme& scoring_scheme,
                                   size_t max_indel_bases) {
     return find_best_chains(to_chain,
-                            distance_index,
-                            graph,
                             for_each_transition,
                             scoring_scheme,
                             1, // only one chain!

@@ -106,7 +106,7 @@ static algorithms::SparseAnchorChain run_ziptree_iterator_best_chain(const HashG
 
     // Make iterator for only the first tree
     // Seriously this is for test cases, only one tree at once
-    return algorithms::find_best_chain(anchors, distance_index, graph,
+    return algorithms::find_best_chain(anchors,
                                        algorithms::zip_tree_transition_iterator(seeds,
                                                                                 zip_forest.trees.front(),
                                                                                 std::numeric_limits<size_t>::max(),
@@ -140,7 +140,7 @@ static vector<algorithms::SparseAnchorChain> run_ziptree_iterator_multi_chain(co
 
     // Make iterator for only the first tree
     // Seriously this is for test cases, only one tree at once
-    return algorithms::find_best_chains(anchors, distance_index, graph,
+    return algorithms::find_best_chains(anchors,
                                         algorithms::zip_tree_transition_iterator(seeds,
                                                                                 zip_forest.trees.front(),
                                                                                 std::numeric_limits<size_t>::max(),
@@ -284,7 +284,7 @@ TEST_CASE("recombination_penalty changes which predecessor chain_items_dp picks"
     SECTION("without a penalty the higher-scoring recombinant predecessor wins") {
         scheme.recombination_penalty = 0;
 
-        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, distance_index, graph, zip_it, scheme);
+        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, zip_it, scheme);
 
         REQUIRE(chain_scores[d].source == b);
         REQUIRE(chain_scores[d].score == 17);
@@ -293,7 +293,7 @@ TEST_CASE("recombination_penalty changes which predecessor chain_items_dp picks"
     SECTION("a large penalty makes the consistent predecessor win") {
         scheme.recombination_penalty = 20;
 
-        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, distance_index, graph, zip_it, scheme);
+        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, zip_it, scheme);
 
         REQUIRE(chain_scores[d].source == a);
         REQUIRE(chain_scores[d].score == 9);
@@ -347,7 +347,7 @@ TEST_CASE("consistency_bonus changes which predecessor chain_items_dp picks desp
     SECTION("without a bonus the higher-scoring recombinant predecessor wins") {
         scheme.consistency_bonus = 0;
 
-        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, distance_index, graph, zip_it, scheme);
+        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, zip_it, scheme);
 
         REQUIRE(chain_scores[d].source == b);
         REQUIRE(chain_scores[d].score == 17);
@@ -356,7 +356,7 @@ TEST_CASE("consistency_bonus changes which predecessor chain_items_dp picks desp
     SECTION("a bonus larger than the score gap makes the consistent predecessor win") {
         scheme.consistency_bonus = 20;
 
-        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, distance_index, graph, zip_it, scheme);
+        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, zip_it, scheme);
 
         REQUIRE(chain_scores[d].source == a);
         // The bonus only steers the choice; it stays out of the recorded score

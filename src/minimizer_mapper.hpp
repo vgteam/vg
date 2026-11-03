@@ -955,7 +955,6 @@ protected:
     Alignment do_base_level_alignment(const Alignment& aln, 
                                       const VectorView<algorithms::Anchor>& to_chain,
                                       const algorithms::SparseAnchorChain& chain,
-                                      Funnel& funnel,
                                       aligner_stats_t* stats = nullptr) const;
 
     // A bunch of helpers for do_base_level_alignment() that do bits and pieces    

@@ -1457,8 +1457,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             };
             vector<algorithms::SparseAnchorChain> new_chains = algorithms::find_best_chains(
                 anchor_view,
-                *distance_index,
-                gbwt_graph,
                 for_each_transition,
                 scoring_scheme,
                 this->max_chains_per_tree,
@@ -1879,8 +1877,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
                     // Collect stats into here
                     aligner_stats_t alignment_stats;
-                    best_alignments[0] = do_base_level_alignment(aln, seed_anchors, chains.at(processed_num),
-                                                                 funnel, &alignment_stats);
+                    best_alignments[0] = do_base_level_alignment(aln, seed_anchors, chains.at(processed_num), &alignment_stats);
                     alignment_stats.add_annotations(best_alignments[0], "alignment");
 
                     // Remember the stats' usages
@@ -2811,7 +2808,6 @@ Alignment MinimizerMapper::do_base_level_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const algorithms::SparseAnchorChain& chain,
-    Funnel& funnel,
     aligner_stats_t* stats
 ) const {
     
