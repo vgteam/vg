@@ -193,6 +193,23 @@ step_handle_t AnchorBackedPositionGraph::get_step_at_position(
     assert(it != sorted_known_.begin());
     --it;
 
+    // Before the first anchor the floor is path_begin, so a forward walk would
+    // cross the whole path up to the read. Walk back from the next known step
+    // instead when it is closer.
+    auto next = it + 1;
+    if (next != sorted_known_.end() && next->first < target_path_length_ &&
+        next->first - position < position - it->first) {
+        step_handle_t cursor = next->second;
+        size_t cursor_pos = next->first;
+        while (cursor_pos > position && base_->has_previous_step(cursor)) {
+            cursor = base_->get_previous_step(cursor);
+            cursor_pos -= base_->get_length(base_->get_handle_of_step(cursor));
+            step_pos_.emplace(cursor, cursor_pos);
+            ++g_anchor_graph_stats.step_at_pos_walk;
+        }
+        return cursor;
+    }
+
     step_handle_t cursor = it->second;
     size_t cursor_pos = it->first;
 
