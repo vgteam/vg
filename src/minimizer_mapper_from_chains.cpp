@@ -1462,7 +1462,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 for_each_transition,
                 scoring_scheme,
                 this->max_chains_per_tree,
-                this->max_anchor_predecessors,
                 indel_limit,
                 show_work);
 #ifdef debug_rec
@@ -1533,7 +1532,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
                 // Translate into seed numbers and not local anchor numbers.
                 vector<size_t> seed_nums;
-                vector<bool> is_seed_original;
                 seed_nums.reserve(new_chains[chain_i].anchors.size() * 2);
 
                 for (size_t anchor_i = 0; anchor_i < new_chains[chain_i].anchors.size(); anchor_i++) {
@@ -1542,7 +1540,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
                         // And get all the seeds it actually uses in sequence and put them in the chain.
                         seed_nums.push_back(seed_number);
-                        is_seed_original.push_back(new_chains[chain_i].is_anchor_shared[anchor_i]);
                     }
                     for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
                         // And get all the seeds it represents exploring and mark their minimizers explored.
@@ -1554,7 +1551,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // Save original for later use
                 vector<size_t> anchor_nums = new_chains[chain_i].anchors;
                 new_chains[chain_i].anchors = seed_nums;
-                new_chains[chain_i].is_anchor_shared = is_seed_original;
 
                 // Remember how we got it
                 new_chains[chain_i].source_tree = item_num;
@@ -1738,32 +1734,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
     // Built a list of chain scores to feed into process_until_threshold_b
     vector<int> chain_scores;
-    int best_chain_score = 0;
-    size_t best_chain_score_source_tree;
     for (const auto& cur_chain : chains) {
-        if (best_chain_score < cur_chain.chain_score) {
-            best_chain_score = cur_chain.chain_score;
-            best_chain_score_source_tree = cur_chain.source_tree;
-        }
         chain_scores.emplace_back(cur_chain.chain_score);
-    }
-
-    // Provide a small bump to things that come from different chains
-    int min_unbumped_score = best_chain_score;
-    for (size_t i = 0; i < chains.size(); i++) {
-        if (chain_scores[i] >= chain_min_score && chain_scores[i] + different_tree_bonus >= best_chain_score) {
-            // This one would be bumped except for that a bump would take it over the actual top
-            // So anything we bump can't be allowed to pass it
-            min_unbumped_score = std::min(chain_scores[i], min_unbumped_score);
-        }
-    }
-    for (size_t i = 0; i < chains.size(); i++) {
-        // Give a tiny bonus to anything that is likely to have nodes different from the top
-        if ((chains[i].source_tree != best_chain_score_source_tree || !chains[i].has_duplicate_anchors)
-             && chain_scores[i] >= chain_min_score
-             && chain_scores[i] + different_tree_bonus < best_chain_score) {
-            chain_scores[i] = std::min(chain_scores[i] + (int) different_tree_bonus, min_unbumped_score - 1);
-        }
     }
 
     // Remember: we also have chain_score_threshold, which counts down from best chain score
@@ -1791,53 +1763,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             }
         }
     };
-    
-    // Note how many alignments would pass the min unique node fraction filter
-    auto count_unique_alignments = [&alignments](double min_unique_node_fraction) {
-        size_t total_kept = 0;
-        // Put alignments in score order instead of found order
-        std::vector<size_t> alignments_in_score_order;
-        alignments_in_score_order.resize(alignments.size());
-        for (size_t i = 0; i < alignments_in_score_order.size(); i++) {
-            alignments_in_score_order[i] = i;
-        }
-        std::sort(alignments_in_score_order.begin(), alignments_in_score_order.end(), [&](const size_t& a, const size_t& b) {
-            // Return true if item a has a better score than item b and should come first.
-            return alignments[a].score() > alignments[b].score();
-        });
-
-        // Look for duplicate alignments by using this collection of node IDs and orientations
-        std::unordered_set<std::pair<nid_t, bool>> used_nodes;
-        for (auto& aln_i : alignments_in_score_order) {
-            // Work out how much of this alignment is from nodes not claimed by previous alignments
-            size_t from_length_from_used = 0;
-            size_t from_length_total = 0;
-            std::unordered_set<std::pair<nid_t, bool>> cur_aln_nodes;
-            for (const auto& mapping : alignments[aln_i].path().mapping()) {
-                size_t from_length = mapping_from_length(mapping);
-                // Where we would store this information
-                std::pair<nid_t, bool> key{mapping.position().node_id(), mapping.position().is_reverse()};
-                cur_aln_nodes.insert(key);
-                if (used_nodes.count(key)) {
-                    // Count the from_length on already-used nodes
-                    from_length_from_used += from_length;
-                }
-                // And the overall from length
-                from_length_total += from_length;
-            }
-
-            // Calculate the MUNF for this alignment
-            if (from_length_total > 0) {
-                double unique_node_fraction = (double)(from_length_total - from_length_from_used) / from_length_total;
-                // Sufficient uniqueness; treat as used
-                if (unique_node_fraction >= min_unique_node_fraction) {
-                    total_kept++;
-                    used_nodes.insert(cur_aln_nodes.begin(), cur_aln_nodes.end());
-                }
-            }
-        }
-        return total_kept;
-    };
 
     // Track what positions were used in previously generated alignments, so we
     // can fish out alignments to different placements.
@@ -1850,21 +1775,13 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_scores,
-        chain_score_threshold, max_alignments, max_alignments, rng, 
+        chain_score_threshold, target_alignment_attempts, max_alignments, rng, 
         [&](size_t processed_num, size_t item_count) -> bool {
             // This chain is good enough.
             // Called in descending score order.
         
             if (chains.at(processed_num).chain_score < chain_min_score) {
                 // This is so low score we don't want to align even if we have few other candidates
-                discard_chain_by_score(processed_num);
-                return false;
-            }
-            
-            if (best_chain_score > chain_score_threshold
-                && chains.at(processed_num).chain_score + chain_score_threshold < best_chain_score
-                && count_unique_alignments(min_unique_node_fraction) >= target_alignment_attempts) {
-                // We have enough unique alignments already
                 discard_chain_by_score(processed_num);
                 return false;
             }
@@ -1890,11 +1807,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             
             size_t total_anchors = chains.at(processed_num).anchors.size();
             for (size_t anchor_i = 0; anchor_i < total_anchors; anchor_i++) {
-                if (chains.at(processed_num).is_anchor_shared[anchor_i]) {
-                    // We don't expect this anchor to be original
-                    continue;
-                }
-
                 size_t seed_num = chains.at(processed_num).anchors.at(anchor_i);
                 // Look at the individual pin points and their associated read-node offset
                 size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();

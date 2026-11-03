@@ -305,10 +305,6 @@ class MinimizerMapper : public AlignerClient {
     /// chain's score by more than this much, don't align it
     static constexpr size_t default_chain_score_threshold = 100;
     size_t chain_score_threshold = default_chain_score_threshold;
-
-    /// Artificially boost chain scores for chains in trees other than the top one (to get different alignments)
-    static constexpr size_t default_different_tree_bonus = 50;
-    size_t different_tree_bonus = default_different_tree_bonus;
     
     /// Disregard the chain_score_threshold (but NOT the min_chain_score)
     /// when they would give us fewer than this many chains aligned.
@@ -318,10 +314,6 @@ class MinimizerMapper : public AlignerClient {
     /// Allow up to this many chains per tree
     static constexpr size_t default_max_chains_per_tree = 1;
     size_t max_chains_per_tree = default_max_chains_per_tree;
-
-    /// Store up to this many predecessors for each anchor (best traceback, then runner-ups)
-    static constexpr size_t default_max_anchor_predecessors = 2;
-    size_t max_anchor_predecessors = default_max_anchor_predecessors;
     
     /// Even if we would have fewer than target_alignment_attempts results,
     /// don't process anything with a score smaller than this, per read base.

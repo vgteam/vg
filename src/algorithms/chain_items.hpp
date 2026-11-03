@@ -308,14 +308,10 @@ public:
     }
     
     /// Max in a score from a DP table. If it wins, record provenance.
-    void max_in(const vector<vector<TracedScore>>& options, size_t option_number);
+    void max_in(const vector<TracedScore>& options, size_t option_number);
     
     /// Get a score from a table of scores and record provenance in it.
-    static TracedScore score_from(const vector<vector<TracedScore>>& options, size_t option_number);
-
-    /// Put self into this sorted list of TracedScores, if its score justifies
-    /// Will not change size of "current", but will just shift things around
-    void try_to_insert_self(vector<TracedScore>& current) const;
+    static TracedScore score_from(const vector<TracedScore>& options, size_t option_number);
     
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
     TracedScore add_points(int adjustment) const;
@@ -449,30 +445,11 @@ struct ChainScoringScheme {
     int consistency_bonus = 0;
 };
 
-/// An oriented tail end of a traceback
-struct TailAnchor {
-    /// Index of the anchor on this end
-    size_t anchor_index;
-    /// Whether this end is for a left tail or not
-    bool is_left_tail;
-
-    /// Create a TailAnchor with loose values
-    inline TailAnchor(size_t anchor_index, bool is_left_tail) 
-        : anchor_index(anchor_index), is_left_tail(is_left_tail) {}
-
-    bool operator==(const TailAnchor &other) const {
-        return anchor_index == other.anchor_index && is_left_tail == other.is_left_tail;
-    }
-};
 
 /// A single chain result with only anchors in order
 struct SparseAnchorChain {
     /// Anchors in order along the chain
     std::vector<size_t> anchors;
-    /// Whether each anchor is shared with another chain
-    std::vector<bool> is_anchor_shared;
-    /// Whether this has any shared anchors at all
-    bool has_duplicate_anchors = false;
     /// Score of the sparse chain
     int chain_score = 0;
 
@@ -484,10 +461,6 @@ struct SparseAnchorChain {
     size_t source_tree = numeric_limits<size_t>::max();
     /// Chain multiplicity (if known)
     size_t multiplicity = numeric_limits<size_t>::max();
-
-    /// Helpers to get oriented tails
-    inline TailAnchor left_tail() const { return {anchors.front(), true}; }
-    inline TailAnchor right_tail() const { return {anchors.back(), false}; }
 };
 
 /**
@@ -556,7 +529,7 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
                              size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
- * Fill in the given DP table for the explored chain scores ending with each
+ * Fill in a DP table for the explored chain scores ending with each
  * item. Assumes some items exist.
  *
  * We keep many options to allow us to do multiple tracebacks and find
@@ -572,103 +545,27 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
  * Limits transitions to those involving indels of the given size or less, to
  * avoid very bad transitions.
  */
-void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
-                    const VectorView<Anchor>& to_chain,
-                    const SnarlDistanceIndex& distance_index,
-                    const HandleGraph& graph,
-                    const transition_iterator& for_each_transition,
-                    size_t max_predecessors = 2,
-                    const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
-                    size_t max_indel_bases = 100,
-                    bool show_work = false);
-
-/// An alternative edge which a traceback might want to use
-struct AltEdge {
-    /// Smaller anchor number
-    size_t start_anchor;
-    /// Larger anchor number
-    size_t end_anchor;
-    /// How much of a compromise this edge is
-    size_t score_diff;
-    /// Parent ID for start anchor (traceback number)
-    size_t start_parent_id = std::numeric_limits<size_t>::max();
-    /// Index within start parent
-    size_t index_in_start = std::numeric_limits<size_t>::max();
-    /// Parent ID of end anchor
-    size_t end_parent_id = std::numeric_limits<size_t>::max();
-    /// Index within end parent
-    size_t index_in_end = std::numeric_limits<size_t>::max();
-
-    /// Build an AltEdge from loose info
-    inline AltEdge(size_t start_anchor, size_t end_anchor, size_t score_diff) 
-        : start_anchor(start_anchor), end_anchor(end_anchor), score_diff(score_diff) {}
-    
-    /// Build an AltEdge with completley default values
-    inline AltEdge() 
-        : AltEdge(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()) {}
-    
-    inline bool is_real_edge() const { return score_diff == numeric_limits<size_t>::max(); }
-
-    /// Compare for less-than
-    inline bool operator<(const AltEdge& other) const {
-        return score_diff < other.score_diff;
-    }
-
-    /// Compare for greater-than
-    inline bool operator>(const AltEdge& other) const {
-        return score_diff > other.score_diff;
-    }
-};
+vector<TracedScore> chain_items_dp(const VectorView<Anchor>& to_chain,
+                                   const SnarlDistanceIndex& distance_index,
+                                   const HandleGraph& graph,
+                                   const transition_iterator& for_each_transition,
+                                   const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
+                                   size_t max_indel_bases = 100,
+                                   bool show_work = false);
 
 /**
  * Trace back through in the given DP table from the best chain score.
  *
  * Returns tracebacks that visit disjoint sets of items, in score order, along
- * with their scores.
- *
- * Tracebacks are constrained to be nonoverlapping by stopping each traceback
- * when the optimum place to come from has already been used. If the best
- * predecessor was already used, the other stored predecessors will be tried,
- * as long as they are no more worse than max_alt_lookback.
+ * with their scores. Tracebacks are constrained to be nonoverlapping by
+ * stopping when the optimum place to come from has already been used.
  * 
- * Returns tracebacks and inter-traceback connections via pass-by-ref args.
- * Tracebacks are SparseAnchorChains, i.e. lists of anchor indexes with a score
- * attached, and connections are AltEdges, i.e. (start, end, score diff)
+ * Returns tracebacks as SparseAnchorChains, i.e. anchor indexes with a score.
  */
-void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
-                           const VectorView<Anchor>& to_chain,
-                           vector<SparseAnchorChain>& tracebacks,
-                           vector<AltEdge>& alts,
-                           const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
-                           size_t max_tracebacks = 1);
-
-/**
- * Filter AltEdges to those which tie in a traceback end.
- * 
- * A tie-in will either trace backwards from a traceback start,
- * or trace forwards from a traceback end. They are stored in
- * a lookup table based on the tail anchor being tied in.
- * 
- * If there are multiple tie-ins for a given tail to a given traceback,
- * the most optimal one (which sacrifices the least score) will be used.
- * Edges are stored {tail : (tie in to traceback 1, tie in to traceback 2, ...)}
- */
-unordered_map<TailAnchor, vector<AltEdge>> filter_alt_edges(const VectorView<Anchor>& to_chain,
-                                                            const vector<SparseAnchorChain>& original_tracebacks,
-                                                            const vector<AltEdge>& alts);
-
-/**
- * Construct better tracebacks by letting them overlap via tail tie-ins.
- * 
- * For each original traceback, try to extend in both directions
- * via the edges stored in tail_edges, so long as the extension is helpful.
- * 
- * May end up with more tracebacks than the original, if a traceback is
- * extended in multiple ways.
- */
-vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<TracedScore>>& chain_scores,
-                                                      const vector<SparseAnchorChain>& original_tracebacks,
-                                                      const unordered_map<TailAnchor, vector<AltEdge>> tail_edges);
+vector<SparseAnchorChain> chain_items_traceback(const vector<TracedScore>& chain_scores,
+                                                const VectorView<Anchor>& to_chain,
+                                                size_t item_bonus,
+                                                size_t max_tracebacks = 1);
 
 /**
  * Assign a rec_count to each chain in the list
@@ -690,7 +587,6 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
                                            const transition_iterator& for_each_transition,
                                            const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
                                            size_t max_chains = 1,
-                                           size_t max_predecessors = 2,
                                            size_t max_indel_bases = 100,
                                            bool show_work = false);
 
@@ -728,13 +624,5 @@ size_t get_read_distance(const Anchor& from, const Anchor& to);
                      
 }
 }
-
-template <>
-struct std::hash<vg::algorithms::TailAnchor>
-{
-  std::size_t operator()(const vg::algorithms::TailAnchor& k) const {
-    return (k.is_left_tail + (hash<std::size_t>()(k.anchor_index) << 1)) >> 1;
-  }
-};
 
 #endif

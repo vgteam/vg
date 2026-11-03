@@ -483,12 +483,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "only align chains if their score is within this many points of the best score"
     );
     chaining_opts.add_range(
-        "different-tree-bonus",
-        &MinimizerMapper::different_tree_bonus,
-        MinimizerMapper::default_different_tree_bonus,
-        "when sorting chains by score, apply a bonus for those in a tree other than the top chain"
-    );
-    chaining_opts.add_range(
         "target-alignment-attempts",
         &MinimizerMapper::target_alignment_attempts,
         MinimizerMapper::default_target_alignment_attempts,
@@ -995,7 +989,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-tail-gap", 150)
         .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
-        .add_entry<double>("min-unique-node-fraction", 0.2)
+        .add_entry<double>("min-unique-node-fraction", 0)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
         .add_entry<int>("wfa-max-distance", 240)
@@ -1058,7 +1052,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-tail-gap", 150)
         .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
-        .add_entry<double>("min-unique-node-fraction", 0.2)
+        .add_entry<double>("min-unique-node-fraction", 0)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
         .add_entry<int>("wfa-max-distance", 240)

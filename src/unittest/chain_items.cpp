@@ -211,84 +211,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     REQUIRE(result.anchors == std::vector<size_t>{0, 1, 2, 3});
 }
 
-TEST_CASE("Multi chain on only one good chain", "[chain_items]") {
-    // Set up graph fixture
-    HashGraph graph = make_long_graph(3, 10);
-    auto h = get_handles(graph);
-
-    // One anchor on each node
-    // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[1], 0, 5, 5},
-                                  {11, h[2], 0, 5, 5},
-                                  {21, h[3], 0, 5, 5}}, graph);
-    
-    /// Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    // Only one path through
-    REQUIRE(result.size() == 1);
-}
-
-TEST_CASE("Gap between two tracebacks", "[chain_items]") {
-    // Set up graph fixture
-    HashGraph graph = make_long_graph(4, 10);
-    auto h = get_handles(graph);
-
-    // Large indel will force two separate tracebacks
-    // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[1], 0, 5, 5},
-                                  {11, h[2], 0, 5, 5},
-                                  {101, h[3], 0, 5, 1},
-                                  {111, h[4], 0, 5, 1}}, graph);
-    
-    /// Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    // Two separate chains, one reusing the other
-    REQUIRE(result.size() == 2);
-    REQUIRE(result[0].anchors == vector<size_t>({0, 1}));
-    REQUIRE(result[1].anchors == vector<size_t>({0, 1, 2, 3}));
-}
-
-TEST_CASE("Simple Y case", "[chain_items]") {
-    // Set up graph fixture
-    HashGraph graph = make_x_graph();
-    auto h = get_handles(graph);
-
-    // 4-5-8 and 4-6-7
-    // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{11, h[4], 0, 5, 5},
-                                  {21, h[5], 0, 5, 5},
-                                  {21, h[6], 0, 5, 5},
-                                  {31, h[7], 0, 10, 10},
-                                  {31, h[8], 0, 10, 11}}, graph);
-    
-    /// Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    // Two separate chains, sharing a trunk
-    REQUIRE(result.size() == 2);
-    REQUIRE(result[0].anchors == vector<size_t>({0, 1, 4}));
-    REQUIRE(result[1].anchors == vector<size_t>({0, 2, 3}));
-}
-
-TEST_CASE("Reverse Y case", "[chain_items]") {
-    // Set up graph fixture
-    HashGraph graph = make_x_graph();
-    auto h = get_handles(graph);
-
-    // 2-4 and 3-4
-    // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[2], 0, 5, 6},
-                                  {1, h[3], 0, 5, 5},
-                                  {11, h[4], 0, 5, 5}}, graph);
-    
-    /// Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    // Two separate chains, sharing a trunk
-    REQUIRE(result.size() == 2);
-    REQUIRE(result[0].anchors == vector<size_t>({0, 2}));
-    REQUIRE(result[1].anchors == vector<size_t>({1, 2}));
-}
-
-TEST_CASE("single internally-recombinant anchor forces a  recombination", "[chain_items]") {
+TEST_CASE("single internally-recombinant anchor forces a recombination", "[chain_items]") {
     // Set up graph fixture
     HashGraph graph = make_long_graph(2, 10);
     auto h = get_handles(graph);
@@ -361,21 +284,19 @@ TEST_CASE("recombination_penalty changes which predecessor chain_items_dp picks"
     SECTION("without a penalty the higher-scoring recombinant predecessor wins") {
         scheme.recombination_penalty = 0;
 
-        vector<vector<algorithms::TracedScore>> chain_scores;
-        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, zip_it, 3, scheme);
+        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, distance_index, graph, zip_it, scheme);
 
-        REQUIRE(chain_scores[d].front().source == b);
-        REQUIRE(chain_scores[d].front().score == 17);
+        REQUIRE(chain_scores[d].source == b);
+        REQUIRE(chain_scores[d].score == 17);
     }
 
     SECTION("a large penalty makes the consistent predecessor win") {
         scheme.recombination_penalty = 20;
 
-        vector<vector<algorithms::TracedScore>> chain_scores;
-        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, zip_it, 3, scheme);
+        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, distance_index, graph, zip_it, scheme);
 
-        REQUIRE(chain_scores[d].front().source == a);
-        REQUIRE(chain_scores[d].front().score == 9);
+        REQUIRE(chain_scores[d].source == a);
+        REQUIRE(chain_scores[d].score == 9);
     }
 }
 
@@ -426,22 +347,20 @@ TEST_CASE("consistency_bonus changes which predecessor chain_items_dp picks desp
     SECTION("without a bonus the higher-scoring recombinant predecessor wins") {
         scheme.consistency_bonus = 0;
 
-        vector<vector<algorithms::TracedScore>> chain_scores;
-        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, zip_it, 3, scheme);
+        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, distance_index, graph, zip_it, scheme);
 
-        REQUIRE(chain_scores[d].front().source == b);
-        REQUIRE(chain_scores[d].front().score == 17);
+        REQUIRE(chain_scores[d].source == b);
+        REQUIRE(chain_scores[d].score == 17);
     }
 
     SECTION("a bonus larger than the score gap makes the consistent predecessor win") {
         scheme.consistency_bonus = 20;
 
-        vector<vector<algorithms::TracedScore>> chain_scores;
-        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, zip_it, 3, scheme);
+        vector<algorithms::TracedScore> chain_scores = algorithms::chain_items_dp(to_score, distance_index, graph, zip_it, scheme);
 
-        REQUIRE(chain_scores[d].front().source == a);
+        REQUIRE(chain_scores[d].source == a);
         // The bonus only steers the choice; it stays out of the recorded score
-        REQUIRE(chain_scores[d].front().score == 9);
+        REQUIRE(chain_scores[d].score == 9);
     }
 }
 
