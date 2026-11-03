@@ -1769,9 +1769,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     // Use pairs since we can't hash tuples.
     // {((node ID, orientation), read-minus-node) : alignment number}
     std::unordered_map<std::pair<std::pair<nid_t, bool>, int64_t>, size_t> used_matchings;
-    // To avoid redoing alignment components we've already done
-    // {(start seed, end seed) : path}
-    unordered_map<pair<size_t, size_t>, ScoredPath> memoized_alignments;
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_scores,
@@ -1883,7 +1880,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                     // Collect stats into here
                     aligner_stats_t alignment_stats;
                     best_alignments[0] = do_base_level_alignment(aln, seed_anchors, chains.at(processed_num),
-                                                                 memoized_alignments, funnel, &alignment_stats);
+                                                                 funnel, &alignment_stats);
                     alignment_stats.add_annotations(best_alignments[0], "alignment");
 
                     // Remember the stats' usages
@@ -2814,7 +2811,6 @@ Alignment MinimizerMapper::do_base_level_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const algorithms::SparseAnchorChain& chain,
-    unordered_map<pair<size_t, size_t>, ScoredPath>& memoized_alignments,
     Funnel& funnel,
     aligner_stats_t* stats
 ) const {
@@ -2861,13 +2857,9 @@ Alignment MinimizerMapper::do_base_level_alignment(
     int composed_score;
 
     // Left tail
-    pair<size_t, size_t> left_tail_mem = make_pair(numeric_limits<size_t>::max(), chain.anchors.front());
-    if (!memoized_alignments.count(left_tail_mem)) {
-        memoized_alignments[left_tail_mem] = find_tail_alignment(
-            aln, to_chain[chain.anchors.front()], wfa_extender, true, stats);
-    }
-    composed_path = memoized_alignments[left_tail_mem].path;
-    composed_score = memoized_alignments[left_tail_mem].score;
+    ScoredPath left_tail = find_tail_alignment(aln, to_chain[chain.anchors.front()], wfa_extender, true, stats);
+    composed_path = left_tail.path;
+    composed_score = left_tail.score;
 
     // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
     auto here_it = chain.anchors.begin();
@@ -2941,21 +2933,16 @@ Alignment MinimizerMapper::do_base_level_alignment(
         }
 #endif
 
-        pair<size_t, size_t> link_mem = make_pair(*here_it, *next_it);
-        if (!memoized_alignments.count(link_mem)) {
-            memoized_alignments[link_mem] = find_link_alignment(
-                to_chain, aln, here_it, next_it, wfa_extender, aligner, stats);
-        }
+        ScoredPath link = find_link_alignment(to_chain, aln, here_it, next_it, wfa_extender, aligner, stats);
+        longest_attempted_connection = std::max(longest_attempted_connection, (size_t) link.path.length());
 
-        longest_attempted_connection = std::max(longest_attempted_connection, (size_t) memoized_alignments[link_mem].path.length());
-
-        if (memoized_alignments[link_mem].score == -std::numeric_limits<int32_t>::max()) {
+        if (link.score == -std::numeric_limits<int32_t>::max()) {
             // We gave up. Jump to right tail.
             break;
         }
 
-        append_path(composed_path, memoized_alignments[link_mem].path);
-        composed_score += memoized_alignments[link_mem].score;
+        append_path(composed_path, link.path);
+        composed_score += link.score;
         
         // Advance here to next and start considering the next after it
         here_it = next_it;
@@ -2994,13 +2981,9 @@ Alignment MinimizerMapper::do_base_level_alignment(
     }
 
     // Right tail
-    pair<size_t, size_t> right_tail_mem = make_pair(*here_it, numeric_limits<size_t>::max());
-    if (!memoized_alignments.count(right_tail_mem)) {
-        memoized_alignments[right_tail_mem] = find_tail_alignment(
-            aln, to_chain[*here_it], wfa_extender, false, stats);
-    }
-    append_path(composed_path, memoized_alignments[right_tail_mem].path);
-    composed_score += memoized_alignments[right_tail_mem].score;
+    ScoredPath right_tail = find_tail_alignment(aln, to_chain[*here_it], wfa_extender, false, stats);
+    append_path(composed_path, right_tail.path);
+    composed_score += right_tail.score;
 
     if (softclip_penalty != 0.0 && composed_path.mapping_size() > 0) {
         size_t softclipped_bases = softclip_start(composed_path) + softclip_end(composed_path);
@@ -3058,9 +3041,9 @@ Alignment MinimizerMapper::do_base_level_alignment(
         result.set_identity(identity(result.path()));
     }
     
-    set_annotation(result, "left_tail_length", (double) memoized_alignments[left_tail_mem].path.length());
+    set_annotation(result, "left_tail_length", (double) left_tail.path.length());
     set_annotation(result, "longest_attempted_connection", (double) longest_attempted_connection); 
-    set_annotation(result, "right_tail_length", (double) memoized_alignments[right_tail_mem].path.length());
+    set_annotation(result, "right_tail_length", (double) right_tail.path.length());
     set_annotation(result, "chain.rec_count", chain.rec_count);
     
     return result;

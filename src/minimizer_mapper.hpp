@@ -949,17 +949,12 @@ protected:
 
     /**
      * Convert a SparseAnchorChain to a base-level alignment
-     * 
-     * Attempts to reuse alignments already computed and stored as
-     * {(start seed, end seed) : path} in memoized_alignments.
-     * Saves all new alignments to there too.
      *
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
     Alignment do_base_level_alignment(const Alignment& aln, 
                                       const VectorView<algorithms::Anchor>& to_chain,
                                       const algorithms::SparseAnchorChain& chain,
-                                      unordered_map<pair<size_t, size_t>, ScoredPath>& memoized_alignments,
                                       Funnel& funnel,
                                       aligner_stats_t* stats = nullptr) const;
 
