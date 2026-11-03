@@ -28,6 +28,16 @@ constexpr double Recombinator::ABSENT_SCORE;
 constexpr size_t Recombinator::LONG_READ_HOMOPOLYMERS;
 constexpr size_t Recombinator::MIN_GREF_LENGTH;
 
+// Other static class variables.
+
+const std::vector<std::pair<Recombinator::Parameters::preset_t, std::string>> Recombinator::Parameters::PRESETS = {
+    { Recombinator::Parameters::preset_default, "default" },
+    { Recombinator::Parameters::preset_haploid, "haploid" },
+    { Recombinator::Parameters::preset_diploid, "diploid" },
+    { Recombinator::Parameters::preset_hifi, "hifi" },
+    { Recombinator::Parameters::preset_ont, "ont" }
+};
+
 //------------------------------------------------------------------------------
 
 // Returns true if the path belongs to a gref cover: a copy of a reference path
@@ -1253,7 +1263,7 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotyp
 
 std::string Recombinator::Parameters::preset_list(std::string_view separator) {
     std::string result = "{";
-    for (const auto& preset : presets()) {
+    for (const auto& preset : PRESETS) {
         if (result.size() > 1) {
             result += separator;
         }
@@ -1264,7 +1274,7 @@ std::string Recombinator::Parameters::preset_list(std::string_view separator) {
 }
 
 std::optional<Recombinator::Parameters::preset_t> Recombinator::Parameters::parse_preset(std::string_view name) {
-    for (const auto& preset : presets()) {
+    for (const auto& preset : PRESETS) {
         if (preset.second == name) {
             return preset.first;
         }
@@ -1462,6 +1472,7 @@ double get_or_estimate_coverage(
         std::cerr << "Estimating kmer coverage" << std::endl;
     }
     std::map<size_t, size_t> count_to_frequency;
+    // FIXME: parameter to include singletons in the estimation.
     for (auto iter = counts.begin(); iter != counts.end(); ++iter) {
         // We are only interested in kmers with multiple occurrences, as unique
         // kmers are likely sequencing errors.

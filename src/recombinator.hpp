@@ -412,16 +412,8 @@ public:
             preset_ont
         };
 
-        /// Returns a list of presets and their names.
-        constexpr static std::vector<std::pair<preset_t, std::string>> presets() {
-            return {
-                { preset_default, "default" },
-                { preset_haploid, "haploid" },
-                { preset_diploid, "diploid" },
-                { preset_hifi, "hifi" },
-                { preset_ont, "ont" }
-            };
-        }
+        /// A list of presets and their names.
+        const static std::vector<std::pair<preset_t, std::string>> PRESETS;
 
         /// Returns the set of available presets as a string.
         static std::string preset_list(std::string_view separator);
