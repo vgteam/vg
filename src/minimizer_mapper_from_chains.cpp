@@ -1442,10 +1442,10 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
             // Find chains over the seeds in the zip code tree
             algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
-                seeds,
                 zip_code_forest.trees[item_num],
                 graph_lookback_limit,
-                read_lookback_limit
+                read_lookback_limit,
+                this->allow_overlap
             );
             // TODO: Should we just inherit these? Or set ones up as members?
             algorithms::ChainScoringScheme scoring_scheme {

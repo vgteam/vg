@@ -1007,7 +1007,7 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                 std::unordered_map<std::pair<size_t, size_t>, size_t> all_transitions;
 
                 // Set up to get all the transitions between anchors in the zip code tree
-                auto transition_iterator = algorithms::zip_tree_transition_iterator(seeds, zip_forest.trees.at(0), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+                auto transition_iterator = algorithms::zip_tree_transition_iterator(zip_forest.trees.at(0), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
                 // And get them
                 transition_iterator(anchors, std::numeric_limits<size_t>::max(), [&](const vg::algorithms::transition_info& transition) {
                     // And for each of them, remember them

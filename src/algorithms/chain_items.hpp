@@ -496,10 +496,10 @@ using transition_iterator = std::function<void(const VectorView<Anchor>& to_chai
  * Enumerates transitions under the max graph lookback bases, and filters them
  * by the max read lookback bases.
  */
-transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
-                                                 const ZipCodeTree& zip_code_tree,
+transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree,
                                                  size_t max_graph_lookback_bases,
-                                                 size_t max_read_lookback_bases);
+                                                 size_t max_read_lookback_bases,
+                                                 bool alllow_overlaps);
 
 /**
  * Walk through the ziptree from left to right to find all seeds,
@@ -513,6 +513,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,
     size_t max_indel_bases,
+    bool allow_overlaps,
     const VectorView<Anchor>& to_chain,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending);
@@ -523,7 +524,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
  * Helper for generate_zip_tree_transitions() to avoid saving useless stuff.
  */
 void add_transition_if_legal(vector<transition_info>& transitions, const VectorView<Anchor>& to_chain,
-                             size_t max_read_lookback_bases, size_t max_indel_bases,
+                             size_t max_read_lookback_bases, size_t max_indel_bases, bool allow_overlaps,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
