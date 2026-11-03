@@ -1686,6 +1686,46 @@ void GrefCover::write_gref_segments(ostream& os) {
     }
 }
 
+unordered_map<string, string> GrefCover::read_top_level_snarls(istream& is) {
+    // Find the columns by their names in the header.
+    size_t contig_column = string::npos;
+    size_t snarl_column = string::npos;
+    unordered_map<string, string> result;
+    string line;
+    vector<string> columns;
+    while (getline(is, line)) {
+        if (line.empty()) {
+            continue;
+        }
+        bool is_header = line[0] == '#';
+        columns.clear();
+        stringstream fields(is_header ? line.substr(1) : line);
+        for (string field; getline(fields, field, '\t');) {
+            columns.push_back(field);
+        }
+        if (is_header) {
+            for (size_t i = 0; i < columns.size(); i++) {
+                if (columns[i] == "gref_contig") {
+                    contig_column = i;
+                } else if (columns[i] == "top_level_snarl") {
+                    snarl_column = i;
+                }
+            }
+            continue;
+        }
+        if (contig_column == string::npos || snarl_column == string::npos) {
+            throw runtime_error("gref segments table has no header naming gref_contig and top_level_snarl columns");
+        }
+        if (columns.size() <= std::max(contig_column, snarl_column)) {
+            throw runtime_error("gref segments table row has too few columns: " + line);
+        }
+        if (columns[snarl_column] != ".") {
+            result[columns[contig_column]] = columns[snarl_column];
+        }
+    }
+    return result;
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -1702,7 +1742,10 @@ GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) 
             return;
         }
         uint32_t rank = paths.size();
-        paths.push_back({ name, start, PathSteps(graph, path_id) });
+        PathSteps steps(graph, path_id);
+        // Alt contigs have fragment names, which end in _<N>_alt.
+        bool is_alt_contig = GrefCover::is_gref_name(name) && steps.length() > 0;
+        paths.push_back({ name, start, std::move(steps), is_alt_contig });
         for (const PathSteps::Step& step : paths.back().steps.steps()) {
             Position& position = positions[graph.get_id(step.handle) - min_id];
             if (position.path == NO_PATH) {
@@ -1768,10 +1811,51 @@ uint64_t GrefIndex::total_length() const {
     return total;
 }
 
+handle_t GrefIndex::last_handle(uint32_t path, bool is_reverse) const {
+    const std::vector<PathSteps::Step>& steps = paths[path].steps.steps();
+    return is_reverse ? graph.flip(steps.front().handle) : steps.back().handle;
+}
+
+bool GrefIndex::on_reference(handle_t step) const {
+    uint32_t path = find(graph.get_id(step)).path;
+    return path != NO_PATH && !is_alt_contig(path);
+}
+
+std::optional<size_t> GrefIndex::step_past_contig_end(const std::vector<handle_t>& walk, size_t last_step,
+                                                      uint32_t contig, bool is_reverse) const {
+    handle_t end = last_handle(contig, is_reverse);
+    for (size_t i = last_step + 1; i < walk.size() && find(graph.get_id(walk[i])).path != contig; i++) {
+        if (graph.has_edge(end, walk[i])) {
+            return i;
+        }
+        if (on_reference(walk[i])) {
+            break;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<size_t> GrefIndex::step_before_contig_start(const std::vector<handle_t>& walk, size_t first_step,
+                                                          uint32_t contig, bool is_reverse) const {
+    // The contig's first node, as the walk reads the contig, is its last node
+    // as the reverse walk reads it.
+    handle_t start = graph.flip(last_handle(contig, !is_reverse));
+    for (size_t i = first_step; i-- > 0 && find(graph.get_id(walk[i])).path != contig;) {
+        if (graph.has_edge(walk[i], start)) {
+            return i;
+        }
+        if (on_reference(walk[i])) {
+            break;
+        }
+    }
+    return std::nullopt;
+}
+
 std::vector<GrefIndex::Run> GrefIndex::runs(const WalkInterval& interval) const {
     std::vector<Run> result;
     size_t node_start = 0;
-    for (const handle_t& handle : interval.walk) {
+    for (size_t step = 0; step < interval.walk.size(); step++) {
+        const handle_t& handle = interval.walk[step];
         size_t node_length = graph.get_length(handle);
         const Position& position = find(graph.get_id(handle));
         // Walk coordinates of the bases of the interval on this node.
@@ -1786,8 +1870,9 @@ std::vector<GrefIndex::Run> GrefIndex::runs(const WalkInterval& interval) const 
             if (!result.empty() && result.back().end == from && result.back().path == position.path &&
                 result.back().is_reverse == is_reverse && result.back().coord_at(from) == coord) {
                 result.back().end = to;
+                result.back().last_step = step;
             } else {
-                result.push_back({ from, to, position.path, is_reverse, coord });
+                result.push_back({ from, to, position.path, is_reverse, coord, step, step });
             }
         }
         node_start += node_length;
@@ -1830,24 +1915,105 @@ struct Segment {
 
 }
 
-GrefPlacement GrefIndex::place(const WalkInterval& interval) const {
+GrefPlacement GrefIndex::place(const WalkInterval& bases, std::optional<handle_t> before,
+                               std::optional<handle_t> after) const {
+    // Work on the interval of the same bases on a walk that the nodes on
+    // either side extend.
+    WalkInterval interval = bases;
+    if (before) {
+        interval.walk.insert(interval.walk.begin(), *before);
+        interval.offset += graph.get_length(*before);
+    }
+    if (after) {
+        interval.walk.push_back(*after);
+    }
+
     GrefPlacement placement;
     std::vector<Run> runs = this->runs(interval);
     for (const Run& run : runs) {
         (run.is_reverse ? placement.reverse_bases : placement.forward_bases) += run.end - run.begin;
     }
     placement.along_one_path = (runs.size() == 1 && runs.front().begin == 0 && runs.front().end == interval.length);
-    // Only bases between two runs can be substitutions, which need the bases
-    // to compare with the gref.
-    std::string sequence;
-    if (runs.size() > 1) {
-        sequence = interval.sequence(graph);
+
+    // Where each step of the walk starts, in bases of the interval, with one
+    // more entry for the end of the walk. Steps before the interval start at
+    // negative bases.
+    std::vector<int64_t> step_starts(interval.walk.size() + 1);
+    step_starts[0] = -int64_t(interval.offset);
+    for (size_t i = 0; i < interval.walk.size(); i++) {
+        step_starts[i + 1] = step_starts[i] + int64_t(graph.get_length(interval.walk[i]));
     }
+
+    // Put the interval's bases [from, to) in place of the segment's path bases
+    // that start at first_coord, going along the segment. When as many bases
+    // go in as come out, they align base for base. Only these edits need the
+    // bases of the interval.
+    std::string sequence;
+    auto replace = [&](Segment& segment, size_t from, size_t to, int64_t first_coord, size_t replaced) {
+        size_t inserted = to - from;
+        if (inserted != replaced) {
+            segment.add(replaced, 'D');
+            segment.add(inserted, 'I');
+            return;
+        }
+        if (sequence.empty()) {
+            sequence = interval.sequence(graph);
+        }
+        for (size_t t = 0; t < inserted; t++) {
+            int64_t coord = segment.is_reverse ? first_coord - int64_t(t) : first_coord + int64_t(t);
+            char gref_base = base(segment.path, coord);
+            if (segment.is_reverse) {
+                gref_base = complement(gref_base);
+            }
+            segment.add(1, std::toupper(sequence[from + t]) == std::toupper(gref_base) ? '=' : 'X');
+        }
+    };
+
+    // The segment's last run leaves its alt contig at the end of a node, short
+    // of the contig's end. If the walk rejoins the graph past that end within
+    // the first limit bases, and after some bases of the interval, those bases
+    // replace the rest of the contig. Return the base after the bases that the
+    // segment holds.
+    auto replace_tail = [&](Segment& segment, const Run& run, size_t limit) -> size_t {
+        if (!is_alt_contig(run.path) || step_starts[run.last_step + 1] != int64_t(run.end)) {
+            return run.end;
+        }
+        uint64_t last_coord = run.is_reverse ? 0 : path_length(run.path) - 1;
+        uint64_t rest = run.is_reverse ? run.last() : last_coord - run.last();
+        std::optional<size_t> rejoin;
+        if (rest > 0) {
+            rejoin = step_past_contig_end(interval.walk, run.last_step, run.path, run.is_reverse);
+        }
+        if (!rejoin || step_starts[*rejoin] > int64_t(limit) || step_starts[*rejoin] == int64_t(run.end)) {
+            return run.end;
+        }
+        size_t end = step_starts[*rejoin];
+        replace(segment, run.end, end, segment.next, rest);
+        segment.low = std::min(segment.low, last_coord);
+        segment.high = std::max(segment.high, last_coord);
+        return end;
+    };
+
+    // The run joins its alt contig at the start of a node, past the contig's
+    // start. If the walk comes past that start from a step that ends at or
+    // after base from, and before the run, return the base where that step
+    // ends. The bases from there to the run replace the start of the contig.
+    auto head_start = [&](const Run& run, size_t from) -> std::optional<size_t> {
+        if (!is_alt_contig(run.path) || step_starts[run.first_step] != int64_t(run.begin) ||
+            run.coord == (run.is_reverse ? path_length(run.path) - 1 : 0)) {
+            return std::nullopt;
+        }
+        std::optional<size_t> join = step_before_contig_start(interval.walk, run.first_step, run.path, run.is_reverse);
+        if (!join || step_starts[*join + 1] < int64_t(from) || step_starts[*join + 1] == int64_t(run.begin)) {
+            return std::nullopt;
+        }
+        return size_t(step_starts[*join + 1]);
+    };
 
     std::vector<Segment> segments;
     size_t position = 0;
-    for (const Run& run : runs) {
-        size_t inserted = run.begin - position;
+    for (size_t r = 0; r < runs.size(); r++) {
+        const Run& run = runs[r];
         bool continues = false;
         int64_t deleted = 0;
         if (!segments.empty() && segments.back().path == run.path && segments.back().is_reverse == run.is_reverse) {
@@ -1855,29 +2021,29 @@ GrefPlacement GrefIndex::place(const WalkInterval& interval) const {
             continues = (deleted >= 0);
         }
         if (continues) {
-            Segment& segment = segments.back();
-            if (inserted == size_t(deleted)) {
-                // A substitution: compare the bases.
-                for (size_t t = 0; t < inserted; t++) {
-                    int64_t coord = run.is_reverse ? segment.next - int64_t(t) : segment.next + int64_t(t);
-                    char gref_base = base(run.path, coord);
-                    if (run.is_reverse) {
-                        gref_base = complement(gref_base);
-                    }
-                    segment.add(1, std::toupper(sequence[position + t]) == std::toupper(gref_base) ? '=' : 'X');
-                }
-            } else {
-                segment.add(deleted, 'D');
-                segment.add(inserted, 'I');
-            }
+            replace(segments.back(), position, run.begin, segments.back().next, deleted);
         } else {
             if (!segments.empty()) {
-                // Bases between placements on different paths go with the earlier one.
-                segments.back().add(inserted, 'I');
+                position = replace_tail(segments.back(), runs[r - 1], run.begin);
+            }
+            std::optional<size_t> head = head_start(run, position);
+            size_t joined = head.value_or(run.begin);
+            // Bases between placements on different paths go with the earlier
+            // one. Bases before the first placement start it.
+            if (!segments.empty()) {
+                segments.back().add(joined - position, 'I');
             }
             segments.push_back({ run.path, run.is_reverse, run.coord, run.coord, 0, {} });
+            Segment& segment = segments.back();
             if (segments.size() == 1) {
-                segments.back().add(inserted, 'I');
+                segment.add(joined - position, 'I');
+            }
+            if (head) {
+                uint64_t first_coord = run.is_reverse ? path_length(run.path) - 1 : 0;
+                uint64_t rest = run.is_reverse ? first_coord - run.coord : run.coord;
+                replace(segment, joined, run.begin, first_coord, rest);
+                segment.low = std::min(segment.low, first_coord);
+                segment.high = std::max(segment.high, first_coord);
             }
         }
         Segment& segment = segments.back();
@@ -1887,13 +2053,13 @@ GrefPlacement GrefIndex::place(const WalkInterval& interval) const {
         segment.next = run.is_reverse ? int64_t(run.last()) - 1 : int64_t(run.last()) + 1;
         position = run.end;
     }
-    size_t trailing = interval.length - position;
 
     if (segments.empty()) {
-        placement.text = "*:" + std::to_string(trailing) + "I";
+        placement.text = "*:" + std::to_string(interval.length) + "I";
         return placement;
     }
-    segments.back().add(trailing, 'I');
+    position = replace_tail(segments.back(), runs.back(), interval.length);
+    segments.back().add(interval.length - position, 'I');
     placement.path = segments.front().path;
     placement.coord = segments.front().low;
     for (Segment& segment : segments) {

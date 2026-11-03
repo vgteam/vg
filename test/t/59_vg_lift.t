@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 62
+plan tests 67
 
 # A triallelic SNP with the haplotypes stored as W lines at offset 1000 of contig c,
 # as Minigraph-Cactus stores haplotype fragments
@@ -148,7 +148,7 @@ vg deconstruct -P x -a lift.vcf.gbz > lift.decon.vcf 2> /dev/null
 vg lift -c lift.decon.bed lift.vcf.gbz lift.decon.vcf > lift.decon.lifted.vcf
 is $? 0 "vg lift reads the allele walks of a VCF from vg deconstruct"
 
-is "$(grep '^x' lift.decon.lifted.vcf | cut -f 8 | tr ';' '\n' | grep -E '^(GR|PC)=' | tr '\n' ' ')" "GR=gref_x_1_alt:1-50:+:50=,gref_x_1_alt:1-49:+:49=1I PC=gref_x_1_alt:1-50:+,s#2#c:1071-1120:+ " "each ALT allele, its walk without the first and last nodes, is placed and named on the first path that carries it"
+is "$(grep '^x' lift.decon.lifted.vcf | cut -f 8 | tr ';' '\n' | grep -E '^(GR|PC)=' | tr '\n' ' ')" "GR=gref_x_1_alt:1-50:+:50=,gref_x_1_alt:1-50:+:49=1X PC=gref_x_1_alt:1-50:+,s#2#c:1071-1120:+ " "each ALT allele, its walk without the first and last nodes, is placed and named on the first path that carries it, and an allele that leaves the alt contig early and rejoins the reference past its end replaces the end of the contig"
 
 is "$(grep -c -E '^##INFO=<ID=(GR|PC),Number=A,' lift.decon.lifted.vcf)" "2" "the lifted VCF declares GR and PC"
 
@@ -168,9 +168,39 @@ printf 'x\t70\tx-70-INS->2>3>4>6-50\tT\t%s\t.\tPASS\tAC=1\n' "$INS1" >> lift.pg.
 printf 'x\t70\tx-70-INS->2>3>5>6-50\tT\t%s\t.\tPASS\t.\n' "$INS2" >> lift.pg.vcf
 printf 'x\t70\tx-70-DEL->2>6-1\tTA\tT\t.\tPASS\t.\nx\t70\tnowalk\tT\tTA\t.\tPASS\t.\n' >> lift.pg.vcf
 vg lift lift.vcf.gbz lift.pg.vcf > lift.pg.lifted.vcf 2> lift.pg.err
-is "$(grep '^x' lift.pg.lifted.vcf | cut -f 3,8 | tr '\t\n' ' ;')" "x-70-INS->2>3>4>6-50 AC=1;GR=gref_x_1_alt:1-50:+:50=;PC=gref_x_1_alt:1-50:+;x-70-INS->2>3>5>6-50 GR=gref_x_1_alt:1-49:+:49=1I;PC=s#2#c:1071-1120:+;x-70-DEL->2>6-1 .;nowalk .;" "PanGenie IDs give the walks of calls without AT, and a deletion has no bases to place"
+is "$(grep '^x' lift.pg.lifted.vcf | cut -f 3,8 | tr '\t\n' ' ;')" "x-70-INS->2>3>4>6-50 AC=1;GR=gref_x_1_alt:1-50:+:50=;PC=gref_x_1_alt:1-50:+;x-70-INS->2>3>5>6-50 GR=gref_x_1_alt:1-50:+:49=1X;PC=s#2#c:1071-1120:+;x-70-DEL->2>6-1 .;nowalk .;" "PanGenie IDs give the walks of calls without AT, and a deletion has no bases to place"
 
 is "$(grep '^gref' lift.pg.lifted.vcf | awk -F '\t' '{ print $1, $2, $4, $5, NF }')" "gref_x_1_alt 50 A G 8" "calls without samples give nested records without genotypes"
+
+# Nested genotypes take the lowest GQ of the calls that give them, and PS from the gref segments.
+vg paths -x lift.vcf.gfa -Q x --compute-gref --gref-segs lift.vcf.segs.tsv > /dev/null
+printf '##fileformat=VCFv4.2\n##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n' > lift.gq.vcf
+printf '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">\n' >> lift.gq.vcf
+printf '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tA\tB\tC\n' >> lift.gq.vcf
+printf 'x\t70\tx-70-INS->2>3>4>6-50\tT\t%s\t.\tPASS\t.\tGT:GQ\t0/1:40\t1/1:12\t0/0:50\n' "$INS1" >> lift.gq.vcf
+printf 'x\t70\tx-70-INS->2>3>5>6-50\tT\t%s\t.\tPASS\t.\tGT:GQ\t0/1:20\t0/0:9\t0/1\n' "$INS2" >> lift.gq.vcf
+vg lift --gref-segs lift.vcf.segs.tsv lift.vcf.gbz lift.gq.vcf > lift.gq.lifted.vcf
+is "$(grep '^gref' lift.gq.lifted.vcf | cut -f 8 | tr ';' '\n' | grep '^PS=') $(grep '^gref' lift.gq.lifted.vcf | cut -f 9- | tr '\t' ' ')" "PS=>1>7 GT:GQ 0/1:20 0/0:12 1/.:." "nested genotypes take the lowest GQ of their calls, or none if a call has none, and PS names the top-level snarl of the contig"
+
+vg lift --gref-segs lift.vcf.segs.tsv lift.vcf.gbz lift.bed 2>&1 | grep -q "needs a VCF"
+is $? 0 "--gref-segs needs a VCF"
+
+# The haplotypes differ at the first base of the insertion instead of the last.
+printf 'H\tVN:Z:1.0\nS\t1\tGGATCACAGT\nS\t2\tAGTCCGAGGA\nS\t3\tA\nS\t4\tG\n' > lift.head.gfa
+printf 'S\t5\tTCTCAGCAGCGACAGCGCATGATCGTAGCAGCACTATGTGACTGCACTC\nS\t6\tCGTCAATACG\n' >> lift.head.gfa
+for edge in 1,2 2,6 2,3 2,4 3,5 4,5 5,6; do
+    printf 'L\t%s\t+\t%s\t+\t0M\n' ${edge%,*} ${edge#*,} >> lift.head.gfa
+done
+printf 'P\tx\t1+,2+,6+\t*\nW\ts\t1\tc\t1000\t1080\t>1>2>3>5>6\nW\ts\t2\tc\t1000\t1080\t>1>2>4>5>6\n' >> lift.head.gfa
+vg paths -x lift.head.gfa -Q x --compute-gref > lift.head.gref.vg
+vg convert -f lift.head.gref.vg > lift.head.gref.gfa
+vg gbwt -G lift.head.gref.gfa --gbz-format -g lift.head.gbz
+vg deconstruct -P x -a lift.head.gbz > lift.head.vcf 2> /dev/null
+vg lift lift.head.gbz lift.head.vcf > lift.head.lifted.vcf
+is "$(grep -o 'GR=[^;]*' lift.head.lifted.vcf | head -1) $(grep '^gref' lift.head.lifted.vcf | cut -f 1,2,4,5 | tr '\t' ' ')" "GR=gref_x_1_alt:1-50:+:50=,gref_x_1_alt:1-50:+:1X49= gref_x_1_alt 1 A G" "an allele that joins the alt contig late from the reference replaces the start of the contig"
+
+printf 's#2#c\t1040\t1150\trev\t0\t-\n' > lift.rev.bed
+is "$(vg lift lift.vcf.gbz lift.rev.bed | grep -o 'gr:Z:[^[:space:]]*')" "gr:Z:gref_x:71-100:-:30=,gref_x_1_alt:1-50:-:49=1X,gref_x:41-70:-:30=" "a walk that reads an alt contig in reverse replaces its start the same way"
 
 is "$(grep -c '1 ALT alleles have no walk' lift.pg.err)" "1" "alleles without walks are counted"
 
@@ -300,8 +330,11 @@ printf 'zz#1#c\t0\t10\n' >> lift.depth.bed
 vg lift --depth lift.gbz lift.depth.bed 2>&1 > /dev/null | grep -q "1 paths in lift.depth.bed, such as zz#1#c, are not counted paths"
 is $? 0 "regions on paths that are not counted get a warning"
 
-vg lift --depth -a lift.depth.asm.bed lift.gbz 2>&1 | grep -q "takes no -u, -c, -P, -a, -m or -b"
+vg lift --depth -a lift.depth.asm.bed lift.gbz 2>&1 | grep -q "takes no -u, -c, -P, -a, -m, -b or --gref-segs"
 is $? 0 "--depth rejects the options that lift features"
+
+vg lift --depth lift.gbz 2>&1 > /dev/null | grep -q "2 of the 402 haplotype bases counted are on nodes that no output path visits"
+is $? 0 "the depth says how many haplotype bases the rows leave out, such as SNP alleles too short for the gref"
 
 # A haplotype that reads node 2 twice, a haplotype that reads the graph in reverse, and a
 # reference path
@@ -323,7 +356,8 @@ is "$(vg lift --depth lift.loop.gbz lift.loop.bed | cut -f 2-4 | tr '\t\n' ' ;')
 rm -f lift.depth.bed lift.depth.asm.bed lift.loop.gfa lift.loop.gref.vg lift.loop.gref.gfa lift.loop.gbz lift.loop.bed
 
 rm -f lift.vcf.gfa lift.vcf.gref.vg lift.vcf.gref.gfa lift.vcf.gbz lift.decon.vcf lift.decon.bed lift.decon.lifted.vcf
-rm -f lift.pg.vcf lift.pg.vcf.gz lift.pg.lifted.vcf lift.pg.err lift.foreign.vcf
+rm -f lift.pg.vcf lift.pg.vcf.gz lift.pg.lifted.vcf lift.pg.err lift.foreign.vcf lift.vcf.segs.tsv lift.gq.vcf lift.gq.lifted.vcf
+rm -f lift.head.gfa lift.head.gref.vg lift.head.gref.gfa lift.head.gbz lift.head.vcf lift.head.lifted.vcf lift.rev.bed
 rm -f lift.snp3.gfa lift.snp3.gref.vg lift.snp3.gref.gfa lift.snp3.gbz lift.snp3.vcf lift.snp3.lifted.vcf lift.snp3.rev.vcf
 rm -f lift.snp3.conflict.vcf lift.snp3.conflict.lifted.vcf lift.snp3.conflict.err
 rm -f lift.ends.gfa lift.ends.gref.vg lift.ends.gref.gfa lift.ends.gbz lift.ends.vcf lift.ends.txt

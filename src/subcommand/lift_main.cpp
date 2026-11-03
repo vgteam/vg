@@ -9,7 +9,11 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <unordered_set>
+
+#include <htslib/hts.h>
+#include <htslib/kstring.h>
 
 #include "subcommand.hpp"
 #include "../feature_lift.hpp"
@@ -61,8 +65,10 @@ void help_lift(char** argv) {
          << "contig, written after the calls as vg deconstruct writes nested records. A" << endl
          << "haplotype gets 1 if its called allele has the variant, 0 if the allele reads" << endl
          << "that part of the contig without it, and . otherwise, so allele frequencies" << endl
-         << "are among the carriers of the contig. A VCF that already has records on alt" << endl
-         << "contigs gets none added." << endl
+         << "are among the carriers of the contig. Its GQ is the lowest GQ of the calls" << endl
+         << "that give the genotype, if they have GQ. With --gref-segs, each such record" << endl
+         << "gets INFO/PS, the top-level snarl of its contig. A VCF that already has" << endl
+         << "records on alt contigs gets none added." << endl
          << endl
          << "With --depth, write how many haplotypes read each base of the gref paths, or" << endl
          << "of the paths chosen with -Q, as bedGraph: the path, the 0-based start and end" << endl
@@ -94,6 +100,9 @@ void help_lift(char** argv) {
          << "                          the feature splits a place." << endl
          << "  -b, --blocks            write places as BED12, with a block for each stretch" << endl
          << "                          that holds feature bases" << endl
+         << "      --gref-segs FILE    with a VCF, take the top-level snarl of each alt" << endl
+         << "                          contig for INFO/PS from FILE, the table of gref" << endl
+         << "                          fragments from vg paths --gref-segs" << endl
          << "  -Q, --paths-by PREFIX   only write places (with --depth, rows) on paths whose" << endl
          << "                          name starts with PREFIX (may repeat). With --depth," << endl
          << "                          the default is the gref paths." << endl
@@ -243,7 +252,8 @@ static vector<size_t> add_allele_features(VcfCalls& calls, const gbwtgraph::GBWT
     for (size_t i = 0; i < alleles.size(); i++) {
         if (allele_features[i] != NO_FEATURE) {
             features[allele_features[i]] = make_graph_feature(graph, gref, std::move(*alleles[i].interval),
-                                                              { alleles[i].name, "0", "+" });
+                                                              { alleles[i].name, "0", "+" },
+                                                              alleles[i].walk.front(), alleles[i].walk.back());
         }
     }
     if (progress) {
@@ -300,7 +310,7 @@ static vector<size_t> add_nested_features(const NestedVariantCatalog& catalog, c
             interval.walk.assign(walk.begin() + 1, walk.end() - 1);
             interval.length = interval.walk_length(graph);
             features[nested_features[i]] = make_graph_feature(graph, gref, std::move(interval),
-                                                              { catalog.id(i), "0", "+" });
+                                                              { catalog.id(i), "0", "+" }, walk.front(), walk.back());
         }
     }
     return nested_features;
@@ -364,9 +374,12 @@ static vector<string> nested_tags(const NestedVariantCatalog& catalog, const vec
  * by the records of the nested variants in the catalog, if there is one.
  *
  * @param nested_info Extra INFO for the record of each nested variant.
+ * @param top_level_snarls The top-level snarl of each alt contig, by its name
+ * in the VCF, for the PS of the nested records.
  */
 static void write_lifted_vcf(const string& vcf_file, const VcfCalls& calls, const vector<VcfAlleleInfo>& tags,
                              const NestedVariantCatalog* catalog, vector<string> nested_info,
+                             const unordered_map<string, string>& top_level_snarls,
                              const gbwtgraph::GBWTGraph& graph, const Logger& logger) {
     // The genotyper writes the nested records to a temporary file as it goes,
     // and they follow the calls.
@@ -375,7 +388,7 @@ static void write_lifted_vcf(const string& vcf_file, const VcfCalls& calls, cons
     optional<NestedGenotyper> genotyper;
     vector<string> nested_header;
     if (catalog != nullptr && !catalog->variants().empty()) {
-        genotyper.emplace(*catalog, calls, std::move(nested_info), graph, nested_out);
+        genotyper.emplace(*catalog, calls, std::move(nested_info), top_level_snarls, graph, nested_out);
         nested_header = genotyper->header_lines();
     }
     try {
@@ -398,6 +411,30 @@ static void write_lifted_vcf(const string& vcf_file, const VcfCalls& calls, cons
         logger.warn() << genotyper->conflicts() << " nested genotypes are missing because the sample carries more "
                       << "walks there than it has haplotypes" << endl;
     }
+}
+
+/**
+ * Return the contents of a text file, plain or compressed, as a stream.
+ *
+ * @throws std::runtime_error if the file cannot be read.
+ */
+static istringstream read_text_file(const string& path) {
+    htsFile* file = hts_open(path.c_str(), "r");
+    if (file == nullptr) {
+        throw runtime_error("cannot open " + path);
+    }
+    string text;
+    kstring_t line = KS_INITIALIZE;
+    int status;
+    while ((status = hts_getline(file, '\n', &line)) >= 0) {
+        text.append(line.s, line.l).push_back('\n');
+    }
+    ks_free(&line);
+    hts_close(file);
+    if (status < -1) {
+        throw runtime_error("cannot read " + path);
+    }
+    return istringstream(text);
 }
 
 /// Return true if the name starts with one of the prefixes.
@@ -463,8 +500,15 @@ static void write_depth(const gbwtgraph::GBZ& gbz, const string& graph_file, con
                       << graph_file << ", so no depth is written" << endl;
     }
     size_t rows = 0;
+    const gbwtgraph::GBWTGraph& graph = gbz.graph;
+    // The nodes that the output paths visit, by node ID minus the smallest.
+    nid_t min_id = graph.get_node_count() > 0 ? graph.min_node_id() : 0;
+    vector<bool> on_output(graph.get_node_count() > 0 ? graph.max_node_id() - min_id + 1 : 0, false);
     for (const OutputPath& path : outputs) {
-        PathSteps steps(gbz.graph, path.id);
+        PathSteps steps(graph, path.id);
+        for (const PathSteps::Step& step : steps.steps()) {
+            on_output[graph.get_id(step.handle) - min_id] = true;
+        }
         depth.for_each_run(steps, path.start, [&](uint64_t start, uint64_t end, uint32_t value) {
             cout << path.name << '\t' << start << '\t' << end << '\t' << value << '\n';
             rows++;
@@ -473,6 +517,24 @@ static void write_depth(const gbwtgraph::GBZ& gbz, const string& graph_file, con
     cout.flush();
     if (progress) {
         cerr << "[vg lift] " << rows << " depth rows on " << outputs.size() << " paths" << endl;
+    }
+
+    // Say how much of what the haplotypes read the rows leave out, such as
+    // haplotype sequence in gref fragments too short to keep.
+    uint64_t read = 0;
+    uint64_t left_out = 0;
+    graph.for_each_handle([&](const handle_t& handle) {
+        nid_t id = graph.get_id(handle);
+        uint64_t bases = depth.bases_read(id, graph.get_length(handle));
+        read += bases;
+        if (!on_output[id - min_id]) {
+            left_out += bases;
+        }
+    });
+    if (left_out > 0) {
+        logger.info() << left_out << " of the " << read << " " << (options.count_visits ? "visited" : "haplotype")
+                      << " bases counted are on nodes that no output path visits, so the rows leave them out"
+                      << endl;
     }
 }
 
@@ -493,10 +555,12 @@ int main_lift(int argc, char** argv) {
     bool progress = false;
     bool depth_mode = false;
     HaplotypeDepth::Options depth_options;
+    string gref_segs_file;
 
     constexpr int OPT_DEPTH = 1001;
     constexpr int OPT_VISITS = 1002;
     constexpr int OPT_REFERENCES = 1003;
+    constexpr int OPT_GREF_SEGS = 1004;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -505,6 +569,7 @@ int main_lift(int argc, char** argv) {
             {"depth", no_argument, 0, OPT_DEPTH},
             {"visits", no_argument, 0, OPT_VISITS},
             {"references", no_argument, 0, OPT_REFERENCES},
+            {"gref-segs", required_argument, 0, OPT_GREF_SEGS},
             {"tigs", required_argument, 0, 'u'},
             {"canonical", required_argument, 0, 'c'},
             {"priority", required_argument, 0, 'P'},
@@ -562,6 +627,9 @@ int main_lift(int argc, char** argv) {
         case OPT_REFERENCES:
             depth_options.count_references = true;
             break;
+        case OPT_GREF_SEGS:
+            gref_segs_file = require_exists(logger, optarg);
+            break;
         case 'h':
         case '?':
         default:
@@ -574,8 +642,8 @@ int main_lift(int argc, char** argv) {
     }
     if (depth_mode) {
         if (!tigs_file.empty() || !canonical_file.empty() || !priority_prefixes.empty() || !assemblies_file.empty()
-            || min_match > 0 || blocks) {
-            logger.error() << "--depth takes no -u, -c, -P, -a, -m or -b" << endl;
+            || min_match > 0 || blocks || !gref_segs_file.empty()) {
+            logger.error() << "--depth takes no -u, -c, -P, -a, -m, -b or --gref-segs" << endl;
         }
         if (optind + 1 != argc && optind + 2 != argc) {
             logger.error() << "expected a GBZ file and optionally a regions BED" << endl;
@@ -593,6 +661,21 @@ int main_lift(int argc, char** argv) {
     string graph_file = require_exists(logger, argv[optind]);
     string features_file = argv[optind + 1];
     bool vcf_input = features_file != "-" && is_variant_file(features_file);
+    if (!vcf_input && !gref_segs_file.empty()) {
+        logger.error() << "--gref-segs needs a VCF" << endl;
+    }
+    // The top-level snarl of each alt contig, by its name in the VCF.
+    unordered_map<string, string> top_level_snarls;
+    if (!gref_segs_file.empty()) {
+        try {
+            istringstream segs = read_text_file(gref_segs_file);
+            for (auto& [contig, snarl] : GrefCover::read_top_level_snarls(segs)) {
+                top_level_snarls.emplace(PathMetadata::parse_locus_name(contig), std::move(snarl));
+            }
+        } catch (const runtime_error& e) {
+            logger.error() << gref_segs_file << ": " << e.what() << endl;
+        }
+    }
 
     gbwtgraph::GBZ gbz;
     load_gbz(gbz, graph_file, progress);
@@ -745,7 +828,7 @@ int main_lift(int argc, char** argv) {
             nested_info = nested_tags(*catalog, features, nested_features);
         }
         write_lifted_vcf(features_file, calls, lifted_tags(features, allele_features), catalog ? &*catalog : nullptr,
-                         std::move(nested_info), graph, logger);
+                         std::move(nested_info), top_level_snarls, graph, logger);
     } else {
         for (size_t i = 0; i < features.size(); i++) {
             const GraphFeature& feature = features[i];

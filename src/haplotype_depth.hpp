@@ -85,6 +85,10 @@ public:
     void for_each_run(const PathSteps& path, uint64_t offset,
                       const std::function<void(uint64_t, uint64_t, uint32_t)>& visit) const;
 
+    /// Return the bases that the counted haplotypes read on the node: its
+    /// depth summed over its bases.
+    uint64_t bases_read(handlegraph::nid_t id, uint32_t length) const;
+
     /// Return the number of haplotypes counted, with or without regions.
     size_t haplotype_count() const { return haplotypes; }
     /// Return the number of counted haplotypes that have no regions, and so add nothing.

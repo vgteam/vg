@@ -208,6 +208,25 @@ void HaplotypeDepth::add_stretches(std::vector<NodeStretch> stretches, const GBW
     }
 }
 
+uint64_t HaplotypeDepth::bases_read(nid_t id, uint32_t length) const {
+    if (whole.empty() || id < min_id || size_t(id - min_id) >= whole.size()) {
+        return 0;
+    }
+    uint64_t total = uint64_t(whole[id - min_id]) * length;
+    auto found = cuts.find(id);
+    if (found != cuts.end()) {
+        // The count of the stretch after each change holds until the next one.
+        int64_t depth = 0;
+        uint32_t at = 0;
+        for (const auto& [offset, change] : found->second) {
+            total += uint64_t(depth) * (offset - at);
+            depth += change;
+            at = offset;
+        }
+    }
+    return total;
+}
+
 void HaplotypeDepth::for_each_run(const PathSteps& path, uint64_t offset,
                                   const std::function<void(uint64_t, uint64_t, uint32_t)>& visit) const {
     bool open = false;

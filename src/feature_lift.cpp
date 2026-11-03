@@ -115,29 +115,36 @@ std::string PathCoordinate::text() const {
 }
 
 GraphFeature make_graph_feature(const GBWTGraph& graph, const GrefIndex* gref,
-                                WalkInterval interval, std::vector<std::string> fields) {
+                                WalkInterval interval, std::vector<std::string> fields,
+                                std::optional<handle_t> before, std::optional<handle_t> after) {
     GraphFeature result;
     result.interval = std::move(interval);
     result.fields = std::move(fields);
+    // Read the interval the other way, with the nodes on either side.
+    auto reverse = [&]() {
+        result.interval = result.interval.reverse(graph);
+        std::optional<handle_t> old_before = before;
+        before = after ? std::optional<handle_t>(graph.flip(*after)) : std::nullopt;
+        after = old_before ? std::optional<handle_t>(graph.flip(*old_before)) : std::nullopt;
+    };
     bool stranded = result.is_stranded();
     if (stranded && result.fields[BED_STRAND_FIELD] == "-") {
-        result.interval = result.interval.reverse(graph);
+        reverse();
         result.fields[BED_STRAND_FIELD] = "+";
     }
 
     if (gref != nullptr) {
-        result.placement = gref->place(result.interval);
+        result.placement = gref->place(result.interval, before, after);
     }
     if (!stranded) {
         const GrefPlacement& placement = result.placement;
-        WalkInterval reverse = result.interval.reverse(graph);
         bool flip = placement.reverse_bases > placement.forward_bases ||
                     (placement.reverse_bases == placement.forward_bases &&
-                     compare_intervals(reverse, result.interval) < 0);
+                     compare_intervals(result.interval.reverse(graph), result.interval) < 0);
         if (flip) {
-            result.interval = std::move(reverse);
+            reverse();
             if (gref != nullptr) {
-                result.placement = gref->place(result.interval);
+                result.placement = gref->place(result.interval, before, after);
             }
         }
     }

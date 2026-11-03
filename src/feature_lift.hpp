@@ -125,9 +125,14 @@ struct GraphFeature {
  * the most bases on forward gref strands. On a tie, it takes the orientation
  * whose walk sorts first. The gref may be null. A feature along one gref path
  * gets its path coordinate there.
+ *
+ * The nodes on either side of the interval, on the walk it comes from, help
+ * place it at the ends of alt contigs, as GrefIndex::place() says.
  */
 GraphFeature make_graph_feature(const gbwtgraph::GBWTGraph& graph, const GrefIndex* gref,
-                                WalkInterval interval, std::vector<std::string> fields);
+                                WalkInterval interval, std::vector<std::string> fields,
+                                std::optional<handlegraph::handle_t> before = std::nullopt,
+                                std::optional<handlegraph::handle_t> after = std::nullopt);
 
 /**
  * The priority order of the paths that name features off the gref.

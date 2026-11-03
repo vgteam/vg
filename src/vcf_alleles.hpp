@@ -86,6 +86,10 @@ public:
     /// Return the GT of each sample on a record line, in sample order. Return
     /// none if the record has no samples, or if FORMAT does not start with GT.
     std::vector<std::string_view> genotypes() const;
+    /// Return the value of a FORMAT key for each sample on a record line, in
+    /// sample order, empty where a sample leaves it out. Return none if the
+    /// record has no samples or no such key.
+    std::vector<std::string_view> sample_values(std::string_view key) const;
     /// Return the place of the record, as CHROM:POS.
     std::string locus() const;
 

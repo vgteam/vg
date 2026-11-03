@@ -206,6 +206,31 @@ std::vector<std::string_view> VcfCursor::genotypes() const {
     return result;
 }
 
+std::vector<std::string_view> VcfCursor::sample_values(std::string_view key) const {
+    std::string_view rest = after_info();
+    if (rest.empty()) {
+        return {};
+    }
+    std::vector<std::string_view> columns = split(rest.substr(1), '\t');
+    std::vector<std::string_view> keys = split(columns.front(), ':');
+    size_t field = std::find(keys.begin(), keys.end(), key) - keys.begin();
+    if (field == keys.size()) {
+        return {};
+    }
+    std::vector<std::string_view> result;
+    result.reserve(columns.size() - 1);
+    for (size_t i = 1; i < columns.size(); i++) {
+        // Skip the values before the field, without splitting the rest.
+        std::string_view value = columns[i];
+        for (size_t skipped = 0; skipped < field && !value.empty(); skipped++) {
+            size_t colon = value.find(':');
+            value = colon == std::string_view::npos ? std::string_view() : value.substr(colon + 1);
+        }
+        result.push_back(value.substr(0, value.find(':')));
+    }
+    return result;
+}
+
 std::string VcfCursor::locus() const {
     return std::string(column(CHROM)) + ":" + std::string(column(POS));
 }

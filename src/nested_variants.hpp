@@ -22,6 +22,7 @@
 #include <iosfwd>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -120,10 +121,8 @@ private:
     ContigPass make_pass(const std::vector<handlegraph::handle_t>& walk, std::vector<Visit> visits) const;
 
     const gbwtgraph::GBWTGraph& graph;
-    /// Finds and spells the contigs.
+    /// Finds and spells the contigs, and finds where walks go past their ends.
     const GrefIndex& gref;
-    /// The first and last handles of each gref path that is an alt contig.
-    std::vector<std::optional<std::pair<handlegraph::handle_t, handlegraph::handle_t>>> contig_ends;
 };
 
 /**
@@ -207,6 +206,11 @@ private:
  * carriers of the contig. Phased calls give phased genotypes. A sample with
  * more walks there than haplotypes gets a missing genotype.
  *
+ * A genotype is only as good as the calls it comes from, so its GQ is the
+ * lowest GQ of the calls whose walks give it, if they all have one. A record's
+ * PS names the top-level snarl of its contig, the site that the contig is an
+ * allele of.
+ *
  * Records go out a contig at a time, as soon as no later call reads the
  * contig, so the genotyper holds the walks of a few contigs at most.
  */
@@ -217,8 +221,11 @@ public:
      *
      * @param info Extra INFO for the record of each variant, starting with ";"
      * if not empty.
+     * @param top_level_snarls The top-level snarl of each contig, by its name
+     * in the VCF, for INFO/PS. Records on contigs that it leaves out get no PS.
      */
     NestedGenotyper(const NestedVariantCatalog& catalog, const VcfCalls& calls, std::vector<std::string> info,
+                    const std::unordered_map<std::string, std::string>& top_level_snarls,
                     const gbwtgraph::GBWTGraph& graph, std::ostream& out);
 
     /// Return the header lines that declare the INFO keys, the FORMAT key and
@@ -238,6 +245,8 @@ private:
         size_t reader;
         /// The haplotype that carries it, or -1 if the call is not phased.
         int haplotype;
+        /// The GQ of the call, or -1 if it has none.
+        int quality;
     };
 
     /// Write the records of the variants on a contig, and forget its walks.
@@ -246,6 +255,7 @@ private:
     const NestedVariantCatalog& catalog;
     const VcfCalls& calls;
     std::vector<std::string> info;
+    const std::unordered_map<std::string, std::string>& top_level_snarls;
     const gbwtgraph::GBWTGraph& graph;
     std::ostream& out;
     /// For each contig, the walks that each sample carries along it. Empty

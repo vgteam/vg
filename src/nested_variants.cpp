@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <limits>
 #include <map>
 #include <numeric>
 #include <ostream>
@@ -53,20 +54,11 @@ std::string NestedVariant::id(const std::string& contig_name, const GBWTGraph& g
 
 //------------------------------------------------------------------------------
 
-ContigDecomposer::ContigDecomposer(const GBWTGraph& graph, const GrefIndex& gref) :
-    graph(graph), gref(gref), contig_ends(gref.path_count()) {
-    // Alt contigs have fragment names, which end in _<N>_alt.
-    for (uint32_t path = 0; path < gref.path_count(); path++) {
-        uint64_t length = gref.path_length(path);
-        if (GrefCover::is_gref_name(gref.path_name(path)) && length > 0) {
-            contig_ends[path] = std::make_pair(gref.interval(path, 0, 1).walk.front(),
-                                               gref.interval(path, length - 1, length).walk.front());
-        }
-    }
+ContigDecomposer::ContigDecomposer(const GBWTGraph& graph, const GrefIndex& gref) : graph(graph), gref(gref) {
 }
 
 bool ContigDecomposer::is_contig(uint32_t path) const {
-    return path < contig_ends.size() && contig_ends[path].has_value();
+    return path < gref.path_count() && gref.is_alt_contig(path);
 }
 
 std::vector<ContigPass> ContigDecomposer::decompose(const std::vector<handle_t>& walk) const {
@@ -112,7 +104,6 @@ ContigPass ContigDecomposer::make_pass(const std::vector<handle_t>& walk, std::v
     pass.contig = visits.front().contig;
     pass.first_step = visits.front().step;
     pass.last_step = visits.back().step;
-    const auto& [first_node, last_node] = *contig_ends[pass.contig];
     uint64_t length = gref.path_length(pass.contig);
 
     // Read the walk in the contig's orientation, with steps numbered that way.
@@ -127,12 +118,19 @@ ContigPass ContigDecomposer::make_pass(const std::vector<handle_t>& walk, std::v
             visit.step = n - 1 - visit.step;
         }
     }
-    auto on_contig = [&](size_t i) {
-        return gref.find(graph.get_id(step(i))).path == pass.contig;
+    // Ask the index where the walk comes past the start of the contig, and
+    // where it rejoins the graph past the end. The index searches the walk as
+    // stored, so a pass that reads the contig in reverse asks about the other
+    // end, and gets back a step to renumber the contig's way.
+    auto step_before_start = [&](size_t i) -> std::optional<size_t> {
+        std::optional<size_t> found = is_reverse ? gref.step_past_contig_end(walk, n - 1 - i, pass.contig, true)
+                                                 : gref.step_before_contig_start(walk, i, pass.contig, false);
+        return found && is_reverse ? n - 1 - *found : found;
     };
-    auto on_reference = [&](size_t i) {
-        uint32_t path = gref.find(graph.get_id(step(i))).path;
-        return path != GrefIndex::NO_PATH && !is_contig(path);
+    auto step_past_end = [&](size_t i) -> std::optional<size_t> {
+        std::optional<size_t> found = is_reverse ? gref.step_before_contig_start(walk, n - 1 - i, pass.contig, true)
+                                                 : gref.step_past_contig_end(walk, i, pass.contig, false);
+        return found && is_reverse ? n - 1 - *found : found;
     };
 
     // The walk's nodes strictly between two steps replace the contig's bases
@@ -191,21 +189,16 @@ ContigPass ContigDecomposer::make_pass(const std::vector<handle_t>& walk, std::v
     };
 
     // A pass that joins the contig after its start replaces the contig's head
-    // if an earlier node precedes the contig's first node, and the walk comes
-    // from it without passing through the reference.
+    // if the walk comes past the start.
     const Visit& head = visits.front();
     pass.start = head.start;
+    std::optional<size_t> before;
     if (head.start > 0) {
-        for (size_t i = head.step; i-- > 0 && !on_contig(i);) {
-            if (graph.has_edge(step(i), first_node)) {
-                add_variant(0, head.start, i, head.step);
-                pass.start = 0;
-                break;
-            }
-            if (on_reference(i)) {
-                break;
-            }
-        }
+        before = step_before_start(head.step);
+    }
+    if (before) {
+        add_variant(0, head.start, *before, head.step);
+        pass.start = 0;
     }
     // Between two visits, the walk's nodes replace the contig's, unless the
     // two nodes follow each other on both.
@@ -217,21 +210,16 @@ ContigPass ContigDecomposer::make_pass(const std::vector<handle_t>& walk, std::v
         }
     }
     // A pass that leaves the contig before its end replaces the contig's tail
-    // if a later node follows the contig's last node, and the walk reaches it
-    // without returning to the reference first.
+    // if the walk rejoins the graph past the end.
     const Visit& tail = visits.back();
     pass.end = tail.end;
+    std::optional<size_t> past;
     if (tail.end < length) {
-        for (size_t i = tail.step + 1; i < n && !on_contig(i); i++) {
-            if (graph.has_edge(last_node, step(i))) {
-                add_variant(tail.end, length, tail.step, i);
-                pass.end = length;
-                break;
-            }
-            if (on_reference(i)) {
-                break;
-            }
-        }
+        past = step_past_end(tail.step);
+    }
+    if (past) {
+        add_variant(tail.end, length, tail.step, *past);
+        pass.end = length;
     }
     return pass;
 }
@@ -341,8 +329,10 @@ NestedVariantCatalog::NestedVariantCatalog(const VcfCalls& calls, const ContigDe
 //------------------------------------------------------------------------------
 
 NestedGenotyper::NestedGenotyper(const NestedVariantCatalog& catalog, const VcfCalls& calls,
-                                 std::vector<std::string> info, const GBWTGraph& graph, std::ostream& out) :
-    catalog(catalog), calls(calls), info(std::move(info)), graph(graph), out(out),
+                                 std::vector<std::string> info,
+                                 const std::unordered_map<std::string, std::string>& top_level_snarls,
+                                 const GBWTGraph& graph, std::ostream& out) :
+    catalog(catalog), calls(calls), info(std::move(info)), top_level_snarls(top_level_snarls), graph(graph), out(out),
     carried(catalog.contigs().size()), ploidy(calls.samples.size(), 2) {
 }
 
@@ -355,7 +345,10 @@ std::vector<std::string> NestedGenotyper::header_lines() const {
         "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">",
         "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in "
         "the graph with conflicting alleles\">",
-        "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">"
+        "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">",
+        "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype quality: phred-scaled probability that the "
+        "genotype is wrong. On a record vg lift breaks out of called alleles, the lowest GQ of the calls that give "
+        "the genotype.\">"
     };
     std::istringstream nesting(VCFOutputCaller::nesting_info_headers());
     for (std::string line; std::getline(nesting, line);) {
@@ -376,10 +369,21 @@ void NestedGenotyper::add_call(size_t record, const VcfCursor& vcf) {
         reads_contig |= !catalog.readings(site.first_allele + i).empty();
     }
     std::vector<std::string_view> genotypes;
+    std::vector<std::string_view> qualities;
     if (reads_contig) {
         genotypes = vcf.genotypes();
+        qualities = vcf.sample_values("GQ");
     }
     for (size_t sample = 0; sample < genotypes.size() && sample < calls.samples.size(); sample++) {
+        int quality = -1;
+        if (sample < qualities.size()) {
+            std::string_view text = qualities[sample];
+            int parsed = 0;
+            auto result = std::from_chars(text.data(), text.data() + text.size(), parsed);
+            if (result.ec == std::errc() && result.ptr == text.data() + text.size()) {
+                quality = parsed;
+            }
+        }
         // Each called ALT allele adds its walk to the contigs that it reads.
         std::string_view genotype = genotypes[sample];
         bool phased = genotype.find('/') == std::string_view::npos;
@@ -398,7 +402,7 @@ void NestedGenotyper::add_call(size_t record, const VcfCursor& vcf) {
                 if (carried[contig].empty()) {
                     carried[contig].resize(calls.samples.size());
                 }
-                carried[contig][sample].push_back({ reader, phased ? int(haplotype) : -1 });
+                carried[contig][sample].push_back({ reader, phased ? int(haplotype) : -1, quality });
             }
         }
         ploidy[sample] = haplotype;
@@ -438,9 +442,13 @@ void NestedGenotyper::write_contig(size_t contig_index) {
     }
 
     const std::vector<std::vector<Carried>>& walks = carried[contig_index];
+    auto snarl = top_level_snarls.find(contig.name);
     size_t sample_count = calls.samples.size();
     std::vector<std::pair<int, int>> values;
+    // The sample columns with GT alone, and with GT and GQ. A record whose
+    // calls have no GQ gets the first.
     std::string genotypes;
+    std::string genotypes_with_quality;
     for (size_t i = 0; i < variant_count; i++) {
         size_t variant_index = contig.variants[i];
         const NestedVariant& variant = variants[variant_index];
@@ -449,16 +457,21 @@ void NestedGenotyper::write_contig(size_t contig_index) {
         size_t with_data = 0;
         std::string conflicted;
         genotypes.clear();
+        genotypes_with_quality.clear();
+        bool has_quality = false;
         for (size_t sample = 0; sample < sample_count; sample++) {
-            // The values of the walks that the sample carries here, by haplotype.
+            // The values of the walks that the sample carries here, by
+            // haplotype, and the lowest GQ of their calls.
             values.clear();
             bool phased = true;
+            int quality = std::numeric_limits<int>::max();
             if (!walks.empty()) {
                 for (const Carried& walk : walks[sample]) {
                     int8_t value = says[walk.reader * variant_count + i];
                     if (value >= 0) {
                         values.emplace_back(walk.haplotype, value);
                         phased &= walk.haplotype >= 0;
+                        quality = std::min(quality, walk.quality);
                     }
                 }
             }
@@ -488,6 +501,7 @@ void NestedGenotyper::write_contig(size_t contig_index) {
                 conflict_count++;
                 conflicted.append(conflicted.empty() ? "" : ",").append(calls.samples[sample]);
             }
+            size_t sample_start = genotypes.size();
             genotypes += '\t';
             for (size_t h = 0; h < haplotypes; h++) {
                 if (h > 0) {
@@ -498,6 +512,14 @@ void NestedGenotyper::write_contig(size_t contig_index) {
                 alt_count += slots[h] == '1';
             }
             with_data += std::any_of(slots.begin(), slots.end(), [](char c) { return c != '.'; });
+            // A call without GQ leaves the genotype's quality unknown.
+            genotypes_with_quality.append(genotypes, sample_start).append(":");
+            if (values.empty() || conflict || quality < 0) {
+                genotypes_with_quality += '.';
+            } else {
+                genotypes_with_quality += std::to_string(quality);
+                has_quality = true;
+            }
         }
 
         out << contig.name << '\t' << variant.pos << '\t' << catalog.id(variant_index) << '\t' << variant.ref << '\t'
@@ -510,14 +532,17 @@ void NestedGenotyper::write_contig(size_t contig_index) {
             }
             out << ";NS=" << with_data;
         }
-        out << ";LV=0;CH=" << contig.level << ";RC=" << contig.site_chrom << ";RS=" << contig.site_start
-            << ";RD=" << contig.site_end;
+        out << ";LV=0;CH=" << contig.level;
+        if (snarl != top_level_snarls.end()) {
+            out << ";PS=" << snarl->second;
+        }
+        out << ";RC=" << contig.site_chrom << ";RS=" << contig.site_start << ";RD=" << contig.site_end;
         if (!conflicted.empty()) {
             out << ";CONFLICT=" << conflicted;
         }
         out << info[variant_index];
         if (sample_count > 0) {
-            out << "\tGT" << genotypes;
+            out << (has_quality ? "\tGT:GQ" : "\tGT") << (has_quality ? genotypes_with_quality : genotypes);
         }
         out << '\n';
     }
