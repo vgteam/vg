@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <istream>
 #include <limits>
+#include <numeric>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <tuple>
@@ -24,6 +26,57 @@ using gbwtgraph::GBWTGraph;
 
 //------------------------------------------------------------------------------
 
+namespace {
+
+/**
+ * Parse a BED line into a feature.
+ *
+ * @throws std::runtime_error if the line has fewer than 3 columns, bad
+ * coordinates, no bases, or a strand other than +, - and ".".
+ */
+BedFeature parse_bed_line(const std::string& line, size_t line_number) {
+    auto fail = [&](const std::string& problem) {
+        throw std::runtime_error("BED line " + std::to_string(line_number) + ": " + problem + ": " + line);
+    };
+    std::vector<std::string> columns;
+    std::stringstream stream(line);
+    std::string column;
+    while (std::getline(stream, column, '\t')) {
+        columns.push_back(column);
+    }
+    if (columns.size() < 3) {
+        fail("fewer than 3 columns");
+    }
+    BedFeature feature;
+    feature.sequence = columns[0];
+    try {
+        size_t used_start = 0;
+        size_t used_end = 0;
+        feature.start = std::stoull(columns[1], &used_start);
+        feature.end = std::stoull(columns[2], &used_end);
+        if (used_start != columns[1].size() || used_end != columns[2].size()) {
+            fail("bad coordinates");
+        }
+    } catch (const std::invalid_argument&) {
+        fail("bad coordinates");
+    } catch (const std::out_of_range&) {
+        fail("bad coordinates");
+    }
+    if (feature.start >= feature.end) {
+        fail("empty feature");
+    }
+    feature.fields.assign(columns.begin() + 3, columns.end());
+    if (feature.fields.size() > BED_STRAND_FIELD) {
+        const std::string& strand = feature.fields[BED_STRAND_FIELD];
+        if (strand != "+" && strand != "-" && strand != ".") {
+            fail("strand is not +, - or .");
+        }
+    }
+    return feature;
+}
+
+}
+
 std::vector<BedFeature> read_bed_features(std::istream& in) {
     std::vector<BedFeature> features;
     std::string line;
@@ -33,77 +86,16 @@ std::vector<BedFeature> read_bed_features(std::istream& in) {
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
-        if (line.empty() || line[0] == '#' || line.compare(0, 5, "track") == 0 || line.compare(0, 7, "browser") == 0) {
+        if (line.empty() || line[0] == '#' || line.starts_with("track") || line.starts_with("browser")) {
             continue;
         }
-        auto fail = [&](const std::string& problem) {
-            throw std::runtime_error("BED line " + std::to_string(line_number) + ": " + problem + ": " + line);
-        };
-        std::vector<std::string> columns;
-        std::stringstream stream(line);
-        std::string column;
-        while (std::getline(stream, column, '\t')) {
-            columns.push_back(column);
-        }
-        if (columns.size() < 3) {
-            fail("fewer than 3 columns");
-        }
-        BedFeature feature;
-        feature.sequence = columns[0];
-        try {
-            size_t used_start = 0, used_end = 0;
-            feature.start = std::stoull(columns[1], &used_start);
-            feature.end = std::stoull(columns[2], &used_end);
-            if (used_start != columns[1].size() || used_end != columns[2].size()) {
-                fail("bad coordinates");
-            }
-        } catch (const std::invalid_argument&) {
-            fail("bad coordinates");
-        } catch (const std::out_of_range&) {
-            fail("bad coordinates");
-        }
-        if (feature.start >= feature.end) {
-            fail("empty feature");
-        }
-        feature.fields.assign(columns.begin() + 3, columns.end());
-        if (feature.fields.size() > BED_STRAND_FIELD) {
-            const std::string& strand = feature.fields[BED_STRAND_FIELD];
-            if (strand != "+" && strand != "-" && strand != ".") {
-                fail("strand is not +, - or .");
-            }
-        }
-        features.push_back(std::move(feature));
+        features.push_back(parse_bed_line(line, line_number));
     }
     return features;
 }
 
 bool GraphFeature::is_stranded() const {
     return fields.size() > BED_STRAND_FIELD && fields[BED_STRAND_FIELD] != ".";
-}
-
-namespace {
-
-/// Return -1, 0 or 1 as a sorts before, with or after b. Intervals sort by
-/// their walks as GBWT node numbers, then by offset and length.
-int compare_intervals(const WalkInterval& a, const WalkInterval& b) {
-    for (size_t i = 0; i < std::min(a.walk.size(), b.walk.size()); i++) {
-        gbwt::node_type x = GBWTGraph::handle_to_node(a.walk[i]), y = GBWTGraph::handle_to_node(b.walk[i]);
-        if (x != y) {
-            return x < y ? -1 : 1;
-        }
-    }
-    if (a.walk.size() != b.walk.size()) {
-        return a.walk.size() < b.walk.size() ? -1 : 1;
-    }
-    if (a.offset != b.offset) {
-        return a.offset < b.offset ? -1 : 1;
-    }
-    if (a.length != b.length) {
-        return a.length < b.length ? -1 : 1;
-    }
-    return 0;
-}
-
 }
 
 bool PathCoordinate::operator<(const PathCoordinate& other) const {
@@ -140,7 +132,7 @@ GraphFeature make_graph_feature(const GBWTGraph& graph, const GrefIndex* gref,
         const GrefPlacement& placement = result.placement;
         bool flip = placement.reverse_bases > placement.forward_bases ||
                     (placement.reverse_bases == placement.forward_bases &&
-                     compare_intervals(result.interval.reverse(graph), result.interval) < 0);
+                     result.interval.reverse(graph).compare(result.interval) < 0);
         if (flip) {
             reverse();
             if (gref != nullptr) {
@@ -151,7 +143,7 @@ GraphFeature make_graph_feature(const GBWTGraph& graph, const GrefIndex* gref,
 
     // Gref paths come first in the priority order, and their ranks are their
     // places in the gref.
-    if (result.placement.along_one_path) {
+    if (gref != nullptr && result.placement.along_one_path) {
         uint32_t path = result.placement.path;
         uint64_t start = gref->path_shift(path) + result.placement.coord;
         result.coordinate = PathCoordinate { gref->path_name(path), path, start, start + result.interval.length,
@@ -186,7 +178,7 @@ void Cover::add_tigs(std::istream& gaf, const std::function<bool(const std::stri
             continue;
         }
         WalkInterval interval = parse_gaf_columns(line, graph, name);
-        if (!tigs.emplace(name, std::move(interval)).second) {
+        if (!tigs.try_emplace(name, std::move(interval)).second) {
             throw std::runtime_error("tig " + name + " appears twice in the GAF");
         }
     }
@@ -200,8 +192,7 @@ std::optional<size_t> Cover::sequence_length(const std::string& name) const {
     if (is_gref_path(name)) {
         return gref->path_length(gref->find_path(name));
     }
-    auto found = tigs.find(name);
-    if (found != tigs.end()) {
+    if (auto found = tigs.find(name); found != tigs.end()) {
         return found->second.length;
     }
     return std::nullopt;
@@ -224,7 +215,7 @@ PathPriority::PathPriority(const gbwtgraph::GBZ& gbz, const std::vector<std::str
     std::vector<std::pair<size_t, std::string>> keys;
     std::unordered_map<std::string, size_t> groups;
     for_each_path_start(index, [&](gbwt::size_type path_id, const std::string& name, uint64_t) {
-        if (name.compare(0, gref_prefix.size(), gref_prefix) == 0 || groups.count(name)) {
+        if (name.compare(0, gref_prefix.size(), gref_prefix) == 0 || groups.contains(name)) {
             return;
         }
         size_t group = prefixes.size() + 1;
@@ -256,18 +247,18 @@ size_t PathPriority::rank(const std::string& name) const {
 PathDirectory::PathDirectory(const gbwtgraph::GBZ& gbz, const std::function<bool(const std::string&)>& wanted) {
     for_each_path_start(gbz.index, [&](gbwt::size_type path_id, const std::string& name, uint64_t start) {
         if (wanted(name)) {
-            fragments[name].push_back({ start, PathSteps(gbz.graph, path_id) });
+            fragments[name].emplace_back(start, PathSteps(gbz.graph, path_id));
         }
     });
-    for (auto& entry : fragments) {
-        std::sort(entry.second.begin(), entry.second.end(), [](const Fragment& a, const Fragment& b) {
+    for (auto& [name, path_fragments] : fragments) {
+        std::sort(path_fragments.begin(), path_fragments.end(), [](const Fragment& a, const Fragment& b) {
             return a.start < b.start;
         });
     }
 }
 
 bool PathDirectory::has_path(const std::string& name) const {
-    return fragments.count(name) > 0;
+    return fragments.contains(name);
 }
 
 std::optional<WalkInterval> PathDirectory::interval(const std::string& name, uint64_t start, uint64_t end) const {
@@ -293,14 +284,13 @@ void sort_and_merge_features(std::vector<GraphFeature>& features) {
         if (a.placement.coord != b.placement.coord) {
             return a.placement.coord < b.placement.coord;
         }
-        int order = compare_intervals(a.interval, b.interval);
-        if (order != 0) {
+        if (int order = a.interval.compare(b.interval); order != 0) {
             return order < 0;
         }
         return a.fields < b.fields;
     });
     auto end = std::unique(features.begin(), features.end(), [](const GraphFeature& a, const GraphFeature& b) {
-        return compare_intervals(a.interval, b.interval) == 0 && a.fields == b.fields;
+        return a.interval.compare(b.interval) == 0 && a.fields == b.fields;
     });
     features.erase(end, features.end());
 }
@@ -347,20 +337,25 @@ void FeatureMatcher::for_each_match(const gbwt::vector_type& path,
         for (size_t i = starts[node]; i < starts[node + 1]; i++) {
             size_t feature = entries[i] >> 1;
             bool is_reverse = entries[i] & 1;
-            const std::vector<handle_t>& walk = features[feature].interval.walk;
-            if (step + walk.size() > path.size()) {
-                continue;
-            }
-            bool matches = true;
-            for (size_t j = 0; j < walk.size() && matches; j++) {
-                handle_t expected = is_reverse ? graph.flip(walk[walk.size() - 1 - j]) : walk[j];
-                matches = (GBWTGraph::node_to_handle(path[step + j]) == expected);
-            }
-            if (matches) {
+            if (visits_walk(path, step, features[feature].interval.walk, is_reverse)) {
                 visit(feature, step, is_reverse);
             }
         }
     }
+}
+
+bool FeatureMatcher::visits_walk(const gbwt::vector_type& path, size_t step, const std::vector<handle_t>& walk,
+                                 bool is_reverse) const {
+    if (step + walk.size() > path.size()) {
+        return false;
+    }
+    for (size_t j = 0; j < walk.size(); j++) {
+        handle_t expected = is_reverse ? graph.flip(walk[walk.size() - 1 - j]) : walk[j];
+        if (GBWTGraph::node_to_handle(path[step + j]) != expected) {
+            return false;
+        }
+    }
+    return true;
 }
 
 //------------------------------------------------------------------------------
@@ -379,8 +374,7 @@ FeatureNodeIndex::FeatureNodeIndex(const GBWTGraph& graph, const std::vector<Gra
             size_t node_end = node_start + graph.get_length(handle);
             // Walk coordinates of the feature bases on this node.
             size_t low = std::max(node_start, interval.offset);
-            size_t high = std::min(node_end, interval.offset + interval.length);
-            if (low < high) {
+            if (size_t high = std::min(node_end, interval.offset + interval.length); low < high) {
                 visit(graph.get_id(handle) - min_id, { feature, low - interval.offset, high - interval.offset,
                                                        low - node_start, high - node_start, graph.get_is_reverse(handle) });
             }
@@ -425,97 +419,148 @@ void FeatureNodeIndex::for_each_anchor(const gbwt::vector_type& path, const std:
     }
 }
 
+namespace {
+
+using Anchor = FeatureNodeIndex::Anchor;
+
+/// The index of the anchor before the first anchor of a chain.
+constexpr size_t NO_ANCHOR = std::numeric_limits<size_t>::max();
+
+/// Return the path coordinate after the last base of the anchor.
+uint64_t end_of(const Anchor& anchor) {
+    return anchor.start + (anchor.to - anchor.from);
+}
+
+/**
+ * Return true if a chain on a feature of the given length can go from anchor
+ * before to anchor after.
+ *
+ * The path must read both anchors the same way. On the path, after must start
+ * no more than length bases past the end of before. In the feature, after must
+ * come later in the order the path reads it, which is decreasing for a path
+ * that reads the feature in reverse.
+ */
+bool can_follow(const Anchor& before, const Anchor& after, size_t length) {
+    return before.is_reverse == after.is_reverse && end_of(before) <= after.start &&
+           after.start - end_of(before) <= length &&
+           (after.is_reverse ? after.to <= before.from : after.from >= before.to);
+}
+
+/// Return true if anchor after starts where anchor before ends, both on the
+/// path and in the feature as the path reads it.
+bool abuts(const Anchor& before, const Anchor& after) {
+    return after.start == end_of(before) && (after.is_reverse ? after.to == before.from : after.from == before.to);
+}
+
+/// The best chain that ends at an anchor.
+struct ChainEnd {
+    /// The number of feature bases in the chain.
+    size_t score = 0;
+    /// The index of the chain's previous anchor, or NO_ANCHOR.
+    size_t previous = NO_ANCHOR;
+};
+
+/**
+ * Find the chain ending at each anchor that holds the most feature bases.
+ *
+ * The anchors are those of one feature, of the given length, sorted by their
+ * start on the path.
+ */
+std::vector<ChainEnd> best_chains(std::span<const Anchor> anchors, size_t length) {
+    std::vector<ChainEnd> ends(anchors.size());
+    for (size_t i = 0; i < anchors.size(); i++) {
+        const Anchor& anchor = anchors[i];
+        size_t bases = anchor.to - anchor.from;
+        ends[i].score = bases;
+        for (size_t j = i; j-- > 0;) {
+            const Anchor& before = anchors[j];
+            if (before.start + 2 * length < anchor.start) {
+                // This anchor and all earlier ones end more than the
+                // feature's length back.
+                break;
+            }
+            if (can_follow(before, anchor, length) && ends[j].score + bases > ends[i].score) {
+                ends[i] = { ends[j].score + bases, j };
+            }
+        }
+    }
+    return ends;
+}
+
+/**
+ * Return the place on the path of a chain of anchors.
+ *
+ * The chain holds indices into the anchors, in chain order. Anchors that abut
+ * share a block.
+ */
+PathOccurrence chain_place(std::span<const Anchor> anchors, const std::vector<size_t>& chain) {
+    const Anchor& first = anchors[chain.front()];
+    PathOccurrence place { first.start, first.start, first.feature, first.is_reverse, 0, {} };
+    const Anchor* before = nullptr;
+    for (size_t i : chain) {
+        const Anchor& anchor = anchors[i];
+        if (before != nullptr && abuts(*before, anchor)) {
+            place.blocks.back().second = end_of(anchor);
+        } else {
+            place.blocks.emplace_back(anchor.start, end_of(anchor));
+        }
+        place.end = end_of(anchor);
+        place.matched += anchor.to - anchor.from;
+        before = &anchor;
+    }
+    return place;
+}
+
+/**
+ * Chain the anchors of one feature, of the given length, and add each chain
+ * that holds at least min_match of the feature's bases to the places.
+ *
+ * The anchors are sorted by their start on the path. Chains are taken best first, and each
+ * anchor goes in one chain, so a later chain stops where it reaches an anchor
+ * already taken.
+ */
+void take_chains(std::span<const Anchor> anchors, size_t length, double min_match,
+                 std::vector<PathOccurrence>& places) {
+    std::vector<ChainEnd> ends = best_chains(anchors, length);
+    std::vector<size_t> order(anchors.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        return ends[a].score > ends[b].score;
+    });
+    std::vector<bool> used(anchors.size(), false);
+    for (size_t last : order) {
+        std::vector<size_t> chain;
+        for (size_t i = last; i != NO_ANCHOR && !used[i]; i = ends[i].previous) {
+            chain.push_back(i);
+            used[i] = true;
+        }
+        if (chain.empty()) {
+            continue;
+        }
+        std::reverse(chain.begin(), chain.end());
+        PathOccurrence place = chain_place(anchors, chain);
+        if (static_cast<double>(place.matched) >= min_match * static_cast<double>(length)) {
+            places.push_back(std::move(place));
+        }
+    }
+}
+
+}
+
 std::vector<PathOccurrence> chain_anchors(std::vector<FeatureNodeIndex::Anchor> anchors,
                                           const std::vector<GraphFeature>& features, double min_match) {
-    using Anchor = FeatureNodeIndex::Anchor;
     std::sort(anchors.begin(), anchors.end(), [](const Anchor& a, const Anchor& b) {
-        if (a.feature != b.feature) {
-            return a.feature < b.feature;
-        }
-        if (a.start != b.start) {
-            return a.start < b.start;
-        }
-        return a.from < b.from;
+        return std::tie(a.feature, a.start, a.from) < std::tie(b.feature, b.start, b.from);
     });
-    auto end_of = [](const Anchor& anchor) {
-        return anchor.start + (anchor.to - anchor.from);
-    };
-
     std::vector<PathOccurrence> result;
-    constexpr size_t NONE = std::numeric_limits<size_t>::max();
-    for (size_t begin = 0, end = 0; begin < anchors.size(); begin = end) {
-        size_t feature = anchors[begin].feature;
-        while (end < anchors.size() && anchors[end].feature == feature) {
-            end++;
-        }
-        size_t length = features[feature].interval.length;
-
-        // Find the chain ending at each anchor that holds the most feature
-        // bases. Its previous anchor ends before this one starts on the path,
-        // with a gap of at most the feature's length. A path that reads the
-        // feature in reverse visits its bases in decreasing order.
-        size_t count = end - begin;
-        std::vector<size_t> score(count), previous(count, NONE);
-        for (size_t i = 0; i < count; i++) {
-            const Anchor& anchor = anchors[begin + i];
-            score[i] = anchor.to - anchor.from;
-            for (size_t j = i; j-- > 0;) {
-                const Anchor& before = anchors[begin + j];
-                if (before.start + 2 * length < anchor.start) {
-                    // This anchor and all earlier ones end more than the
-                    // feature's length back.
-                    break;
-                }
-                bool continues = before.is_reverse == anchor.is_reverse && end_of(before) <= anchor.start &&
-                                 anchor.start - end_of(before) <= length &&
-                                 (anchor.is_reverse ? anchor.to <= before.from : anchor.from >= before.to);
-                if (continues && score[j] + (anchor.to - anchor.from) > score[i]) {
-                    score[i] = score[j] + (anchor.to - anchor.from);
-                    previous[i] = j;
-                }
-            }
-        }
-
-        // Take the chains best first. Each anchor goes in one chain, so a
-        // later chain stops where it reaches an anchor already taken.
-        std::vector<size_t> order(count);
-        for (size_t i = 0; i < count; i++) {
-            order[i] = i;
-        }
-        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
-            return score[a] > score[b];
+    auto group = anchors.begin();
+    while (group != anchors.end()) {
+        size_t feature = group->feature;
+        auto group_end = std::find_if(group, anchors.end(), [&](const Anchor& anchor) {
+            return anchor.feature != feature;
         });
-        std::vector<bool> used(count, false);
-        for (size_t last : order) {
-            std::vector<size_t> chain;
-            for (size_t i = last; i != NONE && !used[i]; i = previous[i]) {
-                chain.push_back(i);
-                used[i] = true;
-            }
-            if (chain.empty()) {
-                continue;
-            }
-            std::reverse(chain.begin(), chain.end());
-            const Anchor& first = anchors[begin + chain.front()];
-            PathOccurrence place { first.start, first.start, feature, first.is_reverse, 0, {} };
-            const Anchor* before = nullptr;
-            for (size_t i : chain) {
-                const Anchor& anchor = anchors[begin + i];
-                bool adjacent = before != nullptr && anchor.start == place.end &&
-                                (anchor.is_reverse ? anchor.to == before->from : anchor.from == before->to);
-                if (adjacent) {
-                    place.blocks.back().second = end_of(anchor);
-                } else {
-                    place.blocks.emplace_back(anchor.start, end_of(anchor));
-                }
-                place.end = end_of(anchor);
-                place.matched += anchor.to - anchor.from;
-                before = &anchor;
-            }
-            if (place.matched >= min_match * length) {
-                result.push_back(std::move(place));
-            }
-        }
+        take_chains(std::span<const Anchor>(group, group_end), features[feature].interval.length, min_match, result);
+        group = group_end;
     }
     return result;
 }
@@ -545,7 +590,7 @@ void sweep_paths(const gbwtgraph::GBZ& gbz, const std::function<bool(const std::
     std::vector<PathStart> paths;
     for_each_path_start(gbz.index, [&](gbwt::size_type path_id, const std::string& name, uint64_t start) {
         if (include(name)) {
-            paths.push_back({ path_id, name, start });
+            paths.emplace_back(path_id, name, start);
         }
     });
 
@@ -557,7 +602,7 @@ void sweep_paths(const gbwtgraph::GBZ& gbz, const std::function<bool(const std::
         for (size_t i = batch_start; i < batch_end; i++) {
             const PathStart& path = paths[i];
             gbwt::vector_type steps = gbz.index.extract(gbwt::Path::encode(path.id, false));
-            std::vector<uint64_t> coords { path.start };
+            std::vector coords { path.start };
             for (gbwt::node_type node : steps) {
                 coords.push_back(coords.back() + graph.get_length(GBWTGraph::node_to_handle(node)));
             }
@@ -565,16 +610,7 @@ void sweep_paths(const gbwtgraph::GBZ& gbz, const std::function<bool(const std::
             places.clear();
             find(steps, coords, places);
             std::sort(places.begin(), places.end(), [](const PathOccurrence& a, const PathOccurrence& b) {
-                if (a.start != b.start) {
-                    return a.start < b.start;
-                }
-                if (a.end != b.end) {
-                    return a.end < b.end;
-                }
-                if (a.feature != b.feature) {
-                    return a.feature < b.feature;
-                }
-                return a.is_reverse < b.is_reverse;
+                return std::tie(a.start, a.end, a.feature, a.is_reverse) < std::tie(b.start, b.end, b.feature, b.is_reverse);
             });
         }
         for (size_t i = batch_start; i < batch_end; i++) {
@@ -593,7 +629,8 @@ void for_each_path_occurrences(const gbwtgraph::GBZ& gbz, const std::vector<Grap
                                   std::vector<PathOccurrence>& places) {
         matcher.for_each_match(steps, [&](size_t feature, size_t step, bool is_reverse) {
             const WalkInterval& interval = features[feature].interval;
-            uint64_t walk_start = coords[step], walk_end = coords[step + interval.walk.size()];
+            uint64_t walk_start = coords[step];
+            uint64_t walk_end = coords[step + interval.walk.size()];
             uint64_t start = is_reverse ? walk_end - interval.offset - interval.length : walk_start + interval.offset;
             uint64_t end = start + interval.length;
             places.push_back({ start, end, feature, is_reverse, interval.length, { { start, end } } });

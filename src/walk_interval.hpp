@@ -41,6 +41,10 @@ struct WalkInterval {
     WalkInterval subinterval(const gbwtgraph::GBWTGraph& graph, size_t start, size_t end) const;
     /// Return the total length of the nodes on the walk.
     size_t walk_length(const gbwtgraph::GBWTGraph& graph) const;
+    /// Return -1, 0 or 1 as this interval sorts before, with or after the
+    /// other. Intervals sort by their walks as GBWT node numbers, then by
+    /// offset and length.
+    int compare(const WalkInterval& other) const;
 };
 
 /**

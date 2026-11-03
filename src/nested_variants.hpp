@@ -20,8 +20,11 @@
 #include "vcf_alleles.hpp"
 
 #include <iosfwd>
+#include <map>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -117,8 +120,20 @@ private:
         uint64_t end;
     };
 
+    /// A walk read in one orientation, with its steps numbered that way.
+    class OrientedWalk;
+
     /// Return the pass made of the visits, which read one contig in order.
     ContigPass make_pass(const std::vector<handlegraph::handle_t>& walk, std::vector<Visit> visits) const;
+    /**
+     * Add to the pass the variant in which the walk's nodes strictly between
+     * steps left and right replace the contig's bases [ref_start, ref_end).
+     *
+     * The walk must read the contig forward. A walk that spells the same
+     * bases on other nodes has no variant there.
+     */
+    void add_variant(ContigPass& pass, const OrientedWalk& walk, uint64_t ref_start, uint64_t ref_end, size_t left,
+                     size_t right) const;
 
     const gbwtgraph::GBWTGraph& graph;
     /// Finds and spells the contigs, and finds where walks go past their ends.
@@ -187,6 +202,19 @@ public:
     const std::vector<std::pair<size_t, size_t>>& readings(size_t allele) const { return allele_readings[allele]; }
 
 private:
+    /// The index of each variant in variants(), by its contig, position and alleles.
+    using VariantKeys = std::map<std::tuple<uint32_t, uint64_t, std::string, std::string>, size_t>;
+
+    /// Return the index of the allele among the readers of the contig, adding
+    /// it as a reader if it is not one yet.
+    size_t reader_of(size_t allele, size_t contig);
+    /// Return the index of the variant in variants(), adding it to the catalog
+    /// and to the variants of the contig if it is new.
+    size_t list_variant(const NestedVariant& variant, size_t contig, VariantKeys& keys,
+                        const gbwtgraph::GBWTGraph& graph);
+    /// Put the contigs in the order of their last records.
+    void sort_contigs();
+
     std::vector<NestedVariant> variant_list;
     std::vector<std::string> ids;
     std::vector<Contig> contig_list;
@@ -219,12 +247,12 @@ public:
     /**
      * Make a genotyper for the calls that writes to out.
      *
-     * @param info Extra INFO for the record of each variant, starting with ";"
-     * if not empty.
+     * @param extra_info Extra INFO for the record of each variant, starting
+     * with ";" if not empty.
      * @param top_level_snarls The top-level snarl of each contig, by its name
      * in the VCF, for INFO/PS. Records on contigs that it leaves out get no PS.
      */
-    NestedGenotyper(const NestedVariantCatalog& catalog, const VcfCalls& calls, std::vector<std::string> info,
+    NestedGenotyper(const NestedVariantCatalog& catalog, const VcfCalls& calls, std::vector<std::string> extra_info,
                     const std::unordered_map<std::string, std::string>& top_level_snarls,
                     const gbwtgraph::GBWTGraph& graph, std::ostream& out);
 
@@ -233,7 +261,7 @@ public:
     std::vector<std::string> header_lines() const;
     /// Take the genotypes of a call, then write the records of the contigs
     /// that no later call reads.
-    void add_call(size_t record, const VcfCursor& vcf);
+    void add_call(size_t record, const VcfCursor& cursor);
     /// Return the number of genotypes set missing because the sample carries
     /// more walks there than it has haplotypes.
     size_t conflicts() const { return conflict_count; }
@@ -249,12 +277,37 @@ private:
         int quality;
     };
 
+    /// A sample's genotype at a variant.
+    class Genotype;
+    /// The sample columns of a record, with the counts for its INFO.
+    class SampleColumns;
+
+    /**
+     * Add the walks of the ALT alleles that a sample's genotype calls to the
+     * contigs that they read.
+     *
+     * @param quality The GQ of the call, or -1 if it has none.
+     * @returns The number of haplotypes in the genotype.
+     */
+    size_t carry_genotype(const VcfSite& site, size_t sample, std::string_view genotype, int quality);
+    /**
+     * Add the walk of an ALT allele that a sample carries to each contig that
+     * the allele reads.
+     *
+     * @param haplotype The haplotype that carries the walk, or -1 if the call
+     * is not phased.
+     * @param quality The GQ of the call, or -1 if it has none.
+     */
+    void carry(size_t sample, size_t allele, int haplotype, int quality);
     /// Write the records of the variants on a contig, and forget its walks.
     void write_contig(size_t contig);
+    /// Write the record of a variant on the contig, with the sample columns.
+    void write_record(const NestedVariantCatalog::Contig& contig, size_t variant, const SampleColumns& columns);
 
     const NestedVariantCatalog& catalog;
     const VcfCalls& calls;
-    std::vector<std::string> info;
+    /// Extra INFO for the record of each variant.
+    std::vector<std::string> extra_info;
     const std::unordered_map<std::string, std::string>& top_level_snarls;
     const gbwtgraph::GBWTGraph& graph;
     std::ostream& out;

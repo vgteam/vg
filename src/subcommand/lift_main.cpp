@@ -116,301 +116,173 @@ void help_lift(char** argv) {
          << "  -h, --help              print this help message to stderr and exit" << endl;
 }
 
-/**
- * Read the BED features and lift each to the graph, keeping each feature once.
- *
- * A feature is on a gref path, on a tig in the tigs file, or on a path in the
- * GBZ. Features on a path outside its fragments in the graph are skipped.
- */
-static vector<GraphFeature> lift_bed_features(const string& features_file, const string& tigs_file,
-                                              const string& graph_file, const gbwtgraph::GBZ& gbz,
-                                              const GrefIndex* gref_pointer, const Logger& logger, bool progress) {
-    const gbwtgraph::GBWTGraph& graph = gbz.graph;
-    Cover cover(graph, gref_pointer);
+/// The options and arguments of vg lift.
+struct LiftConfig {
+    string graph_file;
+    /// The BED or VCF of features, or with --depth the regions BED, if any.
+    string input_file;
+    /// True if the features are the ALT alleles of a VCF.
+    bool vcf_input = false;
+    string tigs_file;
+    string canonical_file;
+    vector<string> priority_prefixes;
+    string assemblies_file;
+    vector<string> path_prefixes;
+    double min_match = 0;
+    bool blocks = false;
+    bool progress = false;
+    bool depth_mode = false;
+    HaplotypeDepth::Options depth_options;
+    string gref_segs_file;
 
-    vector<BedFeature> bed_features;
-    get_input_file(features_file, [&](istream& in) {
-        try {
-            bed_features = read_bed_features(in);
-        } catch (const runtime_error& e) {
-            logger.error() << e.what() << endl;
-        }
-    });
-    if (progress) {
-        cerr << "[vg lift] " << bed_features.size() << " features" << endl;
+    /**
+     * Read the command line.
+     *
+     * Print the help and exit on -h or an unknown option. Report an error on
+     * options that do not go together, and on missing or extra arguments.
+     */
+    LiftConfig(int argc, char** argv, const Logger& logger);
+
+private:
+    /// Read the options, leaving optind at the first argument.
+    void read_options(int argc, char** argv, const Logger& logger);
+    /// Return true if an option for lifting features is set.
+    bool has_lift_options() const;
+};
+
+LiftConfig::LiftConfig(int argc, char** argv, const Logger& logger) {
+    read_options(argc, argv, logger);
+    if (!depth_mode && (depth_options.count_visits || depth_options.count_references)) {
+        logger.error() << "--visits and --references need --depth" << endl;
     }
-    for (const BedFeature& feature : bed_features) {
-        if (feature.fields.size() >= 9) {
-            logger.warn() << "BED12 blocks are not lifted; columns from the 7th on are copied as they are" << endl;
+    if (depth_mode) {
+        if (has_lift_options()) {
+            logger.error() << "--depth takes no -u, -c, -P, -a, -m, -b or --gref-segs" << endl;
+        }
+        if (optind + 1 != argc && optind + 2 != argc) {
+            logger.error() << "expected a GBZ file and optionally a regions BED" << endl;
+        }
+        graph_file = require_exists(logger, argv[optind]);
+        input_file = optind + 2 == argc ? argv[optind + 1] : "";
+        return;
+    }
+    if (optind + 2 != argc) {
+        logger.error() << "expected a GBZ file and a BED or VCF file" << endl;
+    }
+    graph_file = require_exists(logger, argv[optind]);
+    input_file = argv[optind + 1];
+    vcf_input = input_file != "-" && is_variant_file(input_file);
+    if (!vcf_input && !gref_segs_file.empty()) {
+        logger.error() << "--gref-segs needs a VCF" << endl;
+    }
+}
+
+void LiftConfig::read_options(int argc, char** argv, const Logger& logger) {
+    constexpr int OPT_DEPTH = 1001;
+    constexpr int OPT_VISITS = 1002;
+    constexpr int OPT_REFERENCES = 1003;
+    constexpr int OPT_GREF_SEGS = 1004;
+
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] = {
+            {"depth", no_argument, nullptr, OPT_DEPTH},
+            {"visits", no_argument, nullptr, OPT_VISITS},
+            {"references", no_argument, nullptr, OPT_REFERENCES},
+            {"gref-segs", required_argument, nullptr, OPT_GREF_SEGS},
+            {"tigs", required_argument, nullptr, 'u'},
+            {"canonical", required_argument, nullptr, 'c'},
+            {"priority", required_argument, nullptr, 'P'},
+            {"assemblies", required_argument, nullptr, 'a'},
+            {"min-match", required_argument, nullptr, 'm'},
+            {"blocks", no_argument, nullptr, 'b'},
+            {"paths-by", required_argument, nullptr, 'Q'},
+            {"threads", required_argument, nullptr, 't'},
+            {"progress", no_argument, nullptr, 'p'},
+            {"help", no_argument, nullptr, 'h'},
+            {nullptr, 0, nullptr, 0}
+        };
+        int option_index = 0;
+        int c = getopt_long(argc, argv, "u:c:P:a:m:bQ:t:ph?", long_options, &option_index);
+        if (c == -1) {
             break;
         }
-    }
-
-    // Find the sequence of each feature: a gref path, a tig, or a path in the
-    // GBZ. Load only the tigs and paths that features are on.
-    unordered_set<string> wanted;
-    for (const BedFeature& feature : bed_features) {
-        if (!cover.is_gref_path(feature.sequence)) {
-            wanted.insert(feature.sequence);
-        }
-    }
-    if (!wanted.empty() && !tigs_file.empty()) {
-        get_input_file(tigs_file, [&](istream& in) {
-            try {
-                cover.add_tigs(in, [&](const string& name) { return wanted.count(name) > 0; });
-            } catch (const runtime_error& e) {
-                logger.error() << e.what() << endl;
+        switch (c) {
+        case 'u':
+            tigs_file = require_exists(logger, optarg);
+            break;
+        case 'c':
+            canonical_file = ensure_writable(logger, optarg);
+            break;
+        case 'P':
+            priority_prefixes.emplace_back(optarg);
+            break;
+        case 'a':
+            assemblies_file = ensure_writable(logger, optarg);
+            break;
+        case 'm':
+            min_match = parse<double>(optarg);
+            if (min_match <= 0 || min_match > 1) {
+                logger.error() << "-m/--min-match must be in (0, 1]" << endl;
             }
-        });
-    }
-    PathDirectory paths(gbz, [&](const string& name) {
-        return wanted.count(name) > 0 && !cover.sequence_length(name);
-    });
-    for (const BedFeature& feature : bed_features) {
-        optional<size_t> length = cover.sequence_length(feature.sequence);
-        if (length && feature.end > *length) {
-            logger.error() << "feature " << feature.sequence << ":" << feature.start << "-" << feature.end
-                           << " ends past the end of the sequence (" << *length << " bp)" << endl;
-        }
-        if (!length && !paths.has_path(feature.sequence)) {
-            logger.error() << "feature on " << feature.sequence << ", which is not a gref path or a path in "
-                           << graph_file << ", or a tig" << (tigs_file.empty() ? " (use -u)" : " in " + tigs_file) << endl;
-        }
-    }
-
-    // A feature on a path lifts only if one fragment of the path holds it.
-    vector<GraphFeature> features(bed_features.size());
-    vector<bool> lifted(bed_features.size(), true);
-    #pragma omp parallel for schedule(dynamic, 1024)
-    for (size_t i = 0; i < bed_features.size(); i++) {
-        BedFeature& feature = bed_features[i];
-        optional<WalkInterval> interval;
-        if (cover.sequence_length(feature.sequence)) {
-            interval = cover.interval(feature.sequence, feature.start, feature.end);
-        } else {
-            interval = paths.interval(feature.sequence, feature.start, feature.end);
-        }
-        if (interval) {
-            features[i] = make_graph_feature(graph, gref_pointer, std::move(*interval), std::move(feature.fields));
-        } else {
-            lifted[i] = false;
+            break;
+        case 'b':
+            blocks = true;
+            break;
+        case 'Q':
+            path_prefixes.emplace_back(optarg);
+            break;
+        case 't':
+            set_thread_count(logger, optarg);
+            break;
+        case 'p':
+            progress = true;
+            break;
+        case OPT_DEPTH:
+            depth_mode = true;
+            break;
+        case OPT_VISITS:
+            depth_options.count_visits = true;
+            break;
+        case OPT_REFERENCES:
+            depth_options.count_references = true;
+            break;
+        case OPT_GREF_SEGS:
+            gref_segs_file = require_exists(logger, optarg);
+            break;
+        case 'h':
+        case '?':
+        default:
+            help_lift(argv);
+            std::exit(EXIT_FAILURE);
         }
     }
-    size_t outside = 0;
-    for (size_t i = 0; i < features.size(); i++) {
-        if (!lifted[i]) {
-            outside++;
-        } else if (outside > 0) {
-            features[i - outside] = std::move(features[i]);
-        }
-    }
-    features.resize(features.size() - outside);
-    if (outside > 0) {
-        logger.warn() << outside << " features on paths are not within one fragment of the path in "
-                      << graph_file << " and were skipped" << endl;
-    }
-    bed_features = vector<BedFeature>();
-    sort_and_merge_features(features);
-    if (progress) {
-        cerr << "[vg lift] " << features.size() << " distinct features in the graph" << endl;
-    }
-    return features;
 }
 
-/// The feature index of an ALT allele without a feature. The VCF gives no walk
-/// for it, or its walk has no nodes besides the first and last.
-constexpr size_t NO_FEATURE = numeric_limits<size_t>::max();
-
-/**
- * Add a feature for each ALT allele of the VCF whose walk has nodes besides
- * the first and last, in file order.
- *
- * Each feature is stranded and reads along its allele, so that its placement
- * and path coordinate say which way the allele reads its paths.
- *
- * @returns For each ALT allele, the index of its feature, or NO_FEATURE.
- */
-static vector<size_t> add_allele_features(VcfCalls& calls, const gbwtgraph::GBWTGraph& graph, const GrefIndex* gref,
-                                          vector<GraphFeature>& features, const Logger& logger, bool progress) {
-    vector<VcfAllele>& alleles = calls.alleles;
-    vector<size_t> allele_features(alleles.size(), NO_FEATURE);
-    size_t first_feature = features.size();
-    size_t without_walk = 0;
-    size_t foreign = 0;
-    string foreign_example;
-    for (size_t i = 0; i < alleles.size(); i++) {
-        without_walk += alleles[i].walk.empty();
-        if (!alleles[i].holds_alt && foreign++ == 0) {
-            foreign_example = alleles[i].name;
-        }
-        if (alleles[i].interval) {
-            allele_features[i] = features.size();
-            features.emplace_back();
-        }
-    }
-    #pragma omp parallel for schedule(dynamic, 1024)
-    for (size_t i = 0; i < alleles.size(); i++) {
-        if (allele_features[i] != NO_FEATURE) {
-            features[allele_features[i]] = make_graph_feature(graph, gref, std::move(*alleles[i].interval),
-                                                              { alleles[i].name, "0", "+" },
-                                                              alleles[i].walk.front(), alleles[i].walk.back());
-        }
-    }
-    if (progress) {
-        cerr << "[vg lift] " << alleles.size() << " ALT alleles, " << (features.size() - first_feature)
-             << " with bases to place" << endl;
-    }
-    if (without_walk > 0) {
-        logger.warn() << without_walk << " ALT alleles have no walk in INFO/AT or in a PanGenie variant ID" << endl;
-    }
-    if (foreign > 0) {
-        logger.warn() << foreign << " ALT alleles, such as " << foreign_example
-                      << ", are not in the sequences of their walks; is the VCF from this graph?" << endl;
-    }
-    return allele_features;
+bool LiftConfig::has_lift_options() const {
+    return !tigs_file.empty() || !canonical_file.empty() || !priority_prefixes.empty() || !assemblies_file.empty() ||
+           min_match > 0 || blocks || !gref_segs_file.empty();
 }
 
-/**
- * Return true if a record of the calls is on a gref alt contig. Such a VCF
- * already has its nested variants, as vg deconstruct or vg lift wrote them.
- */
-static bool has_contig_records(const VcfCalls& calls, const ContigDecomposer& decomposer, const GrefIndex& gref) {
-    unordered_set<string> contig_names;
-    for (uint32_t path = 0; path < gref.path_count(); path++) {
-        if (decomposer.is_contig(path)) {
-            contig_names.insert(PathMetadata::parse_locus_name(gref.path_name(path)));
-        }
-    }
-    return std::any_of(calls.sites.begin(), calls.sites.end(), [&](const VcfSite& site) {
-        return contig_names.count(site.chrom) > 0;
+//------------------------------------------------------------------------------
+
+/// Return true if the name starts with one of the prefixes.
+static bool starts_with_any(string_view name, const vector<string>& prefixes) {
+    return std::any_of(prefixes.begin(), prefixes.end(), [&](const string& prefix) {
+        return name.starts_with(prefix);
     });
 }
 
-/**
- * Add a feature for the ALT allele of each nested variant, its walk without
- * the first and last nodes, if that has any nodes.
- *
- * @returns For each variant, the index of its feature, or NO_FEATURE.
- */
-static vector<size_t> add_nested_features(const NestedVariantCatalog& catalog, const gbwtgraph::GBWTGraph& graph,
-                                          const GrefIndex* gref, vector<GraphFeature>& features) {
-    const vector<NestedVariant>& variants = catalog.variants();
-    vector<size_t> nested_features(variants.size(), NO_FEATURE);
-    for (size_t i = 0; i < variants.size(); i++) {
-        if (variants[i].alt_walk.size() > 2) {
-            nested_features[i] = features.size();
-            features.emplace_back();
-        }
-    }
-    #pragma omp parallel for schedule(dynamic, 1024)
-    for (size_t i = 0; i < variants.size(); i++) {
-        if (nested_features[i] != NO_FEATURE) {
-            const vector<handle_t>& walk = variants[i].alt_walk;
-            WalkInterval interval;
-            interval.walk.assign(walk.begin() + 1, walk.end() - 1);
-            interval.length = interval.walk_length(graph);
-            features[nested_features[i]] = make_graph_feature(graph, gref, std::move(interval),
-                                                              { catalog.id(i), "0", "+" }, walk.front(), walk.back());
-        }
-    }
-    return nested_features;
+/// Return the number of features without a path coordinate.
+static size_t count_unnamed(const vector<GraphFeature>& features) {
+    return std::count_if(features.begin(), features.end(), [](const GraphFeature& feature) {
+        return !feature.coordinate.has_value();
+    });
 }
 
-/// Return the INFO/GR and INFO/PC values of a feature, "." where it has none.
-static pair<string, string> lifted_values(const GraphFeature& feature) {
-    pair<string, string> values(".", ".");
-    if (!feature.placement.text.empty()) {
-        // Commas separate the values of the alleles.
-        values.first = feature.placement.text;
-        std::replace(values.first.begin(), values.first.end(), ',', '|');
-    }
-    if (feature.coordinate) {
-        values.second = feature.coordinate->text();
-    }
-    return values;
-}
-
-/**
- * Return INFO/GR, the gref placement, and INFO/PC, the path coordinate, for
- * each ALT allele of a VCF.
- */
-static vector<VcfAlleleInfo> lifted_tags(const vector<GraphFeature>& features, const vector<size_t>& allele_features) {
-    VcfAlleleInfo placements { "GR",
-        "##INFO=<ID=GR,Number=A,Type=String,Description=\"Gref placement of the ALT allele, its walk without the "
-        "first and last nodes: PATH:START-END:STRAND:CIGAR segments, 1-based and inclusive, separated by |, or *:NI "
-        "if none of its N bases is on the gref (vg lift)\">",
-        vector<string>(allele_features.size(), ".") };
-    VcfAlleleInfo coordinates { "PC",
-        "##INFO=<ID=PC,Number=A,Type=String,Description=\"Path coordinate of the ALT allele, its walk without the "
-        "first and last nodes: PATH:START-END:STRAND, 1-based and inclusive, on the first path in priority order "
-        "that carries it whole (vg lift)\">",
-        vector<string>(allele_features.size(), ".") };
-    for (size_t i = 0; i < allele_features.size(); i++) {
-        if (allele_features[i] != NO_FEATURE) {
-            tie(placements.values[i], coordinates.values[i]) = lifted_values(features[allele_features[i]]);
-        }
-    }
-    return { placements, coordinates };
-}
-
-/**
- * Return the INFO/GR and INFO/PC entries of the record of each nested variant,
- * each starting with ";", or empty if the variant has neither.
- */
-static vector<string> nested_tags(const NestedVariantCatalog& catalog, const vector<GraphFeature>& features,
-                                  const vector<size_t>& nested_features) {
-    vector<string> tags(catalog.variants().size());
-    for (size_t i = 0; i < tags.size(); i++) {
-        if (nested_features[i] != NO_FEATURE) {
-            auto [placement, coordinate] = lifted_values(features[nested_features[i]]);
-            tags[i] = (placement == "." ? "" : ";GR=" + placement) + (coordinate == "." ? "" : ";PC=" + coordinate);
-        }
-    }
-    return tags;
-}
-
-/**
- * Write the VCF to standard output with the tags of its ALT alleles, followed
- * by the records of the nested variants in the catalog, if there is one.
- *
- * @param nested_info Extra INFO for the record of each nested variant.
- * @param top_level_snarls The top-level snarl of each alt contig, by its name
- * in the VCF, for the PS of the nested records.
- */
-static void write_lifted_vcf(const string& vcf_file, const VcfCalls& calls, const vector<VcfAlleleInfo>& tags,
-                             const NestedVariantCatalog* catalog, vector<string> nested_info,
-                             const unordered_map<string, string>& top_level_snarls,
-                             const gbwtgraph::GBWTGraph& graph, const Logger& logger) {
-    // The genotyper writes the nested records to a temporary file as it goes,
-    // and they follow the calls.
-    string nested_file = temp_file::create("vg-lift-nested");
-    ofstream nested_out(nested_file);
-    optional<NestedGenotyper> genotyper;
-    vector<string> nested_header;
-    if (catalog != nullptr && !catalog->variants().empty()) {
-        genotyper.emplace(*catalog, calls, std::move(nested_info), top_level_snarls, graph, nested_out);
-        nested_header = genotyper->header_lines();
-    }
-    try {
-        write_vcf_with_allele_info(vcf_file, cout, tags, nested_header, [&](size_t record, const VcfCursor& vcf) {
-            if (genotyper) {
-                genotyper->add_call(record, vcf);
-            }
-        }, vg::get_thread_count());
-    } catch (const runtime_error& e) {
-        logger.error() << e.what() << endl;
-    }
-    nested_out.close();
-    ifstream nested_in(nested_file);
-    if (nested_in.peek() != ifstream::traits_type::eof()) {
-        cout << nested_in.rdbuf();
-    }
-    nested_in.close();
-    temp_file::remove(nested_file);
-    if (genotyper && genotyper->conflicts() > 0) {
-        logger.warn() << genotyper->conflicts() << " nested genotypes are missing because the sample carries more "
-                      << "walks there than it has haplotypes" << endl;
-    }
+/// Return the ID of the feature with the given index.
+static string feature_id(size_t i) {
+    return "f" + to_string(i + 1);
 }
 
 /**
@@ -437,11 +309,623 @@ static istringstream read_text_file(const string& path) {
     return istringstream(text);
 }
 
-/// Return true if the name starts with one of the prefixes.
-static bool starts_with_any(const string& name, const vector<string>& prefixes) {
-    return std::any_of(prefixes.begin(), prefixes.end(), [&](const string& prefix) {
-        return name.compare(0, prefix.size(), prefix) == 0;
+//------------------------------------------------------------------------------
+
+/// Read the features of a BED file, and warn that BED12 blocks are not lifted.
+static vector<BedFeature> read_bed_file(const string& features_file, const Logger& logger, bool progress) {
+    vector<BedFeature> bed_features;
+    get_input_file(features_file, [&](istream& in) {
+        try {
+            bed_features = read_bed_features(in);
+        } catch (const runtime_error& e) {
+            logger.error() << e.what() << endl;
+        }
     });
+    if (progress) {
+        cerr << "[vg lift] " << bed_features.size() << " features" << endl;
+    }
+    if (std::any_of(bed_features.begin(), bed_features.end(), [](const BedFeature& feature) {
+            return feature.fields.size() >= 9;
+        })) {
+        logger.warn() << "BED12 blocks are not lifted; columns from the 7th on are copied as they are" << endl;
+    }
+    return bed_features;
+}
+
+/// Report an error for a feature that ends past the end of its sequence, or
+/// that is on a sequence that is not in the cover or the path directory.
+static void check_sequences(const vector<BedFeature>& bed_features, const Cover& cover, const PathDirectory& paths,
+                            const LiftConfig& config, const Logger& logger) {
+    for (const BedFeature& feature : bed_features) {
+        optional<size_t> length = cover.sequence_length(feature.sequence);
+        if (length.has_value() && feature.end > *length) {
+            logger.error() << "feature " << feature.sequence << ":" << feature.start << "-" << feature.end
+                           << " ends past the end of the sequence (" << *length << " bp)" << endl;
+        }
+        if (!length.has_value() && !paths.has_path(feature.sequence)) {
+            logger.error() << "feature on " << feature.sequence << ", which is not a gref path or a path in "
+                           << config.graph_file << ", or a tig"
+                           << (config.tigs_file.empty() ? " (use -u)" : " in " + config.tigs_file) << endl;
+        }
+    }
+}
+
+/**
+ * Lift each feature to the graph, from its sequence in the cover or its path
+ * in the directory, in order.
+ *
+ * A feature on a path lifts only if one fragment of the path holds it. Leave
+ * out the features that no fragment holds, and count them in skipped.
+ */
+static vector<GraphFeature> lift_to_graph(vector<BedFeature> bed_features, const Cover& cover,
+                                          const PathDirectory& paths, const gbwtgraph::GBWTGraph& graph,
+                                          const GrefIndex* gref, size_t& skipped) {
+    vector<GraphFeature> features(bed_features.size());
+    vector<bool> lifted(bed_features.size(), true);
+    #pragma omp parallel for schedule(dynamic, 1024)
+    for (size_t i = 0; i < bed_features.size(); i++) {
+        BedFeature& feature = bed_features[i];
+        optional<WalkInterval> interval;
+        if (cover.sequence_length(feature.sequence).has_value()) {
+            interval = cover.interval(feature.sequence, feature.start, feature.end);
+        } else {
+            interval = paths.interval(feature.sequence, feature.start, feature.end);
+        }
+        if (interval.has_value()) {
+            features[i] = make_graph_feature(graph, gref, std::move(*interval), std::move(feature.fields));
+        } else {
+            lifted[i] = false;
+        }
+    }
+    skipped = 0;
+    for (size_t i = 0; i < features.size(); i++) {
+        if (!lifted[i]) {
+            skipped++;
+        } else if (skipped > 0) {
+            features[i - skipped] = std::move(features[i]);
+        }
+    }
+    features.resize(features.size() - skipped);
+    return features;
+}
+
+/**
+ * Read the BED features and lift each to the graph, keeping each feature once.
+ *
+ * A feature is on a gref path, on a tig in the tigs file, or on a path in the
+ * GBZ. Features on a path outside its fragments in the graph are skipped.
+ */
+static vector<GraphFeature> lift_bed_features(const LiftConfig& config, const gbwtgraph::GBZ& gbz,
+                                              const GrefIndex* gref_pointer, const Logger& logger) {
+    Cover cover(gbz.graph, gref_pointer);
+    vector<BedFeature> bed_features = read_bed_file(config.input_file, logger, config.progress);
+
+    // Find the sequence of each feature: a gref path, a tig, or a path in the
+    // GBZ. Load only the tigs and paths that features are on.
+    unordered_set<string> wanted;
+    for (const BedFeature& feature : bed_features) {
+        if (!cover.is_gref_path(feature.sequence)) {
+            wanted.insert(feature.sequence);
+        }
+    }
+    if (!wanted.empty() && !config.tigs_file.empty()) {
+        get_input_file(config.tigs_file, [&](istream& in) {
+            try {
+                cover.add_tigs(in, [&](const string& name) { return wanted.contains(name); });
+            } catch (const runtime_error& e) {
+                logger.error() << e.what() << endl;
+            }
+        });
+    }
+    PathDirectory paths(gbz, [&](const string& name) {
+        return wanted.contains(name) && !cover.sequence_length(name).has_value();
+    });
+    check_sequences(bed_features, cover, paths, config, logger);
+
+    size_t skipped = 0;
+    vector<GraphFeature> features = lift_to_graph(std::move(bed_features), cover, paths, gbz.graph, gref_pointer,
+                                                  skipped);
+    if (skipped > 0) {
+        logger.warn() << skipped << " features on paths are not within one fragment of the path in "
+                      << config.graph_file << " and were skipped" << endl;
+    }
+    sort_and_merge_features(features);
+    if (config.progress) {
+        cerr << "[vg lift] " << features.size() << " distinct features in the graph" << endl;
+    }
+    return features;
+}
+
+//------------------------------------------------------------------------------
+
+/// The feature index of an ALT allele without a feature. The VCF gives no walk
+/// for it, or its walk has no nodes besides the first and last.
+constexpr size_t NO_FEATURE = numeric_limits<size_t>::max();
+
+/// Return the INFO/GR and INFO/PC values of a feature, "." where it has none.
+static pair<string, string> lifted_values(const GraphFeature& feature) {
+    pair<string, string> values(".", ".");
+    if (!feature.placement.text.empty()) {
+        // Commas separate the values of the alleles.
+        values.first = feature.placement.text;
+        std::replace(values.first.begin(), values.first.end(), ',', '|');
+    }
+    if (feature.coordinate) {
+        values.second = feature.coordinate->text();
+    }
+    return values;
+}
+
+/**
+ * A VCF of graph variants whose ALT alleles are features to lift.
+ *
+ * It adds a feature for each ALT allele with bases to place. It also adds one
+ * for each variant that the alleles carry along gref alt contigs, unless the
+ * VCF already has records on the contigs. It writes the VCF back with the gref
+ * placement and path coordinate of each allele, followed by the records of
+ * those nested variants.
+ */
+class LiftedVcf {
+public:
+    /// Read the VCF, and add the features of its ALT alleles and of their
+    /// nested variants to the features.
+    LiftedVcf(const string& vcf_file, const gbwtgraph::GBWTGraph& graph, const GrefIndex& gref,
+              vector<GraphFeature>& features, const Logger& logger, bool progress);
+
+    /**
+     * Write the VCF to standard output with the tags of its ALT alleles,
+     * followed by the records of the nested variants.
+     *
+     * @param features The features, named and placed.
+     * @param top_level_snarls The top-level snarl of each alt contig, by its
+     * name in the VCF, for the PS of the nested records.
+     */
+    void write(const vector<GraphFeature>& features, const unordered_map<string, string>& top_level_snarls,
+               const Logger& logger) const;
+
+private:
+    /**
+     * Add a feature for each ALT allele whose walk has nodes besides the
+     * first and last, in file order.
+     *
+     * Each feature is stranded and reads along its allele, so that its
+     * placement and path coordinate say which way the allele reads its paths.
+     *
+     * @returns For each ALT allele, the index of its feature, or NO_FEATURE.
+     */
+    vector<size_t> add_allele_features(vector<GraphFeature>& features, const GrefIndex* gref, const Logger& logger,
+                                       bool progress);
+    /// Return true if a record is on a gref alt contig. Such a VCF already
+    /// has its nested variants, as vg deconstruct or vg lift wrote them.
+    bool has_contig_records(const ContigDecomposer& decomposer, const GrefIndex& gref) const;
+    /**
+     * Add a feature for the ALT allele of each nested variant, its walk
+     * without the first and last nodes, if that has any nodes.
+     *
+     * @returns For each variant, the index of its feature, or NO_FEATURE.
+     */
+    vector<size_t> add_nested_features(vector<GraphFeature>& features, const GrefIndex* gref) const;
+    /// Return INFO/GR, the gref placement, and INFO/PC, the path coordinate,
+    /// for each ALT allele.
+    vector<VcfAlleleInfo> lifted_tags(const vector<GraphFeature>& features) const;
+    /// Return the INFO/GR and INFO/PC entries of the record of each nested
+    /// variant, each starting with ";", or empty if the variant has neither.
+    vector<string> nested_tags(const vector<GraphFeature>& features) const;
+
+    string vcf_file;
+    const gbwtgraph::GBWTGraph& graph;
+    VcfCalls calls;
+    /// The variants that the ALT alleles carry along gref alt contigs.
+    optional<NestedVariantCatalog> catalog;
+    /// The index of the feature of each ALT allele, or NO_FEATURE.
+    vector<size_t> allele_features;
+    /// The index of the feature of each nested variant, or NO_FEATURE.
+    vector<size_t> nested_features;
+};
+
+LiftedVcf::LiftedVcf(const string& vcf_file, const gbwtgraph::GBWTGraph& graph, const GrefIndex& gref,
+                     vector<GraphFeature>& features, const Logger& logger, bool progress) :
+    vcf_file(vcf_file), graph(graph) {
+    try {
+        calls = read_vcf_calls(vcf_file, graph, vg::get_thread_count());
+    } catch (const runtime_error& e) {
+        logger.error() << e.what() << endl;
+    }
+    const GrefIndex* gref_pointer = gref.path_count() > 0 ? &gref : nullptr;
+    allele_features = add_allele_features(features, gref_pointer, logger, progress);
+    ContigDecomposer decomposer(graph, gref);
+    if (has_contig_records(decomposer, gref)) {
+        logger.warn() << vcf_file << " already has records on gref alt contigs, so no nested variants "
+                      << "are added" << endl;
+        return;
+    }
+    if (gref_pointer == nullptr) {
+        return;
+    }
+    catalog.emplace(calls, decomposer, gref, graph);
+    nested_features = add_nested_features(features, gref_pointer);
+    if (progress) {
+        const auto& contigs = catalog->contigs();
+        size_t contigs_with_variants = count_if(contigs.begin(), contigs.end(),
+                                                [](const NestedVariantCatalog::Contig& contig) {
+                                                    return !contig.variants.empty();
+                                                });
+        cerr << "[vg lift] " << catalog->variants().size() << " nested variants on " << contigs_with_variants
+             << " gref alt contigs, of " << contigs.size() << " that ALT alleles read" << endl;
+    }
+}
+
+vector<size_t> LiftedVcf::add_allele_features(vector<GraphFeature>& features, const GrefIndex* gref,
+                                              const Logger& logger, bool progress) {
+    vector<VcfAllele>& alleles = calls.alleles;
+    vector result(alleles.size(), NO_FEATURE);
+    size_t first_feature = features.size();
+    size_t without_walk = 0;
+    size_t foreign = 0;
+    string foreign_example;
+    for (size_t i = 0; i < alleles.size(); i++) {
+        if (alleles[i].walk.empty()) {
+            without_walk++;
+        }
+        if (!alleles[i].holds_alt) {
+            if (foreign == 0) {
+                foreign_example = alleles[i].name;
+            }
+            foreign++;
+        }
+        if (alleles[i].interval) {
+            result[i] = features.size();
+            features.emplace_back();
+        }
+    }
+    #pragma omp parallel for schedule(dynamic, 1024)
+    for (size_t i = 0; i < alleles.size(); i++) {
+        if (result[i] != NO_FEATURE) {
+            features[result[i]] = make_graph_feature(graph, gref, std::move(*alleles[i].interval),
+                                                     { alleles[i].name, "0", "+" },
+                                                     alleles[i].walk.front(), alleles[i].walk.back());
+        }
+    }
+    if (progress) {
+        cerr << "[vg lift] " << alleles.size() << " ALT alleles, " << (features.size() - first_feature)
+             << " with bases to place" << endl;
+    }
+    if (without_walk > 0) {
+        logger.warn() << without_walk << " ALT alleles have no walk in INFO/AT or in a PanGenie variant ID" << endl;
+    }
+    if (foreign > 0) {
+        logger.warn() << foreign << " ALT alleles, such as " << foreign_example
+                      << ", are not in the sequences of their walks; is the VCF from this graph?" << endl;
+    }
+    return result;
+}
+
+bool LiftedVcf::has_contig_records(const ContigDecomposer& decomposer, const GrefIndex& gref) const {
+    unordered_set<string> contig_names;
+    for (uint32_t path = 0; path < gref.path_count(); path++) {
+        if (decomposer.is_contig(path)) {
+            contig_names.insert(PathMetadata::parse_locus_name(gref.path_name(path)));
+        }
+    }
+    return std::any_of(calls.sites.begin(), calls.sites.end(), [&](const VcfSite& site) {
+        return contig_names.contains(site.chrom);
+    });
+}
+
+vector<size_t> LiftedVcf::add_nested_features(vector<GraphFeature>& features, const GrefIndex* gref) const {
+    const vector<NestedVariant>& variants = catalog->variants();
+    vector result(variants.size(), NO_FEATURE);
+    for (size_t i = 0; i < variants.size(); i++) {
+        if (variants[i].alt_walk.size() > 2) {
+            result[i] = features.size();
+            features.emplace_back();
+        }
+    }
+    #pragma omp parallel for schedule(dynamic, 1024)
+    for (size_t i = 0; i < variants.size(); i++) {
+        if (result[i] != NO_FEATURE) {
+            const vector<handle_t>& walk = variants[i].alt_walk;
+            WalkInterval interval;
+            interval.walk.assign(walk.begin() + 1, walk.end() - 1);
+            interval.length = interval.walk_length(graph);
+            features[result[i]] = make_graph_feature(graph, gref, std::move(interval), { catalog->id(i), "0", "+" },
+                                                     walk.front(), walk.back());
+        }
+    }
+    return result;
+}
+
+vector<VcfAlleleInfo> LiftedVcf::lifted_tags(const vector<GraphFeature>& features) const {
+    VcfAlleleInfo placements { "GR",
+        "##INFO=<ID=GR,Number=A,Type=String,Description=\"Gref placement of the ALT allele, its walk without the "
+        "first and last nodes: PATH:START-END:STRAND:CIGAR segments, 1-based and inclusive, separated by |, or *:NI "
+        "if none of its N bases is on the gref (vg lift)\">",
+        vector<string>(allele_features.size(), ".") };
+    VcfAlleleInfo coordinates { "PC",
+        "##INFO=<ID=PC,Number=A,Type=String,Description=\"Path coordinate of the ALT allele, its walk without the "
+        "first and last nodes: PATH:START-END:STRAND, 1-based and inclusive, on the first path in priority order "
+        "that carries it whole (vg lift)\">",
+        vector<string>(allele_features.size(), ".") };
+    for (size_t i = 0; i < allele_features.size(); i++) {
+        if (allele_features[i] != NO_FEATURE) {
+            tie(placements.values[i], coordinates.values[i]) = lifted_values(features[allele_features[i]]);
+        }
+    }
+    return { placements, coordinates };
+}
+
+vector<string> LiftedVcf::nested_tags(const vector<GraphFeature>& features) const {
+    vector<string> tags(catalog->variants().size());
+    for (size_t i = 0; i < tags.size(); i++) {
+        if (nested_features[i] != NO_FEATURE) {
+            auto [placement, coordinate] = lifted_values(features[nested_features[i]]);
+            tags[i] = (placement == "." ? "" : ";GR=" + placement) + (coordinate == "." ? "" : ";PC=" + coordinate);
+        }
+    }
+    return tags;
+}
+
+void LiftedVcf::write(const vector<GraphFeature>& features, const unordered_map<string, string>& top_level_snarls,
+                      const Logger& logger) const {
+    // The genotyper writes the nested records to a temporary file as it goes,
+    // and they follow the calls.
+    string nested_file = temp_file::create("vg-lift-nested");
+    ofstream nested_out(nested_file);
+    optional<NestedGenotyper> genotyper;
+    vector<string> nested_header;
+    if (catalog.has_value() && !catalog->variants().empty()) {
+        genotyper.emplace(*catalog, calls, nested_tags(features), top_level_snarls, graph, nested_out);
+        nested_header = genotyper->header_lines();
+    }
+    try {
+        write_vcf_with_allele_info(vcf_file, cout, lifted_tags(features), nested_header,
+                                   [&](size_t record, const VcfCursor& cursor) {
+            if (genotyper) {
+                genotyper->add_call(record, cursor);
+            }
+        }, vg::get_thread_count());
+    } catch (const runtime_error& e) {
+        logger.error() << e.what() << endl;
+    }
+    nested_out.close();
+    ifstream nested_in(nested_file);
+    if (nested_in.peek() != ifstream::traits_type::eof()) {
+        cout << nested_in.rdbuf();
+    }
+    nested_in.close();
+    temp_file::remove(nested_file);
+    if (genotyper && genotyper->conflicts() > 0) {
+        logger.warn() << genotyper->conflicts() << " nested genotypes are missing because the sample carries more "
+                      << "walks there than it has haplotypes" << endl;
+    }
+}
+
+/**
+ * Return the top-level snarl of each alt contig, by its name in the VCF, from
+ * a table of gref fragments, or none without a table.
+ */
+static unordered_map<string, string> read_contig_snarls(const string& gref_segs_file, const Logger& logger) {
+    unordered_map<string, string> top_level_snarls;
+    if (gref_segs_file.empty()) {
+        return top_level_snarls;
+    }
+    try {
+        istringstream segs = read_text_file(gref_segs_file);
+        for (auto& [contig, snarl] : GrefCover::read_top_level_snarls(segs)) {
+            top_level_snarls.try_emplace(PathMetadata::parse_locus_name(contig), std::move(snarl));
+        }
+    } catch (const runtime_error& e) {
+        logger.error() << gref_segs_file << ": " << e.what() << endl;
+    }
+    return top_level_snarls;
+}
+
+//------------------------------------------------------------------------------
+
+/**
+ * Write BED columns 4 to 6 (name, score and strand) for a place of the
+ * feature, each after a tab. The place reads the feature in reverse if
+ * is_reverse is set.
+ */
+static void write_name_score_strand(ostream& out, const GraphFeature& feature, bool is_reverse) {
+    const vector<string>& fields = feature.fields;
+    out << '\t' << (!fields.empty() ? fields[0] : ".") << '\t' << (fields.size() > 1 ? fields[1] : "0") << '\t';
+    if (feature.is_stranded()) {
+        out << (is_reverse ? '-' : '+');
+    } else {
+        out << '.';
+    }
+}
+
+/// Write the BED columns of the feature from the 7th on, then the ID of the
+/// feature, which has index i, each after a tab.
+static void write_rest(ostream& out, const GraphFeature& feature, size_t i) {
+    const vector<string>& fields = feature.fields;
+    for (size_t j = BED_STRAND_FIELD + 1; j < fields.size(); j++) {
+        out << '\t' << fields[j];
+    }
+    out << '\t' << feature_id(i);
+}
+
+/// Write BED columns 7 to 12 for a place, each after a tab. The thick part is
+/// the whole place, the color is 0, and there is a block for each stretch that
+/// holds feature bases.
+static void write_blocks(ostream& out, const PathOccurrence& place) {
+    out << '\t' << place.start << '\t' << place.end << "\t0\t" << place.blocks.size() << '\t';
+    for (const auto& [block_start, block_end] : place.blocks) {
+        out << (block_end - block_start) << ',';
+    }
+    out << '\t';
+    for (const auto& [block_start, block_end] : place.blocks) {
+        out << (block_start - place.start) << ',';
+    }
+}
+
+/**
+ * Write the BED row of a place on the named path, as -a writes it.
+ *
+ * With blocks, the row is BED12. With a min_match, it ends with the fraction
+ * of the feature's bases that the place holds.
+ */
+static void write_place(ostream& out, const string& path, const PathOccurrence& place, const GraphFeature& feature,
+                        bool blocks, double min_match) {
+    out << path << '\t' << place.start << '\t' << place.end;
+    write_name_score_strand(out, feature, place.is_reverse);
+    if (blocks) {
+        write_blocks(out, place);
+    }
+    write_rest(out, feature, place.feature);
+    if (min_match > 0) {
+        out << '\t' << static_cast<double>(place.matched) / static_cast<double>(feature.interval.length);
+    }
+    out << '\n';
+}
+
+/// Name the feature on the path at a place, if the place holds the whole
+/// feature in one block and the path comes before the feature's naming path,
+/// if any, in the priority order.
+static void name_by_place(GraphFeature& feature, const string& path, size_t rank, const PathOccurrence& place) {
+    // A place that holds the whole feature in one block is a path that carries it.
+    if (size_t length = feature.interval.length;
+        place.matched != length || place.blocks.size() != 1 || place.end - place.start != length) {
+        return;
+    }
+    PathCoordinate here { path, rank, place.start, place.end, place.is_reverse };
+    if (!feature.coordinate || here < *feature.coordinate) {
+        feature.coordinate = std::move(here);
+    }
+}
+
+/**
+ * Name the features off the gref by the paths that carry them, and write the
+ * places of the features on the paths chosen with -Q for -a.
+ *
+ * One pass over the paths other than gref paths does both. Naming uses every
+ * path, whatever -Q says.
+ */
+static void name_and_place_features(const gbwtgraph::GBZ& gbz, vector<GraphFeature>& features,
+                                    const LiftConfig& config, size_t gref_path_count, const Logger& logger) {
+    PathPriority priority(gbz, config.priority_prefixes, GrefCover::gref_prefix, gref_path_count);
+    ofstream out;
+    if (!config.assemblies_file.empty()) {
+        out.open(config.assemblies_file);
+        if (!out) {
+            logger.error() << "could not open " << config.assemblies_file << " for writing" << endl;
+        }
+    }
+    size_t written = 0;
+    auto visit = [&](const string& name, const vector<PathOccurrence>& places) {
+        bool write = out.is_open() && (config.path_prefixes.empty() || starts_with_any(name, config.path_prefixes));
+        size_t rank = priority.rank(name);
+        for (const PathOccurrence& place : places) {
+            name_by_place(features[place.feature], name, rank, place);
+            if (write) {
+                write_place(out, name, place, features[place.feature], config.blocks, config.min_match);
+                written++;
+            }
+        }
+    };
+    auto not_gref = [&](string_view name) {
+        return !name.starts_with(GrefCover::gref_prefix);
+    };
+    if (config.min_match > 0) {
+        for_each_path_liftover(gbz, features, config.min_match, not_gref, visit);
+    } else {
+        for_each_path_occurrences(gbz, features, not_gref, visit);
+    }
+    if (config.progress && out.is_open()) {
+        cerr << "[vg lift] " << written << " places on paths" << endl;
+    }
+}
+
+/// Write a GAF record for each feature to standard output, with its tags.
+static void write_feature_gaf(const vector<GraphFeature>& features, const gbwtgraph::GBWTGraph& graph) {
+    for (size_t i = 0; i < features.size(); i++) {
+        const GraphFeature& feature = features[i];
+        write_gaf_columns(cout, graph, feature_id(i), feature.interval);
+        cout << "\tsp:i:" << feature.support;
+        if (!feature.placement.text.empty()) {
+            cout << "\tgr:Z:" << feature.placement.text;
+        }
+        if (feature.coordinate) {
+            cout << "\tpc:Z:" << feature.coordinate->text();
+        }
+        if (!feature.fields.empty()) {
+            cout << "\tan:Z:" << feature.fields.front();
+        }
+        cout << '\n';
+    }
+}
+
+/// Write each feature with a path coordinate once, as a BED row at that
+/// coordinate, in priority order.
+static void write_canonical(const vector<GraphFeature>& features, const string& canonical_file,
+                            const Logger& logger) {
+    ofstream out(canonical_file);
+    if (!out) {
+        logger.error() << "could not open " << canonical_file << " for writing" << endl;
+    }
+    vector<size_t> order;
+    for (size_t i = 0; i < features.size(); i++) {
+        if (features[i].coordinate) {
+            order.push_back(i);
+        }
+    }
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        return *features[a].coordinate < *features[b].coordinate;
+    });
+    for (size_t i : order) {
+        const PathCoordinate& place = *features[i].coordinate;
+        out << place.path << '\t' << place.start << '\t' << place.end;
+        write_name_score_strand(out, features[i], place.is_reverse);
+        write_rest(out, features[i], i);
+        out << '\n';
+    }
+}
+
+//------------------------------------------------------------------------------
+
+/// Load the regions in a BED file, or none if the file name is empty.
+static unique_ptr<PathRegions> read_regions(const string& regions_file, const Logger& logger) {
+    unique_ptr<PathRegions> regions;
+    if (regions_file.empty()) {
+        return regions;
+    }
+    get_input_file(regions_file, [&](istream& in) {
+        try {
+            regions = make_unique<PathRegions>(in);
+        } catch (const runtime_error& e) {
+            logger.error() << e.what() << endl;
+        }
+    });
+    return regions;
+}
+
+/// A path to write depth along.
+struct OutputPath {
+    /// The name of the full path, as for_each_path_start() gives it.
+    string name;
+    /// Where the path starts on the full path.
+    uint64_t start;
+    gbwt::size_type id;
+};
+
+/**
+ * Return the paths to write depth along, sorted by name and then along each
+ * full path. They are the gref paths, or those whose names start with one of
+ * the prefixes.
+ */
+static vector<OutputPath> output_paths(const gbwtgraph::GBZ& gbz, const vector<string>& path_prefixes) {
+    vector<OutputPath> outputs;
+    for_each_path_start(gbz.index, [&](gbwt::size_type path_id, const string& name, uint64_t start) {
+        if (path_prefixes.empty() ? GrefCover::is_gref_derived(name) : starts_with_any(name, path_prefixes)) {
+            outputs.emplace_back(name, start, path_id);
+        }
+    });
+    std::sort(outputs.begin(), outputs.end(), [](const OutputPath& a, const OutputPath& b) {
+        return std::tie(a.name, a.start) < std::tie(b.name, b.start);
+    });
+    return outputs;
 }
 
 /**
@@ -456,17 +940,8 @@ static bool starts_with_any(const string& name, const vector<string>& prefixes) 
 static void write_depth(const gbwtgraph::GBZ& gbz, const string& graph_file, const string& regions_file,
                         HaplotypeDepth::Options options, const vector<string>& path_prefixes, const Logger& logger,
                         bool progress) {
-    unique_ptr<PathRegions> regions;
-    if (!regions_file.empty()) {
-        get_input_file(regions_file, [&](istream& in) {
-            try {
-                regions = make_unique<PathRegions>(in);
-            } catch (const runtime_error& e) {
-                logger.error() << e.what() << endl;
-            }
-        });
-        options.regions = regions.get();
-    }
+    unique_ptr<PathRegions> regions = read_regions(regions_file, logger);
+    options.regions = regions.get();
     HaplotypeDepth depth(gbz, options);
     if (progress) {
         cerr << "[vg lift] counted " << depth.haplotype_count() << " haplotypes";
@@ -475,26 +950,12 @@ static void write_depth(const gbwtgraph::GBZ& gbz, const string& graph_file, con
         }
         cerr << endl;
     }
-    const vector<string>& unmatched = depth.uncounted_region_paths();
-    if (!unmatched.empty()) {
+    if (const vector<string>& unmatched = depth.uncounted_region_paths(); !unmatched.empty()) {
         logger.warn() << unmatched.size() << " paths in " << regions_file << ", such as " << unmatched.front()
                       << ", are not counted paths in " << graph_file << ", so their regions are ignored" << endl;
     }
 
-    struct OutputPath {
-        string name;
-        uint64_t start;
-        gbwt::size_type id;
-    };
-    vector<OutputPath> outputs;
-    for_each_path_start(gbz.index, [&](gbwt::size_type path_id, const string& name, uint64_t start) {
-        if (path_prefixes.empty() ? GrefCover::is_gref_derived(name) : starts_with_any(name, path_prefixes)) {
-            outputs.push_back({ name, start, path_id });
-        }
-    });
-    std::sort(outputs.begin(), outputs.end(), [](const OutputPath& a, const OutputPath& b) {
-        return std::tie(a.name, a.start) < std::tie(b.name, b.start);
-    });
+    vector<OutputPath> outputs = output_paths(gbz, path_prefixes);
     if (outputs.empty()) {
         logger.warn() << "no " << (path_prefixes.empty() ? "gref paths" : "paths chosen with -Q") << " in "
                       << graph_file << ", so no depth is written" << endl;
@@ -525,7 +986,7 @@ static void write_depth(const gbwtgraph::GBZ& gbz, const string& graph_file, con
     uint64_t left_out = 0;
     graph.for_each_handle([&](const handle_t& handle) {
         nid_t id = graph.get_id(handle);
-        uint64_t bases = depth.bases_read(id, graph.get_length(handle));
+        uint64_t bases = depth.bases_read(id, static_cast<uint32_t>(graph.get_length(handle)));
         read += bases;
         if (!on_output[id - min_id]) {
             left_out += bases;
@@ -538,347 +999,61 @@ static void write_depth(const gbwtgraph::GBZ& gbz, const string& graph_file, con
     }
 }
 
+//------------------------------------------------------------------------------
+
 int main_lift(int argc, char** argv) {
     Logger logger("vg lift");
     if (argc == 2) {
         help_lift(argv);
         return 1;
     }
-
-    string tigs_file;
-    string canonical_file;
-    vector<string> priority_prefixes;
-    string assemblies_file;
-    vector<string> path_prefixes;
-    double min_match = 0;
-    bool blocks = false;
-    bool progress = false;
-    bool depth_mode = false;
-    HaplotypeDepth::Options depth_options;
-    string gref_segs_file;
-
-    constexpr int OPT_DEPTH = 1001;
-    constexpr int OPT_VISITS = 1002;
-    constexpr int OPT_REFERENCES = 1003;
-    constexpr int OPT_GREF_SEGS = 1004;
-
-    int c;
-    optind = 2; // force optind past command positional argument
-    while (true) {
-        static struct option long_options[] = {
-            {"depth", no_argument, 0, OPT_DEPTH},
-            {"visits", no_argument, 0, OPT_VISITS},
-            {"references", no_argument, 0, OPT_REFERENCES},
-            {"gref-segs", required_argument, 0, OPT_GREF_SEGS},
-            {"tigs", required_argument, 0, 'u'},
-            {"canonical", required_argument, 0, 'c'},
-            {"priority", required_argument, 0, 'P'},
-            {"assemblies", required_argument, 0, 'a'},
-            {"min-match", required_argument, 0, 'm'},
-            {"blocks", no_argument, 0, 'b'},
-            {"paths-by", required_argument, 0, 'Q'},
-            {"threads", required_argument, 0, 't'},
-            {"progress", no_argument, 0, 'p'},
-            {"help", no_argument, 0, 'h'},
-            {0, 0, 0, 0}
-        };
-        int option_index = 0;
-        c = getopt_long(argc, argv, "u:c:P:a:m:bQ:t:ph?", long_options, &option_index);
-        if (c == -1) {
-            break;
-        }
-        switch (c) {
-        case 'u':
-            tigs_file = require_exists(logger, optarg);
-            break;
-        case 'c':
-            canonical_file = ensure_writable(logger, optarg);
-            break;
-        case 'P':
-            priority_prefixes.push_back(optarg);
-            break;
-        case 'a':
-            assemblies_file = ensure_writable(logger, optarg);
-            break;
-        case 'm':
-            min_match = parse<double>(optarg);
-            if (min_match <= 0 || min_match > 1) {
-                logger.error() << "-m/--min-match must be in (0, 1]" << endl;
-            }
-            break;
-        case 'b':
-            blocks = true;
-            break;
-        case 'Q':
-            path_prefixes.push_back(optarg);
-            break;
-        case 't':
-            set_thread_count(logger, optarg);
-            break;
-        case 'p':
-            progress = true;
-            break;
-        case OPT_DEPTH:
-            depth_mode = true;
-            break;
-        case OPT_VISITS:
-            depth_options.count_visits = true;
-            break;
-        case OPT_REFERENCES:
-            depth_options.count_references = true;
-            break;
-        case OPT_GREF_SEGS:
-            gref_segs_file = require_exists(logger, optarg);
-            break;
-        case 'h':
-        case '?':
-        default:
-            help_lift(argv);
-            return 1;
-        }
-    }
-    if (!depth_mode && (depth_options.count_visits || depth_options.count_references)) {
-        logger.error() << "--visits and --references need --depth" << endl;
-    }
-    if (depth_mode) {
-        if (!tigs_file.empty() || !canonical_file.empty() || !priority_prefixes.empty() || !assemblies_file.empty()
-            || min_match > 0 || blocks || !gref_segs_file.empty()) {
-            logger.error() << "--depth takes no -u, -c, -P, -a, -m, -b or --gref-segs" << endl;
-        }
-        if (optind + 1 != argc && optind + 2 != argc) {
-            logger.error() << "expected a GBZ file and optionally a regions BED" << endl;
-        }
-        string graph_file = require_exists(logger, argv[optind]);
-        string regions_file = optind + 2 == argc ? argv[optind + 1] : "";
+    LiftConfig config(argc, argv, logger);
+    if (config.depth_mode) {
         gbwtgraph::GBZ gbz;
-        load_gbz(gbz, graph_file, progress);
-        write_depth(gbz, graph_file, regions_file, depth_options, path_prefixes, logger, progress);
+        load_gbz(gbz, config.graph_file, config.progress);
+        write_depth(gbz, config.graph_file, config.input_file, config.depth_options, config.path_prefixes, logger,
+                    config.progress);
         return 0;
     }
-    if (optind + 2 != argc) {
-        logger.error() << "expected a GBZ file and a BED or VCF file" << endl;
-    }
-    string graph_file = require_exists(logger, argv[optind]);
-    string features_file = argv[optind + 1];
-    bool vcf_input = features_file != "-" && is_variant_file(features_file);
-    if (!vcf_input && !gref_segs_file.empty()) {
-        logger.error() << "--gref-segs needs a VCF" << endl;
-    }
-    // The top-level snarl of each alt contig, by its name in the VCF.
-    unordered_map<string, string> top_level_snarls;
-    if (!gref_segs_file.empty()) {
-        try {
-            istringstream segs = read_text_file(gref_segs_file);
-            for (auto& [contig, snarl] : GrefCover::read_top_level_snarls(segs)) {
-                top_level_snarls.emplace(PathMetadata::parse_locus_name(contig), std::move(snarl));
-            }
-        } catch (const runtime_error& e) {
-            logger.error() << gref_segs_file << ": " << e.what() << endl;
-        }
-    }
+    unordered_map<string, string> top_level_snarls = read_contig_snarls(config.gref_segs_file, logger);
 
     gbwtgraph::GBZ gbz;
-    load_gbz(gbz, graph_file, progress);
+    load_gbz(gbz, config.graph_file, config.progress);
     const gbwtgraph::GBWTGraph& graph = gbz.graph;
-
-    if (!tigs_file.empty()) {
+    if (!config.tigs_file.empty()) {
         // Tigs from another graph would name the wrong walks.
-        require_compatible_reference(tigs_file, nullptr, &gbz, false);
+        require_compatible_reference(config.tigs_file, nullptr, &gbz, false);
     }
-
     GrefIndex gref(gbz, GrefCover::gref_prefix);
     const GrefIndex* gref_pointer = gref.path_count() > 0 ? &gref : nullptr;
-    if (progress) {
+    if (config.progress) {
         cerr << "[vg lift] gref: " << gref.path_count() << " paths, " << gref.total_length() << " bp" << endl;
     }
 
     vector<GraphFeature> features;
-    // For a VCF, its calls, the variants that their ALT alleles carry along
-    // gref alt contigs, and the index of the feature of each ALT allele and of
-    // each such variant.
-    VcfCalls calls;
-    optional<NestedVariantCatalog> catalog;
-    vector<size_t> allele_features;
-    vector<size_t> nested_features;
-    if (vcf_input) {
-        try {
-            calls = read_vcf_calls(features_file, graph, vg::get_thread_count());
-        } catch (const runtime_error& e) {
-            logger.error() << e.what() << endl;
-        }
-        allele_features = add_allele_features(calls, graph, gref_pointer, features, logger, progress);
-        ContigDecomposer decomposer(graph, gref);
-        if (has_contig_records(calls, decomposer, gref)) {
-            logger.warn() << features_file << " already has records on gref alt contigs, so no nested variants "
-                          << "are added" << endl;
-        } else if (gref_pointer != nullptr) {
-            catalog.emplace(calls, decomposer, gref, graph);
-            nested_features = add_nested_features(*catalog, graph, gref_pointer, features);
-            if (progress) {
-                const auto& contigs = catalog->contigs();
-                size_t contigs_with_variants = count_if(contigs.begin(), contigs.end(),
-                                                        [](const NestedVariantCatalog::Contig& contig) {
-                                                            return !contig.variants.empty();
-                                                        });
-                cerr << "[vg lift] " << catalog->variants().size() << " nested variants on " << contigs_with_variants
-                     << " gref alt contigs, of " << contigs.size() << " that ALT alleles read" << endl;
-            }
-        }
+    optional<LiftedVcf> lifted_vcf;
+    if (config.vcf_input) {
+        lifted_vcf.emplace(config.input_file, graph, gref, features, logger, config.progress);
     } else {
-        features = lift_bed_features(features_file, tigs_file, graph_file, gbz, gref_pointer, logger, progress);
+        features = lift_bed_features(config, gbz, gref_pointer, logger);
     }
-
-    auto feature_id = [](size_t i) {
-        return "f" + to_string(i + 1);
-    };
-    // Write BED columns 4 to 6 (name, score and strand) for a place of the
-    // feature. The place reads the feature in reverse if is_reverse is set.
-    auto write_name_score_strand = [](ostream& out, const GraphFeature& feature, bool is_reverse) {
-        const vector<string>& fields = feature.fields;
-        out << '\t' << (fields.size() > 0 ? fields[0] : ".") << '\t' << (fields.size() > 1 ? fields[1] : "0") << '\t';
-        if (feature.is_stranded()) {
-            out << (is_reverse ? '-' : '+');
-        } else {
-            out << '.';
-        }
-    };
-    // Write the feature's BED columns from the 7th on, then its ID.
-    auto write_rest = [&](ostream& out, size_t i) {
-        const vector<string>& fields = features[i].fields;
-        for (size_t j = BED_STRAND_FIELD + 1; j < fields.size(); j++) {
-            out << '\t' << fields[j];
-        }
-        out << '\t' << feature_id(i);
-    };
-
-    // One pass over the paths other than gref paths finds the places for -a and
-    // names the features off the gref. Naming uses every path, whatever -Q says.
-    size_t unnamed = 0;
-    for (const GraphFeature& feature : features) {
-        unnamed += !feature.coordinate;
+    if (count_unnamed(features) > 0 || !config.assemblies_file.empty()) {
+        name_and_place_features(gbz, features, config, gref.path_count(), logger);
     }
-    if (unnamed > 0 || !assemblies_file.empty()) {
-        PathPriority priority(gbz, priority_prefixes, GrefCover::gref_prefix, gref.path_count());
-        ofstream out;
-        if (!assemblies_file.empty()) {
-            out.open(assemblies_file);
-            if (!out) {
-                logger.error() << "could not open " << assemblies_file << " for writing" << endl;
-            }
-        }
-        auto is_gref = [&](const string& name) {
-            return name.compare(0, GrefCover::gref_prefix.size(), GrefCover::gref_prefix) == 0;
-        };
-        auto selected = [&](const string& name) {
-            return path_prefixes.empty() || starts_with_any(name, path_prefixes);
-        };
-        size_t written = 0;
-        auto visit = [&](const string& name, const vector<PathOccurrence>& places) {
-            bool write = out.is_open() && selected(name);
-            size_t rank = priority.rank(name);
-            for (const PathOccurrence& place : places) {
-                GraphFeature& feature = features[place.feature];
-                size_t length = feature.interval.length;
-                // A place that holds the whole feature in one block is a path that carries it.
-                if (place.matched == length && place.blocks.size() == 1 && place.end - place.start == length) {
-                    PathCoordinate here { name, rank, place.start, place.end, place.is_reverse };
-                    if (!feature.coordinate || here < *feature.coordinate) {
-                        feature.coordinate = std::move(here);
-                    }
-                }
-                if (!write) {
-                    continue;
-                }
-                out << name << '\t' << place.start << '\t' << place.end;
-                write_name_score_strand(out, feature, place.is_reverse);
-                if (blocks) {
-                    out << '\t' << place.start << '\t' << place.end << "\t0\t" << place.blocks.size() << '\t';
-                    for (const auto& block : place.blocks) {
-                        out << (block.second - block.first) << ',';
-                    }
-                    out << '\t';
-                    for (const auto& block : place.blocks) {
-                        out << (block.first - place.start) << ',';
-                    }
-                }
-                write_rest(out, place.feature);
-                if (min_match > 0) {
-                    out << '\t' << double(place.matched) / length;
-                }
-                out << '\n';
-                written++;
-            }
-        };
-        auto not_gref = [&](const string& name) {
-            return !is_gref(name);
-        };
-        if (min_match > 0) {
-            for_each_path_liftover(gbz, features, min_match, not_gref, visit);
-        } else {
-            for_each_path_occurrences(gbz, features, not_gref, visit);
-        }
-        if (progress && out.is_open()) {
-            cerr << "[vg lift] " << written << " places on paths" << endl;
-        }
-    }
-
-    if (vcf_input) {
-        vector<string> nested_info;
-        if (catalog) {
-            nested_info = nested_tags(*catalog, features, nested_features);
-        }
-        write_lifted_vcf(features_file, calls, lifted_tags(features, allele_features), catalog ? &*catalog : nullptr,
-                         std::move(nested_info), top_level_snarls, graph, logger);
+    if (lifted_vcf.has_value()) {
+        lifted_vcf->write(features, top_level_snarls, logger);
     } else {
-        for (size_t i = 0; i < features.size(); i++) {
-            const GraphFeature& feature = features[i];
-            write_gaf_columns(cout, graph, feature_id(i), feature.interval);
-            cout << "\tsp:i:" << feature.support;
-            if (!feature.placement.text.empty()) {
-                cout << "\tgr:Z:" << feature.placement.text;
-            }
-            if (feature.coordinate) {
-                cout << "\tpc:Z:" << feature.coordinate->text();
-            }
-            if (!feature.fields.empty()) {
-                cout << "\tan:Z:" << feature.fields.front();
-            }
-            cout << '\n';
-        }
+        write_feature_gaf(features, graph);
     }
     cout.flush();
 
-    if (!canonical_file.empty()) {
-        ofstream out(canonical_file);
-        if (!out) {
-            logger.error() << "could not open " << canonical_file << " for writing" << endl;
-        }
-        vector<size_t> order;
-        for (size_t i = 0; i < features.size(); i++) {
-            if (features[i].coordinate) {
-                order.push_back(i);
-            }
-        }
-        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
-            return *features[a].coordinate < *features[b].coordinate;
-        });
-        for (size_t i : order) {
-            const PathCoordinate& place = *features[i].coordinate;
-            out << place.path << '\t' << place.start << '\t' << place.end;
-            write_name_score_strand(out, features[i], place.is_reverse);
-            write_rest(out, i);
-            out << '\n';
-        }
+    if (!config.canonical_file.empty()) {
+        write_canonical(features, config.canonical_file, logger);
     }
-    size_t nameless = 0;
-    for (const GraphFeature& feature : features) {
-        nameless += !feature.coordinate;
-    }
-    if (nameless > 0) {
+    if (size_t nameless = count_unnamed(features); nameless > 0) {
         logger.warn() << nameless << " features are not carried whole by any path, so they have no path coordinate"
                       << endl;
     }
-
     return 0;
 }
 

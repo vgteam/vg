@@ -435,14 +435,16 @@ public:
     /// A stretch of a walk interval that lies contiguously along one gref path.
     struct Run {
         /// Bases [begin, end) of the interval.
-        size_t begin, end;
+        size_t begin;
+        size_t end;
         uint32_t path;
         /// True if path coordinates decrease along the interval.
         bool is_reverse;
         /// Path coordinate of the base at begin.
         uint64_t coord;
         /// The steps of the interval's walk that hold the bases at begin and at end - 1.
-        size_t first_step, last_step;
+        size_t first_step;
+        size_t last_step;
 
         uint64_t coord_at(size_t position) const {
             return is_reverse ? coord - (position - begin) : coord + (position - begin);

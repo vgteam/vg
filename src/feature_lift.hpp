@@ -265,6 +265,11 @@ public:
                         const std::function<void(size_t, size_t, bool)>& visit) const;
 
 private:
+    /// Return true if the path, from the step on, visits the walk, read in
+    /// reverse if is_reverse.
+    bool visits_walk(const gbwt::vector_type& path, size_t step, const std::vector<handlegraph::handle_t>& walk,
+                     bool is_reverse) const;
+
     const gbwtgraph::GBWTGraph& graph;
     const std::vector<GraphFeature>& features;
     handlegraph::nid_t min_id = 0;

@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <functional>
 #include <iosfwd>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -103,6 +104,32 @@ private:
         uint32_t from;
         uint32_t to;
     };
+    /// A path that counts toward the depth.
+    struct CountedPath {
+        gbwt::size_type id;
+        /// The name of the full path, as for_each_path_start() gives it.
+        std::string name;
+        /// Where the path starts on the full path.
+        uint64_t start;
+    };
+    /// The counted paths of each haplotype, by sample name and haplotype
+    /// number, joined with "#".
+    using HaplotypePaths = std::map<std::string, std::vector<CountedPath>>;
+
+    /// Return the paths of the GBZ that count, by haplotype. Haplotype paths
+    /// count, and reference paths do too if count_references is set.
+    static HaplotypePaths counted_paths(const gbwtgraph::GBZ& gbz, bool count_references);
+    /// Count the haplotypes that have no regions, and list the paths with
+    /// regions that are not counted paths.
+    void match_regions(const HaplotypePaths& haplotypes, const PathRegions& regions);
+    /// Append the stretches of nodes that the path reads.
+    static void add_path_stretches(const gbwtgraph::GBZ& gbz, const CountedPath& path,
+                                   std::vector<NodeStretch>& stretches);
+    /// Append the stretches of nodes that the path reads inside its regions,
+    /// which are sorted and disjoint.
+    static void add_region_stretches(const gbwtgraph::GBZ& gbz, const CountedPath& path,
+                                     const std::vector<PathRegions::Region>& regions,
+                                     std::vector<NodeStretch>& stretches);
     /**
      * Add one to the count of each base in the stretches that one haplotype reads.
      *
@@ -112,6 +139,9 @@ private:
      */
     void add_stretches(std::vector<NodeStretch> stretches, const gbwtgraph::GBWTGraph& graph, bool merge,
                        std::vector<NodeStretch>& cut_stretches);
+    /// Record where the count of each cut node changes along its bases, from
+    /// the stretches of the cut nodes that all the haplotypes read.
+    void add_cuts(std::vector<NodeStretch> cut_stretches);
 
     handlegraph::nid_t min_id = 0;
     /// The count of each node read whole, by node ID minus min_id.

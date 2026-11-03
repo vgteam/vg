@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <span>
 
 #include "subcommand.hpp"
 #include "../gbwtgraph_helper.hpp"
@@ -36,34 +37,39 @@ void help_unitigs(char** argv) {
          << "  -h, --help            print this help message to stderr and exit" << endl;
 }
 
-int main_unitigs(int argc, char** argv) {
-    Logger logger("vg unitigs");
-    if (argc == 2) {
-        help_unitigs(argv);
-        return 1;
-    }
-
+/// The options and arguments of vg unitigs.
+struct UnitigsConfig {
+    string graph_file;
     size_t k = 0;
     bool use_gref = false;
     string gaf_file;
     string name_prefix = "u";
     bool progress = false;
 
-    int c;
+    /**
+     * Read the command line.
+     *
+     * Print the help and exit on -h or an unknown option. Report an error on a
+     * k below 2, and on a missing or extra argument.
+     */
+    UnitigsConfig(int argc, char** argv, const Logger& logger);
+};
+
+UnitigsConfig::UnitigsConfig(int argc, char** argv, const Logger& logger) {
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] = {
-            {"kmer-length", required_argument, 0, 'k'},
-            {"gref", no_argument, 0, 'r'},
-            {"gaf", required_argument, 0, 'g'},
-            {"name-prefix", required_argument, 0, 'n'},
-            {"threads", required_argument, 0, 't'},
-            {"progress", no_argument, 0, 'p'},
-            {"help", no_argument, 0, 'h'},
-            {0, 0, 0, 0}
+            {"kmer-length", required_argument, nullptr, 'k'},
+            {"gref", no_argument, nullptr, 'r'},
+            {"gaf", required_argument, nullptr, 'g'},
+            {"name-prefix", required_argument, nullptr, 'n'},
+            {"threads", required_argument, nullptr, 't'},
+            {"progress", no_argument, nullptr, 'p'},
+            {"help", no_argument, nullptr, 'h'},
+            {nullptr, 0, nullptr, 0}
         };
         int option_index = 0;
-        c = getopt_long(argc, argv, "k:rg:n:t:ph?", long_options, &option_index);
+        int c = getopt_long(argc, argv, "k:rg:n:t:ph?", long_options, &option_index);
         if (c == -1) {
             break;
         }
@@ -90,7 +96,7 @@ int main_unitigs(int argc, char** argv) {
         case '?':
         default:
             help_unitigs(argv);
-            return 1;
+            std::exit(EXIT_FAILURE);
         }
     }
     if (optind + 1 != argc) {
@@ -99,48 +105,90 @@ int main_unitigs(int argc, char** argv) {
     if (k < 2) {
         logger.error() << "-k/--kmer-length must be at least 2" << endl;
     }
-    string graph_file = require_exists(logger, argv[optind]);
+    graph_file = require_exists(logger, argv[optind]);
+}
 
-    gbwtgraph::GBZ gbz;
-    load_gbz(gbz, graph_file, progress);
-
-    // Every path in the GBWT counts as a haplotype, gref paths included. That is harmless
-    // while each gref path is still contained in the path it was cut from.
-    auto unsupported = unsupported_gref_paths(gbz, GrefCover::gref_prefix);
-    if (!unsupported.empty()) {
+/**
+ * Warn if some gref paths are not contained in any other path.
+ *
+ * Every path in the GBWT counts as a haplotype, gref paths included. That is
+ * harmless while each gref path is still contained in the path it was cut
+ * from.
+ */
+static void warn_unsupported_gref(const gbwtgraph::GBZ& gbz, const string& graph_file, const Logger& logger) {
+    if (auto unsupported = unsupported_gref_paths(gbz, GrefCover::gref_prefix); !unsupported.empty()) {
         size_t unsupported_length = 0;
-        for (const auto& path : unsupported) {
-            unsupported_length += path.second;
+        for (const auto& [name, length] : unsupported) {
+            unsupported_length += length;
         }
         logger.warn() << unsupported.size() << " gref paths (" << unsupported_length << " bp, e.g. "
                       << unsupported.front().first << ") are not contained in any other path, so the"
                       << " output includes k-mers that no haplotype in " << graph_file << " has."
                       << " Was the GBZ subsampled after vg paths -u?" << endl;
     }
+}
 
+/// Index the gref paths of the GBZ, and report an error if it has none.
+static unique_ptr<GrefIndex> load_gref(const gbwtgraph::GBZ& gbz, const string& graph_file, const Logger& logger,
+                                       bool progress) {
+    auto gref = make_unique<GrefIndex>(gbz, GrefCover::gref_prefix);
+    if (gref->path_count() == 0) {
+        logger.error() << "no gref paths (named " << GrefCover::gref_prefix << "*) in "
+                       << graph_file << "; make them with vg paths -u" << endl;
+    }
+    if (progress) {
+        cerr << "[vg unitigs] gref: " << gref->path_count() << " paths, "
+             << gref->total_length() << " bp" << endl;
+    }
+    if (gref->repeated_visits() > 0) {
+        logger.warn() << gref->repeated_visits() << " node visits on the gref were to nodes already on it;"
+                      << " k-mers along them are reported as tigs" << endl;
+    }
+    return gref;
+}
+
+/**
+ * Write the header of the GAF of the tigs.
+ *
+ * The graph's name lets vg lift check that the tigs belong to its graph. The
+ * command says which cover the tig names refer to.
+ */
+static void write_gaf_header(ostream& gaf, const gbwtgraph::GBZ& gbz, span<char* const> command) {
+    gaf << "@HD\tVN:Z:1.0\n";
+    for (const string& line : gbz.graph_name().gaf_header_lines()) {
+        gaf << line << '\n';
+    }
+    gaf << "@CO\t";
+    for (size_t i = 0; i < command.size(); i++) {
+        string argument = command[i];
+        replace(argument.begin(), argument.end(), '\t', ' ');
+        gaf << (i > 0 ? " " : "") << argument;
+    }
+    gaf << '\n';
+}
+
+int main_unitigs(int argc, char** argv) {
+    Logger logger("vg unitigs");
+    if (argc == 2) {
+        help_unitigs(argv);
+        return 1;
+    }
+    UnitigsConfig config(argc, argv, logger);
+
+    gbwtgraph::GBZ gbz;
+    load_gbz(gbz, config.graph_file, config.progress);
+    warn_unsupported_gref(gbz, config.graph_file, logger);
     unique_ptr<GrefIndex> gref;
-    if (use_gref) {
-        gref = make_unique<GrefIndex>(gbz, GrefCover::gref_prefix);
-        if (gref->path_count() == 0) {
-            logger.error() << "no gref paths (named " << GrefCover::gref_prefix << "*) in "
-                           << graph_file << "; make them with vg paths -u" << endl;
-        }
-        if (progress) {
-            cerr << "[vg unitigs] gref: " << gref->path_count() << " paths, "
-                 << gref->total_length() << " bp" << endl;
-        }
-        if (gref->repeated_visits() > 0) {
-            logger.warn() << gref->repeated_visits() << " node visits on the gref were to nodes already on it;"
-                          << " k-mers along them are reported as tigs" << endl;
-        }
+    if (config.use_gref) {
+        gref = load_gref(gbz, config.graph_file, logger, config.progress);
     }
 
     double start = gbwt::readTimer();
     UnitigStatistics statistics;
-    vector<Tig> tigs = haplotype_unitigs(gbz.graph, k, gref.get(), &statistics);
-    if (progress) {
+    vector<Tig> tigs = haplotype_unitigs(gbz.graph, config.k, gref.get(), &statistics);
+    if (config.progress) {
         cerr << "[vg unitigs] " << statistics.unitigs << " unitigs, " << statistics.tigs << " tigs, "
-             << statistics.bases << " bp, " << statistics.kmers << " " << k << "-mers, longest "
+             << statistics.bases << " bp, " << statistics.kmers << " " << config.k << "-mers, longest "
              << statistics.longest << " bp";
         if (gref) {
             cerr << ", " << statistics.unanchored << " unanchored";
@@ -149,28 +197,16 @@ int main_unitigs(int argc, char** argv) {
     }
 
     ofstream gaf;
-    if (!gaf_file.empty()) {
-        gaf.open(gaf_file);
+    if (!config.gaf_file.empty()) {
+        gaf.open(config.gaf_file);
         if (!gaf) {
-            logger.error() << "could not open " << gaf_file << " for writing" << endl;
+            logger.error() << "could not open " << config.gaf_file << " for writing" << endl;
         }
-        // The graph's name lets vg lift check that the tigs belong to its graph.
-        // The command says which cover the tig names refer to.
-        gaf << "@HD\tVN:Z:1.0\n";
-        for (const string& line : gbz.graph_name().gaf_header_lines()) {
-            gaf << line << '\n';
-        }
-        gaf << "@CO\t";
-        for (int i = 0; i < argc; i++) {
-            string argument = argv[i];
-            replace(argument.begin(), argument.end(), '\t', ' ');
-            gaf << (i > 0 ? " " : "") << argument;
-        }
-        gaf << '\n';
+        write_gaf_header(gaf, gbz, span<char* const>(argv, static_cast<size_t>(argc)));
     }
     for (size_t i = 0; i < tigs.size(); i++) {
         const Tig& tig = tigs[i];
-        string name = name_prefix + to_string(i + 1);
+        string name = config.name_prefix + to_string(i + 1);
         const string& placement = tig.placement.text;
         cout << '>' << name;
         if (!placement.empty()) {

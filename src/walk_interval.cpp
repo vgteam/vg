@@ -49,7 +49,8 @@ WalkInterval WalkInterval::subinterval(const GBWTGraph& graph, size_t start, siz
     WalkInterval result;
     result.length = end - start;
     // Walk coordinates of the first base and of the base after the last.
-    size_t from = offset + start, to = offset + end;
+    size_t from = offset + start;
+    size_t to = offset + end;
     size_t node_start = 0;
     for (const handle_t& handle : walk) {
         size_t node_end = node_start + graph.get_length(handle);
@@ -75,6 +76,26 @@ size_t WalkInterval::walk_length(const GBWTGraph& graph) const {
     return total;
 }
 
+int WalkInterval::compare(const WalkInterval& other) const {
+    for (size_t i = 0; i < std::min(walk.size(), other.walk.size()); i++) {
+        gbwt::node_type x = GBWTGraph::handle_to_node(walk[i]);
+        gbwt::node_type y = GBWTGraph::handle_to_node(other.walk[i]);
+        if (x != y) {
+            return x < y ? -1 : 1;
+        }
+    }
+    if (walk.size() != other.walk.size()) {
+        return walk.size() < other.walk.size() ? -1 : 1;
+    }
+    if (offset != other.offset) {
+        return offset < other.offset ? -1 : 1;
+    }
+    if (length != other.length) {
+        return length < other.length ? -1 : 1;
+    }
+    return 0;
+}
+
 std::vector<handle_t> parse_walk(std::string_view text, const GBWTGraph& graph) {
     std::vector<handle_t> walk;
     for (size_t i = 0; i < text.size();) {
@@ -83,8 +104,8 @@ std::vector<handle_t> parse_walk(std::string_view text, const GBWTGraph& graph) 
             j = text.size();
         }
         nid_t id = 0;
-        auto parsed = std::from_chars(text.data() + i + 1, text.data() + j, id);
-        if ((text[i] != '>' && text[i] != '<') || parsed.ec != std::errc() || parsed.ptr != text.data() + j) {
+        if (auto parsed = std::from_chars(text.data() + i + 1, text.data() + j, id);
+            (text[i] != '>' && text[i] != '<') || parsed.ec != std::errc() || parsed.ptr != text.data() + j) {
             throw std::runtime_error("not a walk of node IDs: " + std::string(text));
         }
         if (!graph.has_node(id)) {
@@ -125,7 +146,7 @@ WalkInterval parse_gaf_columns(const std::string& line, const GBWTGraph& graph, 
     if (columns.size() < 12) {
         fail("fewer than 12 columns");
     }
-    auto number = [&](const std::string& text) -> size_t {
+    auto number = [&](const std::string& text) {
         size_t used = 0;
         size_t value = 0;
         try {
@@ -146,7 +167,8 @@ WalkInterval parse_gaf_columns(const std::string& line, const GBWTGraph& graph, 
     } catch (const std::runtime_error& e) {
         fail(e.what());
     }
-    size_t start = number(columns[7]), end = number(columns[8]);
+    size_t start = number(columns[7]);
+    size_t end = number(columns[8]);
     if (interval.walk.empty() || start >= end || end > interval.walk_length(graph)) {
         fail("bad walk or path coordinates");
     }
@@ -210,7 +232,8 @@ size_t step_at(const std::vector<PathSteps::Step>& steps, uint64_t coord) {
 }
 
 WalkInterval PathSteps::interval(uint64_t start, uint64_t end) const {
-    size_t first = step_at(step_list, start), last = step_at(step_list, end - 1);
+    size_t first = step_at(step_list, start);
+    size_t last = step_at(step_list, end - 1);
     WalkInterval result;
     for (size_t step = first; step <= last; step++) {
         result.walk.push_back(step_list[step].handle);

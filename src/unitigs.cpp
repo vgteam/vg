@@ -25,6 +25,40 @@ struct Extension {
 };
 
 /**
+ * A walk with the walk coordinate where each of its nodes starts.
+ *
+ * It finds the nodes that hold any stretch of the walk's bases.
+ */
+struct MeasuredWalk {
+    std::vector<handle_t> walk;
+    /// Where each node of the walk starts, followed by the length of the walk.
+    std::vector<size_t> starts { 0 };
+
+    MeasuredWalk(const GBWTGraph& graph, std::vector<handle_t> handles) : walk(std::move(handles)) {
+        for (const handle_t& handle : walk) {
+            starts.push_back(starts.back() + graph.get_length(handle));
+        }
+    }
+
+    /// Return the length of the walk.
+    size_t length() const {
+        return starts.back();
+    }
+    /// Add a node to the end of the walk.
+    void push_back(const GBWTGraph& graph, const handle_t& handle) {
+        walk.push_back(handle);
+        starts.push_back(starts.back() + graph.get_length(handle));
+    }
+    /// Return the indexes of the first node that holds bases [from, to) and of
+    /// the node after the last one.
+    std::pair<size_t, size_t> nodes(size_t from, size_t to) const {
+        size_t i = std::upper_bound(starts.begin(), starts.end(), from) - starts.begin() - 1;
+        size_t j = std::lower_bound(starts.begin(), starts.end(), to) - starts.begin();
+        return std::make_pair(i, j);
+    }
+};
+
+/**
  * Finds the unitigs that start next to one node, in both orientations. Each
  * unitig is found from both of its ends, and reported from the end whose first
  * k-mer is smaller.
@@ -53,13 +87,13 @@ private:
 
     /// Find the one-node extensions of the state. Returns true if some
     /// occurrences cannot be extended, because their haplotype ends there.
-    bool extend(const gbwt::BidirectionalState& state, bool backward, std::vector<Extension>& extensions) {
+    bool extend(const gbwt::BidirectionalState& state, bool backward, std::vector<Extension>& extensions) const {
         extensions.clear();
         gbwt::size_type extended = 0;
-        graph.follow_paths(cache, state, backward, [&](const gbwt::BidirectionalState& next) -> bool {
+        graph.follow_paths(cache, state, backward, [&](const gbwt::BidirectionalState& next) {
             if (!next.empty()) {
                 gbwt::node_type node = backward ? gbwt::Node::reverse(next.backward.node) : next.forward.node;
-                extensions.push_back({ GBWTGraph::node_to_handle(node), next });
+                extensions.emplace_back(GBWTGraph::node_to_handle(node), next);
                 extended += next.size();
             }
             return true;
@@ -70,7 +104,7 @@ private:
     /// Does the k-mer starting at the first base of the walk start a unitig?
     /// The state is for the whole walk.
     bool starts_unitig(const std::vector<handle_t>& walk, size_t length, const gbwt::BidirectionalState& state,
-                       std::vector<Extension>& extensions) {
+                       std::vector<Extension>& extensions) const {
         if (extend(state, true, extensions) || extensions.size() != 1) {
             return true;
         }
@@ -154,81 +188,87 @@ private:
         }
     }
 
+    /// Return the state of the k-mer that starts at the given base of the walk.
+    gbwt::BidirectionalState state_of(const MeasuredWalk& walk, size_t kmer) const {
+        auto [from, past] = walk.nodes(kmer, kmer + k);
+        std::vector<handle_t> pattern(walk.walk.begin() + from, walk.walk.begin() + past);
+        return graph.bd_find(cache, pattern);
+    }
+
     /// Trace the unitig whose first k-mer starts at the given offset of the walk,
     /// and report it if this is its canonical end.
-    void trace(std::vector<handle_t> walk, size_t first) {
-        // starts[i] is where walk[i] starts in the walk; starts.back() is the length.
-        std::vector<size_t> starts { 0 };
-        for (const handle_t& handle : walk) {
-            starts.push_back(starts.back() + graph.get_length(handle));
+    void trace(std::vector<handle_t> handles, size_t first) {
+        MeasuredWalk walk(graph, std::move(handles));
+        size_t support = state_of(walk, first).size();
+        size_t last = extend_to_end(walk, first);
+        if (!is_canonical_end(walk, first, last)) {
+            return;
         }
-        // Indexes of the nodes overlapping [from, to).
-        auto overlapping = [&](size_t from, size_t to) {
-            size_t i = std::upper_bound(starts.begin(), starts.end(), from) - starts.begin() - 1;
-            size_t j = std::lower_bound(starts.begin(), starts.end(), to) - starts.begin();
-            return std::make_pair(i, j);
-        };
-        auto state_of = [&](size_t kmer) {
-            auto nodes = overlapping(kmer, kmer + k);
-            std::vector<handle_t> pattern(walk.begin() + nodes.first, walk.begin() + nodes.second);
-            return graph.bd_find(cache, pattern);
-        };
+        statistics.unitigs++;
+        auto [from, past] = walk.nodes(first, last + k);
+        WalkInterval unitig { std::vector<handle_t>(walk.walk.begin() + from, walk.walk.begin() + past),
+                              first - walk.starts[from], last + k - first };
+        report_tigs(unitig, support);
+    }
 
-        size_t support = state_of(first).size();
+    /// Extend the walk to the end of the unitig whose first k-mer starts at
+    /// base first, and return where its last k-mer starts.
+    size_t extend_to_end(MeasuredWalk& walk, size_t first) const {
         size_t last = first;
         std::vector<Extension> extensions;
         while (true) {
             // Skip to the next k-mer where the unitig can end: one that ends at the
             // end of the walk, or one whose successor starts at the start of a node.
-            size_t next = starts.back() - k;
-            auto node_start = std::upper_bound(starts.begin(), starts.end() - 1, last);
-            if (node_start != starts.end() - 1) {
+            size_t next = walk.length() - k;
+            if (auto node_start = std::upper_bound(walk.starts.begin(), walk.starts.end() - 1, last);
+                node_start != walk.starts.end() - 1) {
                 next = std::min(next, *node_start - 1);
             }
             last = next;
-            if (last + k == starts.back()) {
-                if (extend(state_of(last), false, extensions) || extensions.size() != 1) {
-                    break;
+            if (last + k == walk.length()) {
+                if (extend(state_of(walk, last), false, extensions) || extensions.size() != 1) {
+                    return last;
                 }
-                walk.push_back(extensions.front().handle);
-                starts.push_back(starts.back() + graph.get_length(walk.back()));
+                walk.push_back(graph, extensions.front().handle);
             }
-            if (std::binary_search(starts.begin(), starts.end() - 1, last + 1)) {
-                if (extend(state_of(last + 1), true, extensions) || extensions.size() != 1) {
-                    break;
-                }
+            if (std::binary_search(walk.starts.begin(), walk.starts.end() - 1, last + 1) &&
+                (extend(state_of(walk, last + 1), true, extensions) || extensions.size() != 1)) {
+                return last;
             }
             last++;
         }
+    }
 
-        // Report the unitig from the end whose first k-mer is smaller.
-        auto head = overlapping(first, first + k);
-        auto tail = overlapping(last, last + k);
-        std::vector<uint64_t> forward_key { GBWTGraph::handle_to_node(walk[head.first]), first - starts[head.first] };
-        for (size_t i = head.first + 1; i < head.second; i++) {
-            forward_key.push_back(GBWTGraph::handle_to_node(walk[i]));
+    /// Return true if we report the unitig from this end, because its first
+    /// k-mer is smaller than the reverse of its last. The first k-mer starts at
+    /// base first of the walk, and the last at base last.
+    bool is_canonical_end(const MeasuredWalk& walk, size_t first, size_t last) const {
+        auto [head_from, head_past] = walk.nodes(first, first + k);
+        auto [tail_from, tail_past] = walk.nodes(last, last + k);
+        std::vector<uint64_t> forward_key { GBWTGraph::handle_to_node(walk.walk[head_from]),
+                                            first - walk.starts[head_from] };
+        for (size_t i = head_from + 1; i < head_past; i++) {
+            forward_key.push_back(GBWTGraph::handle_to_node(walk.walk[i]));
         }
-        std::vector<uint64_t> reverse_key { gbwt::Node::reverse(GBWTGraph::handle_to_node(walk[tail.second - 1])),
-                                            starts[tail.second] - (last + k) };
-        for (size_t i = tail.second - 1; i-- > tail.first;) {
-            reverse_key.push_back(gbwt::Node::reverse(GBWTGraph::handle_to_node(walk[i])));
+        std::vector<uint64_t> reverse_key { gbwt::Node::reverse(GBWTGraph::handle_to_node(walk.walk[tail_past - 1])),
+                                            walk.starts[tail_past] - (last + k) };
+        for (size_t i = tail_past - 1; i-- > tail_from;) {
+            reverse_key.push_back(gbwt::Node::reverse(GBWTGraph::handle_to_node(walk.walk[i])));
         }
-        if (reverse_key < forward_key) {
-            return;
-        }
-        statistics.unitigs++;
+        return !(reverse_key < forward_key);
+    }
 
-        auto nodes = overlapping(first, last + k);
-        WalkInterval unitig { std::vector<handle_t>(walk.begin() + nodes.first, walk.begin() + nodes.second),
-                              first - starts[nodes.first], last + k - first };
+    /// Report the tigs of the unitig. The k-mers within a run of at least k
+    /// bases along the gref are in the gref sequence, so with a gref the tigs
+    /// are the stretches between such runs.
+    void report_tigs(const WalkInterval& unitig, size_t support) {
         std::vector<GrefIndex::Run> runs;
         if (gref != nullptr) {
             runs = gref->runs(unitig);
         }
-
-        // The k-mers within a run are in the gref sequence. Report the stretches
-        // between them. Positions are in unitig coordinates from here on.
-        size_t piece_start = 0, last_kmer = unitig.length - k;
+        // Positions are in unitig coordinates.
+        size_t piece_start = 0;
+        size_t last_kmer = unitig.length - k;
         for (const GrefIndex::Run& run : runs) {
             if (run.end - run.begin < k) {
                 continue;
@@ -303,21 +343,7 @@ std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefI
         if (a.placement.coord != b.placement.coord) {
             return a.placement.coord < b.placement.coord;
         }
-        const WalkInterval& x = a.interval;
-        const WalkInterval& y = b.interval;
-        for (size_t i = 0; i < std::min(x.walk.size(), y.walk.size()); i++) {
-            gbwt::node_type m = GBWTGraph::handle_to_node(x.walk[i]), n = GBWTGraph::handle_to_node(y.walk[i]);
-            if (m != n) {
-                return m < n;
-            }
-        }
-        if (x.walk.size() != y.walk.size()) {
-            return x.walk.size() < y.walk.size();
-        }
-        if (x.offset != y.offset) {
-            return x.offset < y.offset;
-        }
-        return x.length < y.length;
+        return a.interval.compare(b.interval) < 0;
     });
 
     if (statistics != nullptr) {
