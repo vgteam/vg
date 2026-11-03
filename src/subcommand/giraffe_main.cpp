@@ -34,6 +34,7 @@
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include "../gbwtgraph_helper.hpp"
+#include "../recombinator.hpp"
 
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/minimizer.h>
@@ -655,6 +656,16 @@ template<typename T> void enforce_min_max(const T& low, const std::string& low_o
     }
 }
 
+// Tries to set the given haplotype sampling preset in `IndexingParameters`.
+void apply_haplotype_sampling_preset(std::string_view preset_name, Logger& logger) {
+    auto preset = Recombinator::Parameters::parse_preset(preset_name);
+    if (preset) {
+        IndexingParameters::haplotype_sampling_preset = *preset;
+    } else {
+        logger.error() << "unknown haplotype sampling preset: " << preset_name << std::endl;
+    }
+}
+
 //----------------------------------------------------------------------------
 
 void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
@@ -708,7 +719,9 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "                                --haplotype-sampling)" << endl
          << "      --set-reference STR       include this sample as a reference" << endl
          << "                                in the personalized graph (may repeat)" << endl
-         << "      --num-haplotypes N        haplotypes candidates to sample (default: " << IndexingParameters::haplotype_sampling_num_haplotypes << ")" << endl
+         << "      --sampling-preset STR     use this haplotype sampling preset" << endl
+         << "                                " << Recombinator::Parameters::preset_list(" / ") << endl
+         << "      --num-haplotypes N        override the number of sampled haplotypes" << endl
          << "      --no-diploid-sampling     turn off downsampling candidates to best diploid" << endl;
 
     cerr << "alternate graphs:" << endl
@@ -803,8 +816,9 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_INDEX_BASENAME = 1102;
     constexpr int OPT_SET_REFERENCE = 1103;
     constexpr int OPT_HAPLOTYPE_SAMPLING = 1104;
-    constexpr int OPT_NUM_HAPLOTYPES = 1105;
-    constexpr int OPT_NO_DIPLOID_SAMPLING = 1106;
+    constexpr int OPT_SAMPLING_PRESET = 1105;
+    constexpr int OPT_NUM_HAPLOTYPES = 1106;
+    constexpr int OPT_NO_DIPLOID_SAMPLING = 1107;
 
     constexpr int OPT_TRACK_PROVENANCE = 1201;
     constexpr int OPT_TRACK_CORRECTNESS = 1202;
@@ -1153,6 +1167,7 @@ int main_giraffe(int argc, char** argv) {
         {"haplotype-name", required_argument, 0, OPT_HAPLOTYPE_NAME},
         {"kff-name", required_argument, 0, OPT_KFF_NAME},
         {"set-reference", required_argument, 0, OPT_SET_REFERENCE},
+        {"sampling-preset", required_argument, 0, OPT_SAMPLING_PRESET},
         {"num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES},
         {"no-diploid-sampling", no_argument, 0, OPT_NO_DIPLOID_SAMPLING},
         {"gam-in", required_argument, 0, 'G'},
@@ -1287,6 +1302,10 @@ int main_giraffe(int argc, char** argv) {
                 reference_samples.insert(optarg);
                 break;
 
+            case OPT_SAMPLING_PRESET:
+                apply_haplotype_sampling_preset(optarg, logger);
+                break;
+
             case OPT_NUM_HAPLOTYPES:
                 IndexingParameters::haplotype_sampling_num_haplotypes = parse<size_t>(optarg);
                 if (IndexingParameters::haplotype_sampling_num_haplotypes == 0) {
@@ -1394,6 +1413,13 @@ int main_giraffe(int argc, char** argv) {
                 if (param_preset == "hifi" || param_preset == "r10") {
                     map_long_reads = true;
                 }
+                // TODO: We would have to move all haplotype sampling options
+                // to option groups to include them in parameter presets.
+                if (param_preset == "hifi") {
+                    apply_haplotype_sampling_preset("hifi", logger);
+                } else if (param_preset == "r10") {
+                    apply_haplotype_sampling_preset("ont", logger);
+                }
                 break;
             case 'E':
                 rec_mode = true;
@@ -1466,7 +1492,6 @@ int main_giraffe(int argc, char** argv) {
         }
     }
 
-   
     // Get positional arguments before validating user intent
     if (have_input_file(optind, argc, argv)) {
         // Must be the FASTA, but check.

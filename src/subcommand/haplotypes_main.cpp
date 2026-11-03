@@ -16,9 +16,9 @@
 #include <functional>
 #include <iostream>
 #include <thread>
-#include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <getopt.h>
 #include <omp.h>
@@ -243,7 +243,8 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "                               visiting them multiple times" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
-    std::cerr << "      --preset STR             use preset X {default, haploid, diploid}" << std::endl;
+    std::cerr << "      --preset STR             preset X (use as the first sampling option)" << std::endl;
+    std::cerr << "                               " << Recombinator::Parameters::preset_list(", ") << std::endl;
     std::cerr << "      --coverage N             kmer coverage in KFF file (default: estimate)" << std::endl;
     std::cerr << "      --num-haplotypes N       generate N haplotypes [" << haplotypes_defaults::n() << "]" << std::endl;
     std::cerr << "                               with --diploid-sampling, use N candidates "
@@ -428,20 +429,15 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
 
         case OPT_PRESET:
             {
-                Recombinator::Parameters::preset_t preset;
-                if (std::string(optarg) == "default") {
-                    preset = Recombinator::Parameters::preset_default;
-                } else if (std::string(optarg) == "haploid") {
-                    preset = Recombinator::Parameters::preset_haploid;
-                } else if (std::string(optarg) == "diploid") {
-                    preset = Recombinator::Parameters::preset_diploid;
+                auto preset = Recombinator::Parameters::parse_preset(optarg);
+                if (preset) {
+                    this->recombinator_parameters = Recombinator::Parameters(*preset);
+                    num_haplotypes_set = true;
                 } else {
                     this->logger.error() << "unknown preset: " << optarg << std::endl;
                 }
-                this->recombinator_parameters = Recombinator::Parameters(preset);
-                num_haplotypes_set = true; // The preset is assumed to include the number of haplotypes.
-                break;
             }
+            break;
         case OPT_COVERAGE:
             this->recombinator_parameters.coverage = parse<size_t>(optarg);
             break;
@@ -725,8 +721,10 @@ void validate_subgraph(const Logger& logger, const gbwtgraph::GBWTGraph& graph,
 // Accepts a plain contig name (matched against chain contig names) or a PanSN-style
 // path name (validated against the graph metadata). Exits with an error if a name
 // cannot be resolved to exactly one chain.
-std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
-                                                  const std::vector<std::string>& names, const Logger& logger);
+std::unordered_set<size_t> resolve_chains_by_name(
+    const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
+    const std::vector<std::string>& names, const Logger& logger
+);
 
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
     omp_set_num_threads(threads_to_jobs(config.threads));
@@ -955,8 +953,10 @@ size_t chain_for_path(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, g
     return result;
 }
 
-std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
-                                                  const std::vector<std::string>& names, const Logger& logger) {
+std::unordered_set<size_t> resolve_chains_by_name(
+    const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
+    const std::vector<std::string>& names, const Logger& logger
+) {
     // Map each canonical contig name stored in the top-level chains to the
     // chains carrying it, so that plain contig names resolve in one lookup.
     std::unordered_map<std::string, std::vector<size_t>> chains_by_contig;

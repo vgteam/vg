@@ -25,6 +25,7 @@ constexpr size_t Recombinator::COVERAGE;
 constexpr double Recombinator::PRESENT_DISCOUNT;
 constexpr double Recombinator::HET_ADJUSTMENT;
 constexpr double Recombinator::ABSENT_SCORE;
+constexpr size_t Recombinator::LONG_READ_HOMOPOLYMERS;
 constexpr size_t Recombinator::MIN_GREF_LENGTH;
 
 //------------------------------------------------------------------------------
@@ -1250,6 +1251,27 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotyp
 
 //------------------------------------------------------------------------------
 
+std::string Recombinator::Parameters::preset_list(std::string_view separator) {
+    std::string result = "{";
+    for (const auto& preset : presets()) {
+        if (result.size() > 1) {
+            result += separator;
+        }
+        result += preset.second;
+    }
+    result += "}";
+    return result;
+}
+
+std::optional<Recombinator::Parameters::preset_t> Recombinator::Parameters::parse_preset(std::string_view name) {
+    for (const auto& preset : presets()) {
+        if (preset.second == name) {
+            return preset.first;
+        }
+    }
+    return std::nullopt;
+}
+
 Recombinator::Parameters::Parameters(preset_t preset) {
     if (preset == preset_haploid) {
         this->haploid_scoring = true;
@@ -1258,6 +1280,16 @@ Recombinator::Parameters::Parameters(preset_t preset) {
         this->num_haplotypes = NUM_CANDIDATES;
         this->diploid_sampling = true;
         this->include_reference = true;
+    } else if (preset == preset_hifi) {
+        this->num_haplotypes = NUM_CANDIDATES;
+        this->diploid_sampling = true;
+        this->include_reference = true;
+        this->ignore_homopolymers = LONG_READ_HOMOPOLYMERS;
+    } else if (preset == preset_ont) {
+        this->num_haplotypes = NUM_CANDIDATES;
+        this->diploid_sampling = true;
+        this->include_reference = true;
+        this->ignore_homopolymers = LONG_READ_HOMOPOLYMERS;
     }
 }
 
@@ -1282,6 +1314,9 @@ void Recombinator::Parameters::print(std::ostream& out) const {
     }
     if (this->include_reference) {
         out << "- include reference paths (gref fragments clipped, min length " << this->min_gref_length << ")" << std::endl;
+    }
+    if (this->ignore_homopolymers != std::numeric_limits<size_t>::max()) {
+        out << "- ignore homopolymers of length >= " << this->ignore_homopolymers << std::endl;
     }
     if (!this->high_coverage_chains.empty()) {
         out << "- " << this->high_coverage_chains.size() << " high-coverage chains ("

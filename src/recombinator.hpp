@@ -14,6 +14,7 @@
 
 #include <functional>
 #include <iostream>
+#include <optional>
 
 #include <gbwt/cached_gbwt.h>
 #include <gbwtgraph/algorithms.h>
@@ -230,6 +231,10 @@ public:
     /// keeping wrong variants out.
     constexpr static double ABSENT_SCORE = 0.8;
 
+    /// Threshold for homopolymer length in kmers that should be ignored when
+    /// sampling with long reads.
+    constexpr static size_t LONG_READ_HOMOPOLYMERS = 8;
+
     /// Minimum length (in bp) for a piece of a gref fragment to survive in the
     /// sampled graph. The same floor as `vg paths --min-gref-len`.
     constexpr static size_t MIN_GREF_LENGTH = 50;
@@ -342,7 +347,7 @@ public:
         size_t min_gref_length = MIN_GREF_LENGTH;
 
         /// Samples whose haplotypes shouldn't be used, even if they score well.
-        unordered_set<std::string> banned_samples;
+        std::unordered_set<std::string> banned_samples;
 
         /// Kmer scoring model used for a chain.
         enum scoring_model_t {
@@ -393,16 +398,36 @@ public:
         /// such as chrM. Matched against the top-level chain contig name.
         std::unordered_set<std::string> wrap_contigs;
 
-        // TODO: Should we use extra_fragments?
         /// Preset parameters for common use cases.
-        enum preset_t {
+        enum preset_t : size_t {
             /// Default parameters.
             preset_default,
             /// Best practices for haploid sampling.
             preset_haploid,
             /// Best practices for diploid sampling.
-            preset_diploid
+            preset_diploid,
+            /// Best practices for diploid sampling with HiFi reads.
+            preset_hifi,
+            /// Best practices for diploid sampling with ONT reads.
+            preset_ont
         };
+
+        /// Returns a list of presets and their names.
+        constexpr static std::vector<std::pair<preset_t, std::string>> presets() {
+            return {
+                { preset_default, "default" },
+                { preset_haploid, "haploid" },
+                { preset_diploid, "diploid" },
+                { preset_hifi, "hifi" },
+                { preset_ont, "ont" }
+            };
+        }
+
+        /// Returns the set of available presets as a string.
+        static std::string preset_list(std::string_view separator);
+
+        /// Parses a preset from its name.
+        static std::optional<preset_t> parse_preset(std::string_view name);
 
         explicit Parameters(preset_t preset = preset_default);
 
