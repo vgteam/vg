@@ -407,7 +407,7 @@ is $(grep -v ^# cyclic_ref_multi.vcf | wc -l) 2 "cyclic reference with -a output
 # Both records share the snarl ID, because the ID names the snarl and not the traversal of
 # it.  Each must still report its own reference interval; a name-keyed lookup used to hand
 # both of them whichever one was written last.
-is "$(grep -v ^# cyclic_ref_multi.vcf | cut -f3 | sort -u | wc -l)" "1" "the two records share one snarl ID"
+is "$(grep -v ^# cyclic_ref_multi.vcf | cut -f3 | sort -u | grep -c .)" "1" "the two records share one snarl ID"
 is "$(grep -v ^# cyclic_ref_multi.vcf | grep -o 'RS=[0-9]*' | tr '\n' ' ')" "RS=20 RS=44 " "each record keeps its own RS, not the other's"
 rm -f cyclic_ref_multi.vcf
 
