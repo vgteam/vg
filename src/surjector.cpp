@@ -4677,16 +4677,17 @@ using namespace std;
             return false;
         }
 
-        // Limit the search to twice the span without overflowing span * 2.
+        // Limit the search radius to max_slide or twice the anchor span.
         auto slide_limit = [&](size_t span) {
             size_t limit = max_slide;
             return span > limit / 2 ? limit : span * 2;
         };
-        // Compare complete windows, excluding the original occurrence.
+        // Find another exact occurrence within radius bases of the original start,
+        // searching both directions and requiring the full occurrence to fit.
         auto has_repeat = [&](const string& bases, size_t start,
                               size_t span, size_t radius) {
-            assert(start <= bases.size());
-            assert(span <= bases.size() - start);
+            crash_unless(start <= bases.size());
+            crash_unless(span <= bases.size() - start);
             if (span == 0 || radius == 0) {
                 return false;
             }
@@ -4726,18 +4727,18 @@ using namespace std;
         size_t node_length = graph->get_length(first_handle);
         size_t path_length = graph->get_path_length(path_handle);
         size_t mapping_offset = first_pos.offset();
-        assert(mapping_offset <= node_length);
+        crash_unless(mapping_offset <= node_length);
 
         size_t anchor_start;
         if (reverse_relative_to_path) {
             size_t anchor_end = step_start + node_length - mapping_offset;
-            assert(ref_span <= anchor_end);
+            crash_unless(ref_span <= anchor_end);
             anchor_start = anchor_end - ref_span;
         } else {
             anchor_start = step_start + mapping_offset;
         }
-        assert(anchor_start <= path_length);
-        assert(ref_span <= path_length - anchor_start);
+        crash_unless(anchor_start <= path_length);
+        crash_unless(ref_span <= path_length - anchor_start);
         size_t left = min(radius, anchor_start);
         size_t right = min(radius, path_length - anchor_start - ref_span);
         size_t window_start = anchor_start - left;
@@ -4757,7 +4758,7 @@ using namespace std;
             window.append(node_sequence, within_step, take);
             within_step = 0;
             if (window.size() < window_length) {
-                assert(graph->has_next_step(step));
+                crash_unless(graph->has_next_step(step));
                 step = graph->get_next_step(step);
             }
         }
@@ -4768,7 +4769,7 @@ using namespace std;
                                            vector<pair<step_handle_t, step_handle_t>>& step_ranges,
                                            size_t left_tail_length, size_t right_tail_length) const {
 
-        assert(path_chunks.size() == step_ranges.size());
+        crash_unless(path_chunks.size() == step_ranges.size());
 
         if (!prune_suspicious_anchors && !prune_tail_region_anchors && max_anchors > path_chunks.size()) {
             // the settings don't require us to prune anything here

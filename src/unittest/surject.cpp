@@ -329,7 +329,7 @@ static void append_anchor_match(path_t& anchor, int64_t node_id,
     edit->set_to_length(length);
 }
 
-TEST_CASE("Target-path repeats respect the slide limit", "[surject][anchor-sliding]") {
+TEST_CASE("surject: Anchor repeat detection respects the target-path slide limit", "[surject][anchor-sliding]") {
     bdsg::HashGraph graph;
     auto node = graph.create_handle("ACGATTACGA");
     auto path = graph.create_path_handle("ref");
@@ -361,7 +361,7 @@ TEST_CASE("Target-path repeats respect the slide limit", "[surject][anchor-slidi
     }
 }
 
-TEST_CASE("Reverse anchors spanning nodes use the full reference interval",
+TEST_CASE("surject: Reverse-oriented anchors find repeats across target-path steps",
           "[surject][anchor-sliding]") {
     bdsg::HashGraph graph;
     auto a = graph.create_handle("ACG");
@@ -390,7 +390,7 @@ TEST_CASE("Reverse anchors spanning nodes use the full reference interval",
     CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step_b, step_a}));
 }
 
-TEST_CASE("Reverse mappings on reverse path steps use forward path coordinates",
+TEST_CASE("surject: Anchors on reverse-oriented path steps use the correct path coordinates",
           "[surject][anchor-sliding]") {
     bdsg::HashGraph graph;
     // The reverse-oriented step has path sequence ACGATTACGA.
@@ -408,7 +408,7 @@ TEST_CASE("Reverse mappings on reverse path steps use forward path coordinates",
     CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
 }
 
-TEST_CASE("Repeat pruning keeps anchor and step-range vectors synchronized",
+TEST_CASE("surject: Pruning repeat anchors keeps chunks and step ranges synchronized",
           "[surject][anchor-sliding]") {
     bdsg::HashGraph graph;
     auto repeated = graph.create_handle("ACGATTACGA");
