@@ -10,18 +10,22 @@
 #include <unistd.h>
 
 #include <condition_variable>
+#include <cstdlib>
 #include <deque>
 #include <functional>
 #include <iostream>
 #include <mutex>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include "subcommand.hpp"
+#include "giraffe_options.hpp"
 
 #include "../giraffe_engine.hpp"
+#include <vg/io/alignment_io.hpp>
 #include "../utility.hpp"
 
 using namespace std;
@@ -35,6 +39,9 @@ namespace {
 constexpr int OPT_EMIT_HEADER   = 1000;
 constexpr int OPT_FRAMED_OUTPUT = 1001;
 constexpr int OPT_SURJECT_THREADS = 1002;
+constexpr int OPT_PARAMETER_PRESET = 1003;
+constexpr int OPT_SET = 1004;
+constexpr int OPT_NO_REC_MODE = 1005;
 
 /// Fixed-size worker pool for SURJECT_WITH_ANCHORS requests, so a batch of
 /// targets surjects concurrently instead of one at a time on the stdin thread.
@@ -100,13 +107,20 @@ void help_giraffe_server(char** argv) {
          << endl
          << "optional:" << endl
          << "  -t, --threads N              mapping threads [1]" << endl
-         << "  -M, --max-multimaps N        max mappings per read (0 = BLAT default 100)" << endl
+         << "  -M, --max-multimaps N        max mappings per read (0 = the preset's value;" << endl
+         << "                               reporting is capped by max-alignments)" << endl
          << "  -b, --batch-size N           input reads per mapping batch [256]" << endl
          << "      --emit-header            emit GAF header lines before output" << endl
          << "      --framed-output          emit read-grouped framed output for middleware" << endl
          << "      --surject-threads N      run SURJECT_WITH_ANCHORS requests on N worker" << endl
          << "                               threads (framed output only; 0 = inline, one at" << endl
          << "                               a time) [--threads]" << endl
+         << "      --parameter-preset NAME  vg giraffe parameter preset [hifi]" << endl
+         << "      --set NAME=VALUE         set any vg giraffe option by its long name," << endl
+         << "                               e.g. mapq-score-window=150 (may repeat)" << endl
+         << "  -E, --rec-mode               map recombination-aware, as vg giraffe does" << endl
+         << "      --no-rec-mode            don't (default: on for long-read presets when" << endl
+         << "                               the minimizer index stores paths)" << endl
          << "  -S, --surject-target NAME    pre-index this haplotype path for surjection" << endl
          << "                               (may be repeated; required for per-read targets)" << endl
          << "  -h, --help                   show help" << endl
@@ -117,7 +131,8 @@ void help_giraffe_server(char** argv) {
          << "  NAME<TAB>SEQUENCE<TAB>QUALITY" << endl
          << "  NAME<TAB>SEQUENCE<TAB>QUALITY<TAB>SURJ_TARGET" << endl
          << "                               (QUALITY may be empty when SURJ_TARGET is set)" << endl
-         << "  QUALITY is FASTQ phred+33 ASCII; if non-empty, must match SEQUENCE length" << endl
+         << "  QUALITY is FASTQ phred+33 ASCII; if non-empty, must match SEQUENCE length." << endl
+         << "  Without QUALITY, MAPQ is not capped by base quality (as for FASTA input)." << endl
          << "  PROCESS_BATCH   (map any buffered reads now; alias: FLUSH_NOW)" << endl
          << endl
          << "  SURJECT_WITH_ANCHORS<TAB>NAME<TAB>TARGET<TAB>PATH_LEN<TAB>N_ANCHORS" << endl
@@ -128,7 +143,37 @@ void help_giraffe_server(char** argv) {
          << "    followed by ONE graph-alignment GAF line." << endl
          << "    Response is framed: READ<TAB>NAME<TAB>1 then one GAF line" << endl
          << "    carrying the surjection tags (sj:Z:..., sn:Z:..., etc.)." << endl
+         << endl
+         << "stdout:" << endl
+         << "  GAF header lines first, with --emit-header. Then, per read in input order," << endl
+         << "  one GAF line per reported alignment (an unmapped read gets one unmapped line)." << endl
+         << "  Default: the GAF lines only; reads with errors are skipped (see stderr)." << endl
+         << "  --framed-output: READ<TAB>NAME<TAB>N, then the read's N GAF lines. N is 0" << endl
+         << "    for a read that could not be mapped because of an error (see stderr)." << endl
+         << "  Each line has extra tags:" << endl
+         << "    hp:Z haplotypes carrying the path (comma-separated)  hn:i their count" << endl
+         << "    hb:Z representative haplotype  hf:i 1 if it is a reference" << endl
+         << "    hc:i carrying GBWT sequences  ht:i 1 if hp was capped" << endl
+         << "    hl:i, hr:i enclosing snarl's boundary nodes (only when found)" << endl
+         << "    hq:i 1 if one haplotype carries the whole path  hv:i % of the path it covers" << endl
+         << "    hs:i haplotype-consistent segments  hm:Z bp:count:name per segment" << endl
+         << "  With a SURJ_TARGET: sj:Z status (ok, not_indexed, incompatible, failed, ...)," << endl
+         << "    and if ok sn:Z path, sp:i position, sr:i reverse, ss:i score, sm:i MAPQ," << endl
+         << "    sc:Z CIGAR, sM/sX/sI/sD:i matches, mismatches, insertions, deletions." << endl
          << endl;
+}
+
+/// Characters allowed in a phred+33 quality string.
+const string PHRED33_CHARS = [] {
+    string chars;
+    for (char c = '!'; c <= '~'; ++c) chars.push_back(c);
+    return chars;
+}();
+
+/// True if seq is non-empty and only IUPAC nucleotide codes, in either case.
+bool is_nucleotide_sequence(const string& seq) {
+    static const string iupac = "ACGTUNRYKMSWBDHVacgtunrykmswbdhv";
+    return !seq.empty() && seq.find_first_not_of(iupac) == string::npos;
 }
 
 vector<string> split_tab_fields(const string& line) {
@@ -147,12 +192,14 @@ vector<string> split_tab_fields(const string& line) {
 }
 
 int main_giraffe_server(int argc, char** argv) {
-    GiraffeEnginePaths paths;
     GiraffeEngineConfig config;
     size_t batch_size = 256;
     bool emit_header = false;
     bool framed_output = false;
     long surject_threads = -1;   // -1 = same as --threads
+    std::string preset;          // empty = $PANGENOME_GIRAFFE_PRESET, else "hifi"
+    std::vector<std::pair<std::string, std::string>> overrides;
+    std::optional<bool> rec_mode;   // unset = vg giraffe's default
 
     int c;
     optind = 2;
@@ -168,29 +215,33 @@ int main_giraffe_server(int argc, char** argv) {
             {"emit-header", no_argument, 0, OPT_EMIT_HEADER},
             {"framed-output", no_argument, 0, OPT_FRAMED_OUTPUT},
             {"surject-threads", required_argument, 0, OPT_SURJECT_THREADS},
+            {"parameter-preset", required_argument, 0, OPT_PARAMETER_PRESET},
+            {"set", required_argument, 0, OPT_SET},
+            {"rec-mode", no_argument, 0, 'E'},
+            {"no-rec-mode", no_argument, 0, OPT_NO_REC_MODE},
             {"surject-target", required_argument, 0, 'S'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "Z:m:d:z:t:M:b:S:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "Z:m:d:z:t:M:b:S:Eh?", long_options, &option_index);
         if (c == -1) {
             break;
         }
 
         switch (c) {
             case 'Z':
-                paths.gbz_path = optarg;
+                config.gbz_path = optarg;
                 break;
             case 'm':
-                paths.minimizer_path = optarg;
+                config.minimizer_path = optarg;
                 break;
             case 'd':
-                paths.distance_path = optarg;
+                config.distance_path = optarg;
                 break;
             case 'z':
-                paths.zipcode_path = optarg;
+                config.zipcode_path = optarg;
                 break;
             case 't':
                 config.threads = parse<size_t>(optarg);
@@ -210,8 +261,27 @@ int main_giraffe_server(int argc, char** argv) {
             case OPT_SURJECT_THREADS:
                 surject_threads = parse<long>(optarg);
                 break;
+            case OPT_PARAMETER_PRESET:
+                preset = optarg;
+                break;
+            case OPT_SET: {
+                std::string kv = optarg;
+                size_t eq = kv.find('=');
+                if (eq == std::string::npos || eq == 0) {
+                    cerr << "error [vg giraffe-server]: --set expects NAME=VALUE, got " << kv << endl;
+                    return 1;
+                }
+                overrides.emplace_back(kv.substr(0, eq), kv.substr(eq + 1));
+                break;
+            }
             case 'S':
                 config.surjection_target_paths.emplace_back(optarg);
+                break;
+            case 'E':
+                rec_mode = true;
+                break;
+            case OPT_NO_REC_MODE:
+                rec_mode = false;
                 break;
             case 'h':
             case '?':
@@ -221,15 +291,52 @@ int main_giraffe_server(int argc, char** argv) {
         }
     }
 
-    if (argc > optind || paths.gbz_path.empty() || paths.minimizer_path.empty()
-        || paths.distance_path.empty() || paths.zipcode_path.empty() || batch_size == 0) {
+    if (argc > optind || config.gbz_path.empty() || config.minimizer_path.empty()
+        || config.distance_path.empty() || config.zipcode_path.empty() || batch_size == 0) {
         help_giraffe_server(argv);
         return 1;
     }
 
+    // Mapping parameters come from vg giraffe's own presets and options. The
+    // PANGENOME_* variables still work for existing deployments; --set wins.
+    if (preset.empty()) {
+        const char* e = std::getenv("PANGENOME_GIRAFFE_PRESET");
+        preset = e ? e : "hifi";
+    }
+    std::vector<std::pair<std::string, std::string>> env_overrides;
+    if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_SCALE")) {
+        env_overrides.emplace_back("mapq-score-scale", e);
+    }
+    if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_WINDOW")) {
+        env_overrides.emplace_back("mapq-score-window", e);
+    }
+    overrides.insert(overrides.begin(), env_overrides.begin(), env_overrides.end());
+    const bool map_long_reads = giraffe_preset_maps_long_reads(preset);
+    try {
+        check_giraffe_parameters(preset, overrides);   // fail before loading indexes
+        if (rec_mode.value_or(false) && !map_long_reads) {
+            throw std::invalid_argument("Recombination-aware mode cannot be used with short reads yet.");
+        }
+    } catch (const std::invalid_argument& e) {
+        cerr << "error [vg giraffe-server]: " << e.what() << endl;
+        return 1;
+    }
+    config.configure_mapper = [preset, overrides, map_long_reads, rec_mode](
+            MinimizerMapper& mapper, const gbwtgraph::DefaultMinimizerIndex& minimizer_index) {
+        configure_giraffe_mapper(mapper, preset, overrides);
+        bool use_rec_mode = giraffe_rec_mode(minimizer_index, map_long_reads, rec_mode);
+        mapper.use_payload_paths &= use_rec_mode;
+        cerr << "[vg giraffe-server] recombination-aware mode: " << (use_rec_mode ? "on" : "off") << endl;
+    };
+    cerr << "[vg giraffe-server] parameter preset: " << preset;
+    for (const auto& kv : overrides) {
+        cerr << " --" << kv.first << " " << kv.second;
+    }
+    cerr << endl;
+
     try {
         GiraffeEngine engine;
-        engine.load(paths, config);
+        engine.load(config);
 
         if (emit_header) {
             for (const auto& header : engine.gaf_header_lines()) {
@@ -252,7 +359,7 @@ int main_giraffe_server(int argc, char** argv) {
             surject_pool = make_unique<SurjectPool>(n_surject);
         }
 
-        vector<GiraffeFastqRead> batch;
+        vector<GiraffeServerRequest> batch;
         batch.reserve(batch_size);
 
         string line;
@@ -266,7 +373,7 @@ int main_giraffe_server(int argc, char** argv) {
             for (size_t i = 0; i < mapped.size(); ++i) {
                 const auto& read_mappings = mapped[i];
                 if (framed_output) {
-                    cout << "READ\t" << batch[i].name << '\t' << read_mappings.size() << '\n';
+                    cout << "READ\t" << batch[i].read.name() << '\t' << read_mappings.size() << '\n';
                 }
                 for (const auto& gaf_line : read_mappings) {
                     cout << gaf_line << '\n';
@@ -431,36 +538,43 @@ int main_giraffe_server(int argc, char** argv) {
                 continue;
             }
 
-            GiraffeFastqRead read;
-            if (fields.size() == 1) {
-                read.name = "read_" + to_string(auto_id++);
-                read.sequence = fields[0];
-            } else if (fields.size() == 2) {
-                read.name = fields[0];
-                read.sequence = fields[1];
-            } else if (fields.size() == 3) {
-                read.name = fields[0];
-                read.sequence = fields[1];
-                read.quality = fields[2];
-            } else {  // fields.size() == 4
-                read.name = fields[0];
-                read.sequence = fields[1];
-                read.quality = fields[2];
-                read.surjection_target = fields[3];
+            // A lone field must be a sequence; anything else is a bad command.
+            if (fields.size() == 1 && !is_nucleotide_sequence(fields[0])) {
+                cerr << "warning [vg giraffe-server]: line " << line_no
+                     << ": ignored (not a known command or a nucleotide sequence)" << endl;
+                continue;
             }
 
-            // Validate: empty sequence is malformed; respond rather than dropping silently.
-            if (read.sequence.empty()) {
-                emit_read_error(read.name, "empty SEQUENCE");
+            const string name = fields.size() == 1 ? "read_" + to_string(auto_id++) : fields[0];
+            const string& sequence = fields.size() == 1 ? fields[0] : fields[1];
+            const string quality = fields.size() >= 3 ? fields[2] : "";
+
+            if (sequence.empty()) {
+                emit_read_error(name, "empty SEQUENCE");
                 continue;
             }
-            // Validate: if QUALITY is supplied, it must match SEQUENCE length (phred+33 ASCII).
-            if (!read.quality.empty() && read.quality.size() != read.sequence.size()) {
-                emit_read_error(read.name,
-                    "QUALITY length (" + to_string(read.quality.size())
-                    + ") does not match SEQUENCE length ("
-                    + to_string(read.sequence.size()) + ")");
+            if (!is_nucleotide_sequence(sequence)) {
+                emit_read_error(name, "SEQUENCE has characters that are not IUPAC nucleotides");
                 continue;
+            }
+            if (quality.find_first_not_of(PHRED33_CHARS) != string::npos) {
+                emit_read_error(name, "QUALITY has characters outside phred+33 ('!' to '~')");
+                continue;
+            }
+            if (!quality.empty() && quality.size() != sequence.size()) {
+                emit_read_error(name,
+                    "QUALITY length (" + to_string(quality.size())
+                    + ") does not match SEQUENCE length ("
+                    + to_string(sequence.size()) + ")");
+                continue;
+            }
+
+            GiraffeServerRequest read;
+            read.read.set_name(name);
+            read.read.set_sequence(sequence);
+            read.read.set_quality(vg::io::string_quality_char_to_short(quality));
+            if (fields.size() == 4) {
+                read.surjection_target = fields[3];
             }
             batch.emplace_back(move(read));
             if (batch.size() >= batch_size) {

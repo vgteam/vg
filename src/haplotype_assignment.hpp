@@ -8,9 +8,6 @@
  *
  * Uses the already-loaded GBZ (GBWT + GBWTGraph) and SnarlDistanceIndex that
  * the engine owns. No new index files are required.
- *
- * Thread-safe after construction: assign() is const and does not mutate any
- * member state. The precomputed node_to_enclosing_snarl table is read-only.
  */
 
 #include <cstddef>
@@ -30,7 +27,8 @@ namespace vg {
 // Forward declaration to avoid including vg.pb.h from this header.
 class Alignment;
 
-/// Result of assigning haplotypes to a single alignment.
+/// Which haplotypes carry one alignment's graph path: all of it, or, for a
+/// read that switches haplotypes, each consistent segment.
 struct HaplotypeAssignmentResult {
     /// One maximal run of the read's alignment path that is carried, as a single
     /// walk, by at least one haplotype. The read path is tiled greedily left to
@@ -64,7 +62,7 @@ struct HaplotypeAssignmentResult {
     /// from GBWT metadata; empty if metadata is unavailable.
     std::vector<std::string> haplotype_names;
     /// Number of haplotypes consistent with the final SearchState, before any
-    /// capping by max_haplotypes_to_report.
+    /// capping by max_haplotypes_to_report; more than seq_ids.size() if capped.
     size_t candidate_count = 0;
     /// Left snarl-boundary node (in forward orientation) if the alignment was
     /// extended to a boundary. 0 if no extension was requested, or if
@@ -72,8 +70,6 @@ struct HaplotypeAssignmentResult {
     nid_t left_boundary_node = 0;
     /// Right snarl-boundary node, analogous to left_boundary_node.
     nid_t right_boundary_node = 0;
-    /// True if seq_ids was truncated to max_haplotypes_to_report.
-    bool truncated = false;
     /// A single representative haplotype name chosen to break the (often large)
     /// tie when many haplotypes carry the read's path identically. Policy:
     /// prefer a reference-sample haplotype; among the eligible class take the
@@ -106,9 +102,8 @@ struct HaplotypeAssignmentResult {
 };
 
 /**
- * Builds a dense "node id -> enclosing snarl id" table once from a
- * SnarlDistanceIndex, and uses it together with the GBZ to answer haplotype
- * membership queries for alignment paths.
+ * Finds the haplotypes in a GBZ that carry an alignment's path, using the
+ * SnarlDistanceIndex to find snarl boundaries. Thread-safe.
  *
  * Usage:
  *   HaplotypeAssigner assigner(gbz, dist_index);
@@ -116,15 +111,11 @@ struct HaplotypeAssignmentResult {
  */
 class HaplotypeAssigner {
 public:
-    /// Build the enclosing-snarl table immediately. The GBZ and
-    /// SnarlDistanceIndex must outlive this object. If verbose is true, logs
-    /// a one-line summary (snarl count and table footprint) to std::cerr.
+    /// The GBZ and SnarlDistanceIndex must outlive this object.
     HaplotypeAssigner(const gbwtgraph::GBZ& gbz,
-                      const SnarlDistanceIndex& dist_index,
-                      bool verbose = false);
+                      const SnarlDistanceIndex& dist_index);
 
-    /// Compute haplotypes compatible with the alignment's path. Const and
-    /// thread-safe with respect to concurrent callers.
+    /// Compute haplotypes compatible with the alignment's path.
     HaplotypeAssignmentResult assign(const Alignment& aln, bool extend_to_snarls) const;
 
     /// Cap on the number of haplotype IDs returned per alignment.
@@ -137,14 +128,9 @@ private:
     const gbwtgraph::GBZ* gbz_;
     const SnarlDistanceIndex* dist_index_;
 
-    /// node_to_enclosing_snarl_[id] is the dense integer id of the snarl that
-    /// immediately encloses the node with the given node id. 0 is a sentinel
-    /// meaning "no enclosing snarl" (nodes directly under the root).
-    std::vector<uint32_t> node_to_enclosing_snarl_;
-
-    /// Return the enclosing-snarl id for the given node id, or 0 if the node
-    /// is out of range.
-    uint32_t enclosing_snarl(nid_t node_id) const;
+    /// The innermost snarl containing the node, or the root if it is in no
+    /// snarl. A snarl's boundary nodes belong to the snarl around it.
+    net_handle_t enclosing_snarl(nid_t node_id) const;
 };
 
 } // namespace vg

@@ -48,126 +48,7 @@ const char* haplotype_surjection_status_token(HaplotypeSurjectionResult::Status 
     return "unknown";
 }
 
-HaplotypeSurjector::HaplotypeSurjector(const gbwtgraph::GBZ& gbz,
-                                       const handlegraph::PathPositionHandleGraph& position_graph)
-    : gbz_(&gbz),
-      position_graph_(&position_graph),
-      surjector_(&position_graph)
-{
-    // Surjector keeps default vg scoring; the engine can tune it later if
-    // we expose hooks. AlignerClient's default ctor builds default aligners.
-}
-
-bool HaplotypeSurjector::path_is_indexed(const string& path_name) const {
-    // The position graph (e.g. ReferencePathOverlay) reports has_path() only
-    // for paths it has actually indexed. That is the surjectable set.
-    return position_graph_->has_path(path_name);
-}
-
 namespace {
-
-/// Apply the "hifi" preset to a MinimizerMapper.
-///
-/// A faithful copy of the "hifi" entry in giraffe_main.cpp's `presets` map.
-/// The engine does not use the CLI parser, so the values are duplicated here
-/// for direct field assignment; keep them in sync with that map.
-///
-/// This was previously inlined into apply_blat_preset as an "inherited from
-/// hifi" block, and it had DRIFTED: item_bonus 20 vs hifi's 2, gap_scale 0.2
-/// vs 0.27579, max_min_chain_score 100 vs 46, and four hifi parameters were
-/// not set at all. Splitting it out means "blat" is now literally hifi plus a
-/// short list of deltas, so the two cannot drift apart again.
-void apply_hifi_preset(MinimizerMapper& m) {
-    m.align_from_chains = true;
-    m.use_explored_cap = false;
-    m.max_unique_min = 79;
-    m.num_bp_per_min = 152;
-    m.minimizer_downsampling_window_count = 15;
-    m.minimizer_downsampling_max_window_length = 227;
-    m.hit_cap = 0;
-    m.minimizer_score_fraction = 1.0;
-    m.hard_hit_cap = 13614;
-    m.gapless_extension_limit = 0;
-    m.mapq_score_scale = 0.001;
-    m.zipcode_tree_score_threshold = 100.0;
-    m.pad_zipcode_tree_score_threshold = 50.0;
-    m.zipcode_tree_coverage_threshold = 0.5;
-    m.zipcode_tree_scale = 2.0;
-    m.min_chaining_problems = 6;
-    m.max_chaining_problems = std::numeric_limits<int>::max();
-    m.max_graph_lookback_bases = 20000;
-    m.max_graph_lookback_bases_per_base = 0.10501002120802233;
-    m.max_indel_bases = 5000;
-    m.max_indel_bases_per_base = 2.45;
-    m.item_bonus = 2;
-    m.gap_scale = 0.27579;
-    m.rec_penalty = 2;
-    m.rec_consistency_bonus = 12;
-    m.chain_score_threshold = 234.0;
-    m.target_alignment_attempts = 2;
-    m.min_chain_score_per_base = 0.24;
-    m.max_chains_per_tree = 3;
-    m.max_min_chain_score = 46;
-    m.min_indel_avoid_bases = 50;
-    m.max_skipped_bases = 1000;
-    m.max_alignments = 3;
-    m.max_chain_connection = 233;
-    m.max_tail_length = 68;
-    m.max_tail_gap = 150;
-    m.max_middle_gap = 500;
-    m.max_dp_cells = 8000000000ULL;
-    m.wfa_distance = 33;
-    m.wfa_distance_per_base = 0.195722;
-    m.wfa_max_distance = 240;
-    m.wfa_max_mismatches = 2;
-    m.wfa_max_mismatches_per_base = 0.05;
-    m.wfa_max_max_mismatches = 15;
-    m.rec_penalty_aln = 28;
-    // watchdog-timeout / batch-size / prune-low-cplx live on GiraffeMainOptions
-    // in vg, not on MinimizerMapper; they are program-level concerns.
-}
-
-/// Apply the "blat" preset: hifi, plus overrides that report many hits per
-/// query instead of one best.
-///
-/// NOTE ON MAPQ: these overrides are the reason MAPQ collapses to 0. MAPQ is a
-/// softmax over the scores of every alignment the mapper SCORED (max_alignments,
-/// not max_multimaps, governs that), so scoring 100 candidates instead of 3 —
-/// and admitting far weaker chains into that set — spreads the probability mass
-/// and drives P(best) toward 1/N. That is arithmetic, not a bug, but it means
-/// BLAT mode and meaningful MAPQ are mutually exclusive.
-void apply_blat_preset(MinimizerMapper& m) {
-    apply_hifi_preset(m);
-
-    // ---- BLAT-specific overrides ----
-    // mapq_score_scale is IDENTICAL to hifi's 0.001 -- it is not a BLAT
-    // override at all, and it does not "turn mapq off". It rescales long-read
-    // scores (~50,000 for a 50 kb read) into the softmax's working range. The
-    // MAPQ collapse comes from the candidate-count overrides below.
-    // BLAT: report many hits per read instead of one best.
-    // hifi: max_alignments=3, max_multimaps not set (=1).
-    // blat: 100 each so we surface every haplotype/paralog hit.
-    // max_alignments must be >= max_multimaps or it caps reporting.
-    m.max_multimaps = 100;
-    m.max_alignments = 100;
-    // BLAT: loosen chain filtering so secondary hits aren't pruned.
-    // hifi: chain_score_threshold=234.0.
-    // blat: 1000 — admit much weaker chains relative to the best.
-    m.chain_score_threshold = 1000.0;
-    // BLAT: drop the per-base chain score floor.
-    // hifi: 0.24 (chain must score >= 0.24 per read base).
-    // blat: 0.05 — let noisy/partial matches survive.
-    m.min_chain_score_per_base = 0.05;
-    // BLAT: always try many chains, even when one dominates.
-    // hifi: target_alignment_attempts=2 (upstream renamed it from
-    // min_chains). blat: 50, so paralog/cross-haplotype hits
-    // surface even when one chain has a clear best score.
-    m.target_alignment_attempts = 50;
-    // BLAT: allow many chains per zipcode-tree cluster.
-    // hifi: max_chains_per_tree=3. blat: 20 — tandem repeats and
-    // high-copy gene families need more than 3 to produce all hits.
-    m.max_chains_per_tree = 20;
-}
 
 /// Count matches / substitutions / indels from a surjected alignment's edits.
 /// vg edit semantics: from_length == to_length with an empty sequence is a run
@@ -212,9 +93,50 @@ string cigar_to_string(const vector<pair<int, char>>& cigar) {
     return ss.str();
 }
 
+/// Fill result from the highest-scoring of the Surjector's outputs on path,
+/// a path of position_graph. Sets SURJECTION_FAILED if there is none.
+void take_best_surjection(const vector<Alignment>& surjected,
+                          const vector<tuple<string, int64_t, bool>>& positions,
+                          const PathPositionHandleGraph& position_graph,
+                          const path_handle_t& path,
+                          HaplotypeSurjectionResult& result) {
+    using S = HaplotypeSurjectionResult::Status;
+    if (surjected.empty() || positions.empty()) {
+        result.status = S::SURJECTION_FAILED;
+        return;
+    }
+    size_t best = 0;
+    for (size_t i = 1; i < surjected.size(); ++i) {
+        if (surjected[i].score() > surjected[best].score()) {
+            best = i;
+        }
+    }
+    const Alignment& chosen = surjected[best];
+    const auto& chosen_pos = positions[best];
+    if (chosen.path().mapping_size() == 0 || std::get<0>(chosen_pos).empty()) {
+        result.status = S::SURJECTION_FAILED;
+        return;
+    }
+
+    result.status = S::OK;
+    result.path_name = std::get<0>(chosen_pos);
+    result.path_position = std::get<1>(chosen_pos);
+    result.path_reverse = std::get<2>(chosen_pos);
+    result.score = chosen.score();
+    result.mapping_quality = chosen.mapping_quality();
+
+    // softclip_suppress = 0 leaves the position as given.
+    int64_t pos_adj = result.path_position;
+    size_t path_len = position_graph.get_path_length(path);
+    result.cigar = cigar_to_string(cigar_against_path(chosen, result.path_reverse, pos_adj,
+                                                      path_len, /*softclip_suppress=*/0));
+    count_edits(chosen, result.matches, result.mismatches,
+                result.inserted, result.deleted);
+}
+
 } // namespace
 
-HaplotypeSurjectionResult HaplotypeSurjector::surject(
+HaplotypeSurjectionResult GiraffeEngine::surject_to_indexed_path(
     const Alignment& aln,
     const string& target_path_name,
     const vector<gbwt::size_type>& candidate_seq_ids) const
@@ -234,7 +156,7 @@ HaplotypeSurjectionResult HaplotypeSurjector::surject(
     // The position graph only reports has_path() for paths that are actually
     // indexed for surjection. Anything else is "not indexed" even if the
     // underlying GBZ knows about the path under a different sense.
-    if (!position_graph_->has_path(target_path_name)) {
+    if (!position_overlay_ || !position_overlay_->has_path(target_path_name)) {
         if (gbz_->graph.has_path(target_path_name)) {
             result.status = S::PATH_NOT_INDEXED;
         } else {
@@ -271,50 +193,11 @@ HaplotypeSurjectionResult HaplotypeSurjector::surject(
     unordered_set<path_handle_t> paths;
     paths.insert(gbz_path_handle);
     vector<tuple<string, int64_t, bool>> positions_out;
-    vector<Alignment> surjected = surjector_.surject(aln, paths, positions_out,
-                                                     /*allow_negative_scores=*/false,
-                                                     /*preserve_deletions=*/false);
-
-    if (surjected.empty() || positions_out.empty()) {
-        result.status = S::SURJECTION_FAILED;
-        return result;
-    }
-
-    // Pick the highest-scoring surjected alignment when there's more than
-    // one (multimap_to_all_paths is off by default but be defensive).
-    size_t best = 0;
-    for (size_t i = 1; i < surjected.size(); ++i) {
-        if (surjected[i].score() > surjected[best].score()) {
-            best = i;
-        }
-    }
-    const Alignment& chosen = surjected[best];
-    const auto& chosen_pos = positions_out[best];
-
-    if (chosen.path().mapping_size() == 0 || std::get<0>(chosen_pos).empty()) {
-        result.status = S::SURJECTION_FAILED;
-        return result;
-    }
-
-    result.status = S::OK;
-    result.path_name = std::get<0>(chosen_pos);
-    result.path_position = std::get<1>(chosen_pos);
-    result.path_reverse = std::get<2>(chosen_pos);
-    result.score = chosen.score();
-    result.mapping_quality = chosen.mapping_quality();
-
-    // Build the SAM-style CIGAR. cigar_against_path may adjust pos when
-    // soft-clip suppression is enabled; we pass 0 to disable that, so the
-    // returned position equals the supplied input.
-    int64_t pos_adj = result.path_position;
-    path_handle_t overlay_path_handle = position_graph_->get_path_handle(result.path_name);
-    size_t path_len = position_graph_->get_path_length(overlay_path_handle);
-    auto cigar_ops = cigar_against_path(chosen, result.path_reverse, pos_adj,
-                                        path_len, /*softclip_suppress=*/0);
-    result.cigar = cigar_to_string(cigar_ops);
-    count_edits(chosen, result.matches, result.mismatches,
-                result.inserted, result.deleted);
-
+    vector<Alignment> surjected = overlay_surjector_->surject(aln, paths, positions_out,
+                                                              /*allow_negative_scores=*/false,
+                                                              /*preserve_deletions=*/false);
+    take_best_surjection(surjected, positions_out, *position_overlay_,
+                         position_overlay_->get_path_handle(target_path_name), result);
     return result;
 }
 
@@ -415,9 +298,13 @@ void attach_haplotype_annotations(Alignment& aln, const HaplotypeAssignmentResul
     set_annotation(aln, "haplotype_representative", r.representative_name);
     set_annotation(aln, "haplotype_representative_is_reference", r.representative_is_reference);
     set_annotation(aln, "haplotype_candidate_count", static_cast<double>(r.candidate_count));
-    set_annotation(aln, "haplotype_left_boundary", static_cast<double>(r.left_boundary_node));
-    set_annotation(aln, "haplotype_right_boundary", static_cast<double>(r.right_boundary_node));
-    set_annotation(aln, "haplotype_truncated", r.truncated);
+    if (r.left_boundary_node != 0) {
+        set_annotation(aln, "haplotype_left_boundary", static_cast<double>(r.left_boundary_node));
+    }
+    if (r.right_boundary_node != 0) {
+        set_annotation(aln, "haplotype_right_boundary", static_cast<double>(r.right_boundary_node));
+    }
+    set_annotation(aln, "haplotype_truncated", r.seq_ids.size() < r.candidate_count);
     // Path-coverage / mosaic accounting: whether one haplotype carries the whole
     // read, how much of it the reported (best) block covers, and how many
     // maximal haplotype-consistent segments the read decomposes into.
@@ -449,8 +336,8 @@ void append_surjection_tags(stringstream& ss, const HaplotypeSurjectionResult& r
 
 } // namespace
 
-void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineConfig& config) {
-    if (paths.gbz_path.empty() || paths.minimizer_path.empty() || paths.distance_path.empty() || paths.zipcode_path.empty()) {
+void GiraffeEngine::load(const GiraffeEngineConfig& config) {
+    if (config.gbz_path.empty() || config.minimizer_path.empty() || config.distance_path.empty() || config.zipcode_path.empty()) {
         throw runtime_error("All index paths must be provided: GBZ, minimizer, distance, zipcodes");
     }
     if (config.threads == 0) {
@@ -458,24 +345,27 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
     }
     // max_multimaps == 0 is allowed and means "use the preset / mapper
     // default". A positive value is an explicit override (see below).
-    if (!file_exists(paths.gbz_path) || !file_exists(paths.minimizer_path)
-        || !file_exists(paths.distance_path) || !file_exists(paths.zipcode_path)) {
+    if (!file_exists(config.gbz_path) || !file_exists(config.minimizer_path)
+        || !file_exists(config.distance_path) || !file_exists(config.zipcode_path)) {
         throw runtime_error("One or more required index files do not exist");
     }
 
-    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(paths.gbz_path);
-    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(paths.minimizer_path);
-    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(paths.distance_path);
+    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(config.gbz_path);
+    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(config.minimizer_path);
+    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(config.distance_path);
     auto zipcodes = make_unique<ZipCodeCollection>();
 
-    ifstream zip_in(paths.zipcode_path);
+    ifstream zip_in(config.zipcode_path);
     if (!zip_in) {
-        throw runtime_error("Failed to open zipcode file: " + paths.zipcode_path);
+        throw runtime_error("Failed to open zipcode file: " + config.zipcode_path);
     }
     zipcodes->deserialize(zip_in);
     zip_in.close();
 
-    require_payload(*minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES);
+    if (!has_payload(*minimizer_index, {MinimizerIndexParameters::PAYLOAD_ZIPCODES,
+                                        MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS})) {
+        throw runtime_error("Minimizer index has no zipcode payload: " + config.minimizer_path);
+    }
     require_compatible_graphs(*gbz, "GBZ", *minimizer_index, "Minimizer Index");
 
     if (config.preload_distance_index) {
@@ -484,44 +374,14 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
 
     auto mapper = make_unique<MinimizerMapper>(gbz->graph, *minimizer_index, distance_index.get(), zipcodes.get());
 
-    // The engine always uses the long-read/BLAT mapping configuration — per
-    // Benedict, the long-read code path is intended to replace the
-    // short-read path and works well enough for short reads too. Applied
-    // before explicit overrides so config.max_multimaps (if > 0) wins.
-    // Preset selection. "blat" surfaces every haplotype/paralog hit but scores
-    // up to 100 candidates per read, which drives MAPQ to 0 by construction.
-    // "hifi" is plain long-read Giraffe: real MAPQ, but only the best few
-    // alignments. Selectable at run time so the two can be compared without
-    // rebuilding vg.
-    const char* preset_env = std::getenv("PANGENOME_GIRAFFE_PRESET");
-    const std::string preset = preset_env ? preset_env : "hifi";
-    if (preset == "blat") {
-        apply_blat_preset(*mapper);
-    } else {
-        if (preset != "hifi") {
-            cerr << "[giraffe-engine] unknown PANGENOME_GIRAFFE_PRESET \""
-                 << preset << "\"; using \"hifi\"" << endl;
-        }
-        apply_hifi_preset(*mapper);
+    // Mapping parameters come from the caller (giraffe-server takes them from
+    // vg giraffe's presets), so the engine keeps no copy of preset values.
+    if (config.configure_mapper) {
+        config.configure_mapper(*mapper, *minimizer_index);
     }
-    cerr << "[giraffe-engine] mapping preset: "
-         << (preset == "blat" ? "blat" : "hifi") << endl;
-    // Explicit override wins over whichever preset was applied.
     if (config.max_multimaps > 0) {
         mapper->max_multimaps = config.max_multimaps;
     }
-    // MAPQ calibration overrides; no effect unless set. hifi multiplies raw
-    // scores by 0.001 with no length normalisation, so MAPQ grows with read
-    // length. A window rescales every score to that many bases first (upstream
-    // R10 uses scale 1, window 150).
-    if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_SCALE")) {
-        mapper->mapq_score_scale = std::stod(e);
-    }
-    if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_WINDOW")) {
-        mapper->mapq_score_window = static_cast<size_t>(std::stoul(e));
-    }
-    cerr << "[giraffe-engine] mapq_score_scale=" << mapper->mapq_score_scale
-         << " mapq_score_window=" << mapper->mapq_score_window << endl;
 
     auto assigner = make_unique<HaplotypeAssigner>(*gbz, *distance_index);
 
@@ -531,7 +391,7 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
     // the surjector's realigning DP. Validating that every requested path
     // actually exists up front makes server misconfiguration fail loudly.
     unique_ptr<bdsg::ReferencePathOverlay> position_overlay;
-    unique_ptr<HaplotypeSurjector> surjector;
+    unique_ptr<Surjector> surjector;
     if (!config.surjection_target_paths.empty()) {
         for (const auto& name : config.surjection_target_paths) {
             if (!gbz->graph.has_path(name)) {
@@ -543,7 +403,7 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
                                           config.surjection_target_paths.end());
         position_overlay = make_unique<bdsg::ReferencePathOverlay>(
             &gbz->graph, /*all_paths=*/false, extras);
-        surjector = make_unique<HaplotypeSurjector>(*gbz, *position_overlay);
+        surjector = make_unique<Surjector>(position_overlay.get());
     }
 
     // Keep the same behavior as vg giraffe: global OMP thread count controls mapping parallelism.
@@ -557,7 +417,7 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
     mapper_ = move(mapper);
     haplotype_assigner_ = move(assigner);
     position_overlay_ = move(position_overlay);
-    haplotype_surjector_ = move(surjector);
+    overlay_surjector_ = move(surjector);
 }
 
 bool GiraffeEngine::is_loaded() const {
@@ -574,15 +434,15 @@ vector<string> GiraffeEngine::gaf_header_lines() const {
     return graph_name.gaf_header_lines();
 }
 
-vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& reads) {
+vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& reads) {
     require_loaded();
     vector<vector<string>> results(reads.size());
     if (reads.empty()) {
         return results;
     }
-    for (const auto& read : reads) {
-        if (!read.quality.empty() && read.quality.size() != read.sequence.size()) {
-            throw runtime_error("Read " + read.name + " has mismatched sequence/quality lengths");
+    for (const auto& req : reads) {
+        if (!req.read.quality().empty() && req.read.quality().size() != req.read.sequence().size()) {
+            throw runtime_error("Read " + req.read.name() + " has mismatched sequence/quality lengths");
         }
     }
     exception_ptr worker_error = nullptr;
@@ -594,22 +454,19 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
         if (has_worker_error.load(memory_order_acquire)) {
             continue;
         }
-        const auto& read = reads[i];
+        const auto& req = reads[i];
         try {
-            Alignment aln;
-            aln.set_name(read.name);
-            aln.set_sequence(read.sequence);
-            aln.set_quality(read.quality.empty() ? string(read.sequence.size(), 'I') : read.quality);
+            Alignment aln = req.read;
             check_quality_length(aln);
             toUppercaseInPlace(*aln.mutable_sequence());
 
             vector<Alignment> mapped = mapper_->map(aln);
             vector<HaplotypeAssignmentResult> hap_results;
-            if (this->assign_haplotypes && this->haplotype_assigner_) {
+            if (config_.assign_haplotypes && this->haplotype_assigner_) {
                 hap_results.reserve(mapped.size());
                 for (auto& m : mapped) {
                     auto hap = this->haplotype_assigner_->assign(
-                        m, this->assign_haplotypes_extend_to_snarls);
+                        m, config_.assign_haplotypes_extend_to_snarls);
                     // Name every mosaic segment and pick each one's representative
                     // (reference-first, else lowest id). For a fully-covered read
                     // there is a single segment spanning the whole path.
@@ -639,9 +496,9 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
             // and "the requested haplotype isn't compatible with this
             // alignment".
             vector<HaplotypeSurjectionResult> surj_results;
-            if (!read.surjection_target.empty()) {
+            if (!req.surjection_target.empty()) {
                 surj_results.resize(mapped.size());
-                if (!this->haplotype_surjector_) {
+                if (!overlay_surjector_) {
                     for (auto& r : surj_results) {
                         r.status = HaplotypeSurjectionResult::Status::PATH_NOT_INDEXED;
                     }
@@ -653,8 +510,8 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
                     }
                 } else {
                     for (size_t j = 0; j < mapped.size(); ++j) {
-                        surj_results[j] = this->haplotype_surjector_->surject(
-                            mapped[j], read.surjection_target, hap_results[j].seq_ids);
+                        surj_results[j] = surject_to_indexed_path(
+                            mapped[j], req.surjection_target, hap_results[j].seq_ids);
                     }
                 }
             }
@@ -676,10 +533,15 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeFastqRead>& 
                        << "\thb:Z:" << (hap.representative_name.empty()
                                         ? string("*") : hap.representative_name)
                        << "\thf:i:" << (hap.representative_is_reference ? 1 : 0)
-                       << "\thc:i:" << hap.candidate_count
-                       << "\thl:i:" << hap.left_boundary_node
-                       << "\thr:i:" << hap.right_boundary_node
-                       << "\tht:i:" << (hap.truncated ? 1 : 0)
+                       << "\thc:i:" << hap.candidate_count;
+                    // hl:i: / hr:i: snarl-boundary nodes, only when one was found.
+                    if (hap.left_boundary_node != 0) {
+                        ss << "\thl:i:" << hap.left_boundary_node;
+                    }
+                    if (hap.right_boundary_node != 0) {
+                        ss << "\thr:i:" << hap.right_boundary_node;
+                    }
+                    ss << "\tht:i:" << (hap.seq_ids.size() < hap.candidate_count ? 1 : 0)
                        // Path-coverage / mosaic tags:
                        //   hq:i: 1 if one haplotype carries the whole read, else 0
                        //   hv:i: % of the read path the reported (best) block covers
@@ -920,65 +782,15 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
         return {ss.str()};
     }
 
-    if (surjected.empty() || positions_out.empty()) {
-        report_timing("surject_empty");
-        surj_result.status = S::SURJECTION_FAILED;
-        stringstream ss;
-        ss << gaf_line;
-        ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status);
-        return {ss.str()};
-    }
-
-    // 6. Pick best (highest-scoring) surjected alignment, mirroring HaplotypeSurjector::surject.
-    size_t best = 0;
-    for (size_t i = 1; i < surjected.size(); ++i) {
-        if (surjected[i].score() > surjected[best].score()) {
-            best = i;
-        }
-    }
-    const Alignment& chosen = surjected[best];
-    const auto& chosen_pos = positions_out[best];
-
-    if (chosen.path().mapping_size() == 0 || std::get<0>(chosen_pos).empty()) {
-        surj_result.status = S::SURJECTION_FAILED;
-        stringstream ss;
-        ss << gaf_line;
-        ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status);
-        return {ss.str()};
-    }
-
-    surj_result.status = S::OK;
-    surj_result.path_name = std::get<0>(chosen_pos);
-    surj_result.path_position = std::get<1>(chosen_pos);
-    surj_result.path_reverse = std::get<2>(chosen_pos);
-    surj_result.score = chosen.score();
-    surj_result.mapping_quality = chosen.mapping_quality();
-
-    int64_t pos_adj = surj_result.path_position;
-    size_t plen = anchor_graph.get_path_length(target_path);
-    auto cigar_ops = cigar_against_path(chosen, surj_result.path_reverse, pos_adj,
-                                        plen, /*softclip_suppress=*/0);
-    surj_result.cigar = cigar_to_string(cigar_ops);
-    count_edits(chosen, surj_result.matches, surj_result.mismatches,
-                surj_result.inserted, surj_result.deleted);
-
-    // 7. Append surjection tags to the original GAF line and return one line.
-    //    Matches the schema map_reads + HaplotypeSurjector::surject emits so
-    //    callers don't have to special-case the anchor path.
+    take_best_surjection(surjected, positions_out, anchor_graph, target_path, surj_result);
     stringstream ss;
     ss << gaf_line;
-    ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status)
-       << "\tsn:Z:" << surj_result.path_name
-       << "\tsp:i:" << surj_result.path_position
-       << "\tsr:i:" << (surj_result.path_reverse ? 1 : 0)
-       << "\tss:i:" << surj_result.score
-       << "\tsm:i:" << surj_result.mapping_quality
-       << "\tsc:Z:" << (surj_result.cigar.empty() ? string("*") : surj_result.cigar)
-       << "\tsM:i:" << surj_result.matches
-       << "\tsX:i:" << surj_result.mismatches
-       << "\tsI:i:" << surj_result.inserted
-       << "\tsD:i:" << surj_result.deleted
-       << "\tan:i:" << anchors.size()
+    append_surjection_tags(ss, surj_result);
+    if (surj_result.status != S::OK) {
+        report_timing("surject_empty");
+        return {ss.str()};
+    }
+    ss << "\tan:i:" << anchors.size()
        << "\tap:Z:" << resolved_target;
     report_timing("ok");
     return {ss.str()};

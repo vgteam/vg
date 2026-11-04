@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -11,7 +12,7 @@
 #include <gbwt/gbwt.h>
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/minimizer.h>
-#include <handlegraph/path_position_handle_graph.hpp>
+#include <vg/vg.pb.h>
 
 #include "haplotype_assignment.hpp"
 #include "minimizer_mapper.hpp"
@@ -21,20 +22,8 @@
 
 namespace vg {
 
-// Forward declaration so we can mention Alignment in surjection types
-// without forcing every includer to drag in vg.pb.h.
-class Alignment;
-
-struct GiraffeEnginePaths {
-    std::string gbz_path;
-    std::string minimizer_path;
-    std::string distance_path;
-    std::string zipcode_path;
-};
-
-/// Outcome of attempting to surject one alignment onto one named haplotype
-/// path. The status field captures every observable failure mode; the rest
-/// is only meaningful when status == OK.
+/// Where one alignment lands on one haplotype's path, or why it could not be
+/// placed. Fields other than status are valid only when status == OK.
 struct HaplotypeSurjectionResult {
     enum class Status {
         OK,                  ///< Surjection succeeded against the target path.
@@ -75,44 +64,23 @@ struct HaplotypeSurjectionResult {
 /// emitting in GAF tags or framed protocol fields.
 const char* haplotype_surjection_status_token(HaplotypeSurjectionResult::Status status);
 
-/**
- * Owns a Surjector configured against a PathPositionHandleGraph that already
- * has the desired target paths indexed for positions. Used by GiraffeEngine
- * to project graph alignments onto a specific GBZ-known haplotype path.
- *
- * The position graph and the GBZ must outlive this object. Thread-safe after
- * construction: surject() is const and Surjector::surject is const.
- */
-class HaplotypeSurjector {
-public:
-    HaplotypeSurjector(const gbwtgraph::GBZ& gbz,
-                       const handlegraph::PathPositionHandleGraph& position_graph);
-
-    /// True if the given haplotype path name is known to the GBZ AND has
-    /// positional indexing in the position graph (i.e. is surjectable).
-    bool path_is_indexed(const std::string& path_name) const;
-
-    /// Attempt to surject `aln` onto the path named `target_path_name`.
-    /// `candidate_seq_ids` is consulted for the compatibility check; if
-    /// neither orientation of the target path's GBWT sequence id is
-    /// present, status is INCOMPATIBLE and no surjection is attempted.
-    HaplotypeSurjectionResult surject(const Alignment& aln,
-                                      const std::string& target_path_name,
-                                      const std::vector<gbwt::size_type>& candidate_seq_ids) const;
-
-private:
-    const gbwtgraph::GBZ* gbz_;
-    const handlegraph::PathPositionHandleGraph* position_graph_;
-    Surjector surjector_;
-};
-
+/// What GiraffeEngine::load() loads and how the engine then runs.
 struct GiraffeEngineConfig {
+    /// The graph plus Giraffe's minimizer, distance and zipcode indexes.
+    std::string gbz_path;
+    std::string minimizer_path;
+    std::string distance_path;
+    std::string zipcode_path;
+
     size_t threads = 1;
 
-    /// Override for MinimizerMapper::max_multimaps. `0` means "use the
-    /// engine's built-in BLAT preset value (100)". Any value > 0 overrides
-    /// the preset value — useful when a caller wants fewer hits per read
-    /// than the BLAT default of 100.
+    /// Sets the mapper's parameters once it is built, given the minimizer index
+    /// it uses. giraffe-server fills it from vg giraffe's presets and rules.
+    /// Unset: MinimizerMapper's defaults.
+    std::function<void(MinimizerMapper&, const gbwtgraph::DefaultMinimizerIndex&)> configure_mapper;
+
+    /// If > 0, replaces max_multimaps after configure_mapper. Reporting is
+    /// still capped by max_alignments.
     size_t max_multimaps = 0;
 
     bool preload_distance_index = true;
@@ -122,16 +90,21 @@ struct GiraffeEngineConfig {
     /// These are passed to bdsg::ReferencePathOverlay as extra_path_names so
     /// haplotype-sense paths become surjectable, not just reference paths.
     std::vector<std::string> surjection_target_paths;
+
+    /// Tag each alignment with the haplotypes that carry its path.
+    bool assign_haplotypes = true;
+    /// When assigning haplotypes, extend the search out to the enclosing snarl's
+    /// boundaries, keeping only haplotypes that also agree there.
+    bool assign_haplotypes_extend_to_snarls = true;
 };
 
-struct GiraffeFastqRead {
-    std::string name;
-    std::string sequence;
-    std::string quality;
-    /// Optional: name of a pre-indexed haplotype path to surject this read
-    /// onto. Empty means "no surjection". If set, the engine will surject
-    /// every reported alignment for this read onto the given path and
-    /// append the result as GAF tags.
+/// One read to map, as giraffe-server receives it.
+struct GiraffeServerRequest {
+    /// Name, sequence and base qualities (raw Phred, as vg stores them; empty
+    /// if unknown, which like FASTA input to vg giraffe leaves MAPQ uncapped).
+    Alignment read;
+    /// Pre-indexed haplotype path to surject every alignment of the read onto,
+    /// reported as GAF tags. Empty for none.
     std::string surjection_target;
 };
 
@@ -153,28 +126,23 @@ struct WireAnchor {
     size_t source_mapping_end = 0;
 };
 
+/// Giraffe with its indexes loaded once: maps reads to GAF, and surjects
+/// alignments onto haplotypes. Backs vg giraffe-server.
 class GiraffeEngine {
 public:
     GiraffeEngine() = default;
 
-    void load(const GiraffeEnginePaths& paths, const GiraffeEngineConfig& config);
+    void load(const GiraffeEngineConfig& config);
 
     bool is_loaded() const;
 
     const GiraffeEngineConfig& config() const;
 
-    /// If true, map_reads() post-processes each final Alignment to annotate
-    /// it with the set of haplotypes that traverse its path.
-    bool assign_haplotypes = true;
-    /// If true and assign_haplotypes is true, the haplotype search is
-    /// extended outward to the nearest enclosing snarl boundaries.
-    bool assign_haplotypes_extend_to_snarls = true;
-
     std::vector<std::string> gaf_header_lines() const;
 
     // Returns one vector per input read, preserving order.
     // Each inner vector contains one or more GAF lines (multimaps).
-    std::vector<std::vector<std::string>> map_reads(const std::vector<GiraffeFastqRead>& reads);
+    std::vector<std::vector<std::string>> map_reads(const std::vector<GiraffeServerRequest>& reads);
 
     /// Surject a graph alignment (`gaf_line`) onto `target_haplotype` using
     /// pre-computed anchors instead of a built-in ReferencePathOverlay.
@@ -198,6 +166,12 @@ public:
 private:
     void require_loaded() const;
 
+    /// Surject aln onto the pre-indexed path target_path_name, if one of
+    /// candidate_seq_ids (from the haplotype assigner) is that path.
+    HaplotypeSurjectionResult surject_to_indexed_path(
+        const Alignment& aln, const std::string& target_path_name,
+        const std::vector<gbwt::size_type>& candidate_seq_ids) const;
+
     GiraffeEngineConfig config_{};
     std::unique_ptr<gbwtgraph::GBZ> gbz_;
     std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index_;
@@ -206,11 +180,10 @@ private:
     std::unique_ptr<MinimizerMapper> mapper_;
     std::unique_ptr<HaplotypeAssigner> haplotype_assigner_;
 
-    /// Path-position overlay built once at load time over gbz_->graph,
-    /// indexing the configured surjection_target_paths so the surjector
-    /// can answer position queries on those haplotypes.
+    /// Position index over surjection_target_paths, and a Surjector on it.
+    /// Null when no targets are configured.
     std::unique_ptr<bdsg::ReferencePathOverlay> position_overlay_;
-    std::unique_ptr<HaplotypeSurjector> haplotype_surjector_;
+    std::unique_ptr<Surjector> overlay_surjector_;
 };
 
 } // namespace vg

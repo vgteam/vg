@@ -1,8 +1,6 @@
 #include "haplotype_assignment.hpp"
 
 #include <algorithm>
-#include <functional>
-#include <iostream>
 
 #include <vg/vg.pb.h>
 
@@ -10,66 +8,18 @@ namespace vg {
 
 using namespace std;
 
-// Recursively walk the snarl decomposition starting from `net` and stamp every
-// node reached with `current_snarl_id`. When we descend into a non-root snarl,
-// allocate a fresh dense id and pass that id to all nodes in its child chains.
-// Boundary nodes of a snarl live in the parent chain, so they keep the parent
-// snarl's id (which is the desired "enclosing snarl" semantics).
-static void walk_decomposition(const SnarlDistanceIndex& dist_index,
-                               const net_handle_t& net,
-                               uint32_t current_snarl_id,
-                               uint32_t& next_snarl_id,
-                               vector<uint32_t>& node_to_enclosing_snarl) {
-    if (dist_index.is_node(net)) {
-        nid_t id = dist_index.node_id(net);
-        if (id >= 0 && static_cast<size_t>(id) < node_to_enclosing_snarl.size()) {
-            node_to_enclosing_snarl[id] = current_snarl_id;
-        }
-        return;
-    }
-
-    uint32_t child_snarl_id = current_snarl_id;
-    if (dist_index.is_snarl(net) && !dist_index.is_root(net)) {
-        child_snarl_id = next_snarl_id++;
-    }
-
-    dist_index.for_each_child(net, [&](const net_handle_t& child) {
-        walk_decomposition(dist_index, child, child_snarl_id,
-                           next_snarl_id, node_to_enclosing_snarl);
-        return true;
-    });
-}
-
 HaplotypeAssigner::HaplotypeAssigner(const gbwtgraph::GBZ& gbz,
-                                     const SnarlDistanceIndex& dist_index,
-                                     bool verbose)
-    : gbz_(&gbz), dist_index_(&dist_index)
-{
-    const auto& graph = gbz_->graph;
-    size_t table_size = static_cast<size_t>(graph.max_node_id()) + 1;
-    node_to_enclosing_snarl_.assign(table_size, 0u);
-
-    uint32_t next_snarl_id = 1; // 0 is reserved for "no enclosing snarl".
-    walk_decomposition(*dist_index_, dist_index_->get_root(),
-                       0u, next_snarl_id, node_to_enclosing_snarl_);
-
-    if (verbose) {
-        size_t bytes = node_to_enclosing_snarl_.size() * sizeof(uint32_t);
-        cerr << "[HaplotypeAssigner] " << (next_snarl_id - 1)
-             << " distinct snarls; node_to_enclosing_snarl table: "
-             << table_size << " entries (" << bytes << " bytes)" << endl;
-    }
+                                     const SnarlDistanceIndex& dist_index)
+    : gbz_(&gbz), dist_index_(&dist_index) {
 }
 
-uint32_t HaplotypeAssigner::enclosing_snarl(nid_t node_id) const {
-    if (node_id < 0) {
-        return 0;
+net_handle_t HaplotypeAssigner::enclosing_snarl(nid_t node_id) const {
+    // Root snarls count as the root, so all top-level nodes compare equal.
+    net_handle_t net = dist_index_->get_parent(dist_index_->get_node_net_handle(node_id));
+    while (!dist_index_->is_snarl(net) && !dist_index_->is_root(net)) {
+        net = dist_index_->get_parent(net);
     }
-    size_t idx = static_cast<size_t>(node_id);
-    if (idx >= node_to_enclosing_snarl_.size()) {
-        return 0;
-    }
-    return node_to_enclosing_snarl_[idx];
+    return dist_index_->is_root(net) ? dist_index_->get_root() : dist_index_->canonical(net);
 }
 
 HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
@@ -134,7 +84,7 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
         // recombination points where the consistent set changes by construction.
         const bool whole_path = (i == 0 && j == n);
         if (extend_to_snarls && whole_path) {
-            const uint32_t start_snarl_id =
+            const net_handle_t start_snarl =
                 enclosing_snarl(gbwt::Node::id(path_nodes.front()));
 
             // Left extension.
@@ -154,7 +104,7 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
                 // its forward-orientation GBWT encoding.
                 gbwt::node_type pred = gbwt::Node::reverse(nexts[0].backward.node);
                 nid_t pred_id = gbwt::Node::id(pred);
-                if (enclosing_snarl(pred_id) != start_snarl_id) {
+                if (enclosing_snarl(pred_id) != start_snarl) {
                     result.left_boundary_node = pred_id;
                     break;
                 }
@@ -176,7 +126,7 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
                 }
                 gbwt::node_type succ = nexts[0].forward.node;
                 nid_t succ_id = gbwt::Node::id(succ);
-                if (enclosing_snarl(succ_id) != start_snarl_id) {
+                if (enclosing_snarl(succ_id) != start_snarl) {
                     result.right_boundary_node = succ_id;
                     break;
                 }
@@ -227,8 +177,6 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
 
     result.seq_ids         = result.segments[best].seq_ids;
     result.candidate_count = result.segments[best].candidate_count;
-    result.truncated       =
-        (result.segments[best].seq_ids.size() < result.segments[best].candidate_count);
 
     return result;
 }

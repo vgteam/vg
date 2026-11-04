@@ -113,7 +113,7 @@ TEST_CASE("HaplotypeAssigner returns expected haplotypes on a tiny bubble graph"
 
         REQUIRE(result.candidate_count == 2);
         REQUIRE(result.seq_ids.size() == 2);
-        REQUIRE(result.truncated == false);
+        REQUIRE(result.seq_ids.size() == result.candidate_count);
         REQUIRE(result.left_boundary_node == 0);
         REQUIRE(result.right_boundary_node == 0);
         REQUIRE(result.seq_ids[0] != result.seq_ids[1]);
@@ -125,7 +125,7 @@ TEST_CASE("HaplotypeAssigner returns expected haplotypes on a tiny bubble graph"
 
         REQUIRE(result.candidate_count == 1);
         REQUIRE(result.seq_ids.size() == 1);
-        REQUIRE(result.truncated == false);
+        REQUIRE(result.seq_ids.size() == result.candidate_count);
     }
 
     SECTION("Extension mode preserves or narrows haplotype set and reports boundaries") {
@@ -146,7 +146,7 @@ TEST_CASE("HaplotypeAssigner returns expected haplotypes on a tiny bubble graph"
 
         REQUIRE(result.candidate_count == 2);
         REQUIRE(result.seq_ids.size() == 1);
-        REQUIRE(result.truncated == true);
+        REQUIRE(result.seq_ids.size() < result.candidate_count);
     }
 }
 
@@ -179,7 +179,7 @@ TEST_CASE("HaplotypeAssigner handles nested snarls and extension edge cases",
 
         REQUIRE(result.candidate_count == 2);
         REQUIRE(result.seq_ids.size() == 2);
-        REQUIRE(result.truncated == false);
+        REQUIRE(result.seq_ids.size() == result.candidate_count);
     }
 
     SECTION("Nested snarl extension finds inner boundaries for inner node") {
