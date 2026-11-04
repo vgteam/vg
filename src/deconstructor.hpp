@@ -12,7 +12,7 @@
 #include "handle.hpp"
 #include "traversal_finder.hpp"
 #include "graph_caller.hpp"
-#include "vcf_output_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "lru_cache.h"
 
 #include <gbwtgraph/utils.h>
@@ -31,18 +31,25 @@
 namespace vg{
 using namespace std;
 
-// note: added VCFOutputCaller parent class from vg call bring in sorted vcf output.  it would
-//       be nice to re-use more of the VCFOutputCaller code, much of which is still duplicated in
+// note: writes through a SortedVCFWriter, as vg call does, for sorted vcf output.  it would
+//       be nice to re-use more of vg call's VCF code, much of which is still duplicated in
 //       Deconstructor
-class Deconstructor : public VCFOutputCaller {
+class Deconstructor {
 public:
 
     Deconstructor();
     ~Deconstructor();
 
+    /// The sorted VCF the records go to.
+    SortedVCFWriter vcf_writer;
+
     // deconstruct the entire graph to cout.
     // Not even a little bit thread safe.
+    //
+    // With `include_nested`, `nesting_sites` must be the snarls of `snarl_manager` as a snarl
+    // decomposition, which the nesting INFO tags are read from.
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
+                     const SnarlDecomposition* nesting_sites,
                      bool include_nested,
                      int context_jaccard_window,
                      bool untangle_traversals,
@@ -56,8 +63,17 @@ public:
     
 private:
 
-    // initialize the vcf and get the header 
-    string get_vcf_header();
+    // Find the samples, from the paths that are not references, and the ploidy of each sample.
+    void find_samples();
+
+    // Declare in the header of `vcf_writer` the fields that the records have, other than GT and
+    // the nesting tags. The samples must have been found.
+    void declare_fields();
+
+    // Return the reference contigs, each named as the CHROM column of its records names it. The
+    // length of a contig is the furthest that any of its reference paths reaches, counting the
+    // start of the path's subrange.
+    vector<SortedVCFWriter::ReferenceContig> reference_contigs() const;
 
     // Test if a path is the reference we're deconstructing against, seen through the
     // other half of the base/gref pair (a gref path when deconstructing against the
@@ -68,10 +84,6 @@ private:
     // Samples that exist only as the other view (base or gref) of a selected reference.
     set<string> other_ref_samples;
 
-    // the header needs to be initialized *before* construction for vcflib
-    // but we don't know all the non-ref contigs (in nested mode) until *after*
-    // construction.  end result: this hacky function to patch them in before printing
-    string add_contigs_to_vcf_header(const string& vcf_header) const;
     
     // Simple flat processing: collect all snarls then process in parallel.
     // More memory-efficient when star alleles aren't needed.
@@ -103,7 +115,7 @@ private:
     //                     (only populated when site has exactly one reference traversal)
     bool deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end,
                           const ChildContext* in_context = nullptr,
-                          vector<ChildContext>* out_child_contexts = nullptr) const;
+                          vector<ChildContext>* out_child_contexts = nullptr);
 
     // get the traversals for a given site
     // this returns a combination of embedded path traversals and gbwt traversals
@@ -199,17 +211,19 @@ private:
     // merge if identical (which is what deconstruct has always done)
     double cluster_threshold = 1.0;
 
-    // only apply cluster_threshold at sites whose core length is at least this many bp.  0
-    // disables the gate (so cluster_threshold applies at every site).  See
-    // VCFOutputCaller::allele_core_length for what "core length" means and why it, rather than the
-    // raw snarl interior, is the right measure -- it is what lets vg call and vg deconstruct gate
-    // the same variant the same way despite emitting differently flattened records.
+    // When cluster_threshold is below 1, apply it only at sites whose core length is at least this
+    // many bp.  At 0, cluster_threshold applies at every site.  The core length is the length of
+    // the longest allele once the prefix and suffix that every allele other than "*" shares are
+    // stripped.
     int64_t cluster_min_allele_len = 0;
 
     // use *-alleles to represent haplotypes that span the parent site but don't
     // traverse the current nested site (e.g., a deletion that spans a nested SNP)
     // only works with include_nested
     bool star_allele = false;
+
+    // deconstruct the nested snarls too, and write the nesting INFO tags
+    bool include_nested = false;
 };
 
 

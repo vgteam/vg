@@ -1,13 +1,16 @@
 #ifndef VG_SNARL_GRAPH_HPP_INCLUDED
 #define VG_SNARL_GRAPH_HPP_INCLUDED
 
+#include <atomic>
 #include <iostream>
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <cmath>
 #include <limits>
 #include <unordered_set>
 #include <tuple>
+#include <gbwt/cached_gbwt.h>
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
@@ -60,12 +63,12 @@ public:
     
 protected:
 
-    bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+    bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const override;
     
-    /// this is the only function that's changed to do anything different from the backing graph:
-    /// it is changed to "pass through" snarls by pretending there are edges from into snarl starts out of ends and
-    /// vice versa.
-    bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;    
+    /// this is the only function that's changed to do anything different from the backing graph: it
+    /// is changed to "pass through" snarls by pretending there are edges from into snarl starts out
+    /// of ends and vice versa.
+    bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const override;
 
     /// the backing graph
     const HandleGraph* backing_graph;

@@ -156,12 +156,12 @@ is "$(tail -1 small_cluster_0.vcf | awk '{print $5}')" "GATTTGA,G" "cluster-free
 is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruction finds fewer alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
 
-# --cluster-min-len gates when the site's core length is below the threshold.
+# With --cluster-min-len, -L clusters only at sites whose core length is at least that many bp.
 # small_cluster's only snarl has core length 6 bp.
 vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 0 > small_cluster_3_off.vcf
 is "$(tail -1 small_cluster_3_off.vcf | awk '{print $5}')" "G" "--cluster-min-len 0 is equivalent to clustering everywhere"
 vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 50 > small_cluster_3_50.vcf
-is "$(tail -1 small_cluster_3_50.vcf | awk '{print $5}')" "GATTTGA,G" "--cluster-min-len 50 gates clustering on a small site"
+is "$(tail -1 small_cluster_3_50.vcf | awk '{print $5}')" "GATTTGA,G" "--cluster-min-len 50 prevents clustering at a small site"
 vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 6 > small_cluster_3_6.vcf
 is "$(tail -1 small_cluster_3_6.vcf | awk '{print $5}')" "G" "--cluster-min-len at the site length still clusters"
 vg deconstruct small_cluster.gfa -p x --cluster-min-len 50 2>/dev/null > small_cluster_min_only.vcf
@@ -170,10 +170,10 @@ is "$?" 0 "--cluster-min-len without -L is a no-op"
 
 rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf small_cluster_3_off.vcf small_cluster_3_50.vcf small_cluster_3_6.vcf small_cluster_min_only.vcf
 
-# --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
-# every allele are stripped -- not on the raw snarl interior.  Measuring the interior would gate a
-# 1bp SNP on the size of whatever snarl happens to contain it, and would disagree with vg call,
-# whose records are flattened down to an anchor base.
+# --cluster-min-len is compared with the core length: the length of the longest allele once the
+# prefix and suffix shared by every allele are stripped.  With the raw snarl interior instead,
+# whether a 1bp SNP is clustered would depend on the size of the snarl that contains it, and vg
+# deconstruct would disagree with vg call, whose records are flattened down to an anchor base.
 core_nalt() { vg deconstruct nesting/$1.gfa -p x -L 0.6 --cluster-min-len $2 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
 
 is "$(core_nalt core_snp_in_flanks 50)" "2" "a 1bp SNP in a large snarl is not clustered at --cluster-min-len 50"
@@ -181,10 +181,11 @@ is "$(core_nalt core_sv60 50)"         "1" "a 60bp SV is still clustered at --cl
 is "$(core_nalt core_del61 50)"        "1" "a 61bp deletion is still clustered (the reference allele is measured)"
 is "$(core_nalt core_ins49 50)"        "2" "a 49bp insertion is not clustered at 50 (the anchor base is not counted)"
 is "$(core_nalt core_ins50 50)"        "1" "a 50bp insertion is clustered at 50"
-# 50 is the DEFAULT, so -L on its own must gate identically.  Every metric assertion in this file
-# passes --cluster-min-len 0 for exactly that reason.
+# --cluster-min-len defaults to 50, so -L on its own must cluster the same sites as
+# --cluster-min-len 50.  Every metric assertion in this file passes --cluster-min-len 0 for that
+# reason.
 default_nalt() { vg deconstruct nesting/$1.gfa -p x -L 0.6 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
-is "$(default_nalt core_snp_in_flanks)" "$(core_nalt core_snp_in_flanks 50)" "-L alone gates a small variant like --cluster-min-len 50"
+is "$(default_nalt core_snp_in_flanks)" "$(core_nalt core_snp_in_flanks 50)" "-L alone treats a small variant like --cluster-min-len 50"
 is "$(default_nalt core_sv60)"          "$(core_nalt core_sv60 50)"          "-L alone still clusters an SV"
 
 # A PURE DELETION -- a traversal straight from snarl start to snarl end -- used to keep its boundary
@@ -192,9 +193,9 @@ is "$(default_nalt core_sv60)"          "$(core_nalt core_sv60 50)"          "-L
 # similarity was therefore structurally 0 and no -L could ever merge it.  It is now scored against
 # the site: two deletions that both remove 59 of a 60bp site score 59/60.
 # The ladder is -L 0.99 / 0.983334 / 0.983333 / 0.6 / 0.1, printing the ALT count at each.
-# --cluster-min-len 0 so this ladder measures the METRIC alone: the gate now defaults to 50, which
-# would decide del1_vs_snp1 (a 1bp site) before the similarity was ever consulted.  The gate has its
-# own ladder in core_nalt below.
+# --cluster-min-len 0 makes this ladder measure the similarity alone.  At the default of 50,
+# del1_vs_snp1 (a 1bp site) would never be clustered, whatever its similarity.  The core_nalt tests
+# above cover --cluster-min-len.
 dladder() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
     vg deconstruct nesting/$1.gfa -p x -L $L --cluster-min-len 0 2>/dev/null |
       awk -F'\t' '$1!~/^#/{n=split($5,a,","); if($5=="."||$5=="")n=0; printf "%d",n}' ; done ; }

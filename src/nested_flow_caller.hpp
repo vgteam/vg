@@ -17,7 +17,8 @@
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
 #include "graph_caller.hpp"
-#include "vcf_output_caller.hpp"
+#include "site_emitter.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "gaf_output_caller.hpp"
 #include "snarl_graph.hpp"
 
@@ -35,7 +36,7 @@ class SnarlGraph;
  * Should work on any graph but will not report cyclic traversals.
  * This class is being replaced by FlowCaller's nested mode.
  */
-class NestedFlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
+class NestedFlowCaller : public GraphCaller, public GAFOutputCaller {
 public:
     NestedFlowCaller(const PathPositionHandleGraph& graph,
                      SupportBasedSnarlCaller& snarl_caller,
@@ -55,8 +56,11 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
+    /// The sorted VCF the records go to.
+    SortedVCFWriter vcf_writer;
+
+    /// Writes the record of each called site into `vcf_writer`.
+    SiteEmitter site_emitter;
 
 protected:
 
@@ -80,10 +84,24 @@ protected:
     bool emit_snarl_recursive(const Snarl& managed_snarl, int ploidy,
                               CallTable& call_table);
 
+    /// Write the record of a snarl called at genotype `genotype`, with its alleles flattened, and
+    /// return false only if the writer refused a line the snarl wanted.
+    bool emit_record(const Snarl& snarl, const CallRecord& record, const vector<int>& genotype,
+                     const unique_ptr<SnarlCaller::CallInfo>& call_info, int ploidy,
+                     const CallTable& call_table);
+
     /// transform the nested allele string from something like AAC<6_10>TTT to
     /// a proper string by recursively resolving the nested snarls into alleles
     string flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const;
     string flatten_alt_allele(const string& nested_allele, int allele, int ploidy, const CallTable& call_table) const;
+
+    /// Split an allele string as `trav_string` writes it, with child snarls named in brackets,
+    /// into its pieces, and call `callback` on each in order.
+    ///
+    /// AACT(>12<17)TTT gives three calls: ("AACT", Snarl), ("", Snarl(12,-17)) and
+    /// ("TTT", Snarl(12,-17)). The callback should read a call as a sequence fragment if the
+    /// fragment is not empty, and otherwise as a snarl.
+    static void scan_snarl(const string& allele_string, const function<void(const string&, Snarl&)>& callback);
 
     /// the graph
     const PathPositionHandleGraph& graph;

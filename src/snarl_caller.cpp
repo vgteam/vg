@@ -1,4 +1,5 @@
 #include "snarl_caller.hpp"
+#include "sorted_vcf_writer.hpp"
 #include "genotypekit.hpp"
 
 //#define debug
@@ -403,20 +404,28 @@ void RatioSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     }
 }
 
-void RatioSupportSnarlCaller::update_vcf_header(string& header) const {
-    header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
-    header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
-    header += "##FORMAT=<ID=MAD,Number=1,Type=Integer,Description=\"Minimum site allele depth\">\n";
-    header += "##FORMAT=<ID=XADL,Number=1,Type=Float,Description=\"Likelihood of allelic depths for called alleles\">\n";
+void RatioSupportSnarlCaller::add_header_lines(SortedVCFWriter& writer) const {
+    writer.add_info_line("##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt "
+        "alleles in the order listed\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=MAD,Number=1,Type=Integer,Description=\"Minimum site allele depth\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=XADL,Number=1,Type=Float,Description=\"Likelihood of allelic depths for "
+        "called alleles\">");
     // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
-    header += "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">\n";
-    header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
-    header += "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " +
-        std::to_string(min_mad_for_filter) + "\">\n";
-    header += "##FILTER=<ID=lowxadl,Description=\"Variant has AD log likelihood less than " +
-        std::to_string(min_ad_log_likelihood_for_filter) + "\">\n";
-    header += "##FILTER=<ID=lowdepth,Description=\"Variant has read depth less than " +
-        std::to_string(min_site_depth) + "\">\n";    
+    writer.add_format_line(
+        "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">");
+    writer.add_format_line("##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">");
+    writer.add_filter_line("##FILTER=<ID=lowad,Description=\"Variant does not meet minimum "
+                           "allele read support threshold of " +
+                           std::to_string(min_mad_for_filter) + "\">");
+    writer.add_filter_line("##FILTER=<ID=lowxadl,Description=\"Variant has AD log likelihood "
+                           "less than " +
+                           std::to_string(min_ad_log_likelihood_for_filter) + "\">");
+    writer.add_filter_line("##FILTER=<ID=lowdepth,Description=\"Variant has read depth less "
+                           "than " + std::to_string(min_site_depth) + "\">");
 }
 
 double RatioSupportSnarlCaller::get_bias(const vector<int>& traversal_sizes, int best_trav,
@@ -595,11 +604,12 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     }
 
     // expected depth from our coverage
-    auto depth_info = algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.first, ref_range.second);
-    double exp_depth = depth_info.first;
+    const auto [mean_depth, depth_std_err] =
+        algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.first, ref_range.second);
+    double exp_depth = mean_depth;
     assert(!isnan(exp_depth));
-    // variance/std-err can be nan when binsize < 2.  We just clamp it to 0
-    double depth_err = depth_info.second ? !isnan(depth_info.second) : 0.;
+    // The standard error is NaN for a bin of fewer than 2 values, so we clamp it to 0.
+    double depth_err = !isnan(depth_std_err) ? depth_std_err : 0.;
 
     // Single pass: find best genotype AND compute GQ/posterior values
     vector<int> best_genotype;
@@ -951,19 +961,32 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     }
 }
 
-void PoissonSupportSnarlCaller::update_vcf_header(string& header) const {
-    header += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n";
-    header += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
-    header += "##FORMAT=<ID=MAD,Number=1,Type=Integer,Description=\"Minimum site allele depth\">\n";
-    header += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
-    header += "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log10-scaled likelihoods of the data given the called genotype for each possible genotype generated from the reference and alternate alleles given the sample ploidy\">\n";
-    header += "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality, the Phred-scaled probability estimate of the called genotype\">\n";
-    header += "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the log-scaled posterior probability of the called genotype\">\n";
-    header += "##FORMAT=<ID=XD,Number=1,Type=Float,Description=\"eXpected Depth, background coverage as used for the Poisson model\">\n";
-    header += "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " +
-        std::to_string(min_mad_for_filter) + "\">\n";
-    header += "##FILTER=<ID=lowdepth,Description=\"Variant has read depth less than " +
-        std::to_string(min_site_depth) + "\">\n";    
+void PoissonSupportSnarlCaller::add_header_lines(SortedVCFWriter& writer) const {
+    writer.add_info_line("##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt "
+        "alleles in the order listed\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=MAD,Number=1,Type=Integer,Description=\"Minimum site allele depth\">");
+    writer.add_format_line("##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihood, log10-scaled "
+        "likelihoods of the data given the called genotype for each possible genotype generated "
+        "from the reference and alternate alleles given the sample ploidy\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality, the Phred-scaled "
+        "probability estimate of the called genotype\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the log-scaled "
+        "posterior probability of the called genotype\">");
+    writer.add_format_line(
+        "##FORMAT=<ID=XD,Number=1,Type=Float,Description=\"eXpected Depth, background coverage as "
+        "used for the Poisson model\">");
+    writer.add_filter_line("##FILTER=<ID=lowad,Description=\"Variant does not meet minimum "
+                           "allele read support threshold of " +
+                           std::to_string(min_mad_for_filter) + "\">");
+    writer.add_filter_line("##FILTER=<ID=lowdepth,Description=\"Variant has read depth less "
+                           "than " + std::to_string(min_site_depth) + "\">");
 }
 
 vector<int> PoissonSupportSnarlCaller::rank_by_support(const vector<Support>& supports) {

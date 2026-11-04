@@ -1,8 +1,18 @@
+#include <atomic>
+#include <charconv>
+#include <chrono>
+#include <cstdio>
+#include <limits>
+
+#include <omp.h>
+
 #include "legacy_caller.hpp"
+#include "snarl_traversal_text.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
 #include "traversal_clusters.hpp"
+#include "utility.hpp"
 
 //#define debug
 
@@ -17,7 +27,8 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            const vector<size_t>& ref_path_offsets,
                            const vector<int>& ref_path_ploidies) :
     GraphCaller(snarl_caller, snarl_manager),
-    VCFOutputCaller(sample_name),
+    vcf_writer(sample_name),
+    site_emitter(vcf_writer),
     graph(graph),
     ref_paths(ref_paths) {
 
@@ -137,7 +148,9 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         string path_name = find_index(snarl, is_vg ? path_indexes : site_path_indexes).first;
 
         // orient the snarl along the reference path
-        tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, path_name);
+        tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval =
+            get_ref_interval(graph, visit_handle(graph, snarl.start()),
+                             visit_handle(graph, snarl.end()), path_name);
         if (get<2>(ref_interval) == true) {
             snarl_manager.flip(&snarl);
         }
@@ -147,9 +160,19 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         // these integers map the called traversals to their positions in the list of all traversals
         // of the top level snarl.  
         vector<int> genotype;
-        int ploidy = ref_ploidies[path_name];
-        std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
-                                                                  path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        // Find the ploidy at the start of the site: that of a region covering it, or else the
+        // path's.
+        int ploidy = ploidy_regions.ploidy_at(path_name, get<0>(ref_interval),
+                                              ref_offset_of(ref_offsets, path_name),
+                                              ref_ploidy_of(ref_ploidies, path_name));
+        if (ploidy == 0) {
+            // The sample has no copy of this region, so the site gets no record and its children
+            // are not called.
+            was_called = true;
+        } else {
+            std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
+                                                                      path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        }
     
         if (!called_traversals.empty()) {
             // regenotype our top-level traversals now that we know they aren't nested, and we have a
@@ -159,8 +182,25 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                                            path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
             // emit our vcf variant
-            was_called = emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, 0, call_info, path_name, ref_offsets.find(path_name)->second, false,
-                         ploidy);
+            // The reference traversal is the first.
+            CalledSite site{visit_handle(graph, snarl.start()), visit_handle(graph, snarl.end()),
+                            path_name, (int64_t)ref_offsets.find(path_name)->second, genotype, 0,
+                            called_traversals.size(), ploidy};
+            was_called = site_emitter.emit(
+                graph, site,
+                [&](size_t allele) {
+                    return make_pair(trav_string(graph, called_traversals[allele],
+                                                 vcf_writer.translation()),
+                                     visits_of(called_traversals[allele]));
+                },
+                [&](const vector<int>& allele_traversals, const vector<int>& vcf_genotype,
+                    vcflib::Variant& record) {
+                    snarl_caller.update_vcf_info(snarl,
+                                                 traversals_of(called_traversals,
+                                                               allele_traversals),
+                                                 vcf_genotype, call_info,
+                                                 vcf_writer.sample_name(), record);
+                });
 
         }
     }        
@@ -175,18 +215,6 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
     return was_called;
 }
 
-string LegacyCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& ref_paths,
-                                const vector<size_t>& contig_length_overrides) const {
-    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
-    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
-    snarl_caller.update_vcf_header(header);
-    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
-    header += "##SAMPLE=<ID=" + sample_name + ">\n";
-    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
-    assert(output_vcf.openForOutput(header));
-    header += "\n";
-    return header;
-}
 
 pair<vector<SnarlTraversal>, vector<int>> LegacyCaller::top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy,
                                                                           const string& ref_path_name, pair<size_t, size_t> ref_interval) const {

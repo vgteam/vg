@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 81
+plan tests 84
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -288,3 +288,19 @@ vg map -d g -f reads/ts.fq | vg surject -x g.xg -b --off-ref-position - > g.bam
 is $(samtools view g.bam | grep "NR:Z:x:8+" | wc -l | sed 's/^[[:space:]]*//') "1" "off reference reads can be annotated with the nearest reference position"
 
 rm g.xg g.gcsa g.gcsa.lcp g.bam
+
+# The read's tail anchors far from the rest of the read, so surject splits it into
+# primary and supplementary records. --prune-tail-region drops that tail anchor,
+# letting the whole read align as one at the right location.
+vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s surject/tail-pruning.gam > tail-baseline.sam || exit 1
+is "$(grep -v '^@' tail-baseline.sam | cut -f2-4,6 | sort -n)" "$(printf '0\tref\t105\t12S40M\n2048\tref\t1\t12M40S')" \
+    "Without tail pruning, the misplaced tail is emitted separately"
+vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s --prune-tail-region surject/tail-pruning.gam > tail-pruned.sam || exit 1
+is "$(grep -v '^@' tail-pruned.sam | cut -f2-4,6)" "$(printf '0\tref\t93\t52M')" \
+    "Tail pruning places the entire read at reference position 93"
+
+vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s -G --prune-tail-region surject/tail-pruning.gaf > tail-gaf.sam || exit 1
+is "$(grep -v '^@' tail-gaf.sam | cut -f2-4,6)" "$(printf '0\tref\t93\t52M')" \
+    "GAF tail annotations produce the expected pruned placement"
+
+rm tail-baseline.sam tail-pruned.sam tail-gaf.sam

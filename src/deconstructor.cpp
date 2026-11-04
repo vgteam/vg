@@ -9,7 +9,7 @@ using namespace std;
 
 
 namespace vg {
-Deconstructor::Deconstructor() : VCFOutputCaller("") {
+Deconstructor::Deconstructor() : vcf_writer("") {
 }
 Deconstructor::~Deconstructor(){
 }
@@ -311,7 +311,8 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
             int allele_no = ai_pair.second.first;
             int allele_trav_no = ai_pair.second.second;
             // update the traversal info
-            add_allele_path_to_info(graph, v, allele_no, travs[allele_trav_no], reversed, !substitution);
+            add_allele_path_to_info(v, allele_no, visits_of(*graph, travs[allele_trav_no]), reversed,
+                                    vcf_writer.translation());
         }
     }
 
@@ -669,7 +670,7 @@ unordered_map<string, vector<int>> Deconstructor::add_star_traversals(vector<Tra
 
 bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t& snarl_end,
                                      const ChildContext* in_context,
-                                     vector<ChildContext>* out_child_contexts) const {
+                                     vector<ChildContext>* out_child_contexts) {
 
 
     vector<Traversal> travs;
@@ -895,8 +896,9 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // PS follows automatically.  chrom_of_name is keyed on the emitted ID, and the
         // ancestor walk in update_nesting_info_tags() already looks up both spellings, so the
         // parent it records is whichever one the VCF actually contains.
-        v.id = use_start ? print_snarl(graph, snarl_start, snarl_end)
-                         : print_snarl(graph, graph->flip(snarl_end), graph->flip(snarl_start));
+        v.id = use_start ? site_name(*graph, snarl_start, snarl_end, vcf_writer.translation())
+                         : site_name(*graph, graph->flip(snarl_end), graph->flip(snarl_start),
+                                     vcf_writer.translation());
             
         // Convert the snarl traversals to strings and add them to the variant
         vector<bool> use_trav(travs.size());
@@ -923,13 +925,10 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         vector<int> unused_child_snarl_mapping;
         vector<vector<int>> trav_clusters;
 
-        // If a minimum-allele-length gate is set, skip clustering at sites whose CORE LENGTH -- the
-        // longest allele once the prefix and suffix common to every allele are stripped -- is below
-        // the threshold.  This lets the clustering be SV-only (50bp matches the standard SV size
-        // cutoff) while leaving small variants represented exactly as they are.  Measuring the raw
-        // snarl interior instead would gate a 1bp SNP on the size of the snarl that happens to
-        // contain it, and would disagree with vg call, whose records are flattened.  See
-        // VCFOutputCaller::allele_core_length.
+        // If cluster_threshold is below 1 and cluster_min_allele_len is above 0, skip clustering at
+        // sites whose core length is below cluster_min_allele_len.  The core length is the length
+        // of the longest allele once the prefix and suffix common to every allele are stripped.
+        // This lets the clustering apply to structural variants only.
         bool do_clustering = true;
         if (cluster_min_allele_len > 0 && cluster_threshold < 1.0) {
             // The traversals that become alleles: everything get_traversal_order kept, plus the
@@ -965,10 +964,11 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
             do_clustering = false;
             if (interior_reaches) {
                 // The allele strings do not exist yet -- get_alleles() runs after clustering -- so
-                // rebuild the set this record would emit if we did NOT cluster, which is exactly
-                // what the gate is asking about.  This is exact rather than approximate: the only
-                // transforms get_alleles applies afterwards are reverse-complementing every allele
-                // and prepending a common anchor base, and core length is invariant to both.
+                // rebuild the set this record would emit without clustering, because
+                // cluster_min_allele_len applies to the core length of that set.  This is exact
+                // rather than approximate: the only transforms get_alleles applies afterwards are
+                // reverse-complementing every allele and prepending a common anchor base, and core
+                // length is invariant to both.
                 vector<string> unclustered_alleles;
                 unclustered_alleles.reserve(sorted_travs.size() + 1);
                 for_each_measured([&](const Traversal& t) {
@@ -1112,23 +1112,22 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
         // we only bother printing out sites with at least 1 non-reference allele
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
             // run vcffixup to add some basic INFO like AC
-            vcf_fixup(v);
-            bool added = add_variant(v);
+            vcf_writer.vcf_fixup(v);
+            bool added = vcf_writer.add_variant(v);
             if (!added) {
                 stringstream ss;
                 ss << v;
                 cerr << "Warning [vg deconstruct]: Skipping variant at " << v.sequenceName << ":" << v.position
                      << " with ID=" << v.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
-                     << VCFOutputCaller::max_vcf_line_length << endl;
+                     << SortedVCFWriter::max_vcf_line_length << endl;
                 return false;
             }
-        } else if (include_nested) {
+        } else {
             // No variant here, but a nested record may still need this site's reference interval
             // for its RC/RS/RD: we are the only thing standing between it and the reference, and
-            // once we return there is nothing left that knows where this snarl sits.  Keeping the
-            // whole record would be far too expensive, so keep just the interval.
-            suppressed_ref_info[omp_get_thread_num()][v.id] =
-                {v.sequenceName, static_cast<size_t>(v.position), v.ref.length()};
+            // once we return there is nothing left that knows where this snarl sits. So the
+            // record goes to the writer hidden, which keeps just the interval.
+            vcf_writer.add_variant(v, 0, true);
         }
     }
     return true;
@@ -1149,7 +1148,7 @@ bool Deconstructor::is_other_reference_view(const string& path_name) const {
     return this->ref_paths.count(GrefCover::make_gref_copy_name(path_name)) > 0;
 }
 
-string Deconstructor::get_vcf_header() {
+void Deconstructor::find_samples() {
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     ref_samples.clear();
     set<size_t> ref_haplotypes;
@@ -1301,64 +1300,62 @@ string Deconstructor::get_vcf_header() {
         sample_ploidys[sample_haps.first] = sample_haps.second.size();
         gbwt_sample_to_phase_range[sample_haps.first] = make_pair(*sample_haps.second.begin(), *sample_haps.second.rbegin());
     }
-        
-    // print the VCF header
-    stringstream stream;
-    stream << "##fileformat=VCFv4.2" << endl;
-    stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
-    if (show_path_info && !gbwt_sample_to_phase_range.empty()) {
-        stream << "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path name for sample as well as its allele (can be many paths per sample)\">" << endl;
-    }
-    if (!gbwt_sample_to_phase_range.empty() || gbwt) {
-        stream << "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in the graph with conflicting alleles";
-        if (!gbwt && show_path_info) {
-            stream << " (details in PI field)";
-        }
-        stream << "\">" << endl;
-    }
-    if (!gbwt_sample_to_phase_range.empty() && cluster_threshold < 1) {
-        stream << "##FORMAT=<ID=TS,Number=1,Type=Float,Description=\"Similarity between the sample's actual path and its allele\">"
-               << endl;
-        stream << "##FORMAT=<ID=TL,Number=1,Type=Integer,Description=\"Length difference between the sample's actual path and its allele\">"
-               << endl;
-
-    }
-    stream << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Total number of alternate alleles in called genotypes\">" << endl;
-    stream << "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated allele frequency in the range (0,1]\">" << endl;
-    stream << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">" << endl;
-    stream << "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">" << endl;
-    if (include_nested) {
-        stream << nesting_info_headers();
-    }
-    if (untangle_allele_traversals) {
-        stream << "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' indicating non-reference nodes.\">" << endl;
-    } else {
-        stream << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
-    }
-    
-    stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
-    for (auto& sample_name : sample_names) {
-        stream << "\t" << sample_name;
-    }
-    stream << endl;
-    return stream.str();
 }
 
-string Deconstructor::add_contigs_to_vcf_header(const string& vcf_header) const {
-
-    vector<string> header_lines = split_delims(vcf_header, "\n");
-
-    stringstream patched_header;
-    for (int64_t i = 0; i < header_lines.size() - 1; ++i) {
-        patched_header << header_lines[i] << "\n";
+void Deconstructor::declare_fields() {
+    // The records have AT unless they have UT, its untangled form, which is declared last.
+    if (!untangle_allele_traversals) {
+        vcf_writer.add_info_line(
+            "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in "
+            "graph\">");
     }
+    if (show_path_info && !gbwt_sample_to_phase_range.empty()) {
+        vcf_writer.add_format_line(
+            "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path "
+            "name for sample as well as its allele (can be many paths per sample)\">");
+    }
+    if (!gbwt_sample_to_phase_range.empty() || gbwt) {
+        string conflict_line = "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample "
+                               "names for which there are multiple paths in the graph with "
+                               "conflicting alleles";
+        if (!gbwt && show_path_info) {
+            conflict_line += " (details in PI field)";
+        }
+        vcf_writer.add_info_line(conflict_line + "\">");
+    }
+    if (!gbwt_sample_to_phase_range.empty() && cluster_threshold < 1) {
+        vcf_writer.add_format_line(
+            "##FORMAT=<ID=TS,Number=1,Type=Float,Description=\"Similarity between the sample's "
+            "actual path and its allele\">");
+        vcf_writer.add_format_line(
+            "##FORMAT=<ID=TL,Number=1,Type=Integer,Description=\"Length difference between the "
+            "sample's actual path and its allele\">");
+    }
+    vcf_writer.add_info_line(
+        "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Total number of alternate alleles in "
+        "called genotypes\">");
+    vcf_writer.add_info_line(
+        "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated allele frequency in the range "
+        "(0,1]\">");
+    vcf_writer.add_info_line(
+        "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">");
+    vcf_writer.add_info_line(
+        "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called "
+        "genotypes\">");
+    if (untangle_allele_traversals) {
+        vcf_writer.add_info_line(
+            "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with "
+            "reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' "
+            "indicating non-reference nodes.\">");
+    }
+}
 
-    set<string> all_ref_paths = this->ref_paths;
-
-    map<string, int64_t> ref_path_to_length;
-    for(auto& refpath : all_ref_paths) {
+vector<SortedVCFWriter::ReferenceContig> Deconstructor::reference_contigs() const {
+    // The longest any reference path of each contig reaches, by contig name.
+    map<string, size_t> contig_lengths;
+    for (const string& refpath : ref_paths) {
         assert(graph->has_path(refpath));
-        int64_t path_len = 0;
+        size_t path_len = 0;
         path_handle_t path_handle = graph->get_path_handle(refpath);
         for (handle_t handle : graph->scan_path(path_handle)) {
             path_len += graph->get_length(handle);
@@ -1378,19 +1375,17 @@ string Deconstructor::add_contigs_to_vcf_header(const string& vcf_header) const 
                                                             PathMetadata::NO_PHASE_BLOCK,
                                                             PathMetadata::NO_SUBRANGE);
             }
-        }            
+        }
 
         subrange_t subrange = graph->get_subrange(path_handle);
-        int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-        ref_path_to_length[locus_name] = std::max(ref_path_to_length[locus_name], path_len + offset);
+        size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+        contig_lengths[locus_name] = std::max(contig_lengths[locus_name], path_len + offset);
     }
-    for (auto& ref_path_len : ref_path_to_length) {
-        patched_header << "##contig=<ID=" << ref_path_len.first << ",length=" << ref_path_len.second << ">" << endl;
+    vector<SortedVCFWriter::ReferenceContig> contigs;
+    for (const auto& [name, length] : contig_lengths) {
+        contigs.push_back({name, length});
     }
-
-    assert(header_lines.back().substr(0, 6) == "#CHROM");
-    patched_header << header_lines.back();
-    return patched_header.str();
+    return contigs;
 }
 
 void Deconstructor::deconstruct_graph(SnarlManager* snarl_manager) {
@@ -1480,6 +1475,7 @@ void Deconstructor::deconstruct_graph_top_down(SnarlManager* snarl_manager) {
  * Convenience wrapper function for deconstruction of multiple paths.
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
+                                const SnarlDecomposition* nesting_sites,
                                 bool include_nested,
                                 int context_jaccard_window,
                                 bool untangle_traversals,
@@ -1520,8 +1516,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
     }
 
-    string hstr = this->get_vcf_header();
-    assert(output_vcf.openForOutput(hstr));
+    find_samples();
+    declare_fields();
+    vcf_writer.set_sample_names(vector<string>(sample_names.begin(), sample_names.end()));
+    vcf_writer.set_contigs(reference_contigs(), true);
 
     // Use top-down processing only when star alleles are needed (requires context passing).
     // Otherwise use simpler flat processing which is more memory-efficient.
@@ -1533,14 +1531,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         deconstruct_graph(snarl_manager);
     }
 
-    // Prune after add_contigs_to_vcf_header, which is what emits the ##contig lines, and
-    // before write_variants, which drains the buffer get_output_contigs() reads.
-    string patched_header = this->add_contigs_to_vcf_header(output_vcf.header);
-    patched_header = this->prune_header_contigs(patched_header, this->get_output_contigs());
-    cout << patched_header << endl;
-
-    // write variants in sorted order
-    write_variants(cout, snarl_manager);
+    vcf_writer.write_variants(cout, nesting_sites, graph);
 }
 
 }
