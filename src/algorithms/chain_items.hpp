@@ -496,7 +496,8 @@ using transition_iterator = std::function<void(const VectorView<Anchor>& to_chai
  * Enumerates transitions under the max graph lookback bases, and filters them
  * by the max read lookback bases.
  */
-transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree,
+transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+                                                 const ZipCodeTree& zip_code_tree,
                                                  size_t max_graph_lookback_bases,
                                                  size_t max_read_lookback_bases,
                                                  bool alllow_overlaps);
@@ -509,6 +510,7 @@ transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tre
  * Used as a helper by zip_tree_transition_iterator().
  */
 std::vector<transition_info> generate_zip_tree_transitions(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,
@@ -574,9 +576,8 @@ void mark_rec_count(const VectorView<Anchor>& to_chain, vector<SparseAnchorChain
  * tracebacks that can be obtained by chaining items together.
  *
  * Input items must be sorted by start position in the read.
- *
- * Gets initial tracebacks and inter-traceback connections,
- * then tries to extend each nonoptimal traceback with tie-in edges
+ * 
+ * Returns the top chains in descending order.
  */
 vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
                                            const transition_iterator& for_each_transition,
@@ -591,8 +592,7 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
  *
  * Input items must be sorted by start position in the read.
  *
- * Returns the score and the list of indexes of items visited to achieve
- * that score, in order.
+ * Returns the best-scoring chain found.
  */
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const transition_iterator& for_each_transition,

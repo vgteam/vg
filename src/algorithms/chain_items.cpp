@@ -59,6 +59,7 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
 TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t option_number) {
     TracedScore got = options[option_number];
     got.source = option_number;
+    got.paths = options[option_number].paths;
     return got;
 }
 
@@ -101,12 +102,13 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
     });
 }
 
-transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree,
+transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
+                                                 const ZipCodeTree& zip_code_tree,
                                                  size_t max_graph_lookback_bases,
                                                  size_t max_read_lookback_bases,
-                                                bool allow_overlaps) {
+                                                 bool allow_overlaps) {
     
-    return [&zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases, allow_overlaps](
+    return [&seeds, &zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases, allow_overlaps](
         const VectorView<Anchor>& to_chain,
         size_t max_indel_bases,
         const transition_iteratee& callback
@@ -129,7 +131,7 @@ transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tre
         // This holds source, dest, and graph distance.
         // We will fill it all in and then sort it by destination read position.
         std::vector<transition_info> all_transitions = 
-            generate_zip_tree_transitions(zip_code_tree, max_graph_lookback_bases,
+            generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
                                           max_read_lookback_bases, max_indel_bases, allow_overlaps,
                                           to_chain, seed_to_starting, seed_to_ending);
 
@@ -147,6 +149,7 @@ transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tre
 }
 
 std::vector<transition_info> generate_zip_tree_transitions(
+    const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,

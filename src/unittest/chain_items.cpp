@@ -107,7 +107,8 @@ static algorithms::SparseAnchorChain run_ziptree_iterator_best_chain(const HashG
     // Make iterator for only the first tree
     // Seriously this is for test cases, only one tree at once
     return algorithms::find_best_chain(anchors,
-                                       algorithms::zip_tree_transition_iterator(zip_forest.trees.front(),
+                                       algorithms::zip_tree_transition_iterator(seeds,
+                                                                                zip_forest.trees.front(),
                                                                                 std::numeric_limits<size_t>::max(),
                                                                                 std::numeric_limits<size_t>::max(),
                                                                                 false)
@@ -140,7 +141,8 @@ static vector<algorithms::SparseAnchorChain> run_ziptree_iterator_multi_chain(co
     // Make iterator for only the first tree
     // Seriously this is for test cases, only one tree at once
     return algorithms::find_best_chains(anchors,
-                                        algorithms::zip_tree_transition_iterator(zip_forest.trees.front(),
+                                        algorithms::zip_tree_transition_iterator(seeds,
+                                                                                 zip_forest.trees.front(),
                                                                                  std::numeric_limits<size_t>::max(),
                                                                                  std::numeric_limits<size_t>::max(),
                                                                                  false),
@@ -275,7 +277,7 @@ TEST_CASE("recombination_penalty changes which predecessor chain_items_dp picks"
     ZipCodeForest zip_forest;
     zip_forest.fill_in_forest(seeds, distance_index);
     algorithms::transition_iterator zip_it = algorithms::zip_tree_transition_iterator(
-        zip_forest.trees.front(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
+        seeds, zip_forest.trees.front(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
 
     algorithms::ChainScoringScheme scheme;
 
@@ -337,7 +339,7 @@ TEST_CASE("consistency_bonus changes which predecessor chain_items_dp picks desp
     ZipCodeForest zip_forest;
     zip_forest.fill_in_forest(seeds, distance_index);
     algorithms::transition_iterator zip_it = algorithms::zip_tree_transition_iterator(
-        zip_forest.trees.front(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
+        seeds, zip_forest.trees.front(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
 
     algorithms::ChainScoringScheme scheme;
     scheme.recombination_penalty = 0;
