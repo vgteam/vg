@@ -106,9 +106,9 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                                                  const ZipCodeTree& zip_code_tree,
                                                  size_t max_graph_lookback_bases,
                                                  size_t max_read_lookback_bases,
-                                                 bool allow_overlaps) {
+                                                 bool allow_seed_overlaps) {
     
-    return [&seeds, &zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases, allow_overlaps](
+    return [&seeds, &zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases, allow_seed_overlaps](
         const VectorView<Anchor>& to_chain,
         size_t max_indel_bases,
         const transition_iteratee& callback
@@ -132,7 +132,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // We will fill it all in and then sort it by destination read position.
         std::vector<transition_info> all_transitions = 
             generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
-                                          max_read_lookback_bases, max_indel_bases, allow_overlaps,
+                                          max_read_lookback_bases, max_indel_bases, allow_seed_overlaps,
                                           to_chain, seed_to_starting, seed_to_ending);
 
         // Sort the transitions so we handle them in an allowed order for dynamic programming.
@@ -154,7 +154,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,
     size_t max_indel_bases,
-    bool allow_overlaps,
+    bool allow_seed_overlaps,
     const VectorView<Anchor>& to_chain,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending) {
@@ -222,7 +222,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
                                   << " to #" << cur_dest_anchor.second << std::endl;
 #endif
                         add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, max_indel_bases,
-                                                allow_overlaps, found_source_anchor->second,
+                                                allow_seed_overlaps, found_source_anchor->second,
                                                 cur_dest_anchor.second, source_seed.distance);
                     } else {
 #ifdef debug_transition
@@ -244,7 +244,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
                                   << found_source_anchor->second << std::endl;
 #endif
                         add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, max_indel_bases,
-                                                allow_overlaps, cur_dest_anchor.second,
+                                                allow_seed_overlaps, cur_dest_anchor.second,
                                                 found_source_anchor->second, source_seed.distance);
                     } else {
 #ifdef debug_transition
@@ -264,7 +264,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
 }
 
 void add_transition_if_legal(vector<transition_info>& transitions, const VectorView<Anchor>& to_chain,
-                             size_t max_read_lookback_bases, size_t max_indel_bases, bool allow_overlaps,
+                             size_t max_read_lookback_bases, size_t max_indel_bases, bool allow_seed_overlaps,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance) {
     auto& source_anchor = to_chain[from_anchor];
     auto& dest_anchor = to_chain[to_anchor];
@@ -280,7 +280,7 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
     bool perfect_overlap = (dest_anchor.read_start() + dest_anchor.start_hint_offset()) \
                                - (source_anchor.read_start() + source_anchor.start_hint_offset()) == graph_distance;
     if (read_distance == std::numeric_limits<size_t>::max()) {
-        if (allow_overlaps && perfect_overlap) {
+        if (allow_seed_overlaps && perfect_overlap) {
 #ifdef debug_transition
             std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif
@@ -306,7 +306,7 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
     if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
         // The actual core anchor part is reachable in the read,
         // but we cut these down from overlapping minimizers.
-        if (allow_overlaps && perfect_overlap) {
+        if (allow_seed_overlaps && perfect_overlap) {
 #ifdef debug_transition
             std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif

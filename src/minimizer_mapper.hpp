@@ -281,8 +281,8 @@ class MinimizerMapper : public AlignerClient {
     static constexpr double default_max_read_lookback_bases_per_base = 1.0;
     double max_read_lookback_bases_per_base = default_max_read_lookback_bases_per_base;
     /// Should consecutive seeds in a chain be allowed to overlap?
-    static constexpr bool default_allow_overlap = false;
-    bool allow_overlap = default_allow_overlap;
+    static constexpr bool default_allow_seed_overlap = false;
+    bool allow_seed_overlap = default_allow_seed_overlap;
 
     /// How much of a bonus should we give to each item in chaining?
     static constexpr int default_item_bonus = 0;

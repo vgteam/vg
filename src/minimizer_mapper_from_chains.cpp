@@ -1541,7 +1541,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 zip_code_forest.trees[item_num],
                 graph_lookback_limit,
                 read_lookback_limit,
-                this->allow_overlap
+                this->allow_seed_overlap
             );
             // TODO: Should we just inherit these? Or set ones up as members?
             algorithms::ChainScoringScheme scoring_scheme {

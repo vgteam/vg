@@ -448,6 +448,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_indel_bases_per_base,
         "maximum indel length in a transition when chaining, per read base"
     );
+    chaining_opts.add_flag(
+        "allow-seed-overlap",
+        &MinimizerMapper::allow_seed_overlap,
+        MinimizerMapper::default_allow_seed_overlap,
+        "allow seeds to overlap when chaining"
+    );
     chaining_opts.add_range(
         "item-bonus",
         &MinimizerMapper::item_bonus,
