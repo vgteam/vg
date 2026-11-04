@@ -75,6 +75,13 @@ public:
     // Copied base contigs are gref paths but not fragments, so they fail this.
     static bool is_gref_name(const string& path_name);
 
+    // Test if a path name is a (full or clipped) gref fragment.
+    // Example: is_gref_fragment("gref_CHM13#0#chr1_3_alt") -> true
+    //          is_gref_fragment("gref_CHM13#0#chr1_3_alt[500]") -> true
+    //          is_gref_fragment("CHM13#0#chr1_3_alt") -> false
+    //          is_gref_fragment("gref_CHM13#0#chr1") -> false
+    static bool is_gref_fragment(const string& path_name);
+
     // Parse an gref path name to extract the base reference path name.
     // Returns the original base path name, or the input if not an gref path.
     // Example: parse_base_path("gref_CHM13#0#chr1_3_alt") -> "gref_CHM13#0#chr1"

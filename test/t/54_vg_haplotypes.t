@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 97
+plan tests 102
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -35,6 +35,12 @@ vg haplotypes --validate --subchain-length 300 -k haplotype-sampling/HG003.kff -
 is $? 0 "sampling the haplotypes directly"
 cmp indirect.gbz direct.gbz
 is $? 0 "the outputs are identical"
+
+# Ignore homopolymers of length 3 or more
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --ignore-homopolymers 3 -g ignored.gbz full.gbz
+is $? 0 "sampling with ignore homopolymers"
+cmp ignored.gbz direct.gbz
+is $? 1 "the output changes when ignoring homopolymers"
 
 # Sample without reference
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff -g no_ref.gbz full.gbz
@@ -164,6 +170,14 @@ is $? 0 "diploid sampling with a specified reference sample"
 is $(vg gbwt -S -Z diploid3.gbz) 2 "1 generated + 1 reference samples"
 is $(vg gbwt -C -Z diploid3.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z diploid3.gbz) 3 "2 generated + 1 reference haplotypes"
+
+# Compare --preset ont to explicit parameters
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --diploid-sampling --ignore-homopolymers 8 -g diploid_ignore.gbz full.gbz
+is $? 0 "diploid sampling with --ignore-homopolymers 8"
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --preset ont -g diploid_ont.gbz full.gbz
+is $? 0 "diploid sampling with --preset ont"
+cmp diploid_ignore.gbz diploid_ont.gbz
+is $? 0 "the outputs are identical"
 
 # Sampling with a gref reference. Build a gref version of the test graph; -l 1 keeps
 # every fragment so the length filter has something to act on.
@@ -352,12 +366,13 @@ is $? 0 "haplotype information for a chain with a snarl that no walk crosses"
 
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
-rm -f indirect.gbz direct.gbz no_ref.gbz ban_ref.gbz
+rm -f indirect.gbz direct.gbz ignored.gbz no_ref.gbz ban_ref.gbz
 rm -f hicov.gbz hicov8.gbz hicov_pansn.gbz hicov_log.txt
 rm -f halfcov.gbz halfcov6.gbz halfcov_pansn.gbz bothcov_log.txt
 rm -f exclude.gbz exclude_pansn.gbz exclude_log.txt
 rm -f wrap.gbz wrap_base.gbz wrap_pansn.gbz wrap_log.txt wrap_exclude_log.txt
 rm -f diploid.gbz diploid2.gbz diploid3.gbz
+rm -f diploid_ignore.gbz diploid_ont.gbz
 rm -f gref.pg gref.gfa gref.gbz gref.ri gref.dist gref.hapl gref.fa
 rm -f gref_base.gbz gref_ref.gbz gref_ref.fa gref_long.gbz
 rm -f gref_ref.ri gref_ref.dist gref_ref2.gbz gref_ref2.fa

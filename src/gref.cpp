@@ -51,6 +51,14 @@ bool GrefCover::is_gref_name(const string& path_name) {
     return true;
 }
 
+bool GrefCover::is_gref_fragment(const string& path_name) {
+    if (!is_gref_derived(path_name)) {
+        return false;
+    }
+    std::string locus = PathMetadata::parse_locus_name(path_name);
+    return is_gref_name(locus);
+}
+
 string GrefCover::parse_base_path(const string& gref_name) {
     if (!is_gref_name(gref_name)) {
         return gref_name;
