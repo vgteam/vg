@@ -102,6 +102,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="crash_8hpp.html">../crash.hpp</a>&quot;</code><br />
 <code>#include &lt;bdsg/overlays/overlay_helper.hpp&gt;</code><br />
 <code>#include &quot;<a class="el" href="gbwtgraph__helper_8hpp.html">../gbwtgraph_helper.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="recombinator_8hpp.html">../recombinator.hpp</a>&quot;</code><br />
 <code>#include &lt;gbwtgraph/gbz.h&gt;</code><br />
 <code>#include &lt;gbwtgraph/minimizer.h&gt;</code><br />
 <code>#include &lt;sys/ioctl.h&gt;</code><br />
@@ -122,6 +123,8 @@ Functions</h2></td></tr>
 <tr class="memitem:ace1dc75acf7b63d46da02d63bad753bb"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:ace1dc75acf7b63d46da02d63bad753bb"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ace1dc75acf7b63d46da02d63bad753bb">enforce_min_max</a> (const T &amp;low, const std::string &amp;low_option, const T &amp;high, const std::string &amp;high_option)</td></tr>
 <tr class="separator:ace1dc75acf7b63d46da02d63bad753bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a76be7c70b1d9b71b69fee36f89fed23d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a76be7c70b1d9b71b69fee36f89fed23d">apply_haplotype_sampling_preset</a> (std::string_view preset_name, <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger)</td></tr>
+<tr class="separator:a76be7c70b1d9b71b69fee36f89fed23d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa6d5c2140d259252f3cad8b7bf6b4b1a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#aa6d5c2140d259252f3cad8b7bf6b4b1a">help_giraffe</a> (char **argv, const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;parser, const std::map&lt; std::string, <a class="el" href="structvg_1_1subcommand_1_1Preset.html">Preset</a> &gt; &amp;presets, bool full_help)</td></tr>
 <tr class="separator:aa6d5c2140d259252f3cad8b7bf6b4b1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03a19bdd804f12c23f77bb885e91df4a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a03a19bdd804f12c23f77bb885e91df4a">main_giraffe</a> (int argc, char **argv)</td></tr>
@@ -130,6 +133,34 @@ Functions</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>: G(ir)AF (Graph Alignment Format) Fast Emitter: a fast read-to-haplotypes mapper </p>
 </div><h2 class="groupheader">Function Documentation</h2>
+<a id="a76be7c70b1d9b71b69fee36f89fed23d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a76be7c70b1d9b71b69fee36f89fed23d">&#9670;&nbsp;</a></span>apply_haplotype_sampling_preset()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void apply_haplotype_sampling_preset </td>
+          <td>(</td>
+          <td class="paramtype">std::string_view&#160;</td>
+          <td class="paramname"><em>preset_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ace1dc75acf7b63d46da02d63bad753bb"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ace1dc75acf7b63d46da02d63bad753bb">&#9670;&nbsp;</a></span>enforce_min_max()</h2>
 

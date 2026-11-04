@@ -69,7 +69,9 @@ $(function() {
   <div class="summary">
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="structvg_1_1Recombinator_1_1Parameters-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::Recombinator::Parameters Struct Reference</div>  </div>
@@ -89,20 +91,34 @@ Public Types</h2></td></tr>
  }</td></tr>
 <tr class="memdesc:a3898dd0b55cd824c467a2d49a4a53bfa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Kmer scoring model used for a chain.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfa">More...</a><br /></td></tr>
 <tr class="separator:a3898dd0b55cd824c467a2d49a4a53bfa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a57123b9eee2179efef985d785f8c44e4"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4">preset_t</a> { <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4a7b22070ac7d633aa776868df9225baa9">preset_default</a>
-, <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4a115a5b3be57084265c380192cabde366">preset_haploid</a>
-, <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4a645ffd73f63c0f007f249345c81d4f8a">preset_diploid</a>
+<tr class="memitem:a0633995f784710cfc0799d65c4dbf6b6"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6">preset_t</a> : size_t { <br />
+&#160;&#160;<a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a7b22070ac7d633aa776868df9225baa9">preset_default</a>
+, <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a115a5b3be57084265c380192cabde366">preset_haploid</a>
+, <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a645ffd73f63c0f007f249345c81d4f8a">preset_diploid</a>
+, <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a79f96c5aebe7942c320b10328fb05d1e">preset_hifi</a>
+, <br />
+&#160;&#160;<a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6aa3404a5a9e34a453141a4dc2824e707a">preset_ont</a>
+<br />
  }</td></tr>
-<tr class="memdesc:a57123b9eee2179efef985d785f8c44e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Preset parameters for common use cases.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4">More...</a><br /></td></tr>
-<tr class="separator:a57123b9eee2179efef985d785f8c44e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memdesc:a0633995f784710cfc0799d65c4dbf6b6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Preset parameters for common use cases.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6">More...</a><br /></td></tr>
+<tr class="separator:a0633995f784710cfc0799d65c4dbf6b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a3112d2a46538ce1575d53b6706f25756"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3112d2a46538ce1575d53b6706f25756">Parameters</a> (<a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4">preset_t</a> preset=<a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4a7b22070ac7d633aa776868df9225baa9">preset_default</a>)</td></tr>
+<tr class="memitem:a3112d2a46538ce1575d53b6706f25756"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3112d2a46538ce1575d53b6706f25756">Parameters</a> (<a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6">preset_t</a> preset=<a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a7b22070ac7d633aa776868df9225baa9">preset_default</a>)</td></tr>
 <tr class="separator:a3112d2a46538ce1575d53b6706f25756"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa00e847f40210d77acbd1432f6b485ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#aa00e847f40210d77acbd1432f6b485ea">print</a> (std::ostream &amp;out) const</td></tr>
 <tr class="memdesc:aa00e847f40210d77acbd1432f6b485ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a description of the parameters.  <a href="structvg_1_1Recombinator_1_1Parameters.html#aa00e847f40210d77acbd1432f6b485ea">More...</a><br /></td></tr>
 <tr class="separator:aa00e847f40210d77acbd1432f6b485ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
+Static Public Member Functions</h2></td></tr>
+<tr class="memitem:a86103f2972a5ff0378dde06ca3ee78ed"><td class="memItemLeft" align="right" valign="top">static std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a86103f2972a5ff0378dde06ca3ee78ed">preset_list</a> (std::string_view separator)</td></tr>
+<tr class="memdesc:a86103f2972a5ff0378dde06ca3ee78ed"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the set of available presets as a string.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a86103f2972a5ff0378dde06ca3ee78ed">More...</a><br /></td></tr>
+<tr class="separator:a86103f2972a5ff0378dde06ca3ee78ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6db6eb7049997a7f65384b1fc985781d"><td class="memItemLeft" align="right" valign="top">static std::optional&lt; <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6">preset_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a6db6eb7049997a7f65384b1fc985781d">parse_preset</a> (std::string_view name)</td></tr>
+<tr class="memdesc:a6db6eb7049997a7f65384b1fc985781d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parses a preset from its name.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a6db6eb7049997a7f65384b1fc985781d">More...</a><br /></td></tr>
+<tr class="separator:a6db6eb7049997a7f65384b1fc985781d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -120,23 +136,26 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a652df2520fd051ebb03fd8494a6e0b11"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3c21dd67f19f0646632968d3068a677a"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3c21dd67f19f0646632968d3068a677a">absent_score</a> = <a class="el" href="classvg_1_1Recombinator.html#a872b059f8fdd67afccec2767ff6ce058">ABSENT_SCORE</a></td></tr>
 <tr class="separator:a3c21dd67f19f0646632968d3068a677a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4478cfc002739d7fdfbdaeeba41e51f8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a4478cfc002739d7fdfbdaeeba41e51f8">ignore_homopolymers</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="memdesc:a4478cfc002739d7fdfbdaeeba41e51f8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Ignore kmers containing homopolymers of at least this length.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a4478cfc002739d7fdfbdaeeba41e51f8">More...</a><br /></td></tr>
+<tr class="separator:a4478cfc002739d7fdfbdaeeba41e51f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a500ad8a5fa909da483c0d84121b80dbd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a500ad8a5fa909da483c0d84121b80dbd">haploid_scoring</a> = false</td></tr>
 <tr class="separator:a500ad8a5fa909da483c0d84121b80dbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8aa7a7fe3df17bdbed79475f26d2d884"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a8aa7a7fe3df17bdbed79475f26d2d884">diploid_sampling</a> = false</td></tr>
 <tr class="separator:a8aa7a7fe3df17bdbed79475f26d2d884"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0f3128635c9d1c82a996e4ae060b0072"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0f3128635c9d1c82a996e4ae060b0072">include_reference</a> = false</td></tr>
+<tr class="separator:a0f3128635c9d1c82a996e4ae060b0072"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a23a4c5772ec0d526b632b280e91e48ca"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a23a4c5772ec0d526b632b280e91e48ca">extra_fragments</a> = false</td></tr>
 <tr class="separator:a23a4c5772ec0d526b632b280e91e48ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab5a37f5b72d89f7b60c4b62c53678a27"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#ab5a37f5b72d89f7b60c4b62c53678a27">badness_threshold</a> = <a class="el" href="classvg_1_1Recombinator.html#ab0972e74057cd602cca62399879bf234">BADNESS_THRESHOLD</a></td></tr>
 <tr class="memdesc:ab5a37f5b72d89f7b60c4b62c53678a27"><td class="mdescLeft">&#160;</td><td class="mdescRight">Badness threshold for subchains when using diploid sampling.  <a href="structvg_1_1Recombinator_1_1Parameters.html#ab5a37f5b72d89f7b60c4b62c53678a27">More...</a><br /></td></tr>
 <tr class="separator:ab5a37f5b72d89f7b60c4b62c53678a27"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0f3128635c9d1c82a996e4ae060b0072"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0f3128635c9d1c82a996e4ae060b0072">include_reference</a> = false</td></tr>
-<tr class="separator:a0f3128635c9d1c82a996e4ae060b0072"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0b1c7a4391ad89baa47514bf367e84fd"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0b1c7a4391ad89baa47514bf367e84fd">min_gref_length</a> = <a class="el" href="classvg_1_1Recombinator.html#a35644bbc0cba870f7f4e2607d300c94e">MIN_GREF_LENGTH</a></td></tr>
 <tr class="memdesc:a0b1c7a4391ad89baa47514bf367e84fd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Minimum length (in bp) for a piece of a gref fragment to be kept.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a0b1c7a4391ad89baa47514bf367e84fd">More...</a><br /></td></tr>
 <tr class="separator:a0b1c7a4391ad89baa47514bf367e84fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0a32a8c54c0c04d6f629418b2fd3cb15"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0a32a8c54c0c04d6f629418b2fd3cb15">banned_samples</a></td></tr>
-<tr class="memdesc:a0a32a8c54c0c04d6f629418b2fd3cb15"><td class="mdescLeft">&#160;</td><td class="mdescRight">Samples whose haplotypes shouldn't be used, even if they score well.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a0a32a8c54c0c04d6f629418b2fd3cb15">More...</a><br /></td></tr>
-<tr class="separator:a0a32a8c54c0c04d6f629418b2fd3cb15"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a217b7896e8918b25559737b52a7f7021"><td class="memItemLeft" align="right" valign="top">std::unordered_set&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a217b7896e8918b25559737b52a7f7021">banned_samples</a></td></tr>
+<tr class="memdesc:a217b7896e8918b25559737b52a7f7021"><td class="mdescLeft">&#160;</td><td class="mdescRight">Samples whose haplotypes shouldn't be used, even if they score well.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a217b7896e8918b25559737b52a7f7021">More...</a><br /></td></tr>
+<tr class="separator:a217b7896e8918b25559737b52a7f7021"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a579c17d7718d41bb95c17d6b688dc9e7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfa">scoring_model_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a579c17d7718d41bb95c17d6b688dc9e7">scoring_model</a> = <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaaaf386acfef280c1aa825a7bd9843322e">standard_scoring</a></td></tr>
 <tr class="separator:a579c17d7718d41bb95c17d6b688dc9e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a135bf28ac2cc08da13ddd15485dce49f"><td class="memItemLeft" align="right" valign="top">std::unordered_set&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a135bf28ac2cc08da13ddd15485dce49f">high_coverage_chains</a></td></tr>
@@ -155,29 +174,39 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a116827198956b282747ab1b3a8aef0c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac1afe72971650ddd9235239cae7b3bc3"><td class="memItemLeft" align="right" valign="top">std::unordered_set&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#ac1afe72971650ddd9235239cae7b3bc3">wrap_contigs</a></td></tr>
 <tr class="separator:ac1afe72971650ddd9235239cae7b3bc3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:a60028e785cede8ef2236761cfa8cf7c7"><td class="memItemLeft" align="right" valign="top">static const std::vector&lt; std::pair&lt; <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6">preset_t</a>, std::string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a60028e785cede8ef2236761cfa8cf7c7">PRESETS</a></td></tr>
+<tr class="memdesc:a60028e785cede8ef2236761cfa8cf7c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">A list of presets and their names.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a60028e785cede8ef2236761cfa8cf7c7">More...</a><br /></td></tr>
+<tr class="separator:a60028e785cede8ef2236761cfa8cf7c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html" title="Parameters for generate_haplotypes().">Parameters</a> for <code><a class="el" href="classvg_1_1Recombinator.html#a7f803cd4d08d8c699877e274bc3f5ceb">generate_haplotypes()</a></code>. </p>
 </div><h2 class="groupheader">Member Enumeration Documentation</h2>
-<a id="a57123b9eee2179efef985d785f8c44e4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a57123b9eee2179efef985d785f8c44e4">&#9670;&nbsp;</a></span>preset_t</h2>
+<a id="a0633995f784710cfc0799d65c4dbf6b6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0633995f784710cfc0799d65c4dbf6b6">&#9670;&nbsp;</a></span>preset_t</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">enum <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4">vg::Recombinator::Parameters::preset_t</a></td>
+          <td class="memname">enum <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6">vg::Recombinator::Parameters::preset_t</a> : size_t</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 <p>Preset parameters for common use cases. </p>
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a57123b9eee2179efef985d785f8c44e4a7b22070ac7d633aa776868df9225baa9"></a>preset_default&#160;</td><td class="fielddoc"><p>Default parameters. </p>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a0633995f784710cfc0799d65c4dbf6b6a7b22070ac7d633aa776868df9225baa9"></a>preset_default&#160;</td><td class="fielddoc"><p>Default parameters. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="a57123b9eee2179efef985d785f8c44e4a115a5b3be57084265c380192cabde366"></a>preset_haploid&#160;</td><td class="fielddoc"><p>Best practices for haploid sampling. </p>
+<tr><td class="fieldname"><a id="a0633995f784710cfc0799d65c4dbf6b6a115a5b3be57084265c380192cabde366"></a>preset_haploid&#160;</td><td class="fielddoc"><p>Best practices for haploid sampling. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="a57123b9eee2179efef985d785f8c44e4a645ffd73f63c0f007f249345c81d4f8a"></a>preset_diploid&#160;</td><td class="fielddoc"><p>Best practices for diploid sampling. </p>
+<tr><td class="fieldname"><a id="a0633995f784710cfc0799d65c4dbf6b6a645ffd73f63c0f007f249345c81d4f8a"></a>preset_diploid&#160;</td><td class="fielddoc"><p>Best practices for diploid sampling. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a0633995f784710cfc0799d65c4dbf6b6a79f96c5aebe7942c320b10328fb05d1e"></a>preset_hifi&#160;</td><td class="fielddoc"><p>Best practices for diploid sampling with HiFi reads. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a0633995f784710cfc0799d65c4dbf6b6aa3404a5a9e34a453141a4dc2824e707a"></a>preset_ont&#160;</td><td class="fielddoc"><p>Best practices for diploid sampling with ONT reads. </p>
 </td></tr>
 </table>
 
@@ -220,8 +249,8 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">vg::Recombinator::Parameters::Parameters </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4">preset_t</a>&#160;</td>
-          <td class="paramname"><em>preset</em> = <code><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4a7b22070ac7d633aa776868df9225baa9">preset_default</a></code></td><td>)</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6">preset_t</a>&#160;</td>
+          <td class="paramname"><em>preset</em> = <code><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a7b22070ac7d633aa776868df9225baa9">preset_default</a></code></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -235,6 +264,62 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a6db6eb7049997a7f65384b1fc985781d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6db6eb7049997a7f65384b1fc985781d">&#9670;&nbsp;</a></span>parse_preset()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::optional&lt; <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6">Recombinator::Parameters::preset_t</a> &gt; vg::Recombinator::Parameters::parse_preset </td>
+          <td>(</td>
+          <td class="paramtype">std::string_view&#160;</td>
+          <td class="paramname"><em>name</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Parses a preset from its name. </p>
+
+</div>
+</div>
+<a id="a86103f2972a5ff0378dde06ca3ee78ed"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a86103f2972a5ff0378dde06ca3ee78ed">&#9670;&nbsp;</a></span>preset_list()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string vg::Recombinator::Parameters::preset_list </td>
+          <td>(</td>
+          <td class="paramtype">std::string_view&#160;</td>
+          <td class="paramname"><em>separator</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns the set of available presets as a string. </p>
+
+</div>
+</div>
 <a id="aa00e847f40210d77acbd1432f6b485ea"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa00e847f40210d77acbd1432f6b485ea">&#9670;&nbsp;</a></span>print()</h2>
 
@@ -287,14 +372,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a0a32a8c54c0c04d6f629418b2fd3cb15"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0a32a8c54c0c04d6f629418b2fd3cb15">&#9670;&nbsp;</a></span>banned_samples</h2>
+<a id="a217b7896e8918b25559737b52a7f7021"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a217b7896e8918b25559737b52a7f7021">&#9670;&nbsp;</a></span>banned_samples</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">unordered_set&lt;std::string&gt; vg::Recombinator::Parameters::banned_samples</td>
+          <td class="memname">std::unordered_set&lt;std::string&gt; vg::Recombinator::Parameters::banned_samples</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -474,6 +559,22 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a4478cfc002739d7fdfbdaeeba41e51f8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4478cfc002739d7fdfbdaeeba41e51f8">&#9670;&nbsp;</a></span>ignore_homopolymers</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Recombinator::Parameters::ignore_homopolymers = std::numeric_limits&lt;size_t&gt;::max()</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Ignore kmers containing homopolymers of at least this length. </p>
+
+</div>
+</div>
 <a id="a0f3128635c9d1c82a996e4ae060b0072"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0f3128635c9d1c82a996e4ae060b0072">&#9670;&nbsp;</a></span>include_reference</h2>
 
@@ -532,6 +633,42 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Multiplicative factor for discounting the scores for present kmers after selecting a haplotype with that kmer. </p>
+
+</div>
+</div>
+<a id="a60028e785cede8ef2236761cfa8cf7c7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a60028e785cede8ef2236761cfa8cf7c7">&#9670;&nbsp;</a></span>PRESETS</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const std::vector&lt; std::pair&lt; <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6">Recombinator::Parameters::preset_t</a>, std::string &gt; &gt; vg::Recombinator::Parameters::PRESETS</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line">= {</div>
+<div class="line">    { <a class="code" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a7b22070ac7d633aa776868df9225baa9">Recombinator::Parameters::preset_default</a>, <span class="stringliteral">&quot;default&quot;</span> },</div>
+<div class="line">    { <a class="code" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a115a5b3be57084265c380192cabde366">Recombinator::Parameters::preset_haploid</a>, <span class="stringliteral">&quot;haploid&quot;</span> },</div>
+<div class="line">    { <a class="code" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a645ffd73f63c0f007f249345c81d4f8a">Recombinator::Parameters::preset_diploid</a>, <span class="stringliteral">&quot;diploid&quot;</span> },</div>
+<div class="line">    { <a class="code" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a79f96c5aebe7942c320b10328fb05d1e">Recombinator::Parameters::preset_hifi</a>, <span class="stringliteral">&quot;hifi&quot;</span> },</div>
+<div class="line">    { <a class="code" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6aa3404a5a9e34a453141a4dc2824e707a">Recombinator::Parameters::preset_ont</a>, <span class="stringliteral">&quot;ont&quot;</span> }</div>
+<div class="line">}</div>
+<div class="ttc" id="astructvg_1_1Recombinator_1_1Parameters_html_a0633995f784710cfc0799d65c4dbf6b6a115a5b3be57084265c380192cabde366"><div class="ttname"><a href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a115a5b3be57084265c380192cabde366">vg::Recombinator::Parameters::preset_haploid</a></div><div class="ttdeci">@ preset_haploid</div><div class="ttdoc">Best practices for haploid sampling.</div><div class="ttdef"><b>Definition:</b> recombinator.hpp:406</div></div>
+<div class="ttc" id="astructvg_1_1Recombinator_1_1Parameters_html_a0633995f784710cfc0799d65c4dbf6b6a645ffd73f63c0f007f249345c81d4f8a"><div class="ttname"><a href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a645ffd73f63c0f007f249345c81d4f8a">vg::Recombinator::Parameters::preset_diploid</a></div><div class="ttdeci">@ preset_diploid</div><div class="ttdoc">Best practices for diploid sampling.</div><div class="ttdef"><b>Definition:</b> recombinator.hpp:408</div></div>
+<div class="ttc" id="astructvg_1_1Recombinator_1_1Parameters_html_a0633995f784710cfc0799d65c4dbf6b6a79f96c5aebe7942c320b10328fb05d1e"><div class="ttname"><a href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a79f96c5aebe7942c320b10328fb05d1e">vg::Recombinator::Parameters::preset_hifi</a></div><div class="ttdeci">@ preset_hifi</div><div class="ttdoc">Best practices for diploid sampling with HiFi reads.</div><div class="ttdef"><b>Definition:</b> recombinator.hpp:410</div></div>
+<div class="ttc" id="astructvg_1_1Recombinator_1_1Parameters_html_a0633995f784710cfc0799d65c4dbf6b6a7b22070ac7d633aa776868df9225baa9"><div class="ttname"><a href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a7b22070ac7d633aa776868df9225baa9">vg::Recombinator::Parameters::preset_default</a></div><div class="ttdeci">@ preset_default</div><div class="ttdoc">Default parameters.</div><div class="ttdef"><b>Definition:</b> recombinator.hpp:404</div></div>
+<div class="ttc" id="astructvg_1_1Recombinator_1_1Parameters_html_a0633995f784710cfc0799d65c4dbf6b6aa3404a5a9e34a453141a4dc2824e707a"><div class="ttname"><a href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6aa3404a5a9e34a453141a4dc2824e707a">vg::Recombinator::Parameters::preset_ont</a></div><div class="ttdeci">@ preset_ont</div><div class="ttdoc">Best practices for diploid sampling with ONT reads.</div><div class="ttdef"><b>Definition:</b> recombinator.hpp:412</div></div>
+</div><!-- fragment -->
+<p>A list of presets and their names. </p>
 
 </div>
 </div>

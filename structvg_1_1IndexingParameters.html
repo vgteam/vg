@@ -162,10 +162,12 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:a049ee4a66bf7bb31d99ac77df0984579"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a091b971a89db9218259aaba939061764"><td class="memItemLeft" align="right" valign="top">static gbwtgraph::sample_name_set&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a091b971a89db9218259aaba939061764">haplotype_sampling_reference_samples</a> = {}</td></tr>
 <tr class="separator:a091b971a89db9218259aaba939061764"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1d6546a2a7665d3fa556836d1e7e2668"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a1d6546a2a7665d3fa556836d1e7e2668">haplotype_sampling_num_haplotypes</a> = <a class="el" href="classvg_1_1Recombinator.html#a5768e471a3447a31b14f1d8d94a11588">Recombinator::NUM_CANDIDATES</a></td></tr>
-<tr class="separator:a1d6546a2a7665d3fa556836d1e7e2668"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaa11257638c6cec35c1a0e0cedc14a6a"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#aaa11257638c6cec35c1a0e0cedc14a6a">haplotype_sampling_diploid</a> = true</td></tr>
-<tr class="separator:aaa11257638c6cec35c1a0e0cedc14a6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abc5e83b3bce8d928facd2332c7ef8117"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#abc5e83b3bce8d928facd2332c7ef8117">haplotype_sampling_preset</a> = <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a645ffd73f63c0f007f249345c81d4f8a">Recombinator::Parameters::preset_diploid</a></td></tr>
+<tr class="separator:abc5e83b3bce8d928facd2332c7ef8117"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a26c91635f31e1b5f1d25a225f58b780c"><td class="memItemLeft" align="right" valign="top">static std::optional&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a26c91635f31e1b5f1d25a225f58b780c">haplotype_sampling_num_haplotypes</a> = std::nullopt</td></tr>
+<tr class="separator:a26c91635f31e1b5f1d25a225f58b780c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f5b72eea47dab7c01dd3fd18c27183d"><td class="memItemLeft" align="right" valign="top">static std::optional&lt; bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a7f5b72eea47dab7c01dd3fd18c27183d">haplotype_sampling_diploid</a> = std::nullopt</td></tr>
+<tr class="separator:a7f5b72eea47dab7c01dd3fd18c27183d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab913da0442ba1c68beeebe667c90c440"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#ab913da0442ba1c68beeebe667c90c440">haplotype_sampling_minimizer_k</a> = 29</td></tr>
 <tr class="separator:ab913da0442ba1c68beeebe667c90c440"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a47bcf66fb4ccc7ad8cabcb550329a640"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a47bcf66fb4ccc7ad8cabcb550329a640">haplotype_sampling_minimizer_w</a> = 11</td></tr>
@@ -477,8 +479,8 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aaa11257638c6cec35c1a0e0cedc14a6a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aaa11257638c6cec35c1a0e0cedc14a6a">&#9670;&nbsp;</a></span>haplotype_sampling_diploid</h2>
+<a id="a7f5b72eea47dab7c01dd3fd18c27183d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7f5b72eea47dab7c01dd3fd18c27183d">&#9670;&nbsp;</a></span>haplotype_sampling_diploid</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -487,7 +489,7 @@ Static Public Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::IndexingParameters::haplotype_sampling_diploid = true</td>
+          <td class="memname">std::optional&lt; bool &gt; vg::IndexingParameters::haplotype_sampling_diploid = std::nullopt</td>
         </tr>
       </table>
   </td>
@@ -543,8 +545,8 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a1d6546a2a7665d3fa556836d1e7e2668"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1d6546a2a7665d3fa556836d1e7e2668">&#9670;&nbsp;</a></span>haplotype_sampling_num_haplotypes</h2>
+<a id="a26c91635f31e1b5f1d25a225f58b780c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a26c91635f31e1b5f1d25a225f58b780c">&#9670;&nbsp;</a></span>haplotype_sampling_num_haplotypes</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -553,7 +555,29 @@ Static Public Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::IndexingParameters::haplotype_sampling_num_haplotypes = <a class="el" href="classvg_1_1Recombinator.html#a5768e471a3447a31b14f1d8d94a11588">Recombinator::NUM_CANDIDATES</a></td>
+          <td class="memname">std::optional&lt; size_t &gt; vg::IndexingParameters::haplotype_sampling_num_haplotypes = std::nullopt</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="abc5e83b3bce8d928facd2332c7ef8117"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abc5e83b3bce8d928facd2332c7ef8117">&#9670;&nbsp;</a></span>haplotype_sampling_preset</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::IndexingParameters::haplotype_sampling_preset = <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6a645ffd73f63c0f007f249345c81d4f8a">Recombinator::Parameters::preset_diploid</a></td>
         </tr>
       </table>
   </td>
