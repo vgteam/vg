@@ -476,8 +476,8 @@ vector<TracedScore> chain_items_dp(const VectorView<Anchor>& to_chain,
         // For each source we could come from
         auto& source = to_chain[transition.from_anchor];
 
-        if (source.read_end() >= here.read_start()) {
-            double percent_shared = (source.read_end() + 1 - here.read_start()) / here.length();
+        if (source.read_end() > here.read_start()) {
+            double percent_shared = (source.read_end() - here.read_start()) / here.length();
             item_points = (int) (item_points * (1 - percent_shared));
         }
             
