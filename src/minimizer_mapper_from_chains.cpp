@@ -838,8 +838,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     vector<double> scores;
    
     // Collect the chosen mappings, or create the unmapped-read mapping.
-    pick_mappings_from_alignments(aln, alignments, alignments_to_source,
-                                  mappings, scores, rng, funnel);
+    pick_mappings_from_alignments(aln, alignments, mappings, scores, rng, funnel);
     
     if (track_provenance) {
         funnel.substage("mapq");
@@ -1815,6 +1814,9 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     //For finding the multiplicity of each alignment, first get the count
     // of equal scoring chains
     vector<size_t> chain_count_by_alignment (alignments.size(), 0);
+    // Also track how many alignments we tried to make
+    // even if we didn't save them because their scores were terrible
+    size_t alignment_attempts = 0;
 
 #ifdef print_minimizer_table
     //How many of each minimizer ends up in a chain that actually gets turned into an alignment?
@@ -1959,6 +1961,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
             // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
             vector<Alignment> best_alignments(1, aln);
+            alignment_attempts++;
 
             // Align from the chained-up seeds
             if (do_dp) {
@@ -2120,14 +2123,13 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
         }
     }
     for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; ++i) {
-        multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
-                                      ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
+        multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignment_attempts
+                                      ? ((double)chain_count_by_alignment[i] - (double) alignment_attempts)
                                       : 0.0);
     }
 }
 
-void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
-                                                    const std::vector<size_t>& alignments_to_source,
+void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments,
                                                     std::vector<Alignment>& mappings,
                                                     std::vector<double>& scores,
                                                     LazyRNG& rng,
