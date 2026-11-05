@@ -787,7 +787,10 @@ fitted in the same way from the final phase.
 
 - At a phaseable site, a read's slot is by default chosen from its $x_{ra}$ with $v_a$ replaced by
   the per-read weights $\pi$ of [Likelihood
-  correction](read-likelihood-read-phasing.md#likelihood-correction). The read's anchor confidence
+  correction](read-likelihood-read-phasing.md#likelihood-correction). If the read's other sites
+  lie in the site's own [run](read-likelihood-read-phasing.md#deciding-the-phases) and one other,
+  only its terms from sites of the site's run count. A read whose other sites lie only in other
+  runs, or in more than two, is placed from its $x_{ra}$ alone. The read's anchor confidence
   is still computed from the $x_{ra}$. `--no-anchors-phase-hets` chooses the slot from the $x_{ra}$
   alone. `--anchors-strict-hets` chooses it from the sign of $y_{rs}$ alone, slot 0 for a positive
   sign, and a read whose $y_{rs}$ is 0 then keeps the slot its $x_{ra}$ give.

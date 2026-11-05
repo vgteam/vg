@@ -18,11 +18,17 @@ struct SitePhase {
     ///
     /// A read's strand is usable only at sites of the phase set it was found in.
     size_t phase_set = NO_PHASE_SET;
+    /// The run of read phasing the site's order is relative to (see `PhaseSite::run`), or `NO_RUN`.
+    size_t run = NO_RUN;
     /// The traversal on strand 0 at a diploid site, or -1 where the phase gives no order.
     int strand0_allele = -1;
     /// For a nested chain at ploidy 1, +1 if it is on strand 0 of its phase set and -1 if it is on
     /// strand 1. 0 for other sites, which take the diploid correction.
     int haploid_strand = 0;
+    /// For a nested chain at ploidy 1, the run of the order its strand is named in: that of the
+    /// nearest enclosing site that is not a chain at ploidy 1, or `NO_RUN` if that site has no read
+    /// evidence.
+    size_t frame_run = NO_RUN;
     /// The read evidence read phasing used at the site, or null if it used none, as at a
     /// homozygote.
     const PhaseSite* phase_site = nullptr;
@@ -54,8 +60,50 @@ unordered_map<size_t, SitePhase> collect_site_phases(
     }
     for (const PhaseSite& ps : phase_sites) {
         phases[ps.record_key].phase_site = &ps;
+        phases[ps.record_key].run = ps.run;
     }
     return phases;
+}
+
+/**
+ * Give each nested chain at ploidy 1 in `phases` the run of the order its strand is named in.
+ *
+ * Its strand is one of its parent's two, so it is in the frame of the parent's order. A parent at
+ * ploidy 1 has the strand of its own parent, so we go up through such parents to the first site
+ * that is not one. If that site has read evidence, its run is the chain's; otherwise the chain
+ * keeps `NO_RUN`.
+ */
+void set_frame_runs(unordered_map<size_t, SitePhase>& phases, StagedSiteTable& staged) {
+    unordered_map<size_t, size_t> parent_of;
+    staged.for_each([&](const StagedSite& rec) {
+        if (rec.placement.level > 0) {
+            parent_of[rec.record_key] = rec.placement.parent_record_key;
+        }
+    });
+    for (auto& [key, phase] : phases) {
+        if (phase.haploid_strand == 0) {
+            continue;
+        }
+        size_t at = key;
+        for (size_t depth = 0; depth < parent_of.size(); ++depth) {
+            const auto parent = parent_of.find(at);
+            if (parent == parent_of.end()) {
+                break;
+            }
+            at = parent->second;
+            const auto above = phases.find(at);
+            if (above == phases.end()) {
+                break;
+            }
+            if (above->second.phase_site != nullptr) {
+                phase.frame_run = above->second.run;
+                break;
+            }
+            if (above->second.haploid_strand == 0) {
+                break;
+            }
+        }
+    }
 }
 
 /// Find the genotype with the highest likelihood, or null for no genotypes.
@@ -230,11 +278,12 @@ void SiteCorrector::correct(StagedSite& rec) {
     map<vector<int>, double>& target = round.keep ? score->genotype_lls : scratch;
     const bool site_moved =
         phase.haploid_strand != 0
-            ? haploid_inclusion_correction(*pe, round.lambda, phase.phase_set, own,
+            ? haploid_inclusion_correction(*pe, round.lambda, phase.phase_set, phase.frame_run, own,
                                            round.calibration, phase.haploid_strand, round.params,
                                            target, counters)
-            : phase_aware_correction(*pe, round.lambda, phase.phase_set, phase.strand0_allele, own,
-                                     round.calibration, round.params, target, counters);
+            : phase_aware_correction(*pe, round.lambda, phase.phase_set, phase.run,
+                                     phase.strand0_allele, own, round.calibration, round.params,
+                                     target, counters);
     if (round.keep && site_moved) {
         // Recompute GQ from the corrected likelihoods. GQI and GQN stay, because the achievable
         // gap of GQN assumes the site's own mixture weights, not per-read ones.
@@ -264,9 +313,10 @@ void SiteCorrector::correct_other_ploidy(SiteScore& alt, const PhaseReadEvidence
                                          const SitePhase& phase) {
     restore_direct_pass(alt, round.genotyper);
     RegenotypeCounters ignored;
-    if (phase_aware_correction(evidence, round.lambda, phase.phase_set, phase.strand0_allele, own,
-                               round.calibration, round.params, alt.genotype_lls,
-                               ignored)) {
+    if (phase_aware_correction(evidence, round.lambda, phase.phase_set,
+                               phase.run != NO_RUN ? phase.run : phase.frame_run,
+                               phase.strand0_allele, own, round.calibration, round.params,
+                               alt.genotype_lls, ignored)) {
         round.genotyper.recompute_gq(alt);
     }
 }
@@ -321,8 +371,9 @@ bool GenotypeRescorer::rescore(
     LambdaTable lambda;
     accumulate_lambda(phase_sites, phase_flips, lambda, counters);
 
-    const unordered_map<size_t, SitePhase> site_phases = collect_site_phases(
+    unordered_map<size_t, SitePhase> site_phases = collect_site_phases(
         calls, phase_sites, phase_set_id, regenotype_params.haploid_include);
+    set_frame_runs(site_phases, staged);
 
     const StrandCalibration calibration = choose_calibration(phase_sites, phase_flips, lambda);
     fit.keep(counters);
@@ -375,11 +426,14 @@ void GenotypeRescorer::report(const StrandCalibration& calibration, bool show_ca
          << c.sites_corrected << " of " << c.sites_considered << " sites corrected, "
          << c.sites_would_move << " would move (" << c.moved_hom_to_het << " hom->het, "
          << c.moved_het_to_hom << " het->hom, " << c.moved_het_to_het << " het->het), "
-         << c.order_reversed << " where the reads prefer the other order" << endl;
+         << c.order_reversed << " where the reads prefer the other order, "
+         << c.sites_split_runs << " whose reads come from more than one run, "
+         << c.sites_mixed_reads << " with reads from two or more" << endl;
     if (regenotype_params.haploid_include) {
         cerr << "[vg call] re-genotyping: " << c.haploid_sites
              << " nested haploid chains weighted by whether the reads belong to their strand, "
-             << c.haploid_would_move << " would move" << endl;
+             << c.haploid_would_move << " would move, " << c.haploid_other_run
+             << " with reads from another run left unweighted" << endl;
     }
     if (show_calibration && !c.fit_count.empty()) {
         cerr << "[vg call] re-genotyping calibration, |Lambda| / observed / predicted / n:";

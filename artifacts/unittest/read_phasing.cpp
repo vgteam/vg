@@ -6,6 +6,7 @@
 /// after it, and nothing in the VCF looks unusual. These tests pin the convention.
 ///
 
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -186,6 +187,62 @@ TEST_CASE("a run of the chain takes the panel's order from its first site the pa
     REQUIRE(counters.breaks_no_reads == 1);
     REQUIRE(read_ordered == unordered_set<size_t>{10, 11});
     REQUIRE(flips == unordered_set<size_t>{10, 11});
+}
+
+TEST_CASE("each site takes the run of the chain its order is relative to", "[read_phasing]") {
+    // Sites 1-3 share reads 0-19 and sites 4-5 reads 500-519, so no read joins the two runs. Site
+    // 6 is unreliable and shares reads only with the second run, though the nearest site the panel
+    // orders is in the first, so the links that order it are to the second run. Site 7 shares no
+    // read with anything and keeps the panel's order relative to site 1, the nearest site the
+    // panel orders.
+    vector<PhaseSite> sites{site(1, 100, 0), site(7, 120, 0, 20, 1.0, 900), site(2, 200, 0),
+                            site(3, 300, 0), site(6, 350, 0, 20, 1.0, 500),
+                            site(4, 400, 0, 20, 12.0, 500), site(5, 500, 0, 20, 12.0, 500)};
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    read_phase_flips(sites, params, counters);
+    REQUIRE(counters.breaks_no_reads == 1);
+    REQUIRE(counters.hung == 2);
+    unordered_map<size_t, size_t> run;
+    for (const PhaseSite& s : sites) {
+        run[s.record_key] = s.run;
+    }
+    REQUIRE(run == unordered_map<size_t, size_t>{{1, 0}, {2, 0}, {3, 0}, {7, 0},
+                                                 {4, 1}, {5, 1}, {6, 1}});
+}
+
+TEST_CASE("a hung site keeps the run of the reads that agree with it, however weak",
+          "[read_phasing]") {
+    // Site 6 has one read, which it shares with sites 4 and 5 of the second run and which agrees
+    // with them. The panel's vote, toward site 3 of the first run, outweighs those links but
+    // agrees with them too, so the site's order is the one its read gives it.
+    vector<PhaseSite> sites{site(1, 100, 0), site(2, 200, 0), site(3, 300, 0),
+                            site(6, 350, 1, 1, 1.0, 500), site(4, 400, 0, 20, 12.0, 500),
+                            site(5, 500, 0, 20, 12.0, 500)};
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    const auto flips = read_phase_flips(sites, params, counters);
+    REQUIRE(flips.empty());
+    for (const PhaseSite& s : sites) {
+        REQUIRE(s.run == (s.record_key <= 3 ? 0 : 1));
+    }
+}
+
+TEST_CASE("sites only reads among themselves order make a run of their own", "[read_phasing]") {
+    // Sites 8 and 9 are unreliable, the panel does not order them, and they share reads only with
+    // each other, so they are ordered against each other and are a run apart from the chain's.
+    vector<PhaseSite> sites{site(1, 100, 0), site(2, 200, 0), site(8, 300, 0, 20, 1.0, 700),
+                            site(9, 400, 0, 20, 1.0, 700)};
+    sites[2].panel_ordered = false;
+    sites[3].panel_ordered = false;
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    read_phase_flips(sites, params, counters);
+    unordered_map<size_t, size_t> run;
+    for (const PhaseSite& s : sites) {
+        run[s.record_key] = s.run;
+    }
+    REQUIRE(run == unordered_map<size_t, size_t>{{1, 0}, {2, 0}, {8, 1}, {9, 1}});
 }
 
 TEST_CASE("a chain site the panel does not order is ordered by reads only with company", "[read_phasing]") {

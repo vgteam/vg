@@ -75,7 +75,7 @@ TEST_CASE("a temper of zero leaves every genotype likelihood bit-identical",
         LambdaTable lambda = confident(ev);
         map<vector<int>, double> gl = flat_gl();
         const map<vector<int>, double> before = gl;
-        phase_aware_correction(ev, lambda, 1, 0, {},
+        phase_aware_correction(ev, lambda, 1, NO_RUN, 0, {},
                                StrandCalibration{0.0, 1.0}, params, gl, counters);
         for (const auto& kv : before) {
             REQUIRE(gl.at(kv.first) == kv.second);
@@ -96,7 +96,7 @@ TEST_CASE("homozygous likelihoods never move, at any temper", "[regenotype]") {
     LambdaTable lambda = confident(ev);
     for (double tau : {0.25, 1.0, 50.0}) {
         map<vector<int>, double> gl = flat_gl();
-        phase_aware_correction(ev, lambda, 1, 0, {},
+        phase_aware_correction(ev, lambda, 1, NO_RUN, 0, {},
                                StrandCalibration{tau, 1.0}, params, gl, counters);
         REQUIRE(gl.at({0, 0}) == -50.0);
         REQUIRE(gl.at({1, 1}) == -50.0);
@@ -125,7 +125,8 @@ TEST_CASE("a read that spans nothing else contributes exactly nothing", "[regeno
     }
     map<vector<int>, double> gl = flat_gl();
     const map<vector<int>, double> before = gl;
-    phase_aware_correction(ev, lambda, 1, 0, {}, StrandCalibration{2.0, 1.0}, params, gl, counters);
+    phase_aware_correction(ev, lambda, 1, NO_RUN, 0, {}, StrandCalibration{2.0, 1.0}, params, gl,
+                           counters);
     for (const auto& kv : before) {
         REQUIRE(gl.at(kv.first) == kv.second);
     }
@@ -252,7 +253,7 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
 
     LambdaTable coherent = confident(ev);
     map<vector<int>, double> gl_coherent = flat_gl();
-    phase_aware_correction(ev, coherent, 1, 0, {},
+    phase_aware_correction(ev, coherent, 1, NO_RUN, 0, {},
                            StrandCalibration{1.0, 1.0}, params, gl_coherent, counters);
 
     // Same magnitudes, strand assignment uncorrelated with the allele carried.
@@ -261,7 +262,7 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
         incoherent[ev.read_key[i]].lambda = ((i / 2) % 2 == 0) ? 4.0 : -4.0;
     }
     map<vector<int>, double> gl_incoherent = flat_gl();
-    phase_aware_correction(ev, incoherent, 1, 0, {},
+    phase_aware_correction(ev, incoherent, 1, NO_RUN, 0, {},
                            StrandCalibration{1.0, 1.0}, params, gl_incoherent, counters);
 
     const double het_gap_coherent = gl_coherent.at({0, 1}) - gl_coherent.at({0, 0});
@@ -310,7 +311,7 @@ TEST_CASE("the haploid inclusion weight is the identity at temper 0", "[regenoty
     const map<vector<int>, double> before = gl;
     for (int sign : {1, -1}) {
         gl = before;
-        haploid_inclusion_correction(ev, lambda, 1, {},
+        haploid_inclusion_correction(ev, lambda, 1, NO_RUN, {},
                                      StrandCalibration{0.0, 0.95}, sign, params, gl, counters);
         for (const auto& kv : before) {
             REQUIRE(gl.at(kv.first) == kv.second);
@@ -362,7 +363,7 @@ TEST_CASE("the haploid inclusion weight only removes evidence, never adds it", "
     map<vector<int>, double> gl = {{{0}, read_term(0)}, {{1}, read_term(1)}};
     const double gap_before = gl.at({0}) - gl.at({1});
     REQUIRE(std::abs(gap_before) > 10.0);   // and the alleles really are discriminated to start
-    haploid_inclusion_correction(ev, lambda, 1, {},
+    haploid_inclusion_correction(ev, lambda, 1, NO_RUN, {},
                                  StrandCalibration{1.0, 1.0}, +1, params, gl, counters);
     // Both alleles rise, since reads that do not belong here no longer count against them. The
     // correction is added to the direct pass's likelihood, so the result is not bounded above by zero.
@@ -383,7 +384,7 @@ TEST_CASE("the haploid inclusion weight only removes evidence, never adds it", "
     }
     map<vector<int>, double> kept = {{{0}, read_term(0)}, {{1}, read_term(1)}};
     const map<vector<int>, double> kept_before = kept;
-    haploid_inclusion_correction(ev, here, 1, {},
+    haploid_inclusion_correction(ev, here, 1, NO_RUN, {},
                                  StrandCalibration{1.0, 1.0}, +1, params, kept, counters);
     REQUIRE(kept.at({0}) == kept_before.at({0}));
     REQUIRE(kept.at({1}) == kept_before.at({1}));
@@ -405,22 +406,22 @@ TEST_CASE("a read found in another phase set is not used", "[regenotype]") {
     }
     const map<vector<int>, double> before = {{{0}, -20.0}, {{1}, -35.0}};
     map<vector<int>, double> elsewhere = before;
-    haploid_inclusion_correction(ev, lambda, 1, {},
+    haploid_inclusion_correction(ev, lambda, 1, NO_RUN, {},
                                  StrandCalibration{1.0, 1.0}, +1, params, elsewhere, counters);
     REQUIRE(elsewhere == before);
     map<vector<int>, double> here = before;
-    haploid_inclusion_correction(ev, lambda, 2, {},
+    haploid_inclusion_correction(ev, lambda, 2, NO_RUN, {},
                                  StrandCalibration{1.0, 1.0}, +1, params, here, counters);
     REQUIRE(here != before);
     // A site with no phase set takes any read found in one phase set.
     map<vector<int>, double> unphased = before;
-    haploid_inclusion_correction(ev, lambda, NO_PHASE_SET, {},
+    haploid_inclusion_correction(ev, lambda, NO_PHASE_SET, NO_RUN, {},
                                  StrandCalibration{1.0, 1.0}, +1, params, unphased,
                                  counters);
     REQUIRE(unphased == here);
 
     map<vector<int>, double> gl = flat_gl();
-    phase_aware_correction(ev, confident(ev), 2, 0, {},
+    phase_aware_correction(ev, confident(ev), 2, NO_RUN, 0, {},
                            StrandCalibration{1.0, 1.0}, params, gl, counters);
     REQUIRE(gl == flat_gl());
 }
@@ -439,8 +440,10 @@ TEST_CASE("a globally sign-flipped Lambda is invisible, and that is why these te
         kv.second.lambda = -kv.second.lambda;
     }
     map<vector<int>, double> a = flat_gl(), b = flat_gl();
-    phase_aware_correction(ev, normal, 1, 0, {}, StrandCalibration{1.0, 1.0}, params, a, counters);
-    phase_aware_correction(ev, flipped, 1, 0, {}, StrandCalibration{1.0, 1.0}, params, b, counters);
+    phase_aware_correction(ev, normal, 1, NO_RUN, 0, {}, StrandCalibration{1.0, 1.0}, params, a,
+                           counters);
+    phase_aware_correction(ev, flipped, 1, NO_RUN, 0, {}, StrandCalibration{1.0, 1.0}, params, b,
+                           counters);
     REQUIRE(a.at({0, 1}) == Approx(b.at({0, 1})).epsilon(1e-12));
 }
 
@@ -460,7 +463,7 @@ TEST_CASE("the reads' order is compared with the chain's order, not the sorted o
     auto reversed = [&](const LambdaTable& lambda, int strand0_allele) {
         RegenotypeCounters counters;
         map<vector<int>, double> gl = flat_gl();
-        phase_aware_correction(ev, lambda, 1, strand0_allele, {},
+        phase_aware_correction(ev, lambda, 1, NO_RUN, strand0_allele, {},
                                StrandCalibration{1.0, 1.0}, params, gl, counters);
         REQUIRE(counters.sites_corrected == 1);
         return counters.order_reversed;
@@ -486,6 +489,264 @@ TEST_CASE("the later rounds temper with the ceiling the first round fitted again
     fit.restore(later_round);
     REQUIRE(later_round.calibration.temper == 0.05);
     REQUIRE(later_round.calibration.ceiling == 0.9);
+}
+
+/// Put every read of `t` in run `run` of its phase set, all its sites there.
+static LambdaTable in_run(LambdaTable t, size_t run) {
+    for (auto& [key, rl] : t) {
+        rl.runs[0] = run;
+        rl.run_sites[0] = rl.sites;
+        rl.run_lambda[0] = rl.lambda;
+    }
+    return t;
+}
+
+TEST_CASE("a site whose reads all lie in its own run is scored as if there were no runs",
+          "[regenotype]") {
+    RegenotypeParams params;
+    RegenotypeCounters counters;
+    PhaseReadEvidence ev = evidence(30, 10, 25);
+    map<vector<int>, double> plain = flat_gl();
+    phase_aware_correction(ev, confident(ev), 1, NO_RUN, 0, {}, StrandCalibration{1.0, 1.0},
+                           params, plain, counters);
+    map<vector<int>, double> own_run = flat_gl();
+    phase_aware_correction(ev, in_run(confident(ev), 3), 1, 3, 0, {},
+                           StrandCalibration{1.0, 1.0}, params, own_run, counters);
+    // A site with no run of its own whose reads all lie in one run is one group too.
+    map<vector<int>, double> no_site_run = flat_gl();
+    phase_aware_correction(ev, in_run(confident(ev), 3), 1, NO_RUN, 0, {},
+                           StrandCalibration{1.0, 1.0}, params, no_site_run, counters);
+    REQUIRE(own_run == plain);
+    REQUIRE(no_site_run == plain);
+    REQUIRE(counters.sites_split_runs == 0);
+}
+
+TEST_CASE("reads from two runs are oriented apart", "[regenotype]") {
+    // The second half of the reads lie in a run that the panel framed the other way round, so
+    // their strands are all reversed. Scored as one group, every heterozygous order disagrees
+    // with one half and the het loses. Scored per run, the first half takes the better order and
+    // the second half's order is averaged over. Its reads all say the same, so it costs ln 2
+    // against the halves' being in one frame.
+    RegenotypeParams params;
+    RegenotypeCounters counters;
+    PhaseReadEvidence ev = evidence(30, 10, 10);
+    LambdaTable one_frame = confident(ev);
+    LambdaTable inverted = confident(ev);
+    for (size_t i = 0; i < ev.num_reads(); ++i) {
+        ReadLambda& rl = inverted[ev.read_key[i]];
+        if (i >= 15) {
+            rl.lambda = -rl.lambda;
+        }
+        rl.runs[0] = i >= 15 ? 1 : 0;
+        rl.run_sites[0] = rl.sites;
+        rl.run_lambda[0] = rl.lambda;
+    }
+    LambdaTable unlabelled = inverted;
+    for (auto& [key, rl] : unlabelled) {
+        rl.runs[0] = NO_RUN;
+        rl.run_sites[0] = 0;
+        rl.run_lambda[0] = 0.0;
+    }
+    const StrandCalibration calibration{1.0, 1.0};
+    map<vector<int>, double> coherent = flat_gl();
+    phase_aware_correction(ev, one_frame, 1, NO_RUN, 0, {}, calibration, params, coherent,
+                           counters);
+    map<vector<int>, double> one_group = flat_gl();
+    phase_aware_correction(ev, unlabelled, 1, NO_RUN, 0, {}, calibration, params, one_group,
+                           counters);
+    REQUIRE(counters.sites_split_runs == 0);
+    map<vector<int>, double> per_run = flat_gl();
+    phase_aware_correction(ev, inverted, 1, 0, 0, {}, calibration, params, per_run, counters);
+    REQUIRE(counters.sites_split_runs == 1);
+    REQUIRE(one_group.at({0, 1}) < per_run.at({0, 1}));
+    REQUIRE(per_run.at({0, 1}) == Approx(coherent.at({0, 1}) - log(2.0)));
+    REQUIRE(per_run.at({0, 0}) == coherent.at({0, 0}));
+    // At temper 0 the groups' sums cancel exactly.
+    map<vector<int>, double> untempered = flat_gl();
+    phase_aware_correction(ev, inverted, 1, 0, 0, {}, StrandCalibration{0.0, 1.0}, params,
+                           untempered, counters);
+    REQUIRE(untempered == flat_gl());
+}
+
+TEST_CASE("a read whose other sites lie in two runs keeps the larger part", "[regenotype]") {
+    // Every read is at this site, of run 0, at one other site of run 0, and at one of run 1,
+    // which says little. Leaving this site out, its strand is its run-0 part alone.
+    RegenotypeParams params;
+    PhaseReadEvidence ev = evidence(30, 10, 10);
+    const LambdaTable coherent = confident(ev);
+    unordered_map<uint64_t, double> own;
+    LambdaTable mixed;
+    LambdaTable plain;
+    for (size_t i = 0; i < ev.num_reads(); ++i) {
+        const uint64_t key = ev.read_key[i];
+        const double part = coherent.at(key).lambda;
+        own[key] = 0.5 * part;
+        ReadLambda rl;
+        rl.phase_set = 1;
+        rl.sites = 3;
+        rl.runs[0] = 0;
+        rl.run_sites[0] = 2;
+        rl.run_lambda[0] = own[key] + part;
+        rl.runs[1] = 1;
+        rl.run_sites[1] = 1;
+        rl.run_lambda[1] = -0.25 * part;
+        rl.lambda = rl.run_lambda[0] + rl.run_lambda[1];
+        mixed[key] = rl;
+        ReadLambda one = rl;
+        one.lambda = own[key] + part;
+        one.runs[1] = NO_RUN;
+        one.run_sites[1] = 0;
+        one.run_lambda[1] = 0.0;
+        one.sites = 2;
+        plain[key] = one;
+    }
+    RegenotypeCounters counters;
+    map<vector<int>, double> with_mixed = flat_gl();
+    phase_aware_correction(ev, mixed, 1, 0, 0, own, StrandCalibration{1.0, 1.0}, params, with_mixed,
+                           counters);
+    REQUIRE(counters.sites_mixed_reads == 1);
+    REQUIRE(counters.sites_split_runs == 0);
+    map<vector<int>, double> without = flat_gl();
+    phase_aware_correction(ev, plain, 1, 0, 0, own, StrandCalibration{1.0, 1.0}, params, without,
+                           counters);
+    REQUIRE(with_mixed.at({0, 1}) == Approx(without.at({0, 1})));
+    REQUIRE(with_mixed.at({0, 1}) > flat_gl().at({0, 1}));
+}
+
+TEST_CASE("a lone read from another run adds nothing", "[regenotype]") {
+    // Its order is averaged over, and with equal allele lengths the average of its two terms is
+    // its unphased term, so the site scores as if the read had no strand.
+    RegenotypeParams params;
+    RegenotypeCounters counters;
+    PhaseReadEvidence ev = evidence(30, 10, 10);
+    LambdaTable lone = in_run(confident(ev), 0);
+    lone[ev.read_key[29]].runs[0] = 1;
+    LambdaTable strandless = lone;
+    strandless[ev.read_key[29]].lambda = 0.0;
+    strandless[ev.read_key[29]].run_lambda[0] = 0.0;
+    map<vector<int>, double> with_lone = flat_gl();
+    phase_aware_correction(ev, lone, 1, 0, 0, {}, StrandCalibration{1.0, 1.0}, params, with_lone,
+                           counters);
+    REQUIRE(counters.sites_split_runs == 1);
+    map<vector<int>, double> without = flat_gl();
+    phase_aware_correction(ev, strandless, 1, 0, 0, {}, StrandCalibration{1.0, 1.0}, params,
+                           without, counters);
+    REQUIRE(with_lone.at({0, 1}) == Approx(without.at({0, 1})));
+}
+
+TEST_CASE("a read's run leaves out the site being corrected", "[regenotype]") {
+    ReadLambda rl;
+    rl.runs[0] = 2;
+    rl.run_sites[0] = 3;
+    rl.runs[1] = 5;
+    rl.run_sites[1] = 1;
+    REQUIRE(read_run(rl, NO_RUN) == MIXED_RUNS);
+    REQUIRE(read_run(rl, 5) == 2);
+    REQUIRE(read_run(rl, 2) == MIXED_RUNS);
+    ReadLambda alone;
+    alone.runs[0] = 2;
+    alone.run_sites[0] = 1;
+    REQUIRE(read_run(alone, NO_RUN) == 2);
+    REQUIRE(read_run(alone, 2) == NO_RUN);
+    REQUIRE(read_run(ReadLambda(), NO_RUN) == NO_RUN);
+    rl.many_runs = true;
+    REQUIRE(read_run(rl, 5) == MIXED_RUNS);
+}
+
+TEST_CASE("accumulate_lambda keeps each run's part of a read's log-odds", "[regenotype]") {
+    // Read 7 is at three sites: two in run 0 and one in run 1.
+    vector<PhaseSite> sites(3);
+    for (size_t i = 0; i < sites.size(); ++i) {
+        sites[i].record_key = i + 1;
+        sites[i].phase_set = 1;
+        sites[i].run = i < 2 ? 0 : 1;
+        sites[i].read_key = {7};
+        sites[i].q0 = {i == 2 ? 0.1f : 0.9f};
+        sites[i].c = {0.9f};
+    }
+    LambdaTable lambda;
+    RegenotypeCounters counters;
+    accumulate_lambda(sites, {}, lambda, counters);
+    const ReadLambda& rl = lambda.at(7);
+    REQUIRE(rl.runs[0] == 0);
+    REQUIRE(rl.run_sites[0] == 2);
+    REQUIRE(rl.runs[1] == 1);
+    REQUIRE(rl.run_sites[1] == 1);
+    REQUIRE(rl.run_lambda[0] == Approx(2.0 * site_read_log_odds(0.9, 0.9)));
+    REQUIRE(rl.run_lambda[1] == Approx(site_read_log_odds(0.1, 0.9)));
+    REQUIRE(rl.lambda == Approx(rl.run_lambda[0] + rl.run_lambda[1]));
+    REQUIRE(!rl.many_runs);
+    // A fourth site in a third run is one run too many to keep apart.
+    sites.push_back(sites[0]);
+    sites.back().record_key = 4;
+    sites.back().run = 2;
+    LambdaTable more;
+    accumulate_lambda(sites, {}, more, counters);
+    REQUIRE(more.at(7).many_runs);
+}
+
+TEST_CASE("a nested chain counts the part of its own run from a read in two runs", "[regenotype]") {
+    // Each read's run-0 part points it away from strand 0, where the chain is, and its larger
+    // run-1 part points it toward strand 0. The chain's strand is in run 0's frame, so only the
+    // run-0 part counts, and it makes the reads count less.
+    RegenotypeParams params;
+    PhaseReadEvidence ev = evidence(30, 10, 10);
+    LambdaTable lambda;
+    for (size_t i = 0; i < ev.num_reads(); ++i) {
+        ReadLambda rl;
+        rl.phase_set = 1;
+        rl.sites = 3;
+        rl.runs[0] = 0;
+        rl.run_sites[0] = 1;
+        rl.run_lambda[0] = -4.0;
+        rl.runs[1] = 1;
+        rl.run_sites[1] = 2;
+        rl.run_lambda[1] = 60.0;
+        rl.lambda = 56.0;
+        lambda[ev.read_key[i]] = rl;
+    }
+    const map<vector<int>, double> before = {{{0}, -20.0}, {{1}, -35.0}};
+    RegenotypeCounters counters;
+    map<vector<int>, double> own_run = before;
+    haploid_inclusion_correction(ev, lambda, 1, 0, {}, StrandCalibration{1.0, 1.0}, +1, params,
+                                 own_run, counters);
+    REQUIRE(own_run != before);
+    map<vector<int>, double> other_run = before;
+    haploid_inclusion_correction(ev, lambda, 1, 1, {}, StrandCalibration{1.0, 1.0}, +1, params,
+                                 other_run, counters);
+    REQUIRE(other_run == before);
+}
+
+TEST_CASE("a nested chain leaves alone the reads whose strands come from another run",
+          "[regenotype]") {
+    // The chain's strand is named in the frame of run 0, its parent's. Reads whose strands come
+    // from run 1 are related to that frame only by the panel.
+    RegenotypeParams params;
+    PhaseReadEvidence ev = evidence(30, 10, 10);
+    LambdaTable lambda;
+    for (size_t i = 0; i < ev.num_reads(); ++i) {
+        ReadLambda rl;
+        rl.lambda = -60.0;
+        rl.sites = 8;
+        rl.phase_set = 1;
+        lambda[ev.read_key[i]] = rl;
+    }
+    lambda = in_run(lambda, 1);
+    const map<vector<int>, double> before = {{{0}, -20.0}, {{1}, -35.0}};
+    RegenotypeCounters counters;
+    map<vector<int>, double> other_run = before;
+    haploid_inclusion_correction(ev, lambda, 1, 0, {}, StrandCalibration{1.0, 1.0}, +1, params,
+                                 other_run, counters);
+    REQUIRE(other_run == before);
+    REQUIRE(counters.haploid_other_run == 1);
+    map<vector<int>, double> same_run = before;
+    haploid_inclusion_correction(ev, lambda, 1, 1, {}, StrandCalibration{1.0, 1.0}, +1, params,
+                                 same_run, counters);
+    map<vector<int>, double> unknown = before;
+    haploid_inclusion_correction(ev, lambda, 1, NO_RUN, {}, StrandCalibration{1.0, 1.0}, +1,
+                                 params, unknown, counters);
+    REQUIRE(same_run != before);
+    REQUIRE(unknown == same_run);
 }
 
 }

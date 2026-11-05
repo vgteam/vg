@@ -247,6 +247,39 @@ TEST_CASE("A strand from another phase set is NaN in the anchor path, and no str
     REQUIRE(strands.read_strand_log_odds(12, "elsewhere") == 0.0);
 }
 
+TEST_CASE("A strand from another run is NaN in the anchor path", "[graph_caller]") {
+    // Only the panel relates one run's strands to another's, so at a site of run 0 a read whose
+    // other sites lie in run 1 has no strand to tilt its slot by, and a read whose other sites lie
+    // in both runs keeps the part from run 0.
+    auto key = [](const string& name) { return (uint64_t)std::hash<std::string_view>{}(name); };
+    auto site = [&](size_t record_key, size_t run, const vector<string>& reads, float q0) {
+        PhaseSite s;
+        s.record_key = record_key;
+        s.phase_set = 7;
+        s.run = run;
+        for (const string& name : reads) {
+            s.read_key.push_back(key(name));
+            s.q0.push_back(q0);
+            s.c.push_back(1.0f);
+        }
+        return s;
+    };
+    ReadStrandTable strands;
+    // Site 20 is in run 0. "near" is also on site 21 of run 0, "far" on site 30 of run 1, and
+    // "both" on both, where site 30 points it the other way.
+    strands.sites() = {site(20, 0, {"near", "far", "both"}, 0.9f),
+                       site(21, 0, {"near", "both"}, 0.9f), site(30, 1, {"far", "both"}, 0.1f)};
+    ReadStrandTable::PhaseCall pc;
+    pc.record_key = 20;
+    pc.phase_set = 7;
+    strands.build_lambda({pc}, [](const string&, size_t phase_set) { return phase_set; },
+                         StrandCalibration{1.0, 1.0}, RegenotypeParams());
+    const double near = strands.read_strand_log_odds(20, "near");
+    REQUIRE(near > 0.0);
+    REQUIRE(std::isnan(strands.read_strand_log_odds(20, "far")));
+    REQUIRE(strands.read_strand_log_odds(20, "both") == Approx(near));
+}
+
 TEST_CASE("A parent's phase swap carries its nested strands and their haplotypes with it",
           "[graph_caller]") {
     const size_t W = LinkageModel::NO_HAPLOTYPE;

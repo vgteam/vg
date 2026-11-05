@@ -143,6 +143,16 @@ goes through four stages:
    if not. The site
    takes the phase with the larger total vote, and a tie keeps the panel's phase.
 
+Each site is given the **run** its phase is relative to. A phase-chain site is in the run it is part
+of. A
+site hung in stage 4 takes the run whose links to it agree with the phase it took and add up to the
+most, the lower-numbered run on a tie. If no link agrees, its phase came from the `--phase-prior`
+vote, and it takes the run of the site whose panel phase it kept. A site the panel does not order
+that no read links to the phase chain is ordered by reads against the nearest ordered sites, and
+takes its run from their links the same way. Sites that are ordered only against each other make
+a run of their own for each set of them that reads join. A site that neither a read nor the panel
+relates to a run is in none.
+
 When read phasing flips a site, its alleles change strands, and so does every nested haploid chain
 that takes its strand from them, directly or through another nested haploid chain. A diploid
 nested site keeps its own phase, which read phasing decides like any other site's.
@@ -170,7 +180,13 @@ $$
 $$
 
 Leaving out $s$ keeps a site from confirming its own genotype. Each phase set labels its strands
-independently, so a read's strand is usable only at the sites of the phase set it was used in. Its
+independently, so a read's strand is usable only at the sites of the phase set it was used in.
+Within a phase set, only the panel relates one [run](#deciding-the-phases)'s phases to another's,
+so terms from sites of different runs do not add up. If the read's other sites lie in more than one
+run, $\Lambda_{rs}$ is instead the sum of the terms of one run, the one whose sum is largest in
+magnitude, or 0 if the read's sites, $s$ included, lie in more than two runs. Sites in no run are
+counted only in a read whose other sites lie in at most one run. The run that $\Lambda_{rs}$ comes
+from is the read's run at $s$. Its
 $\Lambda_{rs}$ is 0 at a site of another phase set, and at every site if it was used in more than
 one phase set. At a site that the linkage model did not phase, and so has no phase set, any read
 used in one phase set keeps its $\Lambda_{rs}$.
@@ -190,12 +206,14 @@ $y_{rs} = \tau \Lambda_{rs}$. A smaller $C$ keeps the probability of either stra
 $(1 - C)/2$ and $(1 + C)/2$.
 
 Unless `--regeno-temper` is given, $\tau$ is fitted once, from the phase that read phasing gave
-before the first correction. Each read at each phaseable site $s$ gives an **observation** when
-$\Lambda_{rs} \neq 0$ and $q_{rs} \neq 1/2$. Each of the two points to a strand: $\Lambda_{rs}$ to
-strand 0 when it is positive, $q_{rs}$ to strand 0 when it is above $1/2$, and each to strand 1
-otherwise. The observation records whether they point to the same strand. The observations are
-sorted by $\vert \Lambda_{rs} \vert$ and grouped into bins. Every bin but the last holds the larger
-of a fixed number and a fixed fraction of the observations, and the last holds the remainder (see
+before the first correction. The fit uses each read's sum over all its other sites of the phase
+set, whatever their runs, and writes it $\Lambda_{rs}$ here too. Each read at each phaseable site
+$s$ gives an **observation** when $\Lambda_{rs} \neq 0$ and $q_{rs} \neq 1/2$. Each of the two
+points to a strand: $\Lambda_{rs}$ to strand 0 when it is positive, $q_{rs}$ to strand 0 when it
+is above $1/2$, and each to strand 1 otherwise. The observation records whether they point to the
+same strand. The observations are sorted by $\vert \Lambda_{rs} \vert$ and grouped into bins.
+Every bin but the last holds the larger of a fixed number and a fixed fraction of the observations,
+and the last holds the remainder (see
 [Fixed constants](read-likelihood-genotyping.md#fixed-constants)). For each bin, the tempered
 probability of the strand, $C \sigma(\tau \vert \Lambda \vert) + (1 - C)/2$ at the bin's mean $\vert
 \Lambda \vert$, predicts its rate of agreement. $\tau$ is chosen from a fixed grid, with $C$ held at
@@ -221,8 +239,16 @@ $$
 
 A genotype other than the chosen one has no phase, so each heterozygous genotype, the chosen one
 included, is scored under both assignments of its alleles to the strands, and the larger correction
-is kept. Homozygous genotypes are unchanged and have no assignment to choose, so this choice can
-only favour heterozygous genotypes.
+is kept. Only the panel relates one run's strands to another's, so the reads are split into groups
+by their run at $s$. The **anchor** group is the site's own run, if a read with nonzero
+$\Lambda_{rs}$ comes from it, and otherwise the run with the most such reads; reads with
+$\Lambda_{rs} = 0$, or with no run, join it. At a site with no phase set, runs are told apart by
+phase set too, and reads with no run join the anchor only from its phase set. The anchor's sum of
+correction terms takes the larger assignment. For every other group, with sums $F$ and $R$ under the
+two assignments, the assignment is unknown, so the group adds $\ln((e^F + e^R)/2)$, the two
+assignments being equally likely. A site whose reads with nonzero $\Lambda_{rs}$ come from one run
+is scored as one group. Homozygous genotypes are unchanged and have no assignment to choose, so this
+choice can only favour heterozygous genotypes.
 
 Both terms of the correction use the allele-length weights $v$, while the site likelihood's read
 term uses the mixture weights. The two agree when the alleles have the same length and neither
@@ -236,4 +262,7 @@ weights to tilt. Instead, a read is made less informative when the phase places 
 strand. Let $y$ be the read's tempered strand log-odds towards the chain's strand, and
 $\eta = \min(1, e^{y})$. Each of the read's relative likelihoods $p$ becomes $\eta p + 1 - \eta$.
 $\eta$ is 1 when $\tau = 0$ or when the read points to the chain's strand, so those reads are
-unchanged. `--no-regeno-haploid` turns this off.
+unchanged. The chain's strand is named in the run of the site whose two alleles it lies on: the
+nearest enclosing site that is not a haploid chain, if it is phaseable. A read whose other sites lie
+in that run and one other counts only its terms from that run, and a read whose other sites lie only
+in other runs is unchanged too. `--no-regeno-haploid` turns this off.

@@ -64,6 +64,18 @@ struct ReadLambda {
     ///
     /// Then `lambda` mixes unrelated strand labellings, and the read's strand is usable nowhere.
     bool multi_phase_set = false;
+    /// The first two runs (`PhaseSite::run`) the read's sites lie in, or `NO_RUN`.
+    ///
+    /// Only the panel relates one run's strands to another's, so the read's strand is comparable
+    /// only with those of the run its other sites lie in (see `read_run`). Sites with no run are
+    /// not counted.
+    size_t runs[2] = {NO_RUN, NO_RUN};
+    /// How many of the read's sites lie in each of `runs`.
+    size_t run_sites[2] = {0, 0};
+    /// The part of `lambda` from the sites in each of `runs`.
+    double run_lambda[2] = {0.0, 0.0};
+    /// Whether the read's sites lie in more than two runs.
+    bool many_runs = false;
 };
 
 /// Each read's `ReadLambda`, by read key.
@@ -71,6 +83,16 @@ using LambdaTable = unordered_map<uint64_t, ReadLambda>;
 
 /// The phase set of a site that has none, because the linkage model did not phase it.
 constexpr size_t NO_PHASE_SET = std::numeric_limits<size_t>::max();
+
+/// The run `read_run` gives a read whose other sites lie in more than one run.
+constexpr size_t MIXED_RUNS = NO_RUN - 1;
+
+/// Return the run that a read's sites lie in, leaving out one site of run `own_run`, or `NO_RUN`
+/// to leave out none.
+///
+/// It is `NO_RUN` if none of the other sites has a run, and `MIXED_RUNS` if they lie in more than
+/// one.
+size_t read_run(const ReadLambda& read, size_t own_run);
 
 /// Return whether a read's strand can be used at a site of phase set `phase_set`.
 ///
@@ -155,6 +177,15 @@ struct RegenotypeCounters {
     /// with the chain about this site's phase. Counted only at the called pair, since at a site
     /// with several alleles most candidate pairs are carried by no haplotype.
     size_t order_reversed = 0;
+    /// Sites whose reads with a strand come from more than one run, so that their heterozygotes
+    /// are scored in groups (see `phase_aware_correction`).
+    size_t sites_split_runs = 0;
+    /// Sites with a read whose other sites lie in more than one run, so that it kept the part of
+    /// one, or none.
+    size_t sites_mixed_reads = 0;
+    /// Nested chains at ploidy 1 that left reads unchanged because their strands came from a run
+    /// other than the chain's.
+    size_t haploid_other_run = 0;
     /// The calibration the round used, which `fit_calibration` fills when it fits one.
     StrandCalibration calibration;
     /// Nested chains at ploidy 1 where some read's strand log-odds are nonzero.
@@ -208,8 +239,11 @@ StrandCalibration fit_calibration(const vector<PhaseSite>& sites,
 ///
 /// The chain sits on one of its parent's two strands, and reads from the other strand can reach
 /// it only as mismapped reads. `strand_sign` is +1 when the chain is on strand 0 of its phase set
-/// `phase_set` and -1 on strand 1, so that a read's log-odds are for or against this chain. A read
-/// whose strand is not usable in `phase_set` (see `read_strand_usable`) is left unchanged:
+/// `phase_set` and -1 on strand 1, so that a read's log-odds are for or against this chain. That
+/// strand is in the frame of run `frame_run`, the run of the parent's order, or `NO_RUN` if it is
+/// not known. A read whose strand is not usable in `phase_set` (see `read_strand_usable`), or whose
+/// strand comes only from runs other than `frame_run`, is left unchanged. A read whose other sites
+/// lie in `frame_run` and one other run counts only those in `frame_run`:
 ///
 ///     incl  = min(1, exp(x))          x = strand_sign * calibration.log_odds(...)
 ///     e_r'  = e_r + (1 - e_r)(1 - incl)
@@ -221,7 +255,7 @@ StrandCalibration fit_calibration(const vector<PhaseSite>& sites,
 ///
 /// Returns true if the corrected best genotype differs from the called one.
 bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
-                                  size_t phase_set,
+                                  size_t phase_set, size_t frame_run,
                                   const unordered_map<uint64_t, double>& own,
                                   const StrandCalibration& calibration, int strand_sign,
                                   const RegenotypeParams& params, map<vector<int>, double>& gl,
@@ -233,6 +267,17 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const Lambd
 /// Both assignments of a heterozygote's alleles to the strands are scored, and the larger
 /// correction is kept, so the phase information is not averaged away.
 ///
+/// Only the panel relates one run's strands to another's (see `PhaseSite::run`), so the reads are
+/// scored in groups by the run their strands come from (see `read_run`), keyed by phase set too at
+/// a site with no phase set. A read whose other sites lie in more than one run keeps only the part
+/// of its log-odds from the run whose part is larger, or none if its sites, this one included, lie
+/// in more than two runs. The anchor group, that of `site_run` (the site's own
+/// run) if a read with a strand comes from it and otherwise the largest, takes the larger
+/// assignment. Every other group's assignment is unknown, so its term is averaged over the two,
+/// each with probability 1/2. Reads with no strand, or none from any run, join the anchor, except
+/// that at a site with no phase set those from another phase set make groups of their own. A site
+/// whose reads with a strand come from one run is scored as one group, as if there were no runs.
+///
 /// `own` is this site's own per-read contribution to Lambda, negated where read phasing flipped
 /// the site. It is subtracted so that a site does not confirm its own genotype. Empty for a site
 /// with no `PhaseSite`, such as a homozygote.
@@ -241,11 +286,12 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const Lambd
 /// (see `read_strand_usable`) gets the site's own weights.
 ///
 /// `strand0_allele` is the allele the chain puts on strand 0 at this site, or -1 where the chain
-/// gives it no order. `order_reversed` counts the site when the reads prefer the other order.
+/// gives it no order. `order_reversed` counts the site when the reads of its own group prefer the
+/// other order.
 ///
 /// Returns true if the corrected best genotype differs from the called one.
 bool phase_aware_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
-                            size_t phase_set, int strand0_allele,
+                            size_t phase_set, size_t site_run, int strand0_allele,
                             const unordered_map<uint64_t, double>& own,
                             const StrandCalibration& calibration, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters);

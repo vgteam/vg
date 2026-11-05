@@ -24,6 +24,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <unordered_set>
 #include <vector>
 
@@ -33,6 +34,9 @@ using std::size_t;
 using std::uint64_t;
 using std::unordered_set;
 using std::vector;
+
+/// The run of a site that no run of its phase chain orders (see `PhaseSite::run`).
+constexpr size_t NO_RUN = std::numeric_limits<size_t>::max();
 
 /**
  * A site's per-read evidence, kept from the direct pass until read phasing runs after the linkage
@@ -114,6 +118,17 @@ struct PhaseSite {
     /// as for a heterozygote whose ALT no haplotype carries. Such a site is ordered by its reads
     /// alone, and never lends the panel's order to another site.
     bool panel_ordered = true;
+    /// The run of the phase chain that the site's order is relative to, numbered from 0 within the
+    /// phase set, or `NO_RUN`. `read_phase_flips` fills it.
+    ///
+    /// A run is a stretch of the phase chain that reads join. Reads fix the orders of one run's
+    /// sites relative to each other, and only the panel relates one run to another, so a read's
+    /// strand is comparable only with the strands of the run it was found in. A site off the chain
+    /// takes the run whose read links to it agree with the order it was given and add up to the
+    /// most, or, if no link agrees, the run of the site whose panel order it kept. Sites that only
+    /// reads among themselves order, as where no panel haplotype reaches, make runs of their own.
+    /// A site the panel orders that neither reads nor the panel relate to a run has none.
+    size_t run = NO_RUN;
 };
 
 /// Return a read's confidence at a site.
@@ -219,7 +234,7 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap);
  * `position`, then `record_key`, in place. Each site's rows are merged by `merge_mates`, in place,
  * so a site built by hand is treated as `reduce_to_pair` would build it.
  *
- * With no read evidence, no site is flipped.
+ * With no read evidence, no site is flipped. Each site's `run` is filled.
  *
  * @returns The record keys of the sites to flip.
  *

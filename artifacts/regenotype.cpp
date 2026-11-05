@@ -16,6 +16,7 @@ using std::fabs;
 using std::log;
 using std::max;
 using std::min;
+using std::pair;
 
 /// Return the mixture of the two alleles' relative likelihoods under a pair of unnormalised slot
 /// weights.
@@ -83,6 +84,9 @@ void merge_counters(const RegenotypeCounters& from, RegenotypeCounters& into) {
     into.moved_het_to_hom += from.moved_het_to_hom;
     into.moved_het_to_het += from.moved_het_to_het;
     into.order_reversed += from.order_reversed;
+    into.sites_split_runs += from.sites_split_runs;
+    into.sites_mixed_reads += from.sites_mixed_reads;
+    into.haploid_other_run += from.haploid_other_run;
     into.haploid_sites += from.haploid_sites;
     into.haploid_would_move += from.haploid_would_move;
     // `calibration` and the calibration table describe the one fit done before the parallel
@@ -150,6 +154,20 @@ void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_
             }
             rl.lambda += log_odds;
             ++rl.sites;
+            if (site.run == NO_RUN || rl.many_runs) {
+                continue;
+            }
+            size_t slot = 0;
+            while (slot < 2 && rl.runs[slot] != NO_RUN && rl.runs[slot] != site.run) {
+                ++slot;
+            }
+            if (slot == 2) {
+                rl.many_runs = true;
+                continue;
+            }
+            rl.runs[slot] = site.run;
+            ++rl.run_sites[slot];
+            rl.run_lambda[slot] += log_odds;
         }
     }
     for (const auto& [read, rl] : out) {
@@ -302,6 +320,26 @@ StrandCalibration fit_calibration(const vector<PhaseSite>& sites,
     return counters.calibration;
 }
 
+size_t read_run(const ReadLambda& read, size_t own_run) {
+    if (read.many_runs) {
+        // Leaving out one site leaves at least two runs.
+        return MIXED_RUNS;
+    }
+    size_t found = NO_RUN;
+    for (size_t i = 0; i < 2; ++i) {
+        const bool own = own_run != NO_RUN && read.runs[i] == own_run;
+        const size_t left = read.run_sites[i] - (own ? 1 : 0);
+        if (left == 0) {
+            continue;
+        }
+        if (found != NO_RUN) {
+            return MIXED_RUNS;
+        }
+        found = read.runs[i];
+    }
+    return found;
+}
+
 bool read_strand_usable(const ReadLambda& read, size_t phase_set) {
     if (read.multi_phase_set) {
         return false;
@@ -309,24 +347,61 @@ bool read_strand_usable(const ReadLambda& read, size_t phase_set) {
     return phase_set == NO_PHASE_SET || read.phase_set == phase_set;
 }
 
-/// Fill `loo` with each read's strand log-odds leaving this site out, and return whether any is
-/// nonzero.
+/// The frame a read's strand log-odds are in: its phase set, counted only at a site with no phase
+/// set of its own, and its run there.
+using StrandFrame = pair<size_t, size_t>;
+
+/// Fill `loo` with each read's strand log-odds leaving this site out, and `frame` with the frame
+/// they are in, and return whether any log-odds is nonzero.
 ///
-/// A read whose strand is not usable in `phase_set` gets 0.
+/// `site_run` is the site's own run. A read whose other sites lie in two runs keeps only the part
+/// from one, and is counted in `mixed`: the part from run `prefer_run` if it has one, and otherwise
+/// the larger (see `phase_aware_correction`). A read whose strand is not usable in `phase_set` gets
+/// 0 and no run.
 static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda, size_t phase_set,
+                     size_t site_run, size_t prefer_run,
                      const unordered_map<uint64_t, double>& own, const RegenotypeParams& params,
-                     vector<double>& loo) {
+                     vector<double>& loo, vector<StrandFrame>& frame, size_t& mixed) {
     loo.assign(ev.num_reads(), 0.0);
+    frame.assign(ev.num_reads(), StrandFrame{0, NO_RUN});
+    mixed = 0;
     bool any = false;
     for (size_t r = 0; r < ev.num_reads(); ++r) {
         auto found = lambda.find(ev.read_key[r]);
         if (found == lambda.end() || !read_strand_usable(found->second, phase_set)) {
             continue;
         }
-        double v = found->second.lambda;
+        const ReadLambda& rl = found->second;
+        double v = rl.lambda;
+        size_t own_run = NO_RUN;
+        double own_log_odds = 0.0;
         if (auto mine = own.find(ev.read_key[r]); mine != own.end()) {
-            v -= mine->second;
+            own_log_odds = mine->second;
+            v -= own_log_odds;
+            own_run = site_run;
         }
+        size_t run = read_run(rl, own_run);
+        if (run == MIXED_RUNS) {
+            // Only the panel relates the runs' strands, so their parts do not add up. Keep the
+            // part of the preferred run, or else of the run that says most, or nothing if there
+            // are too many runs to tell.
+            ++mixed;
+            v = 0.0;
+            run = NO_RUN;
+            for (size_t i = 0; i < 2 && !rl.many_runs; ++i) {
+                const bool has_own = own_run != NO_RUN && rl.runs[i] == own_run;
+                if (rl.run_sites[i] - (has_own ? 1 : 0) == 0) {
+                    continue;
+                }
+                const double part = rl.run_lambda[i] - (has_own ? own_log_odds : 0.0);
+                if (run == NO_RUN || (rl.runs[i] == prefer_run && run != prefer_run)
+                    || (run != prefer_run && fabs(part) > fabs(v))) {
+                    v = part;
+                    run = rl.runs[i];
+                }
+            }
+        }
+        frame[r] = StrandFrame{phase_set == NO_PHASE_SET ? rl.phase_set : 0, run};
         if (params.shuffle) {
             // Take the sign from the read key, keeping |Lambda|, so that the phase information is
             // removed deterministically.
@@ -355,7 +430,7 @@ static const vector<int>* best_genotype(const map<vector<int>, double>& gl) {
 }
 
 bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
-                                  size_t phase_set,
+                                  size_t phase_set, size_t frame_run,
                                   const unordered_map<uint64_t, double>& own,
                                   const StrandCalibration& calibration, int strand_sign,
                                   const RegenotypeParams& params, map<vector<int>, double>& gl,
@@ -364,8 +439,27 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable
         return false;
     }
     vector<double> loo;
-    if (!read_loo(ev, lambda, phase_set, own, params, loo)) {
+    vector<StrandFrame> frame;
+    size_t mixed = 0;
+    if (!read_loo(ev, lambda, phase_set, NO_RUN, frame_run, own, params, loo, frame, mixed)) {
         return false;
+    }
+    if (frame_run != NO_RUN) {
+        // Only the panel relates another run's strands to this chain's, so `strand_sign` says
+        // nothing about a read from one.
+        bool any = false;
+        bool other = false;
+        for (size_t r = 0; r < ev.num_reads(); ++r) {
+            if (frame[r].second != NO_RUN && frame[r].second != frame_run) {
+                other = other || fabs(loo[r]) > 1e-9;
+                loo[r] = 0.0;
+            }
+            any = any || fabs(loo[r]) > 1e-9;
+        }
+        counters.haploid_other_run += other ? 1 : 0;
+        if (!any) {
+            return false;
+        }
     }
     ++counters.haploid_sites;
 
@@ -415,23 +509,28 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable
 
 namespace {
 
-/// The read terms of one heterozygous genotype, summed over a site's reads, under three
-/// weightings.
+/// The read terms of one heterozygous genotype, summed over each group of a site's reads, under
+/// three weightings.
 struct PairReadTerms {
     /// With strand weights for allele `a` on strand 0.
-    double forward = 0.0;
+    vector<double> forward;
     /// With strand weights for allele `b` on strand 0.
-    double reverse = 0.0;
+    vector<double> reverse;
     /// With the allele-length weights alone.
-    double unphased = 0.0;
+    vector<double> unphased;
 };
 
 /// Sum the read terms of heterozygous genotype {a, b} under each weighting.
 ///
-/// `w` holds the allele-length weights of `a` and `b`, and `tilt` each read's weighting.
+/// `w` holds the allele-length weights of `a` and `b`, `tilt` each read's weighting, and `group`
+/// each read's group, below `n_groups`.
 PairReadTerms pair_read_terms(const PhaseReadEvidence& ev, const vector<ReadTilt>& tilt, int a,
-                              int b, const vector<double>& w) {
+                              int b, const vector<double>& w, const vector<size_t>& group,
+                              size_t n_groups) {
     PairReadTerms terms;
+    terms.forward.assign(n_groups, 0.0);
+    terms.reverse.assign(n_groups, 0.0);
+    terms.unphased.assign(n_groups, 0.0);
     for (size_t r = 0; r < ev.num_reads(); ++r) {
         const double e = ev.mismap[r];
         const double ra = ev.rel_at(r, (size_t)a);
@@ -446,10 +545,10 @@ PairReadTerms pair_read_terms(const PhaseReadEvidence& ev, const vector<ReadTilt
         double s0;
         double s1;
         tilted_weights(w[0], w[1], tilt[r], s0, s1);
-        terms.forward += log((1.0 - e) * mixture_of(s0, s1, ra, rb) + e);
+        terms.forward[group[r]] += log((1.0 - e) * mixture_of(s0, s1, ra, rb) + e);
         tilted_weights(w[1], w[0], tilt[r], s0, s1);
-        terms.reverse += log((1.0 - e) * mixture_of(s1, s0, ra, rb) + e);
-        terms.unphased += log((1.0 - e) * mixture_of(w[0], w[1], ra, rb) + e);
+        terms.reverse[group[r]] += log((1.0 - e) * mixture_of(s1, s0, ra, rb) + e);
+        terms.unphased[group[r]] += log((1.0 - e) * mixture_of(w[0], w[1], ra, rb) + e);
     }
     return terms;
 }
@@ -481,7 +580,7 @@ void count_move(const vector<int>& before, const vector<int>& after,
 }
 
 bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
-                            size_t phase_set, int strand0_allele,
+                            size_t phase_set, size_t site_run, int strand0_allele,
                             const unordered_map<uint64_t, double>& own,
                             const StrandCalibration& calibration, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters) {
@@ -493,14 +592,61 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
     // Compute each read's log-odds leaving this site out, and the weighting they imply, once
     // rather than once per candidate genotype.
     vector<double> loo;
-    if (!read_loo(ev, lambda, phase_set, own, params, loo)) {
+    vector<StrandFrame> frame;
+    size_t mixed = 0;
+    if (!read_loo(ev, lambda, phase_set, site_run, NO_RUN, own, params, loo, frame, mixed)) {
         // No read here spans another site of its phase set, so the correction is zero.
         return false;
     }
+    counters.sites_mixed_reads += mixed > 0 ? 1 : 0;
     vector<ReadTilt> tilt(ev.num_reads());
     for (size_t r = 0; r < ev.num_reads(); ++r) {
         tilt[r] = read_tilt(calibration.log_odds(loo[r]));
     }
+    // Group the reads by the frame of their strands. Group 0, the anchor, is the site's own run
+    // if a read with a strand comes from it, and otherwise the frame with the most such reads.
+    // Reads with no strand, or none from any run, join it, except that at a site with no phase set
+    // those from another phase set make groups of their own.
+    map<StrandFrame, size_t> informative;
+    for (size_t r = 0; r < ev.num_reads(); ++r) {
+        if (fabs(loo[r]) > 1e-9 && frame[r].second != NO_RUN) {
+            ++informative[frame[r]];
+        }
+    }
+    vector<size_t> group(ev.num_reads(), 0);
+    vector<StrandFrame> group_frame;
+    if (informative.size() > 1) {
+        const StrandFrame own_frame {0, site_run};
+        if (phase_set != NO_PHASE_SET && informative.contains(own_frame)) {
+            group_frame.push_back(own_frame);
+        } else {
+            group_frame.push_back(std::ranges::max_element(informative, [](const auto& x,
+                                                                           const auto& y) {
+                return x.second < y.second;
+            })->first);
+        }
+        for (size_t r = 0; r < ev.num_reads(); ++r) {
+            const StrandFrame& f = frame[r];
+            if (fabs(loo[r]) <= 1e-9 || f == group_frame[0]
+                || (f.second == NO_RUN && f.first == group_frame[0].first)) {
+                continue;
+            }
+            const auto known = std::ranges::find(group_frame, f);
+            group[r] = known - group_frame.begin();
+            if (known == group_frame.end()) {
+                group_frame.push_back(f);
+            }
+        }
+    }
+    const size_t n_groups = max<size_t>(1, group_frame.size());
+    // Whether the anchor's strands are in the frame of the site's own order.
+    auto is_own = [&](const StrandFrame& f) {
+        return site_run == NO_RUN || (phase_set != NO_PHASE_SET && f == StrandFrame{0, site_run});
+    };
+    const bool anchor_is_own = !group_frame.empty() ? is_own(group_frame[0])
+                                                    : informative.empty()
+                                                          || is_own(informative.begin()->first);
+    counters.sites_split_runs += n_groups > 1 ? 1 : 0;
 
     const vector<int>* before = best_genotype(gl);
 
@@ -530,15 +676,24 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
         if (w.size() != 2) {
             continue;
         }
-        const PairReadTerms terms = pair_read_terms(ev, tilt, a, b, w);
-        const double correction = max(terms.forward, terms.reverse) - terms.unphased;
+        const PairReadTerms terms = pair_read_terms(ev, tilt, a, b, w, group, n_groups);
+        // The anchor takes the better order. No read relates another group's strands to the
+        // anchor's, so its order is averaged over, with each order equally likely: written so
+        // that a group whose three sums are equal, as at temper 0, adds exactly 0.
+        double correction = max(terms.forward[0], terms.reverse[0]) - terms.unphased[0];
+        for (size_t k = 1; k < n_groups; ++k) {
+            const double f = terms.forward[k];
+            const double r = terms.reverse[k];
+            correction += max(f, r) - log(2.0 / (1.0 + exp(-fabs(f - r)))) - terms.unphased[k];
+        }
         // Compare orders only at the called genotype. At a site with several alleles most pairs
         // are carried by no haplotype, and which order fits such a pair better means nothing.
-        if (before != nullptr && g == *before) {
+        // Only the site's own run is in the frame of its order.
+        if (before != nullptr && g == *before && anchor_is_own) {
             if (strand0_allele == a) {
-                reversed_called = terms.reverse > terms.forward;
+                reversed_called = terms.reverse[0] > terms.forward[0];
             } else if (strand0_allele == b) {
-                reversed_called = terms.forward > terms.reverse;
+                reversed_called = terms.forward[0] > terms.reverse[0];
             }
         }
         ll += correction;

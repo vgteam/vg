@@ -147,9 +147,56 @@ struct FlipVote {
     double total = 0.0;
     /// How many links had any read.
     size_t links = 0;
+    /// The part of `total` from the links to the voting sites of each run (see `PhaseSite::run`).
+    vector<pair<size_t, double>> by_run;
+    /// The part of `total` from the panel, which keeps the order relative to a site of run
+    /// `panel_run`.
+    double panel = 0.0;
+    size_t panel_run = NO_RUN;
 
     /// 1 to flip the site, 0 to keep its order. A tie keeps it.
     int flip() const { return total < 0.0 ? 1 : 0; }
+
+    /// Add `size` to the vote, from a site of run `run`.
+    void add(double size, size_t run) {
+        total += size;
+        if (run == NO_RUN) {
+            return;
+        }
+        auto found = std::ranges::find(by_run, run, &pair<size_t, double>::first);
+        if (found == by_run.end()) {
+            by_run.emplace_back(run, 0.0);
+            found = by_run.end() - 1;
+        }
+        found->second += size;
+    }
+
+    /// Add the panel's vote `size`, for keeping the order relative to a site of run `run`.
+    void add_panel(double size, size_t run) {
+        total += size;
+        panel = size;
+        panel_run = run;
+    }
+
+    /// The run the site's order is relative to: the run whose links agree with the decision and
+    /// add up to the most, the lower run on a tie. If no link agrees, the order came from the
+    /// panel, and it is the panel's run if the panel agrees, or else `NO_RUN`.
+    size_t deciding_run() const {
+        const double sign = flip() ? -1.0 : 1.0;
+        size_t best = NO_RUN;
+        double best_size = 0.0;
+        for (const auto& [run, size] : by_run) {
+            const double agreeing = sign * size;
+            if (agreeing > best_size || (agreeing == best_size && agreeing > 0.0 && run < best)) {
+                best = run;
+                best_size = agreeing;
+            }
+        }
+        if (best == NO_RUN && sign * panel > 0.0) {
+            best = panel_run;
+        }
+        return best;
+    }
 };
 
 /// One read's view of one phase-chain site, for measuring coherence.
@@ -170,10 +217,11 @@ struct ChainObservation {
 class PhaseSetPhaser {
 public:
     /// Prepare to phase the `site_count` sites starting at `first_site`, adding what happens to
-    /// `set_counters`, and the record keys of the sites only reads order to `set_read_ordered`.
+    /// `set_counters`, the record keys of the sites only reads order to `set_read_ordered`, and
+    /// each site's run (see `PhaseSite::run`) to `set_runs`.
     PhaseSetPhaser(const PhaseSite* first_site, size_t site_count,
                    const ReadPhasingParams& phasing_params, ReadPhasingCounters& set_counters,
-                   vector<size_t>& set_read_ordered);
+                   vector<size_t>& set_read_ordered, vector<size_t>& set_runs);
 
     /// Decide every site's flip, and append the record keys of the flipped sites to `flipped`.
     void phase(vector<size_t>& flipped);
@@ -185,6 +233,10 @@ private:
     ReadPhasingCounters& counters;
     /// Record keys of the sites the panel does not order whose reads ordered them.
     vector<size_t>& read_ordered;
+    /// For each site, its run (see `PhaseSite::run`).
+    vector<size_t>& run;
+    /// The number of runs numbered so far.
+    size_t runs = 0;
 
     /// Nearest sites on each side that hanging a site links it to.
     size_t per_side;
@@ -229,6 +281,8 @@ private:
     /// Flip each run of pieces as a whole so that its first site the panel orders keeps the
     /// panel's order.
     void frame_runs();
+    /// Number the runs of the phase chain as the last round left them, in `run`.
+    void number_runs();
     /// Remove the phase-chain sites whose coherence is too low, and reset every flip. Return
     /// whether any site was removed. `final_round` says this is the last round allowed.
     bool remove_incoherent(bool final_round);
@@ -261,10 +315,11 @@ private:
 PhaseSetPhaser::PhaseSetPhaser(const PhaseSite* first_site, size_t site_count,
                                const ReadPhasingParams& phasing_params,
                                ReadPhasingCounters& set_counters,
-                               vector<size_t>& set_read_ordered)
+                               vector<size_t>& set_read_ordered, vector<size_t>& set_runs)
     : first(first_site), n(site_count), params(phasing_params), counters(set_counters),
-      read_ordered(set_read_ordered), per_side(phasing_params.hang / 2 + 1), flip(site_count, 0),
-      decided(site_count, 0) {
+      read_ordered(set_read_ordered), run(set_runs), per_side(phasing_params.hang / 2 + 1),
+      flip(site_count, 0), decided(site_count, 0) {
+    run.assign(site_count, NO_RUN);
     // A site the panel does not order may join the phase chain too. Its reads order it against
     // the rest of the chain, and `frame_runs` takes the panel's order only from sites the panel
     // orders.
@@ -282,6 +337,7 @@ void PhaseSetPhaser::phase(vector<size_t>& flipped) {
     counters.reliable += chain.size();
 
     phase_chain();
+    number_runs();
     counters.breaks += breaks;
     counters.breaks_no_reads += breaks_no_reads;
     counters.coherence_rounds_run = max(counters.coherence_rounds_run, rounds);
@@ -431,6 +487,19 @@ void PhaseSetPhaser::frame_runs() {
     }
 }
 
+void PhaseSetPhaser::number_runs() {
+    // Piece b starts a run unless reads relinked it to the piece before, as in `frame_runs`.
+    runs = 0;
+    for (size_t b = 0; b + 1 < bounds.size(); ++b) {
+        if (b == 0 || !joined[b]) {
+            ++runs;
+        }
+        for (size_t m = bounds[b]; m < bounds[b + 1]; ++m) {
+            run[chain[m]] = runs - 1;
+        }
+    }
+}
+
 void PhaseSetPhaser::count_agreeing_reads(vector<size_t>& agree, vector<size_t>& total) const {
     agree.assign(chain.size(), 0);
     total.assign(chain.size(), 0);
@@ -512,7 +581,7 @@ bool PhaseSetPhaser::add_link_vote(size_t t, size_t u, FlipVote& vote) const {
         return false;
     }
     const int pred = flip[u] ^ (dv < 0.0 ? 1 : 0);
-    vote.total += std::fabs(dv) * (pred == 0 ? 1.0 : -1.0);
+    vote.add(std::fabs(dv) * (pred == 0 ? 1.0 : -1.0), run[u]);
     ++vote.links;
     return true;
 }
@@ -549,8 +618,10 @@ vector<size_t> PhaseSetPhaser::hang_unchained() {
             // The panel votes for keeping this site's order relative to the nearest phase-chain
             // site the panel also orders. The vote is weak, and decides only when reads say
             // nothing.
-            vote.total += params.panel_weight * (flip[nearest_panel_ordered(t)] == 0 ? 1.0 : -1.0);
+            const size_t nearest = nearest_panel_ordered(t);
+            vote.add_panel(params.panel_weight * (flip[nearest] == 0 ? 1.0 : -1.0), run[nearest]);
         }
+        run[t] = vote.deciding_run();
         if (vote.links == 0 && !panel_ordered) {
             // `order_unlinked` counts it if no read orders it there either.
             unlinked.push_back(t);
@@ -600,6 +671,7 @@ void PhaseSetPhaser::order_unlinked(const vector<size_t>& unlinked) {
         flip[t] = vote.flip();
         decided[t] = 1;
         ordered[t] = 1;
+        run[t] = vote.deciding_run();
         done.push_back(t);
     }
 
@@ -617,6 +689,11 @@ void PhaseSetPhaser::order_unlinked(const vector<size_t>& unlinked) {
         flip[t] = vote.flip();
         decided[t] = 1;
         ordered[t] = ordered[t] || vote.links > 0;
+        // Such sites are ordered only among themselves, so each set that reads join is a run.
+        run[t] = vote.deciding_run();
+        if (run[t] == NO_RUN) {
+            run[t] = runs++;
+        }
     }
 
     for (size_t t : unlinked) {
@@ -704,16 +781,20 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
     vector<ReadPhasingCounters> set_counters(phase_sets.size());
     vector<vector<size_t>> set_flips(phase_sets.size());
     vector<vector<size_t>> set_read_ordered(phase_sets.size());
+    vector<vector<size_t>> set_runs(phase_sets.size());
 
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t set_index : by_length) {
         const auto [begin, end] = phase_sets[set_index];
         PhaseSetPhaser phaser(sites.data() + begin, end - begin, params, set_counters[set_index],
-                              set_read_ordered[set_index]);
+                              set_read_ordered[set_index], set_runs[set_index]);
         phaser.phase(set_flips[set_index]);
     }
 
     for (size_t i = 0; i < phase_sets.size(); ++i) {
+        for (size_t t = 0; t < set_runs[i].size(); ++t) {
+            sites[phase_sets[i].first + t].run = set_runs[i][t];
+        }
         add_phase_set_counters(set_counters[i], counters);
         // Insert one at a time, as the set's iteration order can depend on how it grew.
         for (size_t key : set_flips[i]) {

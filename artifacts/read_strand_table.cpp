@@ -87,22 +87,42 @@ double ReadStrandTable::read_strand_log_odds(size_t record_key, std::string_view
         // `build_site_anchors`).
         return std::numeric_limits<double>::quiet_NaN();
     }
-    double value = found->second.lambda;
-    size_t sites = found->second.sites;
+    const ReadLambda& rl = found->second;
+    double value = rl.lambda;
+    size_t sites = rl.sites;
     // Subtract the contribution of this site, so that a site is not judged by its own evidence.
     // Keep `built` in this scope, because `site_own` can point to it.
     unordered_map<uint64_t, double> built;
     if (site_own == nullptr && site_own_strand_log_odds(record_key, built)) {
         site_own = &built;
     }
+    double own_log_odds = 0.0;
+    bool has_own = false;
     if (site_own != nullptr) {
         const auto mine = site_own->find(key);
         if (mine != site_own->end()) {
-            value -= mine->second;
+            own_log_odds = mine->second;
+            has_own = true;
+            value -= own_log_odds;
             if (sites > 0) {
                 --sites;
             }
         }
+    }
+    // The site's order is in the frame of its run, so a strand from another run says nothing
+    // about which slot the read belongs to.
+    const auto site = lambda_site.find(record_key);
+    const size_t site_run = site != lambda_site.end() ? site->second->run : NO_RUN;
+    const size_t run = site_run != NO_RUN ? read_run(rl, has_own ? site_run : NO_RUN) : NO_RUN;
+    if (run == MIXED_RUNS) {
+        const size_t i = rl.runs[0] == site_run ? 0 : 1;
+        if (rl.many_runs || rl.runs[i] != site_run) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        value = rl.run_lambda[i] - (has_own ? own_log_odds : 0.0);
+        sites = rl.run_sites[i] - (has_own ? 1 : 0);
+    } else if (run != NO_RUN && run != site_run) {
+        return std::numeric_limits<double>::quiet_NaN();
     }
     if (sites == 0) {
         return 0.0;

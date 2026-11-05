@@ -96,8 +96,11 @@ public:
      * Leaving out the site keeps a site from judging its own reads. A positive value favors anchor
      * slot 0. The value is 0 when there is no table, no fitted temper, or no other site the read
      * contributed to. It is NaN when the read has a strand that is not usable in the phase set of
-     * the site (see `read_strand_usable`); a split homozygous site drops such a read, but places a
-     * read with no strand by a coin.
+     * the site (see `read_strand_usable`), or, at a site with a run (`PhaseSite::run`), that comes
+     * only from other runs, whose strands only the panel relates to the site's, or from more than
+     * two runs; a split homozygous site drops such a read, but places a read with no strand by a
+     * coin. A read whose other sites lie in the site's run and one other counts only those in the
+     * site's run.
      *
      * @param site_own The log-odds of each read at this site alone, from
      * `site_own_strand_log_odds` for the same `record_key`, or null to compute them here. A caller
