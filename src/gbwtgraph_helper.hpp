@@ -145,6 +145,11 @@ struct MinimizerIndexParameters {
     /// Lower bound for `hash_table_width`.
     constexpr static size_t HASH_TABLE_MIN_WIDTH = 10;
 
+    /// Distinct keys per expected minimizer (length * density); repeats and shared
+    /// alleles make it < 1. Measured on HPRC v2.0 graphs (k = 29, w = 11): 0.83-0.84,
+    /// but 1.0 on the full whole-genome graph. Kept low; see estimate_keys().
+    constexpr static double KEY_ESTIMATE_FACTOR = 0.8;
+
     /// Upper bound for `hash_table_width`.
     constexpr static size_t HASH_TABLE_MAX_WIDTH = 36;
 
@@ -186,6 +191,10 @@ struct MinimizerIndexParameters {
 
     /// Initial hash table width (in bits) for kmer counting (0 = guess).
     size_t hash_table_width = 0;
+
+    /// Expected number of keys in the minimizer index (0 = estimate from the
+    /// total sequence length). Used for pre-sizing the hash table.
+    size_t expected_keys = 0;
 
     /// Print progress information during construction.
     bool progress = false;
@@ -232,6 +241,12 @@ struct MinimizerIndexParameters {
 
     /// Returns an error message if the parameters are invalid.
     std::string validate() const;
+
+    /// Returns `expected_keys` or an estimate of the distinct keys, used to pre-size
+    /// the hash table. The estimate is kept low on purpose: too low only costs the
+    /// rehashing that would happen anyway, but the table never shrinks, so too high
+    /// may leave it larger than needed.
+    size_t estimate_keys(size_t sequence_length) const;
 
     /// Returns a string representation of the payload type.
     /// This will be used as a tag value in the minimizer index.
