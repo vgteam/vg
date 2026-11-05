@@ -230,6 +230,15 @@ protected:
     void initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header = false);
 };
 
+/// Emit all alternatives of one already-surjected fragment as one output group.
+/// Each alternative contains mate 1 and mate 2, each principal first followed by
+/// its supplementary pieces. Both mate vectors must be nonempty. Flags, mate links,
+/// SA tags, and proper_pair annotations must already be set. HTS output calculates
+/// principal TLENs and writes supplementary TLEN as zero. Other formats retain the
+/// Alignment metadata. The whole group is contiguous even with concurrent callers.
+void emit_paired_group(AlignmentEmitter& emitter,
+    vector<pair<vector<Alignment>, vector<Alignment>>>&& alternatives, int64_t tlen_limit);
+
 /**
  * Emit Alignments to a stream in SAM/BAM/CRAM format.
  * Thread safe.
@@ -268,6 +277,10 @@ public:
     void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
         vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
+    /// HTS implementation of the grouped paired-output contract above.
+    void emit_paired_group(vector<pair<vector<Alignment>, vector<Alignment>>>&& alternatives,
+                           int64_t tlen_limit);
+
 private:
     
     virtual void convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const;
