@@ -98,6 +98,12 @@ void LoggedGapAlignmentScorer::count_alignment_operations(const Alignment& aln,
                     prev_type = EditType::MISMATCH;
                 }
             } else if (edit.from_length() == 0 && edit.to_length() > 0) {
+                // Ignore softclips
+                if ((i == 0 && j == 0) 
+                    || (i == aln.path().mapping_size() - 1 && j == mapping.edit_size() - 1)) {
+                    continue;
+                }
+                
                 if (prev_type != EditType::INS) finish_gap();
                 current_gap_length += edit.to_length();
                 prev_type = EditType::INS;
