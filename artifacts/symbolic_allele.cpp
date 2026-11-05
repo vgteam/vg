@@ -105,6 +105,24 @@ bool symbolically_equal(const HandleGraph& graph, const Traversal& a, const Trav
     return symbolic_allele(graph, a, children) == symbolic_allele(graph, b, children);
 }
 
+vector<int> candidate_groups(const HandleGraph& graph, const vector<Traversal>& walks,
+                             const multipass::SiteChildren& children) {
+    // Number the groups in the order of their first walks. A walk whose symbolic allele is new
+    // starts the next group.
+    unordered_map<SymbolicAllele, int> numbered;
+    vector<int> group_of;
+    group_of.reserve(walks.size());
+    for (const Traversal& walk : walks) {
+        const auto next = (int)numbered.size();
+        group_of.push_back(numbered.try_emplace(symbolic_allele(graph, walk, children), next)
+                               .first->second);
+    }
+    if (numbered.size() == walks.size()) {
+        return {};
+    }
+    return group_of;
+}
+
 
 namespace {
 

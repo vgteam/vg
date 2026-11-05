@@ -5,7 +5,9 @@ own, from the site's reads. For each genotype $G$ that the site could have, it c
 genotype's **site likelihood** $\mathcal{L}(G)$, a number that measures how well $G$ explains the
 reads. The genotype with the highest site likelihood is the site's **direct call**. No prior over
 genotypes is applied, so the direct call is the maximum-likelihood genotype (ties are broken as
-[Direct genotype](read-likelihood-genotyping.md#direct-genotype) says).
+[Direct genotype](read-likelihood-genotyping.md#direct-genotype) says). Where the site's candidate
+alleles have groups, the grouped likelihood takes the place of the site likelihood (see
+[Groups of alleles](#groups-of-alleles)).
 
 Direct genotyping hands the rest of the caller the site likelihood of every genotype, the direct
 call, and two kinds of value for each of the site's reads: its mismapping probability, and one
@@ -118,6 +120,15 @@ error that follows.
 | $U_i(G)$ | at ploidy 2, the length in bases of the nodes that $g_i$ visits and the other allele of $G$ does not, each node counted once |
 | $\bar L$ | the mean length of the reads that begin in the site's rate window (see [Depth term inputs](#depth-term-inputs)) |
 | $\kappa$ | the read-start rate: the expected number of correctly mapped reads that begin at each base of one haplotype near the site |
+| $\gamma, \gamma'$ | groups of candidate alleles (see [Groups of alleles](#groups-of-alleles)) |
+| $\gamma(a)$ | the group of allele $a$ |
+| $X, X'$ | multisets of groups |
+| $\mathrm{own}(G)$, $\mathrm{shared}(G)$ | the own and shared scores of $G$; of a multiset $X$, the best of its genotypes' scores |
+| $\mathrm{own}_R$, $\mathrm{shared}_R$ | the own and shared scores without the depth term |
+| $\Delta(X)$ | the gain of $X$: $\mathrm{shared}_R(X) - \mathrm{own}_R(X)$ |
+| $X \oplus \gamma$ | $X$ with one more copy of the group $\gamma$ |
+| $c(X)$ | the charge of $X$ |
+| $\tilde{\mathcal{L}}(G)$ | the grouped likelihood of $G$ |
 
 ## Likelihood formula
 
@@ -365,6 +376,75 @@ $T_{g_i} + \bar L - 1$ is the number of positions at which a read of length $\ba
 the haplotype and still include some of the interior of $g_i$. When $g_i$ has no interior
 ($T_{g_i} = 0$), it is the number of positions from which a read reaches across the junction
 between the two boundary nodes.
+
+## Groups of alleles
+
+The candidate alleles of a site can have **groups**: sets of alleles that take one route through
+the site and differ only inside child chains (see
+[Choosing among alleles that differ inside child chains](read-likelihood-genotyping.md#choosing-among-alleles-that-differ-inside-child-chains)).
+Where they do, the groups choose the site's genotype, and the alleles choose within the chosen
+groups. vg does this by giving each genotype a **grouped likelihood** $\tilde{\mathcal{L}}(G)$,
+which takes the place of $\mathcal{L}(G)$. This section builds it from two scores of each multiset
+of groups, and a charge on each multiset.
+
+### Shared and own scores
+
+$\gamma(a)$ is the group of allele $a$. A genotype's **multiset of groups** holds the group of each
+of its alleles. Each genotype $G$ has two scores:
+
+- its **own score**, $\mathrm{own}(G) = \ln \mathcal{L}(G)$;
+- its **shared score**, $\mathrm{shared}(G)$, which is $\ln \mathcal{L}(G)$ with each relative
+  likelihood $p_{r g_i}$ replaced by $\max_{b \in \gamma(g_i)} p_{rb}$, the read's best relative
+  likelihood over the allele's group.
+
+The shared score lets each read choose its allele within each copy of a group. A multiset $X$ of
+groups takes the best of each score over the genotypes whose multiset of groups is $X$:
+$\mathrm{own}(X)$ is the best own score among them, and $\mathrm{shared}(X)$ the best shared score.
+$\mathrm{own}_R$ and $\mathrm{shared}_R$ are the same scores without the [depth term](#depth-term).
+
+### Charge
+
+The **gain** $\Delta(X) = \mathrm{shared}_R(X) - \mathrm{own}_R(X)$ is how much better the reads fit
+when each read chooses its allele within each copy of a group. The gain measures how the reads fit
+the alleles, so it leaves out the depth term, which scores only the number of reads. The choice is
+right where a haplotype is a mosaic of the alleles of a group, and wrong where one copy of a group
+carries the reads of two haplotypes. To tell the two apart, vg scores $X \oplus \gamma$, which is
+$X$ with one more copy of one of its groups $\gamma$ of two or more alleles, at ploidy $P + 1$. A
+copy that carried the reads of a second haplotype hands them to the new copy, so the gain drops.
+One more allele of the group does not spell a mosaic either, so a mosaic should lose less of its
+gain, though how much it keeps depends on the reads. The **charge** of $X$ is the largest drop,
+
+$$
+c(X) = \max\left(0,\ \max_{\gamma} \left[\Delta(X) - \Delta(X \oplus \gamma)\right]\right)
+$$
+
+with $\gamma$ over the groups of $X$ that have two or more alleles. A multiset with no such group
+has a charge of 0.
+
+### Scores at one more copy
+
+The number of genotypes at ploidy $P + 1$ grows with the cube of the number of alleles at a diploid
+site, so vg scores $X \oplus \gamma$ from fewer genotypes. For each group $\gamma'$ of two or more
+alleles that $X \oplus \gamma$ holds at least twice, removing one copy of $\gamma'$ from
+$X \oplus \gamma$ gives a multiset $X'$ at ploidy $P$. $X'$ has a best genotype by
+$\mathrm{shared}_R$ and a best by $\mathrm{own}_R$, the first in VCF `GL` order over the candidate
+alleles where genotypes tie. Adding any one allele of $\gamma'$ to either of them gives a genotype of $X \oplus \gamma$.
+$\mathrm{shared}_R(X \oplus \gamma)$ and $\mathrm{own}_R(X \oplus \gamma)$ are the best scores over
+all the genotypes made this way.
+
+### Grouped likelihood
+
+A genotype $G$ whose multiset of groups is $X$ has the grouped likelihood
+
+$$
+\ln \tilde{\mathcal{L}}(G) = \mathrm{shared}(X) - c(X) - \left(\mathrm{own}(X) - \ln \mathcal{L}(G)\right)
+$$
+
+The highest grouped likelihood goes to the genotype with the highest $\mathcal{L}(G)$ in the
+multiset with the highest $\mathrm{shared}(X) - c(X)$. The runner-up, whose gap to the best sets
+`GQ`, is either the next genotype of that multiset or the best genotype of the next multiset.
+A genotype with $\mathcal{L}(G) = 0$ has $\tilde{\mathcal{L}}(G) = 0$. Where the alleles form one
+group, $\tilde{\mathcal{L}}(G) = \mathcal{L}(G)$.
 
 ## Computing the terms
 

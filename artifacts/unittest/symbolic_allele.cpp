@@ -558,5 +558,49 @@ TEST_CASE("Symbolic alleles hash by value", "[symbolic_allele]") {
     REQUIRE(h(symbolic_allele(via_a, top, *mgr)) == h(symbolic_allele(via_b, top, *mgr)));
 }
 
+TEST_CASE("Candidate groups join the walks that differ only inside child chains",
+          "[symbolic_allele][group_candidates]") {
+    const HandleGraph& graph = test_graph();
+    Snarl top = make_snarl(1, 9);
+    auto mgr = make_manager(top, {make_snarl(2, 4), make_snarl(5, 7)});
+    const SiteChildren children = children_of_site(top, *mgr);
+    // A walk that crosses the chain 2..4 backward, through `inner`, then the chain 5..7 forward,
+    // through `second_inner`.
+    auto inverted = [&graph](nid_t inner, nid_t second_inner) {
+        return Traversal{graph.get_handle(1), graph.get_handle(4, true),
+                         graph.get_handle(inner, true), graph.get_handle(2, true),
+                         graph.get_handle(5), graph.get_handle(second_inner), graph.get_handle(7),
+                         graph.get_handle(9)};
+    };
+    vector<Traversal> walks = walks_of(graph, {make_trav({1, 2, 3, 4, 5, 6, 7, 9}),
+                                               make_trav({1, 2, 30, 4, 5, 6, 7, 9})});
+    walks.push_back(inverted(3, 6));
+    walks.push_back(inverted(30, 6));   // differs from the last inside the inverted chain
+    walks.push_back(inverted(3, 60));   // differs from the one before it inside the chain 5..7
+
+    // Walks that cross the same chains in the same orientations share a group, whatever they visit
+    // inside the chains. Crossing the chain 2..4 backward is another route.
+    REQUIRE(candidate_groups(graph, walks, children) == vector<int>({0, 0, 1, 1, 1}));
+
+    SECTION("walks that differ only inside a chain the reference walk does not cross share a group") {
+        // The reference walk, the first, skips the chain 2..4.
+        vector<Traversal> skipping = walks_of(graph, {make_trav({1, 5, 6, 7, 9}),
+                                                      make_trav({1, 2, 3, 4, 5, 6, 7, 9}),
+                                                      make_trav({1, 2, 30, 4, 5, 6, 7, 9}),
+                                                      make_trav({1, 5, 60, 7, 9})});
+        REQUIRE(candidate_groups(graph, skipping, children) == vector<int>({0, 1, 1, 0}));
+    }
+    SECTION("walks that cross a chain twice share a group where they differ only inside it") {
+        vector<Traversal> twice = walks_of(graph, {make_trav({1, 2, 3, 4, 5, 6, 7, 9}),
+                                                   make_trav({1, 2, 3, 4, 2, 3, 4, 9}),
+                                                   make_trav({1, 2, 30, 4, 2, 3, 4, 9})});
+        REQUIRE(candidate_groups(graph, twice, children) == vector<int>({0, 1, 1}));
+    }
+    SECTION("without a child chain, there are no groups") {
+        auto leaf_mgr = make_manager(top, {});
+        REQUIRE(candidate_groups(graph, walks, children_of_site(top, *leaf_mgr)).empty());
+    }
+}
+
 }
 }

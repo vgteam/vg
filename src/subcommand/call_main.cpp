@@ -609,6 +609,11 @@ void help_call(char** argv) {
          << "                            not as part of the enclosing snarl's alleles [on]" << endl
          << "      --no-nested           report variation inside nested snarls as part of" << endl
          << "                            the enclosing snarl's alleles" << endl
+         << "      --group-candidates    choose a snarl's genotype over groups of its" << endl
+         << "                            alleles that differ only inside nested snarls," << endl
+         << "                            then the alleles within the chosen groups [on]" << endl
+         << "      --no-group-candidates" << endl
+         << "                            choose a snarl's genotype over its alleles alone" << endl
          << "      --atomize-blocks      write one record per separate difference between" << endl
          << "                            a called allele and the reference, rather than one" << endl
          << "                            per snarl [on]" << endl
@@ -820,9 +825,9 @@ void help_call(char** argv) {
          << "                            the ploidy of every reference path whose whole" << endl
          << "                            name REGEX matches. The first matching rule wins," << endl
          << "                            and unmatched paths get the ploidy from -d." << endl
-         << "      --top-down            genotype nested snarls after their parents, each" << endl
-         << "                            child's candidate alleles taken from its parent's" << endl
-         << "                            genotype" << endl
+         << "      --top-down            support-based caller only: genotype nested" << endl
+         << "                            snarls after their parents, each child's" << endl
+         << "                            candidate alleles taken from its parent's genotype" << endl
          << "      --bottom-up           genotype nested snarls before their parents" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "  -L, --cluster F           merge called alt alleles whose length-weighted" << endl
@@ -831,8 +836,8 @@ void help_call(char** argv) {
          << "      --cluster-min-len N   apply -L only at sites whose longest allele, less" << endl
          << "                            the prefix and suffix all alleles share, is at" << endl
          << "                            least N bp; 0 for every site [50]" << endl
-         << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
-         << "                            (requires --top-down)" << endl
+         << "  -Y, --star-allele         support-based caller only: use * alleles for" << endl
+         << "                            spanning haplotypes (requires --top-down)" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
@@ -902,6 +907,7 @@ int main_call(int argc, char** argv) {
     // Both on by default, and turned off below where they cannot apply.
     bool atomize_blocks = true;
     bool nested_calling = true;
+    bool group_candidates = true;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -1017,6 +1023,8 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_OFF_PANEL_INDELS = 1117;
     constexpr int OPT_OFF_PANEL_SVS = 1118;
     constexpr int OPT_NO_OFF_PANEL = 1119;
+    constexpr int OPT_GROUP_CANDIDATES = 1121;
+    constexpr int OPT_NO_GROUP_CANDIDATES = 1122;
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
@@ -1163,6 +1171,8 @@ int main_call(int argc, char** argv) {
             {"enumerate-support", no_argument, nullptr, OPT_ENUMERATE_SUPPORT},
             {"nested", no_argument, nullptr, OPT_NESTED},
             {"no-nested", no_argument, nullptr, OPT_NO_NESTED},
+            {"group-candidates", no_argument, nullptr, OPT_GROUP_CANDIDATES},
+            {"no-group-candidates", no_argument, nullptr, OPT_NO_GROUP_CANDIDATES},
             {"atomize-blocks", no_argument, nullptr, OPT_ATOMIZE_BLOCKS},
             {"no-atomize-blocks", no_argument, nullptr, OPT_NO_ATOMIZE_BLOCKS},
             {"phased", no_argument, nullptr, OPT_PHASED},
@@ -1582,6 +1592,12 @@ int main_call(int argc, char** argv) {
             nested_calling = false;
 
             break;
+        case OPT_GROUP_CANDIDATES:
+            group_candidates = true;
+            break;
+        case OPT_NO_GROUP_CANDIDATES:
+            group_candidates = false;
+            break;
         case OPT_NO_PHASED:
             phased_output = false;
             break;
@@ -1816,12 +1832,6 @@ int main_call(int argc, char** argv) {
             logger.error() << "--atomize-blocks cannot be combined with -a/--genotype-snarls: "
                            << "a block list depends on the called haplotypes, so the record set "
                            << "would stop being sample-independent" << endl;
-        }
-        atomize_blocks = false;
-    }
-    if (atomize_blocks && top_down) {
-        if (is_explicit("atomize-blocks")) {
-            logger.error() << "--atomize-blocks cannot be combined with --top-down" << endl;
         }
         atomize_blocks = false;
     }
@@ -2078,6 +2088,12 @@ int main_call(int argc, char** argv) {
         }
         if (bottom_up) {
             modes.emplace_back("--bottom-up");
+        }
+        if (top_down) {
+            modes.emplace_back("--top-down");
+        }
+        if (star_allele) {
+            modes.emplace_back("-Y/--star-allele");
         }
         if (call_chains) {
             modes.emplace_back("-I/--chains");
@@ -2729,8 +2745,7 @@ int main_call(int argc, char** argv) {
                                                            ref_paths, ref_path_offsets,
                                                            ref_path_ploidies),
                                                        genotype_snarls,
-                                                       make_pair(min_allele_len, max_allele_len),
-                                                       top_down, star_allele));
+                                                       make_pair(min_allele_len, max_allele_len)));
         } else if (top_down) {
             // Use FlowCaller with nested mode enabled (top-down genotype propagation)
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
@@ -2826,20 +2841,6 @@ int main_call(int argc, char** argv) {
             return 1;
         }
         regenotype = false;
-    }
-    // --top-down gives each child snarl candidate traversals derived from its parent's called
-    // genotype, so re-genotyping, which can change that genotype afterwards, would leave the child
-    // genotyped against the wrong alleles. An explicit --regenotype with it is an error. One set by
-    // a preset is turned off.
-    if (regenotype && top_down && !is_explicit("regenotype")) {
-        regenotype = false;
-    }
-    if (regenotype && top_down) {
-        cerr << "error [vg call]: --regenotype cannot be combined with --top-down; --top-down"
-             << " derives each child's candidate traversals from its parent's called genotype, so"
-             << " re-genotyping a parent would leave its children genotyped against alleles it no"
-             << " longer carries" << endl;
-        return 1;
     }
     // Splitting homozygous sites, placing heterozygous reads by phase, and re-genotyping all use
     // each read's strand log-odds, which read phasing computes.
@@ -3104,6 +3105,7 @@ int main_call(int argc, char** argv) {
     }
 
     if (multipass_caller != nullptr) {
+        multipass_caller->set_group_candidates(group_candidates);
         multipass_caller->set_show_progress(show_progress);
     } else {
         graph_caller->set_show_progress(show_progress);
