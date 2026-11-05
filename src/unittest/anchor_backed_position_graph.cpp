@@ -3,24 +3,11 @@
 ///
 /// Unit tests for AnchorBackedPositionGraph.
 ///
-/// We validate the adapter's contract directly with hand-computed truth: for
-/// a tiny in-memory graph + path, we know exactly which step is at which
-/// base position. The adapter must return those positions and steps
-/// regardless of how anchors are arranged.
-///
-/// If the adapter passes these tests, Surjector running against
-/// AnchorBackedPositionGraph behaves identically to Surjector against a
-/// real PathPositionHandleGraph — because Surjector's only interaction with
-/// the position-graph layer is through get_path_length /
-/// get_position_of_step / get_step_at_position (plus delegated PathHandleGraph
-/// ops, which we forward to base_).
-///
-/// Why not compare to bdsg::ReferencePathOverlay directly: it uses its own
-/// step_handle_t encoding (`(path_handle, step_index)`, see
-/// libbdsg/bdsg/src/reference_path_overlay.cpp:428-454). The adapter
-/// delegates step iteration to its base PathHandleGraph (HashGraph here),
-/// so step_handles aren't byte-comparable across the two implementations.
-/// The hand-computed truth is simpler and just as strict.
+/// Most tests check positions and steps against ones worked out by hand on a
+/// small path, for different sets of anchors. They do not compare against a
+/// ReferencePathOverlay, because its step handles are its own and differ from
+/// those of the base graph. One test checks that surjecting through this graph
+/// and through a ReferencePathOverlay gives the same alignments.
 ///
 
 #include "catch.hpp"
@@ -41,9 +28,9 @@ namespace unittest {
 
 namespace {
 
-/// Build a fresh small test graph + path.
+/// Build a small graph with one path, y, that visits two nodes twice.
 ///
-/// Nodes (mirrors pangenome-index's coord_translation_tests/test0_target_loop):
+/// Nodes:
 ///   n1: ATCG  (len 4)
 ///   n2: A     (len 1)
 ///   n3: G     (len 1)
@@ -53,14 +40,13 @@ namespace {
 ///   n7: TAG   (len 3)
 ///
 /// Path y: n1, n3, n4, n1, n2, n4, n6, n7. Length 20 bases, 8 steps.
-/// y revisits n1 (steps 0 and 3) and n4 (steps 2 and 5) — exercises the
-/// tandem-repeat handling.
+/// y visits n1 at steps 0 and 3, and n4 at steps 2 and 5.
 struct TestGraph {
     bdsg::HashGraph graph;
     handle_t n1, n2, n3, n4, n5, n6, n7;
     path_handle_t y;
     std::vector<step_handle_t> y_steps;          // in path order
-    std::vector<size_t>        y_positions;       // base offset of each step's first base
+    std::vector<size_t>        y_positions;       // offset of the first base of each step
     size_t                     y_total_length = 0;
 };
 
@@ -101,6 +87,7 @@ TestGraph build_test_graph() {
     return t;
 }
 
+/// Make an anchor whose run is the single step at pos_begin.
 PrecomputedAnchor anchor_for_step(const step_handle_t& step, size_t pos_begin) {
     PrecomputedAnchor a;
     a.step_begin = step;
@@ -110,7 +97,7 @@ PrecomputedAnchor anchor_for_step(const step_handle_t& step, size_t pos_begin) {
     return a;
 }
 
-/// Hand-computed expected step at each base position on y.
+/// Return the index of the step of y that covers a position.
 /// Path y bases: [0..3]=n1, 4=n3, [5..7]=n4, [8..11]=n1, 12=n2, [13..15]=n4,
 ///               16=n6, [17..19]=n7.
 size_t expected_step_index_at(size_t pos) {
@@ -189,9 +176,8 @@ TEST_CASE("AnchorBackedPositionGraph: sparse anchors exercise the walk fallback"
 
     TestGraph t = build_test_graph();
 
-    // Only the first and last steps are in the anchor set. Every other
-    // step's position must be discovered via the LF-walk fallback in
-    // get_position_of_step.
+    // Only the first and last steps are anchors, so every other position
+    // comes from walking the path.
     std::vector<PrecomputedAnchor> anchors;
     anchors.push_back(anchor_for_step(t.y_steps.front(), t.y_positions.front()));
     anchors.push_back(anchor_for_step(t.y_steps.back(),  t.y_positions.back()));
@@ -226,10 +212,9 @@ TEST_CASE("AnchorBackedPositionGraph: sparse anchors exercise the walk fallback"
 TEST_CASE("AnchorBackedPositionGraph: tandem-repeat steps are disambiguated",
           "[surject][anchors][anchor_backed_graph]") {
 
-    // y visits n1 at steps 0 (base 0) and 3 (base 8); n4 at steps 2 (base 5)
-    // and 5 (base 13). Make sure that with only the first occurrence of each
-    // repeated node in the anchor set, position queries for the SECOND
-    // occurrence still resolve correctly via the walk fallback.
+    // y visits n1 at steps 0 (base 0) and 3 (base 8), and n4 at steps 2
+    // (base 5) and 5 (base 13). Only the first visits are anchors. The
+    // second visits must get their own positions.
 
     TestGraph t = build_test_graph();
     std::vector<PrecomputedAnchor> anchors;
@@ -294,7 +279,7 @@ TEST_CASE("AnchorBackedPositionGraph: out-of-scope queries throw",
 
     TestGraph t = build_test_graph();
 
-    // Add a second path so we can ask about it.
+    // A second path, which the graph knows no positions on.
     path_handle_t x = t.graph.create_path_handle("x");
     t.graph.append_step(x, t.n1);
     t.graph.append_step(x, t.n2);
@@ -312,15 +297,13 @@ TEST_CASE("AnchorBackedPositionGraph: out-of-scope queries throw",
 }
 
 // ---------------------------------------------------------------------------
-// Differential test: Surjector through the overlay vs through the adapter.
-// The strongest possible test — runs the full surject pipeline twice and
-// asserts identical output. Passing this proves the adapter is fully
-// interchangeable with bdsg::ReferencePathOverlay for surject's purposes.
+// Surject the same alignment through a ReferencePathOverlay and through an
+// AnchorBackedPositionGraph, and compare the results.
 // ---------------------------------------------------------------------------
 
 namespace {
 
-/// Append a "perfect match" Mapping covering `len` bases of node `h` to a Path.
+/// Append a mapping that matches len bases of h, from its start, to a path.
 void append_match_mapping(::vg::Path* path, const bdsg::HashGraph& g,
                           handle_t h, size_t len) {
     ::vg::Mapping* m = path->add_mapping();
@@ -333,8 +316,7 @@ void append_match_mapping(::vg::Path* path, const bdsg::HashGraph& g,
     e->set_to_length(len);
 }
 
-/// Build a simple source Alignment that walks n1 → n3 → n4 on the graph
-/// (= first 3 steps of path y, sequence ATCGGTTC).
+/// Build an alignment of ATCGGTTC to n1, n3 and n4, the first three steps of y.
 ::vg::Alignment make_test_alignment(const TestGraph& t) {
     ::vg::Alignment aln;
     aln.set_name("read1");
@@ -354,22 +336,20 @@ TEST_CASE("Surject(adapter) == Surject(overlay) on the same alignment",
 
     TestGraph t = build_test_graph();
 
-    // Ground truth: real reference-path overlay over y.
+    // The expected results come from a position index over y.
     bdsg::ReferencePathOverlay overlay(&t.graph,
                                       /*all_paths=*/false,
                                       std::unordered_set<std::string>{ "y" });
 
-    // Adapter: AnchorBackedPositionGraph with dense anchors covering y.
+    // Every step of y is an anchor.
     std::vector<PrecomputedAnchor> anchors;
     for (size_t i = 0; i < t.y_steps.size(); ++i) {
         anchors.push_back(anchor_for_step(t.y_steps[i], t.y_positions[i]));
     }
     AnchorBackedPositionGraph adapter(&t.graph, anchors, t.y, t.y_total_length);
 
-    // Source alignment: 8-base read walking the first 3 nodes of y.
     ::vg::Alignment source = make_test_alignment(t);
 
-    // Surject through both.
     Surjector surjector_overlay(&overlay);
     Surjector surjector_adapter(&adapter);
 
@@ -423,18 +403,14 @@ TEST_CASE("Surject(adapter) == Surject(overlay) on the same alignment",
 }
 
 // ---------------------------------------------------------------------------
-// Regression tests for the two performance bugs fixed in this graph.
+// Tests of how much work a query does
 // ---------------------------------------------------------------------------
 
 TEST_CASE("AnchorBackedPositionGraph: get_position_of_step walks O(gap) to the "
           "nearest known step, not O(path) from the start [regression]",
           "[surject][anchors][anchor_backed_graph][regression]") {
 
-    // Bug: get_position_of_step re-walked FORWARD from path_begin on every cache
-    // miss, so a query near the end of a long path cost O(path) — and K such
-    // queries cost O(path^2). The fix walks BACKWARD from the queried step to the
-    // nearest known position and backfills. With an anchor at step 5, querying
-    // step 6 must take exactly one hop (6 -> 5), not six (begin -> 6).
+    // With an anchor at step 5, a query for step 6 walks one step back to it.
     TestGraph t = build_test_graph();
 
     std::vector<PrecomputedAnchor> anchors;
@@ -446,7 +422,7 @@ TEST_CASE("AnchorBackedPositionGraph: get_position_of_step walks O(gap) to the "
         g_anchor_graph_stats = {};
         REQUIRE(adapter.get_position_of_step(t.y_steps[6]) == t.y_positions[6]);
         REQUIRE(g_anchor_graph_stats.pos_of_step_calls == 1);
-        REQUIRE(g_anchor_graph_stats.pos_of_step_walk == 1);   // 6 -> 5, not begin -> 6
+        REQUIRE(g_anchor_graph_stats.pos_of_step_walk == 1);   // 6 -> 5
     }
 
     SECTION("a repeated query is served from the memoized backfill (0 walk)") {
@@ -461,11 +437,8 @@ TEST_CASE("AnchorBackedPositionGraph: for_each_step_on_handle returns only the "
           "target path's steps, not every haplotype's [regression]",
           "[surject][anchors][anchor_backed_graph][regression]") {
 
-    // Bug: for_each_step_on_handle delegated to the base graph, enumerating EVERY
-    // path's steps on a node (O(#haplotypes) per node) — the 12s surjection. The
-    // fix returns only the target path's steps over the read's overlap region.
-    // Here n1 is visited by y (twice) and by a second path x; the adapter must
-    // return exactly y's two visits and none of x's.
+    // y visits n1 twice and a second path, x, visits it once. Only y's two
+    // visits are reported.
     TestGraph t = build_test_graph();
 
     path_handle_t x = t.graph.create_path_handle("x");
@@ -473,7 +446,7 @@ TEST_CASE("AnchorBackedPositionGraph: for_each_step_on_handle returns only the "
     t.graph.append_step(x, t.n1);   // x also visits n1
     t.graph.append_step(x, t.n4);   // ...and n4
 
-    // One anchor spanning the whole of y, so the target region covers every y node.
+    // One anchor whose run is all of y.
     PrecomputedAnchor whole;
     whole.step_begin = t.y_steps.front();
     whole.step_end   = t.y_steps.back();
@@ -491,7 +464,7 @@ TEST_CASE("AnchorBackedPositionGraph: for_each_step_on_handle returns only the "
         adapter.for_each_step_on_handle(t.n1, [&](const step_handle_t& s) {
             got.push_back(s); return true; });
         REQUIRE(got.size() == 2);          // only y's two visits
-        REQUIRE(got.size() < base_count);  // proves the all-haplotype enumeration is gone
+        REQUIRE(got.size() < base_count);
     }
 
     SECTION("returned steps are all on the target path; a repeat node yields both visits") {
@@ -515,6 +488,25 @@ TEST_CASE("AnchorBackedPositionGraph: for_each_step_on_handle returns only the "
         adapter.for_each_step_on_handle(t.n5, [&](const step_handle_t& s) {
             got.push_back(s); return true; });   // n5 is on no path here
         REQUIRE(got.empty());
+    }
+
+    SECTION("a step in two anchors' runs is reported once") {
+        // The two runs share step 2, on n4. y visits n4 at steps 2 and 5.
+        PrecomputedAnchor left, right;
+        left.step_begin = t.y_steps[0];
+        left.step_end   = t.y_steps[2];
+        left.path_offset_step_begin = t.y_positions[0];
+        left.path_offset_step_end   = t.y_positions[2];
+        right.step_begin = t.y_steps[2];
+        right.step_end   = t.y_steps.back();
+        right.path_offset_step_begin = t.y_positions[2];
+        right.path_offset_step_end   = t.y_positions.back();
+        AnchorBackedPositionGraph split(&t.graph, {left, right}, t.y, t.y_total_length);
+
+        std::vector<step_handle_t> got;
+        split.for_each_step_on_handle(t.n4, [&](const step_handle_t& s) {
+            got.push_back(s); return true; });
+        REQUIRE(got.size() == 2);
     }
 }
 

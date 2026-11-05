@@ -712,21 +712,24 @@ static std::map<std::string, Preset> make_giraffe_presets() {
         .add_entry<int>("rec-penalty-aln", 28)
         .add_entry<bool>("prune-low-cplx", true);
 
-    // "blat": hifi, but reporting every copy nearly as good as the best (up to
-    // 20) with MAPQ that does not depend on query length, for BLAT-style
-    // queries of any length. hifi's chain score filters are kept, so weak
-    // partial hits are still dropped. A preset's FIRST value for an option
-    // wins (see Preset::apply), so the overrides go before hifi's entries.
+    // The "blat" preset maps BLAT-style queries of any length. It is hifi, but
+    // reports every copy that scores nearly as well as the best, up to 20, with
+    // MAPQ that does not depend on query length. It keeps hifi's chain score
+    // thresholds, so weak partial hits are still dropped. The first value a
+    // preset gives for an option wins, so these entries go before hifi's.
     Preset blat;
     blat
         .add_entry<size_t>("max-multimaps", 20)
         .add_entry<size_t>("max-alignments", 20)
-        // Nearby copies (tandem arrays, SMN1/SMN2) fall in one zipcode tree.
+        // Nearby copies, such as a tandem array or SMN1 and SMN2, fall in one
+        // zipcode tree.
         .add_entry<size_t>("max-chains-per-tree", 20)
-        // Keep trying chains after a clear best one, so other copies surface.
+        // Keep aligning chains after a clear best one, so the other copies are
+        // found.
         .add_entry<int>("target-alignment-attempts", 20)
-        // Score every 150 bp window, as r10 does, so a unique query gets MAPQ
-        // 60 at any length (hifi's 0.001 scale gives a 300 bp read MAPQ 3).
+        // Compute MAPQ from scores rescaled to a 150 bp window, with no other
+        // scaling. This makes MAPQ independent of query length. hifi's 0.001
+        // scale gives a unique short query a low MAPQ.
         .add_entry<double>("mapq-score-scale", 1)
         .add_entry<size_t>("mapq-score-window", 150);
     Preset hifi_entries = presets.at("hifi");
@@ -910,9 +913,11 @@ static std::unique_ptr<GroupedOptionGroup> parse_giraffe_parameters(
     }
     found->second.apply(*parser);
 
-    // Overrides go through the parser as if given on the command line, so each
-    // value is parsed by its own option's type and beats the preset.
-    std::vector<struct option> known;   // not "long_options": scripts/lint.py reads that name
+    // Parse each override as if it came from the command line. The option's
+    // own type parses the value, and it replaces the preset's value.
+    // scripts/lint.py reads any variable named long_options, so this one is
+    // named known.
+    std::vector<struct option> known;
     parser->make_long_options(known);
     for (const auto& kv : overrides) {
         auto it = std::find_if(known.begin(), known.end(), [&](const struct option& o) {
@@ -954,8 +959,8 @@ bool giraffe_rec_mode(const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
         has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS);
     bool use_rec_mode = rec_mode.value_or(default_rec_mode);
 
-    // Recombination-aware mapping needs paths in the payload; otherwise
-    // zipcodes alone will do.
+    // Recombination-aware mapping needs paths in the minimizer payload.
+    // Otherwise zipcodes alone are enough.
     std::vector<MinimizerIndexParameters::PayloadType> allowed_payloads;
     allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS);
     if (!use_rec_mode) {
@@ -978,7 +983,7 @@ void configure_giraffe_mapper(MinimizerMapper& mapper, const std::string& preset
     ScoringOptions scoring_options;
     parser->apply(mapper);
     parser->apply(scoring_options);
-    // The same consistency checks and scoring setup as main_giraffe().
+    // Check and set the scores the same way main_giraffe() does.
     enforce_min_max(mapper.wfa_max_mismatches, "wfa-max-mismatches",
                     mapper.wfa_max_max_mismatches, "wfa-max-max-mismatches");
     enforce_min_max(mapper.wfa_distance, "wfa-distance",

@@ -50,12 +50,8 @@ const char* haplotype_surjection_status_token(HaplotypeSurjectionResult::Status 
 
 namespace {
 
-/// Count matches / substitutions / indels from a surjected alignment's edits.
-/// vg edit semantics: from_length == to_length with an empty sequence is a run
-/// of matches; equal lengths WITH a sequence is a substitution; to_length only
-/// is an insertion in the read; from_length only is a deletion from the read.
-/// The SAM CIGAR collapses the first two into 'M', so this is the only place
-/// identity can be measured.
+/// Count the matched, mismatched, inserted and deleted bases in an alignment's
+/// edits.
 void count_edits(const Alignment& aln, uint64_t& matches, uint64_t& mismatches,
                  uint64_t& inserted, uint64_t& deleted) {
     matches = mismatches = inserted = deleted = 0;
@@ -69,8 +65,8 @@ void count_edits(const Alignment& aln, uint64_t& matches, uint64_t& mismatches,
             } else if (edit.to_length() == 0) {
                 deleted += edit.from_length();
             } else {
-                // Mixed-length edit: the shared prefix is substituted, the
-                // remainder is an indel.
+                // The edit changes both lengths. Count the shorter length as
+                // mismatches and the rest as an insertion or deletion.
                 const uint64_t common = std::min(edit.from_length(), edit.to_length());
                 mismatches += common;
                 if (edit.to_length() > common) inserted += edit.to_length() - common;
@@ -80,8 +76,7 @@ void count_edits(const Alignment& aln, uint64_t& matches, uint64_t& mismatches,
     }
 }
 
-/// Convert a SAM-style cigar vector into a string like "55M". Returns "*"
-/// for the empty CIGAR so the tag is unambiguous in framed output.
+/// Return a CIGAR as a string such as "55M", or "*" if it is empty.
 string cigar_to_string(const vector<pair<int, char>>& cigar) {
     if (cigar.empty()) {
         return "*";
@@ -93,8 +88,9 @@ string cigar_to_string(const vector<pair<int, char>>& cigar) {
     return ss.str();
 }
 
-/// Fill result from the highest-scoring of the Surjector's outputs on path,
-/// a path of position_graph. Sets SURJECTION_FAILED if there is none.
+/// Fill `result` from the highest-scoring surjected alignment on `path`.
+/// `positions` holds the path name, start and strand of each alignment. Set
+/// SURJECTION_FAILED if no alignment landed on the path.
 void take_best_surjection(const vector<Alignment>& surjected,
                           const vector<tuple<string, int64_t, bool>>& positions,
                           const PathPositionHandleGraph& position_graph,
@@ -125,7 +121,8 @@ void take_best_surjection(const vector<Alignment>& surjected,
     result.score = chosen.score();
     result.mapping_quality = chosen.mapping_quality();
 
-    // softclip_suppress = 0 leaves the position as given.
+    // cigar_against_path moves the position only when it suppresses softclips,
+    // and we ask it to suppress none.
     int64_t pos_adj = result.path_position;
     size_t path_len = position_graph.get_path_length(path);
     result.cigar = cigar_to_string(cigar_against_path(chosen, result.path_reverse, pos_adj,
@@ -134,12 +131,54 @@ void take_best_surjection(const vector<Alignment>& surjected,
                 result.inserted, result.deleted);
 }
 
+/// Return true if path visits the nodes of the mappings [begin, end) of
+/// aln_path in order, in either orientation.
+///
+/// We look only at the path's visits to the first mapping's node, so this is
+/// cheap on a graph that lists just the visits of a few indexed paths there.
+bool path_carries_mappings(const PathPositionHandleGraph& graph, const path_handle_t& path,
+                           const Path& aln_path, size_t begin, size_t end) {
+    if (begin >= end) {
+        return false;
+    }
+    auto handle_of = [&](size_t k) {
+        const auto& pos = aln_path.mapping(k).position();
+        return graph.get_handle(pos.node_id(), pos.is_reverse());
+    };
+    const handle_t first = handle_of(begin);
+    bool carried = false;
+    graph.for_each_step_on_handle(first, [&](const step_handle_t& step) {
+        if (graph.get_path_handle_of_step(step) != path) {
+            return true;
+        }
+        // A visit in the first mapping's orientation reads the mappings
+        // forward along the path. A visit in the other orientation reads them
+        // backward, with each node flipped.
+        const bool forward = graph.get_handle_of_step(step) == first;
+        step_handle_t cursor = step;
+        size_t k = begin + 1;
+        for (; k < end; ++k) {
+            if (forward ? !graph.has_next_step(cursor) : !graph.has_previous_step(cursor)) {
+                break;
+            }
+            cursor = forward ? graph.get_next_step(cursor) : graph.get_previous_step(cursor);
+            handle_t visited = graph.get_handle_of_step(cursor);
+            if ((forward ? visited : graph.flip(visited)) != handle_of(k)) {
+                break;
+            }
+        }
+        carried = (k == end);
+        return !carried;
+    });
+    return carried;
+}
+
 } // namespace
 
 HaplotypeSurjectionResult GiraffeEngine::surject_to_indexed_path(
     const Alignment& aln,
     const string& target_path_name,
-    const vector<gbwt::size_type>& candidate_seq_ids) const
+    size_t begin_mapping, size_t end_mapping) const
 {
     HaplotypeSurjectionResult result;
     using S = HaplotypeSurjectionResult::Status;
@@ -153,9 +192,7 @@ HaplotypeSurjectionResult GiraffeEngine::surject_to_indexed_path(
         return result;
     }
 
-    // The position graph only reports has_path() for paths that are actually
-    // indexed for surjection. Anything else is "not indexed" even if the
-    // underlying GBZ knows about the path under a different sense.
+    // The overlay has only the paths whose positions it indexes.
     if (!position_overlay_ || !position_overlay_->has_path(target_path_name)) {
         if (gbz_->graph.has_path(target_path_name)) {
             result.status = S::PATH_NOT_INDEXED;
@@ -165,31 +202,17 @@ HaplotypeSurjectionResult GiraffeEngine::surject_to_indexed_path(
         return result;
     }
 
-    // Translate the requested path name to its GBWT path id, then to the
-    // forward and backward GBWT sequence ids that represent it. The
-    // assigner returns sequence ids in either orientation depending on the
-    // alignment's traversal of the path, so we accept either as
-    // "compatible". Path handles from the GBZ's GBWTGraph are stable across
-    // the overlay (the overlay doc explicitly preserves them).
+    // The overlay lists only its indexed paths' visits on each node, so the
+    // check walks just the target path. The overlay keeps the GBZ graph's path
+    // handles, so the GBZ's handle works with the overlay's surjector.
     path_handle_t gbz_path_handle = gbz_->graph.get_path_handle(target_path_name);
-    gbwt::size_type gbwt_path_id = gbz_->graph.handle_to_path(gbz_path_handle);
-    gbwt::size_type fwd_seq = 2 * gbwt_path_id;
-    gbwt::size_type rev_seq = fwd_seq + 1;
-
-    bool compatible = false;
-    for (gbwt::size_type seq : candidate_seq_ids) {
-        if (seq == fwd_seq || seq == rev_seq) {
-            compatible = true;
-            break;
-        }
-    }
-    if (!compatible) {
+    if (!path_carries_mappings(*position_overlay_,
+                               position_overlay_->get_path_handle(target_path_name),
+                               aln.path(), begin_mapping, end_mapping)) {
         result.status = S::INCOMPATIBLE;
         return result;
     }
 
-    // Run vg's Surjector against just this one path. Default settings: no
-    // softclip suppression, deletions not preserved, no spliced semantics.
     unordered_set<path_handle_t> paths;
     paths.insert(gbz_path_handle);
     vector<tuple<string, int64_t, bool>> positions_out;
@@ -203,11 +226,12 @@ HaplotypeSurjectionResult GiraffeEngine::surject_to_indexed_path(
 
 namespace {
 
-/// Collapse raw GBWT sequence ids to the distinct, sorted set of haplotype
-/// names (sample#phase#contig) via GBWT metadata. The raw ids double-count
-/// orientations, repeats, and fragments, so a conserved locus can list
-/// hundreds of numbers that are really a few dozen haplotypes. Falls back to
-/// the numeric id when metadata is unavailable.
+/// Return the distinct PanSN names, sorted, of the haplotypes with these GBWT
+/// sequence IDs.
+///
+/// A haplotype can have many sequence IDs: one per orientation, per visit
+/// and per fragment of its path. A sequence ID that GBWT metadata does not
+/// name stands for itself, as a number.
 std::vector<string> compute_haplotype_names(const gbwtgraph::GBZ& gbz,
                                             const std::vector<gbwt::size_type>& seq_ids) {
     std::set<string> uniq;
@@ -215,15 +239,12 @@ std::vector<string> compute_haplotype_names(const gbwtgraph::GBZ& gbz,
     const bool have_md = index.hasMetadata();
     const gbwt::Metadata& md = index.metadata;
     for (gbwt::size_type s : seq_ids) {
-        // GBWT sequence id -> path id (forward/reverse share a path).
         gbwt::size_type path_id = s / 2;
         if (!have_md || path_id >= md.paths()) {
-            uniq.insert(std::to_string(s));  // no metadata: fall back to id
+            uniq.insert(std::to_string(s));
             continue;
         }
         gbwt::PathName pn = md.path(path_id);
-        // Same name construction as build_translation_tables.cpp's
-        // build_base_name: sample#phase#contig, with safe fallbacks.
         string sample = (md.samples() > 0 && pn.sample < md.samples())
                         ? md.sample(pn.sample) : std::to_string(pn.sample);
         string contig = (md.contigs() > 0 && pn.contig < md.contigs())
@@ -233,6 +254,7 @@ std::vector<string> compute_haplotype_names(const gbwtgraph::GBZ& gbz,
     return std::vector<string>(uniq.begin(), uniq.end());
 }
 
+/// Join strings with commas.
 string join_csv(const std::vector<string>& items) {
     string out;
     for (size_t i = 0; i < items.size(); ++i) {
@@ -242,7 +264,8 @@ string join_csv(const std::vector<string>& items) {
     return out;
 }
 
-/// Build the sample#phase#contig name for a GBWT path id (safe fallbacks).
+/// Return the PanSN name of a GBWT path. A sample or contig that the metadata
+/// does not name appears as its number.
 string path_name_for(const gbwt::Metadata& md, gbwt::size_type path_id) {
     gbwt::PathName pn = md.path(path_id);
     string sample = (md.samples() > 0 && pn.sample < md.samples())
@@ -252,14 +275,13 @@ string path_name_for(const gbwt::Metadata& md, gbwt::size_type path_id) {
     return sample + "#" + std::to_string(pn.phase) + "#" + contig;
 }
 
-/// Break the (often large) tie among haplotypes that carry the read's path
-/// identically by choosing one representative. Policy:
-///   1. prefer a haplotype whose sample is a reference sample (or the generic
-///      backbone), then
-///   2. among the eligible class, take the lowest GBWT sequence id
-///      (deterministic and reproducible).
-/// Returns (representative_name, chosen_because_reference). Empty name if there
-/// are no candidates or no metadata.
+/// Choose one haplotype to stand for all the haplotypes with these GBWT
+/// sequence IDs.
+///
+/// Prefer a reference sample or the generic path sample, and then the lowest
+/// sequence ID, so that the choice is the same on every run. Return the
+/// chosen haplotype's PanSN name, and whether it is a reference. Return an
+/// empty name if there are no sequence IDs or no GBWT metadata.
 std::pair<string, bool> choose_representative(const gbwtgraph::GBZ& gbz,
                                               const std::vector<gbwt::size_type>& seq_ids) {
     const gbwt::GBWT& index = gbz.index;
@@ -290,9 +312,8 @@ std::pair<string, bool> choose_representative(const gbwtgraph::GBZ& gbz,
     return {path_name_for(md, chosen / 2), ref_found};
 }
 
+/// Record a haplotype assignment as annotations on its alignment.
 void attach_haplotype_annotations(Alignment& aln, const HaplotypeAssignmentResult& r) {
-    // Report deduplicated haplotype NAMES (+ their count) rather than the raw,
-    // inflated sequence-id list.
     set_annotation(aln, "haplotype_names", join_csv(r.haplotype_names));
     set_annotation(aln, "haplotype_distinct_count", static_cast<double>(r.haplotype_names.size()));
     set_annotation(aln, "haplotype_representative", r.representative_name);
@@ -305,18 +326,20 @@ void attach_haplotype_annotations(Alignment& aln, const HaplotypeAssignmentResul
         set_annotation(aln, "haplotype_right_boundary", static_cast<double>(r.right_boundary_node));
     }
     set_annotation(aln, "haplotype_truncated", r.seq_ids.size() < r.candidate_count);
-    // Path-coverage / mosaic accounting: whether one haplotype carries the whole
-    // read, how much of it the reported (best) block covers, and how many
-    // maximal haplotype-consistent segments the read decomposes into.
+    // Whether one haplotype carries the whole read, and if not, how the read
+    // splits into haplotype-consistent segments.
     set_annotation(aln, "haplotype_fully_covered", r.fully_covered);
     set_annotation(aln, "haplotype_best_covered_bp", static_cast<double>(r.best_covered_bp));
     set_annotation(aln, "haplotype_path_length_bp", static_cast<double>(r.path_length_bp));
     set_annotation(aln, "haplotype_num_segments", static_cast<double>(r.segments.size()));
 }
 
-/// Append GAF optional tags describing a surjection result. We always emit
-/// the status tag (sj:Z:<token>); the remaining tags are only emitted on
-/// success so downstream parsers can short-circuit.
+/// Append the GAF tags for a surjection result.
+///
+/// sj:Z always holds the status. Only a successful result has the others:
+/// sn:Z the path name, sp:i the start, sr:i 1 if on the reverse strand, ss:i
+/// the score, sm:i the MAPQ and sc:Z the CIGAR. sM:i, sX:i, sI:i and sD:i
+/// count the matched, mismatched, inserted and deleted bases.
 void append_surjection_tags(stringstream& ss, const HaplotypeSurjectionResult& r) {
     ss << "\tsj:Z:" << haplotype_surjection_status_token(r.status);
     if (r.status != HaplotypeSurjectionResult::Status::OK) {
@@ -343,8 +366,6 @@ void GiraffeEngine::load(const GiraffeEngineConfig& config) {
     if (config.threads == 0) {
         throw runtime_error("Thread count must be >= 1");
     }
-    // max_multimaps == 0 is allowed and means "use the preset / mapper
-    // default". A positive value is an explicit override (see below).
     if (!file_exists(config.gbz_path) || !file_exists(config.minimizer_path)
         || !file_exists(config.distance_path) || !file_exists(config.zipcode_path)) {
         throw runtime_error("One or more required index files do not exist");
@@ -374,8 +395,6 @@ void GiraffeEngine::load(const GiraffeEngineConfig& config) {
 
     auto mapper = make_unique<MinimizerMapper>(gbz->graph, *minimizer_index, distance_index.get(), zipcodes.get());
 
-    // Mapping parameters come from the caller (giraffe-server takes them from
-    // vg giraffe's presets), so the engine keeps no copy of preset values.
     if (config.configure_mapper) {
         config.configure_mapper(*mapper, *minimizer_index);
     }
@@ -385,11 +404,10 @@ void GiraffeEngine::load(const GiraffeEngineConfig& config) {
 
     auto assigner = make_unique<HaplotypeAssigner>(*gbz, *distance_index);
 
-    // Build the path-position overlay over the GBZ graph if the caller
-    // configured target haplotype paths to surject onto. We do this once at
-    // load time so per-read surjection is just a position-graph query plus
-    // the surjector's realigning DP. Validating that every requested path
-    // actually exists up front makes server misconfiguration fail loudly.
+    // Index the positions of the surjection target paths once, here. The
+    // overlay indexes reference and generic paths, and the target names are
+    // passed as extra paths so that haplotype paths are indexed too. A target
+    // that is not in the graph fails the load.
     unique_ptr<bdsg::ReferencePathOverlay> position_overlay;
     unique_ptr<Surjector> surjector;
     if (!config.surjection_target_paths.empty()) {
@@ -406,7 +424,7 @@ void GiraffeEngine::load(const GiraffeEngineConfig& config) {
         surjector = make_unique<Surjector>(position_overlay.get());
     }
 
-    // Keep the same behavior as vg giraffe: global OMP thread count controls mapping parallelism.
+    // map_reads() maps on OpenMP threads, whose count is global to the process.
     omp_set_num_threads(static_cast<int>(config.threads));
 
     config_ = config;
@@ -467,16 +485,15 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeServerReques
                 for (auto& m : mapped) {
                     auto hap = this->haplotype_assigner_->assign(
                         m, config_.assign_haplotypes_extend_to_snarls);
-                    // Name every mosaic segment and pick each one's representative
-                    // (reference-first, else lowest id). For a fully-covered read
-                    // there is a single segment spanning the whole path.
+                    // Name the haplotypes of each segment and choose its
+                    // representative.
                     for (auto& seg : hap.segments) {
                         seg.haplotype_names = compute_haplotype_names(*gbz_, seg.seq_ids);
                         seg.representative_name = choose_representative(*gbz_, seg.seq_ids).first;
                     }
-                    // Promote the best (longest) segment's names/representative to
-                    // the top level so the annotation and hp/hn/hb tags describe
-                    // the haplotype(s) covering the most of the read path.
+                    // Report the longest segment's haplotypes for the whole
+                    // alignment, so the tags name the haplotypes that cover
+                    // most of the read.
                     if (hap.best_segment < hap.segments.size()) {
                         const auto& best = hap.segments[hap.best_segment];
                         hap.haplotype_names = best.haplotype_names;
@@ -489,12 +506,8 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeServerReques
                 }
             }
 
-            // If the caller requested surjection for this read, attach a
-            // per-alignment result for every reported mapping. We always
-            // emit a status when a target was requested, so the client can
-            // tell the difference between "engine has no target indexed"
-            // and "the requested haplotype isn't compatible with this
-            // alignment".
+            // When the read names a target, every alignment gets a surjection
+            // status, so the client can tell why a surjection is missing.
             vector<HaplotypeSurjectionResult> surj_results;
             if (!req.surjection_target.empty()) {
                 surj_results.resize(mapped.size());
@@ -502,16 +515,25 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeServerReques
                     for (auto& r : surj_results) {
                         r.status = HaplotypeSurjectionResult::Status::PATH_NOT_INDEXED;
                     }
-                } else if (hap_results.empty()) {
-                    // The compatibility check needs the assigner output.
-                    // Without it we can't safely surject.
-                    for (auto& r : surj_results) {
-                        r.status = HaplotypeSurjectionResult::Status::INCOMPATIBLE;
-                    }
                 } else {
                     for (size_t j = 0; j < mapped.size(); ++j) {
+                        // The target must carry the mappings that the reported
+                        // haplotypes carry: the best segment, or the whole
+                        // path without a haplotype assignment.
+                        size_t begin = 0;
+                        size_t end = mapped[j].path().mapping_size();
+                        if (!hap_results.empty()) {
+                            const auto& hap = hap_results[j];
+                            if (hap.best_segment < hap.segments.size()) {
+                                begin = hap.segments[hap.best_segment].start_mapping;
+                                end = hap.segments[hap.best_segment].end_mapping;
+                            } else {
+                                // No haplotype visits any node of the path.
+                                end = begin;
+                            }
+                        }
                         surj_results[j] = surject_to_indexed_path(
-                            mapped[j], req.surjection_target, hap_results[j].seq_ids);
+                            mapped[j], req.surjection_target, begin, end);
                     }
                 }
             }
@@ -525,36 +547,37 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeServerReques
                 ss << gaf;
                 if (!hap_results.empty()) {
                     const auto& hap = hap_results[j];
-                    // hp:Z: = deduplicated haplotype NAMES (was raw seq ids);
-                    // hn:i: = number of distinct haplotypes; hc:i: = raw
-                    // candidate occurrences (pre-cap, for reference).
+                    // hp:Z lists the distinct haplotype names and hn:i counts
+                    // them. hb:Z is the representative, and hf:i is 1 if it is
+                    // a reference. hc:i counts the candidate sequences before
+                    // the cap.
                     ss << "\thp:Z:" << join_csv(hap.haplotype_names)
                        << "\thn:i:" << hap.haplotype_names.size()
                        << "\thb:Z:" << (hap.representative_name.empty()
                                         ? string("*") : hap.representative_name)
                        << "\thf:i:" << (hap.representative_is_reference ? 1 : 0)
                        << "\thc:i:" << hap.candidate_count;
-                    // hl:i: / hr:i: snarl-boundary nodes, only when one was found.
+                    // hl:i and hr:i are the enclosing snarl's boundary nodes,
+                    // if one was found.
                     if (hap.left_boundary_node != 0) {
                         ss << "\thl:i:" << hap.left_boundary_node;
                     }
                     if (hap.right_boundary_node != 0) {
                         ss << "\thr:i:" << hap.right_boundary_node;
                     }
+                    // ht:i is 1 if the cap cut the list. hq:i is 1 if one
+                    // haplotype carries the whole read. hv:i is the percentage
+                    // of the read's path that the longest segment covers, and
+                    // hs:i counts the segments.
                     ss << "\tht:i:" << (hap.seq_ids.size() < hap.candidate_count ? 1 : 0)
-                       // Path-coverage / mosaic tags:
-                       //   hq:i: 1 if one haplotype carries the whole read, else 0
-                       //   hv:i: % of the read path the reported (best) block covers
-                       //   hs:i: number of maximal haplotype-consistent segments
                        << "\thq:i:" << (hap.fully_covered ? 1 : 0)
                        << "\thv:i:" << (hap.path_length_bp
                                         ? (100 * hap.best_covered_bp / hap.path_length_bp)
                                         : 0)
                        << "\ths:i:" << hap.segments.size();
-                    // hm:Z: mosaic breakdown, emitted only when the read is NOT
-                    // carried by a single haplotype (>1 segment). Each entry is
-                    // "<covered_bp>:<distinct_haplotypes>:<representative>", in
-                    // path order, separated by ';'.
+                    // hm:Z lists the segments in path order, if there are
+                    // several. Each entry is covered_bp:haplotype_count:representative,
+                    // and ';' separates them.
                     if (hap.segments.size() > 1) {
                         ss << "\thm:Z:";
                         for (size_t s = 0; s < hap.segments.size(); ++s) {
@@ -595,9 +618,8 @@ void GiraffeEngine::require_loaded() const {
 
 namespace {
 
-/// Construct a libhandlegraph step_handle_t from a (node, offset_in_record)
-/// pair using gbwtgraph's documented step encoding (gbwtgraph.cpp:911-1024:
-/// as_integers(step)[0] = node, [1] = offset).
+/// Return the GBWTGraph step handle for a GBWT node and an offset in that
+/// node's GBWT record.
 handlegraph::step_handle_t make_step_handle(uint64_t node, uint64_t offset) {
     handlegraph::step_handle_t step;
     handlegraph::as_integers(step)[0] = node;
@@ -605,8 +627,7 @@ handlegraph::step_handle_t make_step_handle(uint64_t node, uint64_t offset) {
     return step;
 }
 
-/// Walk the target's GBWT path summing node lengths. Used as a fallback when
-/// the caller doesn't pass a precomputed target_path_length.
+/// Return the length in bases of a GBWT path, by walking it.
 size_t walk_target_path_length(const gbwtgraph::GBZ& gbz, size_t target_gbwt_path_id) {
     gbwt::vector_type nodes = gbz.index.extract(
         gbwt::Path::encode(target_gbwt_path_id, false));
@@ -631,10 +652,8 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     require_loaded();
     using S = HaplotypeSurjectionResult::Status;
 
-    // Optional phase timing for surjection performance debugging. Enable with
-    // the env var GIRAFFE_SURJECT_TIMING=1; prints a per-read breakdown of
-    // where time goes (parse / path-length walk / anchor build / surjector DP /
-    // post) to stderr. No overhead when unset.
+    // If GIRAFFE_SURJECT_TIMING is set, print to stderr where each surjection
+    // spends its time.
     static const bool surject_timing =
         (std::getenv("GIRAFFE_SURJECT_TIMING") != nullptr);
     using surj_clock = std::chrono::steady_clock;
@@ -647,24 +666,19 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
         throw runtime_error("surject_with_anchors: empty GAF input");
     }
 
-    // 1. Parse GAF → vg::Alignment using the GBZ's graph for node lengths.
     gafkluge::GafRecord gaf_record;
     gafkluge::parse_gaf_record(gaf_line, gaf_record);
     Alignment aln;
     vg::io::gaf_to_alignment(gbz_->graph, gaf_record, aln);
-    // Preserve the caller-supplied read name on the resulting Alignment.
     if (!read_name.empty()) {
         aln.set_name(read_name);
     } else if (aln.name().empty()) {
         aln.set_name(gaf_record.query_name);
     }
 
-    // 2. Validate target haplotype. The caller may pass either a full GBZ
-    //    path name (e.g. "GRCh38#0#chrM") or a haplotype prefix that T1
-    //    resolved during build_surject_anchors (e.g. "HG002#2"). For the
-    //    second case the GBZ doesn't know "HG002#2" as a path, so we
-    //    recover the concrete path name from the first anchor's step_handle
-    //    — which was pinned during build to exactly one GBWT path id.
+    // Find the target path. A sample and haplotype such as HG002#2 is not a
+    // path name in the graph. Then the target is the path of the first
+    // anchor's step, since all the anchors lie on the target path.
     HaplotypeSurjectionResult surj_result;
     std::string resolved_target = target_haplotype;
     path_handle_t target_path{};
@@ -676,9 +690,6 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
         target_path = gbz_->graph.get_path_handle(target_haplotype);
         target_resolved = true;
     } else if (!anchors.empty()) {
-        // Anchors carry step_handles in gbwtgraph's native (node,
-        // offset_in_record) encoding; get_path_handle_of_step decodes that
-        // back to the path the anchor pinned during the build step.
         handlegraph::step_handle_t s = make_step_handle(
             anchors[0].step_begin_node, anchors[0].step_begin_offset);
         try {
@@ -707,7 +718,7 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
 
     t_parse = surj_clock::now();
 
-    // 3. Determine the target path length (cached by the caller if possible).
+    // Walk the target path for its length if the caller did not give it.
     size_t path_length = target_path_length;
     if (path_length == 0) {
         gbwt::size_type gbwt_path_id = gbz_->graph.handle_to_path(target_path);
@@ -715,7 +726,7 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     }
     t_pathlen = surj_clock::now();
 
-    // Per-read timing reporter (no-op unless GIRAFFE_SURJECT_TIMING is set).
+    // Print this surjection's timing, if timing is on.
     auto report_timing = [&](const char* outcome) {
         if (!surject_timing) return;
         auto ms = [](surj_clock::time_point a, surj_clock::time_point b) {
@@ -741,8 +752,8 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
                   << " outcome="   << outcome << std::endl;
     };
 
-    // 4. Translate wire anchors → vg::PrecomputedAnchor records. The
-    //    anchor-backed position graph only needs step_handles + base offsets.
+    // The anchor-backed position graph needs only the steps and their path
+    // offsets.
     std::vector<PrecomputedAnchor> vg_anchors;
     vg_anchors.reserve(anchors.size());
     for (const auto& a : anchors) {
@@ -755,7 +766,8 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     }
     t_anchors = surj_clock::now();
 
-    // 5. Build the anchor-backed position graph and a Surjector over it.
+    // Surject onto the target path. The anchor-backed position graph answers
+    // the surjector's position queries.
     AnchorBackedPositionGraph anchor_graph(&gbz_->graph, vg_anchors,
                                            target_path, path_length);
     Surjector anchor_surjector(&anchor_graph);
@@ -765,13 +777,14 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     paths.insert(target_path);
     vector<tuple<string, int64_t, bool>> positions_out;
     vector<Alignment> surjected;
-    g_anchor_graph_stats = {};  // measure position-query cost during this surjection
+    g_anchor_graph_stats = {};  // Count only this surjection's position queries.
     try {
         surjected = anchor_surjector.surject(aln, paths, positions_out,
                                              /*allow_negative_scores=*/false,
                                              /*preserve_deletions=*/false);
         t_surject = surj_clock::now();
     } catch (const std::exception& e) {
+        // The error fails only this surjection, and goes back to the client.
         t_surject = surj_clock::now();
         report_timing("surject_exception");
         surj_result.status = S::SURJECTION_FAILED;

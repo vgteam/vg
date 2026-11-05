@@ -2,31 +2,9 @@
 #define VG_ANCHOR_BACKED_POSITION_GRAPH_HPP_INCLUDED
 
 /** \file
- * anchor_backed_position_graph.hpp
- *
- * A PathPositionHandleGraph implementation that answers position queries
- * from pre-computed anchors instead of a built positional index.
- *
- * Intended use: feed this to a Surjector instead of a bdsg::ReferencePathOverlay
- * built over the target haplotype. Surject's calls to `get_position_of_step`,
- * `get_step_at_position`, and `get_path_length` are answered from anchor
- * data; everything else delegates to the underlying gbwtgraph::GBWTGraph
- * (which only implements PathHandleGraph).
- *
- * Cost model:
- *   - Anchor-boundary step → O(1) hash-map lookup.
- *   - Interior step (between anchor boundaries) → O(k) walk via get_next_step
- *     from the nearest known step, accumulating node lengths. Memoized.
- *   - Position-to-step → O(log n) binary search + O(k) walk from the
- *     nearest known position.
- *
- * Restrictions:
- *   - Answers position queries ONLY for the single `target_path` passed to
- *     the constructor. Queries for any other path are programming errors;
- *     they assert in debug builds and throw in release builds.
- *   - Caller is responsible for the cached path length being correct.
- *     Typically the coordinate translator that built the anchors computes it
- *     by walking the target's GBWT path summing node lengths.
+ * A path position graph that knows positions on one path from a few anchors,
+ * so a Surjector can surject onto a haplotype path without a position index
+ * over it.
  */
 
 #include "handle.hpp"
@@ -41,66 +19,73 @@ namespace vg {
 
 using namespace std;
 
-/// Minimal anchor payload used by AnchorBackedPositionGraph. Carries the
-/// per-chunk step handles and their base offsets on the target path; this
-/// is exactly what the position graph needs.
-///
-/// When the wider `surject_with_anchors` API is wired up, this struct can
-/// grow additional fields (read range, graph_path, GBWT search states) —
-/// AnchorBackedPositionGraph only reads `step_begin/end` and
-/// `path_offset_step_begin/end`.
+/// A run of steps on the target path whose first and last steps have known
+/// positions.
 struct PrecomputedAnchor {
-    /// First step on the target path that this anchor pins.
+    /// The first step of the run.
     step_handle_t step_begin;
-    /// Last step (inclusive) on the target path that this anchor pins.
+    /// The last step of the run, which may be step_begin.
     step_handle_t step_end;
-    /// Base position of `step_begin` on the target path (0-based, forward).
+    /// The 0-based offset on the target path of the first base of step_begin.
     size_t path_offset_step_begin = 0;
-    /// Base position of `step_end` on the target path (0-based, forward).
+    /// The 0-based offset on the target path of the first base of step_end.
     size_t path_offset_step_end = 0;
 };
 
-/// Per-thread diagnostics for the position-query cost. Reset before a surjection
-/// and read afterwards to see how much walking the position queries did — the
-/// difference between a healthy sparse-anchor run and an O(path^2) blow-up.
+/// Counts of the position queries on this thread and of the steps walked to
+/// answer them. Reset it before a surjection and read it afterwards.
 struct AnchorGraphStats {
     size_t pos_of_step_calls = 0;  ///< calls to get_position_of_step
-    size_t pos_of_step_walk  = 0;  ///< total steps walked backward on cache miss
+    size_t pos_of_step_walk  = 0;  ///< steps walked by get_position_of_step
     size_t step_at_pos_calls = 0;  ///< calls to get_step_at_position
-    size_t step_at_pos_walk  = 0;  ///< total steps walked forward on cache miss
+    size_t step_at_pos_walk  = 0;  ///< steps walked by get_step_at_position
 };
 extern thread_local AnchorGraphStats g_anchor_graph_stats;
 
 /**
- * A PathPositionHandleGraph that delegates everything except position
- * queries to an underlying PathHandleGraph, and answers position queries
- * from a sparse set of pre-computed anchor step positions plus a precomputed
- * path length.
+ * A PathPositionHandleGraph over a PathHandleGraph that knows positions on one
+ * target path only
+ *
+ * The positions come from anchors: steps whose positions the caller already
+ * knows. A position query walks the path from the nearest step with a known
+ * position and remembers every step it passes. Everything else goes to the
+ * base graph.
+ *
+ * The graph is built for surjecting one read onto the target path. Only the
+ * steps of the target path inside the anchors' runs are reported as steps on
+ * their nodes, so a Surjector ignores the many other haplotype paths on each
+ * node.
+ *
+ * @pre The anchors' runs cover every step of the target path that a surjected
+ * alignment visits.
+ *
+ * @note Position queries change the cache of known positions, so one object
+ * must not be queried from two threads at once.
  */
 class AnchorBackedPositionGraph : public PathPositionHandleGraph {
 public:
 
-    /// Construct over `base` (typically `&gbz.graph`), pinning a single
-    /// target path. `anchors` carries the known step→position bindings
-    /// (typically two per chunk: step_begin and step_end). `target_path_length`
-    /// is the total base length of the target path, precomputed by the
-    /// caller (e.g. by summing node lengths along the GBWT path).
+    /**
+     * Make a graph that knows positions on target_path from the anchors.
+     *
+     * @param base The graph to forward to. It is not owned.
+     * @param target_path_length The length of target_path in bases, which
+     * get_path_length returns and which must be correct.
+     * @throws std::invalid_argument if base is null.
+     */
     AnchorBackedPositionGraph(const PathHandleGraph* base,
                               const std::vector<PrecomputedAnchor>& anchors,
                               path_handle_t target_path,
                               size_t target_path_length);
 
-    /// Default destructor.
     ~AnchorBackedPositionGraph() = default;
 
-    // No default construction or copy — the cache and base pointer are
-    // tightly coupled to the constructor arguments.
     AnchorBackedPositionGraph() = delete;
     AnchorBackedPositionGraph(const AnchorBackedPositionGraph&) = delete;
     AnchorBackedPositionGraph& operator=(const AnchorBackedPositionGraph&) = delete;
 
     //////////////////////////
-    // HandleGraph interface — all delegate to base_.
+    // HandleGraph interface, forwarded to the base graph
     //////////////////////////
 
     virtual bool has_node(nid_t node_id) const override;
@@ -115,7 +100,7 @@ public:
     virtual nid_t max_node_id() const override;
 
     //////////////////////////
-    // PathHandleGraph interface — all delegate to base_.
+    // PathHandleGraph interface, forwarded to the base graph
     //////////////////////////
 
     virtual size_t get_path_count() const override;
@@ -136,39 +121,48 @@ public:
     virtual step_handle_t get_previous_step(const step_handle_t& step_handle) const override;
 
     //////////////////////////
-    // PathPositionHandleGraph interface — the interesting overrides.
+    // PathPositionHandleGraph interface, for the target path only
     //////////////////////////
 
-    /// Returns the precomputed length for `target_path`. Asserts on any
-    /// other path (we cannot answer length for unknown paths).
+    /// Return the length of the target path given to the constructor.
+    /// @throws std::logic_error for any other path.
     virtual size_t get_path_length(const path_handle_t& path_handle) const override;
 
-    /// Returns the position of `step` on the target path. Cache hit if step
-    /// is at an anchor boundary; otherwise walks forward from the nearest
-    /// known step accumulating node lengths, memoizes the result, and
-    /// returns it. Asserts if step is not on the target path.
+    /**
+     * Return the offset of the first base of a step on the target path.
+     *
+     * We walk back to the nearest step with a known position, so a query costs
+     * the distance to it, not to the path start.
+     *
+     * @throws std::logic_error if the step is on another path.
+     */
     virtual size_t get_position_of_step(const step_handle_t& step) const override;
 
-    /// Returns the step containing `position` on the target path, or
-    /// `path_end(target_path)` if `position >= path_length`. Asserts on any
-    /// other path.
+    /**
+     * Return the step of the target path that covers a position.
+     *
+     * We walk to it from the closer of the known positions on either side.
+     *
+     * @returns path_end for a position at or past the end of the path.
+     * @throws std::logic_error for any other path.
+     */
     virtual step_handle_t get_step_at_position(const path_handle_t& path,
                                                const size_t& position) const override;
 
     //////////////////////////
-    // Inspection / testing helpers.
+    // Inspection
     //////////////////////////
 
-    /// Number of step→position entries known (including memoized + sentinels).
+    /// Get the number of steps with known positions.
     size_t cached_position_count() const { return step_pos_.size(); }
 
-    /// The target path this adapter answers positions for.
+    /// Get the path that this graph knows positions on.
     path_handle_t target_path() const { return target_path_; }
 
 protected:
 
-    /// Iteratee-impl methods required by the base class. Delegate to base_
-    /// via its public template wrappers (which call back into base_'s impls).
+    // Iteration, forwarded to the base graph except for
+    // for_each_step_on_handle_impl, which reports target path steps only.
     virtual bool follow_edges_impl(const handle_t& handle, bool go_left,
                                    const std::function<bool(const handle_t&)>& iteratee) const override;
     virtual bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee,
@@ -179,45 +173,27 @@ protected:
 
 private:
 
-    /// Underlying graph for handle / step / metadata queries. Not owned.
+    /// The graph that everything is forwarded to. Not owned.
     const PathHandleGraph* base_ = nullptr;
 
-    /// The single path we know positions for.
+    /// The path that this graph knows positions on.
     path_handle_t target_path_;
 
-    /// Total base length of `target_path_` — caller-precomputed.
+    /// The length of the target path in bases.
     size_t target_path_length_ = 0;
 
-    /// Known step → base-position table. Populated from anchors (two entries
-    /// per anchor: step_begin / step_end) plus path_begin → 0 and
-    /// path_end → target_path_length_ sentinels. Lazily extended via
-    /// memoization when get_position_of_step walks to a previously-unknown
-    /// step. Mutable because get_position_of_step is const.
+    /// The offset of the first base of each step with a known position. It
+    /// holds the anchors' first and last steps, path_begin at 0, path_end at
+    /// the path length, and every step a position query has walked past.
     mutable std::unordered_map<step_handle_t, size_t> step_pos_;
 
-    /// Initial known positions sorted ascending: (position, step). Built
-    /// once at construction (sentinels + anchor entries). Used by
-    /// get_step_at_position for binary search; NOT updated by memoization
-    /// (the unordered_map handles cache hits regardless).
+    /// The known positions from construction, as (position, step) pairs sorted
+    /// by position, for get_step_at_position to binary search. Steps learned
+    /// by later queries are only in step_pos_.
     std::vector<std::pair<size_t, step_handle_t>> sorted_known_;
 
-    /// node id -> the target path's steps that visit it within the read's
-    /// overlap region (the union of the anchors' [step_begin, step_end] spans),
-    /// precomputed once at construction. for_each_step_on_handle returns these
-    /// instead of enumerating EVERY haplotype's step on the node via the base
-    /// graph — that enumeration is what made surjection cost
-    /// O(#haplotypes-per-node x read-nodes) (~12s on dense graphs) even though
-    /// the Surjector discards all non-target steps.
+    /// The steps of the target path inside the anchors' runs, by node ID.
     std::unordered_map<nid_t, std::vector<step_handle_t>> node_target_steps_;
-
-    /// Walk forward from `start` on the target path, accumulating node
-    /// lengths starting from `start_pos`, until we reach `target` or pass
-    /// `max_distance` bases. Returns the position when target is found, or
-    /// numeric_limits<size_t>::max() if the walk exceeded max_distance.
-    /// Memoizes every step it visits along the way.
-    size_t walk_forward_to(step_handle_t start, size_t start_pos,
-                           const step_handle_t& target,
-                           size_t max_distance) const;
 };
 
 } // namespace vg

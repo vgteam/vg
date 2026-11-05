@@ -1,9 +1,7 @@
 /**
  * \file giraffe_server_main.cpp
- * Server-style in-process Giraffe mapping:
- * - load indexes once
- * - map batches in parallel
- * - stream GAF output to stdout
+ * vg giraffe-server: load the Giraffe indexes once, then map reads streamed on
+ * stdin and write GAF to stdout.
  */
 
 #include <getopt.h>
@@ -34,8 +32,8 @@ using namespace vg::subcommand;
 
 namespace {
 
-// Named option codes for long-only options (>255 to avoid clashing with short-option chars).
-// Keep these in sync with the long_options table and the switch in main_giraffe_server.
+// Codes for the long options with no short form. They start above 255, so
+// they cannot clash with a short option character.
 constexpr int OPT_EMIT_HEADER   = 1000;
 constexpr int OPT_FRAMED_OUTPUT = 1001;
 constexpr int OPT_SURJECT_THREADS = 1002;
@@ -43,8 +41,8 @@ constexpr int OPT_PARAMETER_PRESET = 1003;
 constexpr int OPT_SET = 1004;
 constexpr int OPT_NO_REC_MODE = 1005;
 
-/// Fixed-size worker pool for SURJECT_WITH_ANCHORS requests, so a batch of
-/// targets surjects concurrently instead of one at a time on the stdin thread.
+/// A fixed set of threads that run SURJECT_WITH_ANCHORS requests, so several
+/// surjections run at once while the main thread keeps reading stdin.
 class SurjectPool {
 public:
     explicit SurjectPool(size_t n) {
@@ -62,7 +60,7 @@ public:
         cv_.notify_one();
     }
 
-    /// Finish every queued task, then stop the workers.
+    /// Finish every queued task, then stop the threads.
     void drain() {
         {
             lock_guard<mutex> lk(mu_);
@@ -80,7 +78,7 @@ private:
             {
                 unique_lock<mutex> lk(mu_);
                 cv_.wait(lk, [this]() { return stopping_ || !tasks_.empty(); });
-                if (tasks_.empty()) return;          // stopping and drained
+                if (tasks_.empty()) return;          // stopping, and nothing is left
                 task = move(tasks_.front());
                 tasks_.pop_front();
             }
@@ -170,7 +168,8 @@ const string PHRED33_CHARS = [] {
     return chars;
 }();
 
-/// True if seq is non-empty and only IUPAC nucleotide codes, in either case.
+/// Return true if seq is non-empty and holds only IUPAC nucleotide codes, in
+/// either case.
 bool is_nucleotide_sequence(const string& seq) {
     static const string iupac = "ACGTUNRYKMSWBDHVacgtunrykmswbdhv";
     return !seq.empty() && seq.find_first_not_of(iupac) == string::npos;
@@ -191,12 +190,30 @@ vector<string> split_tab_fields(const string& line) {
     return fields;
 }
 
+/// Return the number in a request field, or nullopt if the field is not a
+/// decimal number that fits in a size_t. vg's parse<T>(string) exits the
+/// program on bad input, and a bad request must not end the server.
+optional<size_t> parse_request_number(const string& field) {
+    size_t value;
+    if (field.empty() || field.find_first_not_of("0123456789") != string::npos) {
+        return nullopt;
+    }
+    try {
+        if (parse<size_t>(field, value)) {
+            return value;
+        }
+    } catch (const exception&) {
+        // std::stoull throws on a number too big for its type.
+    }
+    return nullopt;
+}
+
 int main_giraffe_server(int argc, char** argv) {
     GiraffeEngineConfig config;
     size_t batch_size = 256;
     bool emit_header = false;
     bool framed_output = false;
-    long surject_threads = -1;   // -1 = same as --threads
+    long surject_threads = -1;   // -1 means the --threads value
     std::string preset;          // empty = $PANGENOME_GIRAFFE_PRESET, else "hifi"
     std::vector<std::pair<std::string, std::string>> overrides;
     std::optional<bool> rec_mode;   // unset = vg giraffe's default
@@ -297,8 +314,9 @@ int main_giraffe_server(int argc, char** argv) {
         return 1;
     }
 
-    // Mapping parameters come from vg giraffe's own presets and options. The
-    // PANGENOME_* variables still work for existing deployments; --set wins.
+    // Mapping parameters come from vg giraffe's presets and options. Existing
+    // deployments still set the preset and MAPQ scaling with PANGENOME_*
+    // environment variables. --parameter-preset and --set beat them.
     if (preset.empty()) {
         const char* e = std::getenv("PANGENOME_GIRAFFE_PRESET");
         preset = e ? e : "hifi";
@@ -345,13 +363,12 @@ int main_giraffe_server(int argc, char** argv) {
             cout.flush();
         }
 
-        // Every write to stdout goes through out_mu, so a frame (READ header plus
-        // its lines) is never interleaved with another worker's.
+        // Every write to stdout holds out_mu, so a READ line and the read's GAF
+        // lines never mix with another thread's output.
         mutex out_mu;
 
-        // Requests are demultiplexed by NAME, so surjections may finish out of
-        // order -- but only framed output names its records, so concurrency is
-        // limited to that mode.
+        // Surjections run on threads only with framed output. Each frame names
+        // its read, so a client can match up answers that come out of order.
         const size_t n_surject = (surject_threads < 0)
             ? static_cast<size_t>(config.threads) : static_cast<size_t>(surject_threads);
         unique_ptr<SurjectPool> surject_pool;
@@ -383,8 +400,8 @@ int main_giraffe_server(int argc, char** argv) {
             batch.clear();
         };
 
-        // Helper: report a per-read error so framed-output clients still get a record
-        // for the read and don't hang waiting on it.
+        // Report a bad read on stderr. With framed output, also send an empty
+        // frame, so a client waiting for the read gets an answer.
         auto emit_read_error = [&](const string& name, const string& reason) {
             cerr << "warning [vg giraffe-server]: skipping read"
                  << (name.empty() ? "" : " '" + name + "'") << ": " << reason << endl;
@@ -409,18 +426,20 @@ int main_giraffe_server(int argc, char** argv) {
             if (line.empty()) {
                 continue;
             }
-            // Batch-processing command (PROCESS_BATCH; FLUSH_NOW kept as deprecated alias).
+            // PROCESS_BATCH maps the reads buffered so far. FLUSH_NOW is its old name.
             if (line == "PROCESS_BATCH" || line == "FLUSH_NOW") {
                 flush_batch();
                 continue;
             }
-            // Anchored-surjection command. Multi-line: header + N anchor lines + 1 GAF line.
-            // Flushes any pending batch first so framed output stays in order.
+            // A SURJECT_WITH_ANCHORS request is a header line, N anchor lines and
+            // one GAF line. Map the buffered reads first, so their frames come out
+            // before this one.
             if (line.compare(0, sizeof("SURJECT_WITH_ANCHORS\t") - 1,
                              "SURJECT_WITH_ANCHORS\t") == 0) {
                 flush_batch();
                 auto header_fields = split_tab_fields(line);
-                // Expected: ["SURJECT_WITH_ANCHORS", name, target, path_len, n_anchors]
+                // The header holds the command, read name, target path, path
+                // length and anchor count.
                 if (header_fields.size() != 5) {
                     cerr << "error [vg giraffe-server]: malformed SURJECT_WITH_ANCHORS header "
                             "(need 5 tab fields, got " << header_fields.size() << ")" << endl;
@@ -429,61 +448,88 @@ int main_giraffe_server(int argc, char** argv) {
                 }
                 const string& sa_name = header_fields[1];
                 const string& sa_target = header_fields[2];
-                size_t sa_path_len = parse<size_t>(header_fields[3]);
-                size_t sa_n_anchors = parse<size_t>(header_fields[4]);
-
-                vector<WireAnchor> sa_anchors;
-                sa_anchors.reserve(sa_n_anchors);
-                bool sa_read_ok = true;
-                for (size_t ai = 0; ai < sa_n_anchors; ++ai) {
-                    string anchor_line;
-                    if (!getline(cin, anchor_line)) {
-                        cerr << "error [vg giraffe-server]: SURJECT_WITH_ANCHORS hit EOF "
-                             << "while reading anchor " << ai << "/" << sa_n_anchors << endl;
-                        sa_read_ok = false;
-                        break;
-                    }
-                    ++line_no;
-                    auto af = split_tab_fields(anchor_line);
-                    if (af.size() != 10) {
-                        cerr << "error [vg giraffe-server]: malformed anchor line " << line_no
-                             << " (need 10 tab fields, got " << af.size() << ")" << endl;
-                        sa_read_ok = false;
-                        break;
-                    }
-                    WireAnchor wa;
-                    wa.step_begin_node       = parse<uint64_t>(af[0]);
-                    wa.step_begin_offset     = parse<uint64_t>(af[1]);
-                    wa.step_end_node         = parse<uint64_t>(af[2]);
-                    wa.step_end_offset       = parse<uint64_t>(af[3]);
-                    wa.path_offset_step_begin = parse<size_t>(af[4]);
-                    wa.path_offset_step_end   = parse<size_t>(af[5]);
-                    wa.read_begin_offset      = parse<size_t>(af[6]);
-                    wa.read_end_offset        = parse<size_t>(af[7]);
-                    wa.source_mapping_begin   = parse<size_t>(af[8]);
-                    wa.source_mapping_end     = parse<size_t>(af[9]);
-                    sa_anchors.push_back(wa);
-                }
-                if (!sa_read_ok) {
+                optional<size_t> sa_path_len = parse_request_number(header_fields[3]);
+                optional<size_t> sa_n_anchors = parse_request_number(header_fields[4]);
+                if (!sa_n_anchors) {
+                    // Without the anchor count we cannot skip the request's
+                    // other lines. They are not reads, so the read parser
+                    // ignores them with a warning.
+                    cerr << "error [vg giraffe-server]: malformed SURJECT_WITH_ANCHORS header "
+                            "(anchor count must be a number)" << endl;
                     emit_empty_frame(sa_name);
                     continue;
                 }
 
+                // Read all of the request's lines even after an error, so the
+                // next request starts on its own line.
+                vector<WireAnchor> sa_anchors;
+                string sa_error;
+                if (!sa_path_len) {
+                    sa_error = "malformed SURJECT_WITH_ANCHORS header (path length must be a number)";
+                }
+                bool sa_eof = false;
+                for (size_t ai = 0; ai < *sa_n_anchors; ++ai) {
+                    string anchor_line;
+                    if (!getline(cin, anchor_line)) {
+                        cerr << "error [vg giraffe-server]: SURJECT_WITH_ANCHORS hit EOF "
+                             << "while reading anchor " << ai << "/" << *sa_n_anchors << endl;
+                        sa_eof = true;
+                        break;
+                    }
+                    ++line_no;
+                    if (!sa_error.empty()) {
+                        continue;
+                    }
+                    auto af = split_tab_fields(anchor_line);
+                    vector<size_t> nums;
+                    for (const auto& field : af) {
+                        optional<size_t> num = parse_request_number(field);
+                        if (!num) {
+                            break;
+                        }
+                        nums.push_back(*num);
+                    }
+                    if (af.size() != 10 || nums.size() != 10) {
+                        sa_error = "malformed anchor line " + to_string(line_no)
+                                   + " (need 10 tab-separated numbers)";
+                        continue;
+                    }
+                    WireAnchor wa;
+                    wa.step_begin_node        = nums[0];
+                    wa.step_begin_offset      = nums[1];
+                    wa.step_end_node          = nums[2];
+                    wa.step_end_offset        = nums[3];
+                    wa.path_offset_step_begin = nums[4];
+                    wa.path_offset_step_end   = nums[5];
+                    wa.read_begin_offset      = nums[6];
+                    wa.read_end_offset        = nums[7];
+                    wa.source_mapping_begin   = nums[8];
+                    wa.source_mapping_end     = nums[9];
+                    sa_anchors.push_back(wa);
+                }
+
                 string sa_gaf_line;
-                if (!getline(cin, sa_gaf_line)) {
-                    cerr << "error [vg giraffe-server]: SURJECT_WITH_ANCHORS hit EOF "
-                         << "while reading the GAF line" << endl;
+                if (sa_eof || !getline(cin, sa_gaf_line)) {
+                    if (!sa_eof) {
+                        cerr << "error [vg giraffe-server]: SURJECT_WITH_ANCHORS hit EOF "
+                             << "while reading the GAF line" << endl;
+                    }
                     emit_empty_frame(sa_name);
                     continue;
                 }
                 ++line_no;
+                if (!sa_error.empty()) {
+                    cerr << "error [vg giraffe-server]: " << sa_error << endl;
+                    emit_empty_frame(sa_name);
+                    continue;
+                }
 
-                // Parsing above stays on this thread (it reads stdin); the
-                // surjection itself is independent per request.
+                // Parsing stays on this thread, which reads stdin. The surjection
+                // needs nothing from other requests, so it can run on the pool.
                 auto task = [&engine, &out_mu, framed_output,
                              name = sa_name, target = sa_target,
                              gaf = move(sa_gaf_line), anchors = move(sa_anchors),
-                             path_len = sa_path_len]() {
+                             path_len = *sa_path_len]() {
                     vector<string> out_lines;
                     try {
                         out_lines = engine.surject_with_anchors(
@@ -498,8 +544,8 @@ int main_giraffe_server(int argc, char** argv) {
                         }
                         return;
                     } catch (...) {
-                        // A worker thread must never let an exception escape:
-                        // that would terminate the whole server.
+                        // An exception that escapes a pool thread terminates the
+                        // server.
                         lock_guard<mutex> lk(out_mu);
                         cerr << "error [vg giraffe-server]: surject_with_anchors failed for "
                              << "read '" << name << "' (non-standard exception)" << endl;
@@ -526,7 +572,7 @@ int main_giraffe_server(int argc, char** argv) {
                 continue;
             }
             auto fields = split_tab_fields(line);
-            // Field layouts (tab-separated):
+            // A read line has 1 to 4 tab-separated fields:
             //   1: SEQ
             //   2: NAME, SEQ
             //   3: NAME, SEQ, QUAL
@@ -538,7 +584,7 @@ int main_giraffe_server(int argc, char** argv) {
                 continue;
             }
 
-            // A lone field must be a sequence; anything else is a bad command.
+            // A lone field must be a sequence. Anything else is an unknown command.
             if (fields.size() == 1 && !is_nucleotide_sequence(fields[0])) {
                 cerr << "warning [vg giraffe-server]: line " << line_no
                      << ": ignored (not a known command or a nucleotide sequence)" << endl;

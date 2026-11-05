@@ -2,12 +2,7 @@
 #define VG_HAPLOTYPE_ASSIGNMENT_HPP_INCLUDED
 
 /** \file
- * Post-processing utility that, for a final Giraffe Alignment, computes the
- * set of haplotypes that traverse the alignment's graph path, optionally
- * extended outward to the nearest enclosing snarl boundaries.
- *
- * Uses the already-loaded GBZ (GBWT + GBWTGraph) and SnarlDistanceIndex that
- * the engine owns. No new index files are required.
+ * Find the haplotypes in a GBZ that carry an alignment's path.
  */
 
 #include <cstddef>
@@ -24,113 +19,113 @@
 
 namespace vg {
 
-// Forward declaration to avoid including vg.pb.h from this header.
+// Declared here so this header need not include vg.pb.h.
 class Alignment;
 
-/// Which haplotypes carry one alignment's graph path: all of it, or, for a
-/// read that switches haplotypes, each consistent segment.
+/**
+ * The haplotypes that carry an alignment's path.
+ *
+ * The path is split into segments, each one as long as some haplotype carries
+ * it unbroken. A path that one haplotype carries end to end is one segment.
+ * The longest segment is the best one, and the top-level fields describe it.
+ */
 struct HaplotypeAssignmentResult {
-    /// One maximal run of the read's alignment path that is carried, as a single
-    /// walk, by at least one haplotype. The read path is tiled greedily left to
-    /// right into such segments: a boundary between two segments is a
-    /// recombination point (an edge no single haplotype takes). When the whole
-    /// read is haplotype-consistent there is exactly one segment spanning it.
+    /**
+     * A run of the path's mappings that at least one haplotype carries.
+     *
+     * The run ends where none of the haplotypes that carry it go on to the
+     * next node of the path.
+     */
     struct Segment {
-        size_t start_mapping   = 0;   ///< first path-mapping index (inclusive)
-        size_t end_mapping     = 0;   ///< one past the last path-mapping index
-        size_t covered_bp      = 0;   ///< sum of node lengths over the segment
-        size_t candidate_count = 0;   ///< haplotypes carrying the whole segment (pre-cap)
-        /// Carrying-haplotype GBWT sequence ids for this segment (capped at
-        /// max_haplotypes_to_report).
+        size_t start_mapping   = 0;   ///< Index of the first mapping in the run.
+        size_t end_mapping     = 0;   ///< One past the index of the last mapping.
+        size_t covered_bp      = 0;   ///< Total length of the run's nodes.
+        /// Number of times GBWT sequences carry the run. A sequence that
+        /// carries it twice counts twice.
+        size_t candidate_count = 0;
+        /// The GBWT sequence IDs that carry the run, at most
+        /// max_haplotypes_to_report of them.
         std::vector<gbwt::size_type> seq_ids;
-        /// Distinct haplotype/path names for this segment (filled by the caller).
+        /// Distinct names of the haplotypes in seq_ids. The caller fills them in.
         std::vector<std::string> haplotype_names;
-        /// Representative haplotype name for this segment (reference-first, else
-        /// lowest seq id; filled by the caller). Empty if no candidates.
+        /// One haplotype from seq_ids to report alone, preferably a reference.
+        /// The caller fills it in.
         std::string representative_name;
     };
 
-    /// Compatible haplotype sequence IDs (GBWT sequence IDs), possibly capped.
-    /// These are the haplotypes covering the BEST (longest) segment — for a
-    /// fully-covered read that is the whole path (identical to the old
-    /// behavior); for a mosaic read it is the longest single consistent block.
+    /// The best segment's seq_ids.
     std::vector<gbwt::size_type> seq_ids;
-    /// Distinct haplotype/path names (e.g. "HG00290#1#chr10") for `seq_ids`,
-    /// deduplicated and sorted. Collapses the raw sequence ids (which double-
-    /// count orientations, repeats, and fragments) into the actual set of
-    /// haplotypes — far smaller and human-readable. Populated by the caller
-    /// from GBWT metadata; empty if metadata is unavailable.
+    /// The best segment's haplotype names, as sorted PanSN names. The caller
+    /// fills them in. Without GBWT metadata a sequence ID stands in for a name.
     std::vector<std::string> haplotype_names;
-    /// Number of haplotypes consistent with the final SearchState, before any
-    /// capping by max_haplotypes_to_report; more than seq_ids.size() if capped.
+    /// The best segment's candidate_count. It is more than seq_ids.size() when
+    /// the cap cut seq_ids short.
     size_t candidate_count = 0;
-    /// Left snarl-boundary node (in forward orientation) if the alignment was
-    /// extended to a boundary. 0 if no extension was requested, or if
-    /// extension walked off the graph, hit a branch, or was not performed.
+    /// The boundary node before the path, in the path's orientation, of the
+    /// smallest snarl that contains the whole path. 0 unless extension was
+    /// asked for, the whole path is one segment, some snarl contains it, and
+    /// the walk got that far.
     nid_t left_boundary_node = 0;
-    /// Right snarl-boundary node, analogous to left_boundary_node.
+    /// The boundary node after the path, found the same way as
+    /// left_boundary_node.
     nid_t right_boundary_node = 0;
-    /// A single representative haplotype name chosen to break the (often large)
-    /// tie when many haplotypes carry the read's path identically. Policy:
-    /// prefer a reference-sample haplotype; among the eligible class take the
-    /// lowest GBWT sequence id (deterministic). Empty if no candidates.
-    /// Populated by the caller. See compute in giraffe_engine.cpp.
+    /// The best segment's representative_name. The caller fills it in.
     std::string representative_name;
-    /// True if the representative was chosen because it is a reference-sample
-    /// (or generic backbone) haplotype; false if it is just the lowest-id
-    /// fallback (no reference among the candidates).
+    /// True if the representative is from a reference sample or the generic
+    /// sample. The caller fills it in.
     bool representative_is_reference = false;
 
-    /// Greedy left-to-right decomposition of the read path into maximal
-    /// haplotype-consistent segments (in path order). Size 1 ⇔ fully_covered.
-    /// A read that spans a recombination, tandem repeat, or inversion in a way
-    /// no single haplotype realizes will have >1 segment — the mosaic.
+    /// The segments, in path order.
     std::vector<Segment> segments;
-    /// True iff some haplotype carries the ENTIRE read path as a single walk
-    /// (segments.size() == 1 spanning the whole path). This is the old
-    /// "clean" case; false means the read is a mosaic and no single haplotype
-    /// is consistent end to end.
+    /// True if one segment spans the whole path.
     bool fully_covered = false;
-    /// Total bp of the read's node path (sum of node lengths).
+    /// Total length of the path's nodes.
     size_t path_length_bp = 0;
-    /// bp covered by the best (longest) single segment — how much of the read
-    /// path the reported haplotype(s) cover as one consistent block.
+    /// Total length of the best segment's nodes.
     size_t best_covered_bp = 0;
-    /// Index into `segments` of the best (longest) segment, whose haplotypes are
-    /// promoted to the top-level seq_ids/representative. SIZE_MAX if no segment.
+    /// Index of the best segment in segments, or SIZE_MAX if there are none.
     size_t best_segment = std::numeric_limits<size_t>::max();
 };
 
 /**
- * Finds the haplotypes in a GBZ that carry an alignment's path, using the
- * SnarlDistanceIndex to find snarl boundaries. Thread-safe.
+ * Finds the haplotypes in a GBZ that carry an alignment's path.
  *
- * Usage:
- *   HaplotypeAssigner assigner(gbz, dist_index);
- *   auto result = assigner.assign(aln, /extend_to_snarls=/ true);
+ * It can also walk out from the path while those haplotypes agree, to find
+ * where they leave the smallest snarl that contains the path. Thread-safe.
  */
 class HaplotypeAssigner {
 public:
-    /// The GBZ and SnarlDistanceIndex must outlive this object.
+    /// The GBZ and the distance index must outlive the assigner.
     HaplotypeAssigner(const gbwtgraph::GBZ& gbz,
                       const SnarlDistanceIndex& dist_index);
 
-    /// Compute haplotypes compatible with the alignment's path.
+    /**
+     * Find the haplotypes that carry the alignment's path.
+     *
+     * If extend_to_snarls is true, one segment covers the whole path, and a
+     * snarl contains the whole path, also walk outward from each end while the
+     * haplotypes all take the same node, out to the smallest such snarl's
+     * boundary nodes. This sets the boundary nodes and keeps only the
+     * haplotypes that make the whole walk.
+     */
     HaplotypeAssignmentResult assign(const Alignment& aln, bool extend_to_snarls) const;
 
-    /// Cap on the number of haplotype IDs returned per alignment.
+    /// The most sequence IDs to list per segment.
     size_t max_haplotypes_to_report = 1000;
-    /// Cap on the number of graph nodes traversed in each direction when
-    /// extend_to_snarls is true.
+    /// The most nodes to walk out from each end of the path when extending.
     size_t max_extension_nodes = 1000;
 
 private:
     const gbwtgraph::GBZ* gbz_;
     const SnarlDistanceIndex* dist_index_;
 
-    /// The innermost snarl containing the node, or the root if it is in no
-    /// snarl. A snarl's boundary nodes belong to the snarl around it.
-    net_handle_t enclosing_snarl(nid_t node_id) const;
+    /// Return the snarls that contain the node, innermost first, as canonical
+    /// net handles. A snarl's boundary nodes are in the snarl around it, not in
+    /// the snarl itself. A node in no snarl gets an empty list.
+    std::vector<net_handle_t> enclosing_snarls(nid_t node_id) const;
+
+    /// Return true if the snarl, as a canonical net handle, contains the node.
+    bool in_snarl(nid_t node_id, const net_handle_t& snarl) const;
 };
 
 } // namespace vg

@@ -22,97 +22,95 @@
 
 namespace vg {
 
-/// Where one alignment lands on one haplotype's path, or why it could not be
-/// placed. Fields other than status are valid only when status == OK.
+/// Where one alignment lands on one haplotype path, or why it could not be
+/// placed. Fields other than status are set only when status is OK.
 struct HaplotypeSurjectionResult {
     enum class Status {
-        OK,                  ///< Surjection succeeded against the target path.
-        EMPTY_INPUT,         ///< Source alignment had no graph path.
-        UNKNOWN_PATH,        ///< Target name is not a known path in the GBZ.
-        PATH_NOT_INDEXED,    ///< Target name exists but was not pre-indexed for surjection.
-        INCOMPATIBLE,        ///< Target haplotype is not in the assigner's candidate set.
-        SURJECTION_FAILED,   ///< Surjector returned an unmapped/empty result.
+        OK,                  ///< The alignment was surjected onto the target path.
+        EMPTY_INPUT,         ///< The alignment has no graph path.
+        UNKNOWN_PATH,        ///< The graph has no path with the target's name.
+        PATH_NOT_INDEXED,    ///< The graph has the target path, but its positions are not indexed.
+        INCOMPATIBLE,        ///< The target path does not carry the alignment's path.
+        SURJECTION_FAILED,   ///< The surjector found no alignment on the target path.
     };
 
     Status status = Status::OK;
 
-    /// Path name on success; otherwise empty.
+    /// Name of the target path.
     std::string path_name;
-    /// 0-based path position of the surjected alignment; -1 if unset.
+    /// 0-based start of the alignment on the path's forward strand.
     int64_t path_position = -1;
-    /// Strand of the alignment relative to the path's forward orientation.
+    /// True if the alignment is on the path's reverse strand.
     bool path_reverse = false;
-    /// Score of the surjected linear alignment.
+    /// Score of the surjected alignment.
     int32_t score = 0;
-    /// Mapping quality copied from the source alignment.
+    /// MAPQ of the surjected alignment, which the surjector copies from the
+    /// graph alignment.
     int32_t mapping_quality = 0;
-    /// SAM-style CIGAR for the surjected alignment.
+    /// CIGAR of the surjected alignment.
     std::string cigar;
 
-    /// Exact edit breakdown of the surjected alignment, counted from the
-    /// alignment's edits rather than the CIGAR: a SAM CIGAR writes both matches
-    /// and substitutions as 'M', so identity cannot be recovered from `cigar`
-    /// alone. `matches` + `mismatches` is the aligned (M) length, which is what
-    /// a PSL needs for its matches / misMatches columns.
+    /// Bases in each kind of edit of the surjected alignment. The CIGAR writes
+    /// matches and mismatches both as M, so these are counted from the edits.
     uint64_t matches = 0;
     uint64_t mismatches = 0;
-    uint64_t inserted = 0;    ///< bases in the read absent from the target
-    uint64_t deleted = 0;     ///< bases in the target absent from the read
+    uint64_t inserted = 0;    ///< Read bases missing from the path.
+    uint64_t deleted = 0;     ///< Path bases missing from the read.
 };
 
-/// Convert a status enum value into a short stable token suitable for
-/// emitting in GAF tags or framed protocol fields.
+/// Return the token that stands for a status in GAF tags.
 const char* haplotype_surjection_status_token(HaplotypeSurjectionResult::Status status);
 
-/// What GiraffeEngine::load() loads and how the engine then runs.
+/// What GiraffeEngine::load() loads, and how the engine maps.
 struct GiraffeEngineConfig {
-    /// The graph plus Giraffe's minimizer, distance and zipcode indexes.
+    /// The GBZ graph and Giraffe's minimizer, distance and zipcode indexes.
     std::string gbz_path;
     std::string minimizer_path;
     std::string distance_path;
     std::string zipcode_path;
 
+    /// Number of mapping threads.
     size_t threads = 1;
 
-    /// Sets the mapper's parameters once it is built, given the minimizer index
-    /// it uses. giraffe-server fills it from vg giraffe's presets and rules.
-    /// Unset: MinimizerMapper's defaults.
+    /// Function that sets the mapper's parameters, given the minimizer index
+    /// the mapper uses. If empty, the mapper keeps its defaults.
     std::function<void(MinimizerMapper&, const gbwtgraph::DefaultMinimizerIndex&)> configure_mapper;
 
-    /// If > 0, replaces max_multimaps after configure_mapper. Reporting is
-    /// still capped by max_alignments.
+    /// Maximum number of alignments per read, if not 0. It replaces the value
+    /// that configure_mapper sets. The mapper still reports at most
+    /// max_alignments.
     size_t max_multimaps = 0;
 
+    /// Page the whole distance index into memory at load time.
     bool preload_distance_index = true;
 
-    /// Names of haplotype paths in the GBZ to pre-index for surjection.
-    /// If empty, surjection is disabled regardless of per-read requests.
-    /// These are passed to bdsg::ReferencePathOverlay as extra_path_names so
-    /// haplotype-sense paths become surjectable, not just reference paths.
+    /// Names of the paths that map_reads() can surject onto. If empty,
+    /// map_reads() surjects nothing.
     std::vector<std::string> surjection_target_paths;
 
     /// Tag each alignment with the haplotypes that carry its path.
     bool assign_haplotypes = true;
-    /// When assigning haplotypes, extend the search out to the enclosing snarl's
-    /// boundaries, keeping only haplotypes that also agree there.
+    /// When assigning haplotypes, extend the search out to the enclosing
+    /// snarl's boundaries, keeping only haplotypes that also agree there.
     bool assign_haplotypes_extend_to_snarls = true;
 };
 
-/// One read to map, as giraffe-server receives it.
+/// One read to map, and the path to surject its alignments onto.
 struct GiraffeServerRequest {
-    /// Name, sequence and base qualities (raw Phred, as vg stores them; empty
-    /// if unknown, which like FASTA input to vg giraffe leaves MAPQ uncapped).
+    /// The read's name, sequence and base qualities. The qualities are raw
+    /// Phred scores. If they are empty, base quality does not cap MAPQ.
     Alignment read;
-    /// Pre-indexed haplotype path to surject every alignment of the read onto,
-    /// reported as GAF tags. Empty for none.
+    /// One of the surjection target paths, or empty to surject nothing.
     std::string surjection_target;
 };
 
-/// Wire-format payload for one pre-computed anchor sent over the
-/// giraffe-server stdin protocol. Mirrors panindexer::PrecomputedAnchor
-/// fields that we serialize; step_handle_t is reconstructed locally from
-/// the (node, offset_in_record) pair using gbwtgraph's documented
-/// step encoding (as_integers(step)[0]=node, [1]=offset).
+/// One precomputed anchor, as giraffe-server reads it: a run of steps of the
+/// target path, from step_begin to step_end inclusive, with the path offsets
+/// of both steps.
+///
+/// Each step is a GBWT node and an offset in that node's GBWT record, which
+/// is how GBWTGraph encodes a step handle. The engine does not use the read
+/// and source mapping ranges.
 struct WireAnchor {
     uint64_t step_begin_node = 0;
     uint64_t step_begin_offset = 0;
@@ -126,36 +124,74 @@ struct WireAnchor {
     size_t source_mapping_end = 0;
 };
 
-/// Giraffe with its indexes loaded once: maps reads to GAF, and surjects
-/// alignments onto haplotypes. Backs vg giraffe-server.
+/**
+ * Giraffe with its indexes loaded once, for a mapping server.
+ *
+ * The engine maps batches of reads to GAF lines. It tags each alignment with
+ * the haplotypes that carry its path, and can surject it onto one haplotype
+ * path. A path indexed at load time can be a surjection target for
+ * map_reads(). Any other path can be a target for surject_with_anchors(),
+ * given anchors that place some of its steps on the path.
+ */
 class GiraffeEngine {
 public:
     GiraffeEngine() = default;
 
+    /**
+     * Load the indexes and build the mapper.
+     *
+     * This also sets the OpenMP thread count for the whole process.
+     *
+     * @throws std::runtime_error if an index file is missing, the indexes do
+     * not match, or a surjection target path is not in the graph.
+     */
     void load(const GiraffeEngineConfig& config);
 
+    /// Return true once load() has succeeded.
     bool is_loaded() const;
 
     const GiraffeEngineConfig& config() const;
 
+    /// Return the GAF header lines that name the graph.
     std::vector<std::string> gaf_header_lines() const;
 
-    // Returns one vector per input read, preserving order.
-    // Each inner vector contains one or more GAF lines (multimaps).
+    /**
+     * Map a batch of reads in parallel.
+     *
+     * Return one vector per read, in input order, with one GAF line per
+     * alignment. An unmapped read gets one unmapped line. Each line carries
+     * the haplotype tags and, if the read names a surjection target, the
+     * surjection tags.
+     *
+     * @throws std::runtime_error if a read's qualities and sequence differ in
+     * length. If mapping a read throws, the first such exception is rethrown
+     * after the batch.
+     */
     std::vector<std::vector<std::string>> map_reads(const std::vector<GiraffeServerRequest>& reads);
 
-    /// Surject a graph alignment (`gaf_line`) onto `target_haplotype` using
-    /// pre-computed anchors instead of a built-in ReferencePathOverlay.
-    /// Returns one GAF line containing the original alignment with appended
-    /// surjection tags (sj:, sn:, sp:, sr:, ss:, sm:, sc:), mirroring the
-    /// per-read surjection-tag schema emitted by map_reads.
-    ///
-    /// `target_path_length` is the caller-precomputed total length in bases
-    /// of the target path; it's what AnchorBackedPositionGraph reports for
-    /// `get_path_length`. Pass 0 to fall back to walking the path here.
-    ///
-    /// Throws if the engine wasn't loaded, if the GAF can't be parsed, or
-    /// if `target_haplotype` is not a known path in the GBZ.
+    /**
+     * Surject a graph alignment onto a haplotype path, using anchors on the
+     * path for positions.
+     *
+     * The anchors stand in for a position index of the whole path, which the
+     * engine has only for the paths indexed at load time.
+     *
+     * `target_haplotype` is a path name, such as GRCh38#0#chrM, or a sample
+     * and haplotype, such as HG002#2. For a name the graph does not have, the
+     * target is the path of the first anchor's step.
+     *
+     * Return one GAF line: `gaf_line` with the surjection tags appended. On
+     * success it also has an:i, the number of anchors, and ap:Z, the target
+     * path's name. If the surjector throws, se:Z holds the error message.
+     *
+     * @pre All anchors lie on one path.
+     *
+     * @param target_path_length Length of the target path in bases, or 0 to
+     * have it computed here by walking the path.
+     *
+     * @throws std::runtime_error if the engine is not loaded or `gaf_line` is
+     * empty.
+     */
     std::vector<std::string> surject_with_anchors(
         const std::string& read_name,
         const std::string& gaf_line,
@@ -164,13 +200,16 @@ public:
         size_t target_path_length);
 
 private:
+    /// Throw if load() has not succeeded.
     void require_loaded() const;
 
-    /// Surject aln onto the pre-indexed path target_path_name, if one of
-    /// candidate_seq_ids (from the haplotype assigner) is that path.
+    /// Surject an alignment onto a path whose positions were indexed at load
+    /// time. The path must visit the nodes of the alignment's mappings
+    /// [begin_mapping, end_mapping) in order, in either orientation, or the
+    /// status is INCOMPATIBLE.
     HaplotypeSurjectionResult surject_to_indexed_path(
         const Alignment& aln, const std::string& target_path_name,
-        const std::vector<gbwt::size_type>& candidate_seq_ids) const;
+        size_t begin_mapping, size_t end_mapping) const;
 
     GiraffeEngineConfig config_{};
     std::unique_ptr<gbwtgraph::GBZ> gbz_;
@@ -180,8 +219,8 @@ private:
     std::unique_ptr<MinimizerMapper> mapper_;
     std::unique_ptr<HaplotypeAssigner> haplotype_assigner_;
 
-    /// Position index over surjection_target_paths, and a Surjector on it.
-    /// Null when no targets are configured.
+    /// Position index of the surjection target paths, and a surjector that
+    /// uses it. Both are null if there are no target paths.
     std::unique_ptr<bdsg::ReferencePathOverlay> position_overlay_;
     std::unique_ptr<Surjector> overlay_surjector_;
 };

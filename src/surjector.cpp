@@ -297,10 +297,9 @@ using namespace std;
             source_mp_aln = &simplified_source_mp_aln;
         }
         
-        // ---- optional per-phase timing (env: VG_SURJECT_PHASE_TIMING=1) ----
-        // Splits a surjection into extract-overlapping-paths / prune-anchors /
-        // realign, printed to stderr on any exit, so we can see exactly which
-        // step dominates. No overhead when the env var is unset.
+        // When VG_SURJECT_PHASE_TIMING is set, report on stderr how long this
+        // surjection spends finding path overlaps, pruning anchors and
+        // realigning. The report runs in a deleter, so it prints on every return.
         static const bool surj_phase_timing = (getenv("VG_SURJECT_PHASE_TIMING") != nullptr);
         auto surj_t0 = chrono::steady_clock::now();
         double surj_ms_extract = 0.0, surj_ms_prune = 0.0, surj_ms_realign = 0.0;
