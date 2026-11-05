@@ -134,7 +134,7 @@ We support the following set of operations, which has diverged from the original
 |:-------:|:------:|:----------|
 |`:`      |`[0-9]+`|Number of matching bases|
 |`*`      |`[ACGTN][ACGTN]`|Mismatch as (target base, query base)|
-|`?`      |`[0-9]+`|Mismatch as the query base (since version 1.1)|
+|`?`      |`[ACGTN]`|Mismatch as the query base (since version 1.1)|
 |`+`      |`[ACGTN]+`|Insertion as the unaligned query bases|
 |`-`      |`[ACGTN]+`|Deletion as the unaligned target bases|
 |`!`      |`[0-9]+`|Deletion as the number of unaligned target bases (since version 1.1)|
