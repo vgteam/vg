@@ -517,8 +517,8 @@ std::vector<transition_info> generate_zip_tree_transitions(
     size_t max_indel_bases,
     bool allow_seed_overlaps,
     const VectorView<Anchor>& to_chain,
-    const std::unordered_map<size_t, size_t>& seed_to_starting, 
-    const std::unordered_map<size_t, size_t>& seed_to_ending);
+    const std::vector<size_t>& seed_to_starting, 
+    const std::vector<size_t>& seed_to_ending);
 /**
  * Add a new transition_info to the end of "transitions"
  * if said transition is legal (i.e. reachable in the read).
