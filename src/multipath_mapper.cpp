@@ -11,7 +11,6 @@
 //#define debug_pretty_print_alignments
 //#define debug_time_phases
 //#define debug_log_splice_align_stats
-//#define debug_output_distance_correlation
 //#define debug_check_adapters
 
 #ifdef debug_time_phases
@@ -1061,102 +1060,6 @@ namespace vg {
         max_alt_mappings = reset_max_alt_mappings;
         suppress_p_value_memoization = false;
         suppress_mismapping_detection = reset_suppress_mismapping_detection;
-    }
-
-    void MultipathMapper::determine_distance_correlation() {
-        
-        // FIXME: very experimental, not sure if i actually want to do this
-        
-        if (!distance_index || ref_path_handles.empty()) {
-            return;
-        }
-        
-        vector<path_handle_t> refs(ref_path_handles.begin(), ref_path_handles.end());
-        sort(refs.begin(), refs.end(), [&](path_handle_t a, path_handle_t b) {
-            return xindex->get_path_name(a) < xindex->get_path_name(b);
-        });
-        vector<size_t> ref_weights(refs.size());
-        for (size_t i = 0; i < refs.size(); ++i) {
-            ref_weights[i] = xindex->get_path_length(refs[i]);
-        }
-        
-        SnarlOrientedDistanceMeasurer measurer(distance_index);
-        
-        discrete_distribution<size_t> ref_distr(ref_weights.begin(), ref_weights.end());
-        mt19937 gen;
-        gen.seed(749753582ul);
-        
-        vector<tuple<path_handle_t, size_t, size_t, pos_t, pos_t>> positions;
-        vector<vector<double>> distances;
-        
-        int num_measurements = 100 * 1000;
-        int radius = 50 * 1000;
-        for (int i = 0; i < num_measurements; ++i) {
-            
-            path_handle_t ref = refs[ref_distr(gen)];
-            if (xindex->get_path_length(ref) < 2) {
-                continue;
-            }
-            
-            // don't include the past-the-last, which makes things tricky
-            uniform_int_distribution<size_t> off_distr_1(1, xindex->get_path_length(ref) - 1);
-            size_t path_off_1 = off_distr_1(gen);
-            
-            uniform_int_distribution<size_t> off_distr_2(max<int64_t>(path_off_1 - radius, 1),
-                                                         min<int64_t>(path_off_1 + radius, xindex->get_path_length(ref) - 1));
-            size_t path_off_2 = off_distr_2(gen);
-            
-            auto step_1 = xindex->get_step_at_position(ref, path_off_1);
-            auto step_2 = xindex->get_step_at_position(ref, path_off_2);
-            
-            pos_t pos_1(xindex->get_id(xindex->get_handle_of_step(step_1)),
-                       xindex->get_is_reverse(xindex->get_handle_of_step(step_1)),
-                       path_off_1 - xindex->get_position_of_step(step_1));
-            pos_t pos_2(xindex->get_id(xindex->get_handle_of_step(step_2)),
-                       xindex->get_is_reverse(xindex->get_handle_of_step(step_2)),
-                       path_off_2 - xindex->get_position_of_step(step_2));
-            
-            positions.emplace_back();
-            get<0>(positions.back()) = ref;
-            get<1>(positions.back()) = path_off_1;
-            get<2>(positions.back()) = path_off_2;
-            get<3>(positions.back()) = pos_1;
-            get<4>(positions.back()) = pos_2;
-            
-            pos_t rev_pos_1(id(pos_1), !is_rev(pos_1),
-                            xindex->get_length(xindex->get_handle_of_step(step_1)) - offset(pos_1));
-            
-            vector<int64_t> row;
-            row.push_back(algorithms::ref_path_distance(xindex, pos_1, pos_2, ref_path_handles,
-                                                        max_splice_ref_search_length));
-            row.push_back(measurer.oriented_distance(pos_1, pos_2));
-            row.push_back(algorithms::ref_path_distance(xindex, rev_pos_1, pos_2, ref_path_handles,
-                                                        max_splice_ref_search_length));
-            row.push_back(measurer.oriented_distance(rev_pos_1, pos_2));
-            
-            distances.emplace_back();
-            for (auto d : row) {
-                distances.back().push_back(d == numeric_limits<int64_t>::max() ? numeric_limits<double>::quiet_NaN() : d);
-            }
-            
-            
-        }
-#ifdef debug_output_distance_correlation
-        for (size_t j = 0; j < distances.size(); ++j) {
-            auto& pos_row = positions[j];
-            cerr << xindex->get_path_name(get<0>(pos_row));
-            cerr << "\t" << get<1>(pos_row);
-            cerr << "\t" << get<2>(pos_row);
-            cerr << "\t" << get<3>(pos_row);
-            cerr << "\t" << get<4>(pos_row);
-            auto& row = distances[j];
-            for (size_t i = 0; i < row.size(); ++i) {
-                cerr << "\t";
-                cerr << row[i];
-            }
-            cerr << endl;
-        }
-#endif
     }
 
     unique_ptr<OrientedDistanceMeasurer> MultipathMapper::get_distance_measurer(MemoizingGraph& memoizing_graph) const {
@@ -4934,87 +4837,6 @@ namespace vg {
         }
         
         sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, nullptr, &pair_multiplicities);
-    }
-
-    double MultipathMapper::estimate_missed_rescue_multiplicity(size_t which_pair,
-                                                                const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                                                const vector<clustergraph_t>& cluster_graphs1,
-                                                                const vector<clustergraph_t>& cluster_graphs2,
-                                                                bool from_secondary_rescue) const {
-#ifdef debug_multipath_mapper
-        cerr << "checking whether we should enter rescue multiplicity routine" << endl;
-#endif
-        
-        
-        double multiplicity = 1.0;
-        
-        // did we use an out-of-bounds cluster index to flag either end as coming from a rescue?
-        bool opt_aln_1_is_rescued = cluster_pairs[which_pair].first.first == RESCUED;
-        bool opt_aln_2_is_rescued = cluster_pairs[which_pair].first.second == RESCUED;
-        
-        // was the optimal cluster pair obtained by rescue?
-        if (opt_aln_1_is_rescued || opt_aln_2_is_rescued) {
-            // let's figure out if we should reduce its mapping quality to reflect the fact that we may not have selected the
-            // correct cluster as a rescue candidate
-            
-#ifdef debug_multipath_mapper
-            cerr << "the optimal alignment is a rescue, checking if we need to cap the mapping quality" << endl;
-#endif
-            
-            const vector<clustergraph_t>& anchor_clusters = opt_aln_1_is_rescued ? cluster_graphs2 : cluster_graphs1;
-            size_t anchor_idx = opt_aln_1_is_rescued ? cluster_pairs[which_pair].first.second : cluster_pairs[which_pair].first.first;
-            
-            // find the range of clusters that could plausibly be about as good as the one that rescue succeeded from
-            size_t plausible_clusters_end_idx = anchor_idx;
-            for (; plausible_clusters_end_idx < anchor_clusters.size(); plausible_clusters_end_idx++) {
-                if (get<2>(anchor_clusters[plausible_clusters_end_idx]) < get<2>(anchor_clusters[anchor_idx]) - plausible_rescue_cluster_coverage_diff) {
-                    break;
-                }
-            }
-            
-            // TODO: it's a bit ugly/fragile to have the secondary rescue logic recapitulated here
-            
-            // figure out which index corresponds to the end of the range we would have rescued
-            size_t max_rescues_attempted_idx;
-            if (from_secondary_rescue) {
-                // find the indexes that were added by pair clustering
-                unordered_set<size_t> paired_idxs;
-                for (auto& cluster_pair : cluster_pairs) {
-                    paired_idxs.insert(opt_aln_1_is_rescued ? cluster_pair.first.second : cluster_pair.first.first);
-                }
-                
-                // the "budget" of rescues we could have performed
-                size_t rescues_left = secondary_rescue_attempts;
-                size_t i = 0;
-                for (; i < anchor_clusters.size(); i++) {
-                    // did we skip thi index because it was already in a pair?
-                    if (!paired_idxs.count(i)) {
-                        if (rescues_left) {
-                            // we would have tried a secondary rescue here
-                            rescues_left--;
-                        }
-                        else {
-                            // we would have run out of secondary rescues here
-                            break;
-                        }
-                    }
-                }
-                // this is the first index we didn't rescue
-                max_rescues_attempted_idx = i;
-            }
-            else {
-                // simpler without secondary rescue, we would have just rescued up to the maximum allowable
-                max_rescues_attempted_idx = max_rescue_attempts;
-            }
-            
-#ifdef debug_multipath_mapper
-            cerr << "performed up to " << max_rescues_attempted_idx << " out of " << plausible_clusters_end_idx << " plausible rescues" << endl;
-#endif
-            
-            multiplicity = max(1.0, (double)(plausible_clusters_end_idx) / (double)(max_rescues_attempted_idx));
-        }
-        
-        return multiplicity;
     }
 
     double MultipathMapper::cluster_multiplicity(const memcluster_t& cluster) const {

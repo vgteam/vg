@@ -1007,9 +1007,9 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                 std::unordered_map<std::pair<size_t, size_t>, size_t> all_transitions;
 
                 // Set up to get all the transitions between anchors in the zip code tree
-                auto transition_iterator = algorithms::zip_tree_transition_iterator(seeds, zip_forest.trees.at(0), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+                auto transition_iterator = algorithms::zip_tree_transition_iterator(seeds, zip_forest.trees.at(0), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
                 // And get them
-                transition_iterator(anchors, distance_index, graph, std::numeric_limits<size_t>::max(), [&](const vg::algorithms::transition_info& transition) {
+                transition_iterator(anchors, std::numeric_limits<size_t>::max(), [&](const vg::algorithms::transition_info& transition) {
                     // And for each of them, remember them
 #ifdef debug
                     std::cerr << "From anchor " << transition.from_anchor << " to anchor " << transition.to_anchor
@@ -1040,8 +1040,12 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                 //   0
                 REQUIRE(all_transitions.at(std::make_pair(0, 3)) == 0);
 
-                // We shouldn't see any extra transitions, like between overlapping anchors.
-                REQUIRE(all_transitions.size() == 4);
+                // Perfect overlap anchor transitions
+                REQUIRE(all_transitions.at(std::make_pair(0, 2)) == 0);
+                REQUIRE(all_transitions.at(std::make_pair(2, 3)) == 0);
+
+                // We shouldn't see any extra transitions.
+                REQUIRE(all_transitions.size() == 6);
             }
         }
     }

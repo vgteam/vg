@@ -39,9 +39,9 @@ ostream& operator<<(ostream& out, const Anchor& anchor) {
 
 ostream& operator<<(ostream& out, const TracedScore& value) {
     if (value.source == TracedScore::nowhere()) {
-        return out << value.score << " from nowhere";
+        return out << value.score << " (eval +" << value.eval_bonus << ") from nowhere";
     }
-    return out << value.score << " from #" << value.source;
+    return out << value.score << " (eval +" << value.eval_bonus << ") from #" << value.source;
 }
 
 
@@ -50,9 +50,9 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
     if (option.score > this->score || this->source == nowhere()) {
         // This is the new winner.
         this->score = option.score;
+        this->eval_bonus = option.eval_bonus;
         this->source = option_number;
         this->paths = option.paths;
-        this->rec_num = option.rec_num;
     }
 }
 
@@ -60,23 +60,20 @@ TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t o
     TracedScore got = options[option_number];
     got.source = option_number;
     got.paths = options[option_number].paths;
-    got.rec_num = options[option_number].rec_num;
     return got;
 }
 
 TracedScore TracedScore::add_points(int adjustment) const {
-    return {this->score + adjustment, this->source, this->paths, this->rec_num};
+    return {this->score + adjustment, this->eval_bonus, this->source, this->paths};
 }
 
-TracedScore TracedScore::set_shared_paths(const std::pair<size_t,size_t>& new_paths) const {
+TracedScore TracedScore::set_shared_paths(const std::pair<size_t, size_t>& new_paths) const {
     size_t updated_paths;
-    size_t rec_num = this->rec_num;
     if(new_paths.first == new_paths.second) {
        // if the paths are the same, there is no recombination inside the anchor. check if there is a recombination between anchors now
         if ((this->paths & new_paths.first) == 0) {
            // there is a recombination between anchors, so we "reset" the current paths
             updated_paths = new_paths.first;
-            rec_num++;
         } else {
             // there is no recombination between anchors, so we update the current paths
             updated_paths = this->paths & new_paths.first;
@@ -87,9 +84,9 @@ TracedScore TracedScore::set_shared_paths(const std::pair<size_t,size_t>& new_pa
     }
     return {
         this->score,
+        this->eval_bonus,
         this->source,
-        updated_paths,
-        rec_num
+        updated_paths
     };
 }
 
@@ -100,7 +97,7 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
         auto& b_item = items[b];
         auto a_start = a_item.read_start();
         auto b_start = b_item.read_start();
-        // a should be first if it starts earlier, or starts atthe same place and ends later.
+        // a should be first if it starts earlier, or starts at the same place and ends later.
         return (a_start < b_start || (a_start == b_start && a_item.read_end() > b_item.read_end()));
     });
 }
@@ -108,13 +105,11 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
 transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
                                                  const ZipCodeTree& zip_code_tree,
                                                  size_t max_graph_lookback_bases,
-                                                 size_t max_read_lookback_bases) {
+                                                 size_t max_read_lookback_bases,
+                                                 bool allow_seed_overlaps) {
     
-    // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
-    return [&seeds, &zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases](
+    return [&seeds, &zip_code_tree, max_graph_lookback_bases, max_read_lookback_bases, allow_seed_overlaps](
         const VectorView<Anchor>& to_chain,
-        const SnarlDistanceIndex& distance_index,
-        const HandleGraph& graph,
         size_t max_indel_bases,
         const transition_iteratee& callback
     ) {
@@ -122,8 +117,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // We need a way to map from the seeds that zip tree thinks about to the anchors that we think about.
         // So we need to index the anchors by leading/trailing seed.
         // TODO: Should we make someone else do the indexing so we can make the Anchor not need to remember the seed?
-        std::unordered_map<size_t, size_t> seed_to_starting;
-        std::unordered_map<size_t, size_t> seed_to_ending;
+        std::vector<size_t> seed_to_starting(seeds.size(), numeric_limits<size_t>::max());
+        std::vector<size_t> seed_to_ending(seeds.size(), numeric_limits<size_t>::max());
         for (size_t anchor_num = 0; anchor_num < to_chain.size(); anchor_num++) {
             seed_to_starting[to_chain[anchor_num].seed_start()] = anchor_num;
             seed_to_ending[to_chain[anchor_num].seed_end()] = anchor_num;
@@ -137,8 +132,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // We will fill it all in and then sort it by destination read position.
         std::vector<transition_info> all_transitions = 
             generate_zip_tree_transitions(seeds, zip_code_tree, max_graph_lookback_bases,
-                                          max_read_lookback_bases, max_indel_bases, to_chain,
-                                          seed_to_starting, seed_to_ending);
+                                          max_read_lookback_bases, max_indel_bases, allow_seed_overlaps,
+                                          to_chain, seed_to_starting, seed_to_ending);
 
         // Sort the transitions so we handle them in an allowed order for dynamic programming.
         std::sort(all_transitions.begin(), all_transitions.end(), 
@@ -159,26 +154,24 @@ std::vector<transition_info> generate_zip_tree_transitions(
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,
     size_t max_indel_bases,
+    bool allow_seed_overlaps,
     const VectorView<Anchor>& to_chain,
-    const std::unordered_map<size_t, size_t>& seed_to_starting, 
-    const std::unordered_map<size_t, size_t>& seed_to_ending) {
+    const std::vector<size_t>& seed_to_starting, 
+    const std::vector<size_t>& seed_to_ending) {
 
     std::vector<transition_info> all_transitions;
     // Save hopefully enough space for the transitions
     all_transitions.reserve(zip_code_tree.get_tree_size());
 
     for (auto seed_itr = zip_code_tree.begin(); seed_itr != zip_code_tree.end(); ++seed_itr) {
-        // For each destination seed left to right
-        vector<ZipCodeTree::oriented_seed_t> dest = *seed_itr;
-
         // Might be the start of an anchor if forward relative to the read,
         // or the end of an anchor if reverse relative to the read
-        unordered_map<ZipCodeTree::oriented_seed_t, size_t> dest_anchors;
-        for (const auto& dest_seed : dest) {
-            auto anchor = dest_seed.is_reversed ? seed_to_ending.find(dest_seed.seed)
-                                                : seed_to_starting.find(dest_seed.seed);
-            if (anchor != (dest_seed.is_reversed ? seed_to_ending.end() : seed_to_starting.end())) {
-                dest_anchors[dest_seed] = anchor->second;
+        vector<pair<ZipCodeTree::oriented_seed_t, size_t>> dest_anchors;
+        for (const auto& dest_seed : *seed_itr) {
+            auto anchor = dest_seed.is_reversed ? seed_to_ending[dest_seed.seed]
+                                                : seed_to_starting[dest_seed.seed];
+            if (anchor != numeric_limits<size_t>::max()) {
+                dest_anchors.emplace_back(dest_seed, anchor);
             }
         }
 
@@ -216,17 +209,17 @@ std::vector<transition_info> generate_zip_tree_transitions(
                 if (!source_seed.is_reversed && !cur_dest_anchor.first.is_reversed) {
                     // Both were traversed in the same orientation as the read.
                     // They might not be at anchor borders though, so check.
-                    auto found_source_anchor = seed_to_ending.find(source_seed.seed);
-                    if (found_source_anchor != seed_to_ending.end()) {
+                    auto source_anchor = seed_to_ending[source_seed.seed];
+                    if (source_anchor != numeric_limits<size_t>::max()) {
                         // We can transition between these seeds
                         // without jumping to/from the middle of an anchor.
 #ifdef debug_transition
-                        std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
-                        std::cerr << "\t\tFound transition from #" << found_source_anchor->second 
+                        std::cerr << " is anchor #" << source_anchor << std::endl;
+                        std::cerr << "\t\tFound transition from #" << source_anchor
                                   << " to #" << cur_dest_anchor.second << std::endl;
 #endif
-                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, 
-                                                max_indel_bases, found_source_anchor->second,
+                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, max_indel_bases,
+                                                allow_seed_overlaps, source_anchor,
                                                 cur_dest_anchor.second, source_seed.distance);
                     } else {
 #ifdef debug_transition
@@ -236,20 +229,20 @@ std::vector<transition_info> generate_zip_tree_transitions(
                 } else if (source_seed.is_reversed && cur_dest_anchor.first.is_reversed) {
                     // Both were traversed in the opposite orientation as the read.
                     // We need to save them flipped for later.
-                    auto found_source_anchor = seed_to_starting.find(source_seed.seed);
-                    if (found_source_anchor != seed_to_starting.end()) {
+                    auto source_anchor = seed_to_starting[source_seed.seed];
+                    if (source_anchor != numeric_limits<size_t>::max()) {
                         // We can transition between these seeds
                         // without jumping to/from the middle of an anchor.
                         // Queue them up, flipped
                             
 #ifdef debug_transition
-                        std::cerr << " is anchor #" << found_source_anchor->second << std::endl;
+                        std::cerr << " is anchor #" << source_anchor << std::endl;
                         std::cerr << "\t\tFound backward transition from #" << cur_dest_anchor.second << " to #"
-                                  << found_source_anchor->second << std::endl;
+                                  << source_anchor << std::endl;
 #endif
-                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases,
-                                                max_indel_bases, cur_dest_anchor.second,
-                                                found_source_anchor->second, source_seed.distance);
+                        add_transition_if_legal(all_transitions, to_chain, max_read_lookback_bases, max_indel_bases,
+                                                allow_seed_overlaps, cur_dest_anchor.second,
+                                                source_anchor, source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr << " does not represent an anchor." << std::endl;
@@ -268,7 +261,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
 }
 
 void add_transition_if_legal(vector<transition_info>& transitions, const VectorView<Anchor>& to_chain,
-                             size_t max_read_lookback_bases, size_t max_indel_bases,
+                             size_t max_read_lookback_bases, size_t max_indel_bases, bool allow_seed_overlaps,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance) {
     auto& source_anchor = to_chain[from_anchor];
     auto& dest_anchor = to_chain[to_anchor];
@@ -280,11 +273,21 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
 #endif
 
     size_t read_distance = get_read_distance(source_anchor, dest_anchor);
+    // Do these anchors participate in a no-indel overlap?
+    bool perfect_overlap = (dest_anchor.read_start() + dest_anchor.start_hint_offset()) \
+                               - (source_anchor.read_start() + source_anchor.start_hint_offset()) == graph_distance;
     if (read_distance == std::numeric_limits<size_t>::max()) {
-        // Not reachable in read
+        if (allow_seed_overlaps && perfect_overlap) {
 #ifdef debug_transition
-        std::cerr << "\tNot reachable in read." << std::endl;
+            std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif
+            transitions.emplace_back(from_anchor < to_anchor ? from_anchor : to_anchor,
+                                     from_anchor < to_anchor ? to_anchor : from_anchor, 0);
+        } else {
+#ifdef debug_transition
+            std::cerr << "\tNot reachable in read." << std::endl;
+#endif
+        }
         return;
     }
 
@@ -300,9 +303,17 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
     if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
         // The actual core anchor part is reachable in the read,
         // but we cut these down from overlapping minimizers.
+        if (allow_seed_overlaps && perfect_overlap) {
 #ifdef debug_transition
-        std::cerr << "\tOriginally overlapped in read." << std::endl;
+            std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif
+            transitions.emplace_back(from_anchor < to_anchor ? from_anchor : to_anchor,
+                                     from_anchor < to_anchor ? to_anchor : from_anchor, 0);
+        } else {
+#ifdef debug_transition
+            std::cerr << "\tOriginally overlapped in read." << std::endl;
+#endif
+        }
         return;
     }
 
@@ -335,22 +346,20 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
     // Consume the length. 
     graph_distance -= distance_to_remove;
 
-#ifdef debug_transition
-    std::cerr << "\tZip code tree sees " << source_anchor << " and "
-              << dest_anchor << " as " << graph_distance << " apart" << std::endl;
-#endif
-
     size_t indel_size = (read_distance > graph_distance) ? read_distance - graph_distance 
                                                          : graph_distance - read_distance;
-    
+
     if (indel_size > max_indel_bases) {
-        // We wouldn't be allowed to take an indel this big anyways
 #ifdef debug_transition
         std::cerr << "\tIndel size " << indel_size << " over max of " << max_indel_bases << std::endl;
-#endif
+#endif 
         return;
-    } 
-
+    }
+#ifdef debug_transition
+    std::cerr << "\tZip code tree sees " << source_anchor << " and "
+              << dest_anchor << " as " << graph_distance << " apart; "
+              << indel_size << " indel" << std::endl;
+#endif
     transitions.emplace_back(from_anchor, to_anchor, indel_size);
 }
 
@@ -382,14 +391,15 @@ int check_recombination(const TracedScore& from, const Anchor& to) {
     }
 }
 
-void chain_items_dp(vector<TracedScore>& chain_scores,
-                    const VectorView<Anchor>& to_chain,
-                    const SnarlDistanceIndex& distance_index,
-                    const HandleGraph& graph,
-                    const transition_iterator& for_each_transition,
-                    const ChainScoringScheme& scheme,
-                    size_t max_indel_bases,
-                    bool show_work) {
+vector<TracedScore> chain_items_dp(const VectorView<Anchor>& to_chain,
+                                   const transition_iterator& for_each_transition,
+                                   const ChainScoringScheme& scoring_scheme,
+                                   size_t max_indel_bases,
+                                   bool show_work) {
+
+#ifdef debug_chaining
+    show_work = true;
+#endif
 
     DiagramExplainer diagram(show_work);
     TSVExplainer dump(show_work, "chaindump");
@@ -401,8 +411,8 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }
 
-    crash_unless(scheme.recombination_penalty >= 0);
-    crash_unless(scheme.consistency_bonus >= 0);
+    crash_unless(scoring_scheme.recombination_penalty >= 0);
+    crash_unless(scoring_scheme.consistency_bonus >= 0);
 
 
     // Compute a base seed average length.
@@ -414,6 +424,7 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
     }
     base_seed_length /= to_chain.size();
 
+    vector<TracedScore> chain_scores;
     chain_scores.resize(to_chain.size());
 
     // We want to prefer to come from seeds where the transition preserves
@@ -427,11 +438,13 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
     // We store the bonus used to select the current winning predecessor for
     // each seed in this vector, which runs alongside the DP table.
     //
-    // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
-    std::vector<int> eval_bonuses(to_chain.size(), scheme.consistency_bonus);
+    // Starting from nowhere means full path conservation, so bonus = scoring_scheme.consistency_bonus.
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, with bonus applied.
-        chain_scores[i] = {(int)(to_chain[i].score() + scheme.item_bonus), TracedScore::nowhere(), to_chain[i].anchor_end_paths()};
+        chain_scores[i] = {to_chain[i].score() + scoring_scheme.item_bonus,
+                           scoring_scheme.consistency_bonus,
+                           TracedScore::nowhere(),
+                           to_chain[i].anchor_end_paths()};
     }
 
     // We will run this over every transition in a good DP order.
@@ -450,31 +463,20 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
         auto& here = to_chain[transition.to_anchor];
         
         // How many points is it worth to collect?
-        auto item_points = here.score() + scheme.item_bonus;
+        int item_points = here.score() + scoring_scheme.item_bonus;
         
         std::string here_gvnode;
         if (diagram) {
             here_gvnode = "i" + std::to_string(transition.to_anchor);
         }
         
-        // If we come from nowhere, we get those points.
-        // This also has full path conservation (bonus = scheme.consistency_bonus).
-        {
-            TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
-            int nowhere_bonus = scheme.consistency_bonus;
-            int eval_nowhere = from_nowhere.score + nowhere_bonus;
-            int eval_current = chain_scores[transition.to_anchor].score + eval_bonuses[transition.to_anchor];
-            if (eval_nowhere > eval_current) {
-                chain_scores[transition.to_anchor] = from_nowhere;
-                eval_bonuses[transition.to_anchor] = nowhere_bonus;
-            } else if (eval_nowhere == eval_current && from_nowhere > chain_scores[transition.to_anchor]) {
-                chain_scores[transition.to_anchor] = from_nowhere;
-                eval_bonuses[transition.to_anchor] = nowhere_bonus;
-            }
-        }
-        
         // For each source we could come from
         auto& source = to_chain[transition.from_anchor];
+
+        if (source.read_end() > here.read_start()) {
+            double percent_shared = (source.read_end() - here.read_start()) / here.length();
+            item_points = (int) (item_points * (1 - percent_shared));
+        }
             
         if (show_work) {
 #ifdef debug_dp
@@ -506,10 +508,10 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
         //
         // But we account for anchor length in the item points, so don't use it
         // here.
-        int jump_points = -score_chain_gap(transition.indel_size, base_seed_length) * scheme.gap_scale;
+        int jump_points = -score_chain_gap(transition.indel_size, base_seed_length) * scoring_scheme.gap_scale;
 
         // add recombination penalty if necessary
-        jump_points -= check_recombination(chain_scores[transition.from_anchor], here) * scheme.recombination_penalty;
+        jump_points -= check_recombination(chain_scores[transition.from_anchor], here) * scoring_scheme.recombination_penalty;
             
         // Get the score we are coming from
         TracedScore source_score = TracedScore::score_from(chain_scores, transition.from_anchor);
@@ -519,32 +521,17 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
                                                     .set_shared_paths(here.anchor_paths());
         
         // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
-        // Bonus = fraction of conserved paths * scheme.consistency_bonus.
+        // Bonus = fraction of conserved paths * scoring_scheme.consistency_bonus.
         // Bonus is 0 when recombination occurs (no shared paths).
-        int eval_bonus_from = 0;
-        if (scheme.consistency_bonus > 0) {
+        from_source_score.eval_bonus = 0;
+        if (scoring_scheme.consistency_bonus > 0) {
             int pre_count = __builtin_popcountll(source_score.paths);
             if (pre_count > 0 && (source_score.paths & here.anchor_start_paths()) != 0) {
                 // No recombination: bonus = fraction of paths conserved * penalty
                 int post_count = __builtin_popcountll(from_source_score.paths);
-                eval_bonus_from = (scheme.consistency_bonus * post_count) / pre_count;
+                from_source_score.eval_bonus = (scoring_scheme.consistency_bonus * post_count) / pre_count;
             }
             // Recombination case (no shared paths): bonus stays 0
-        }
-        
-        // Grab the DP table slot we are updating
-        auto& current_best = chain_scores[transition.to_anchor];
-        // Compute the evaluation value for the new candidate
-        int eval_from = from_source_score.score + eval_bonus_from;
-        // Reconstruct the evaluation value for the current winner
-        int eval_best = current_best.score + eval_bonuses[transition.to_anchor];
-
-        if (eval_from > eval_best || (eval_from == eval_best && from_source_score > current_best)) {
-            // Using the evaluation values, and then if tied the real DP
-            // scores, this new candidate beats the previous winner, so
-            // replace it.
-            current_best = from_source_score;
-            eval_bonuses[transition.to_anchor] = eval_bonus_from;
         }
                                         
         if (show_work) {
@@ -552,6 +539,10 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
             cerr << "\t\tWe can reach #" << transition.to_anchor << " with " << source_score << " + " << jump_points
                  << " from transition + " << item_points << " from item = " << from_source_score << endl;
 #endif
+        }
+
+        if (from_source_score > chain_scores[transition.to_anchor]) {
+            chain_scores[transition.to_anchor] = from_source_score;
         }
         
         if (diagram) {
@@ -583,8 +574,6 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
 
     // Run our DP step over all the transitions.
     for_each_transition(to_chain,
-                        distance_index,
-                        graph,
                         max_indel_bases,
                         iteratee);
         
@@ -600,11 +589,11 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
             
             if (diagram) {
                 // Draw the item in the diagram
-                auto item_points = here.score() + scheme.item_bonus;
+                auto item_points = here.score() + scoring_scheme.item_bonus;
                 std::string here_gvnode = "i" + std::to_string(to_anchor);
                 std::stringstream label_stream;
                 label_stream << "#" << to_anchor << " " << here << " = " << item_points
-                             << "/" << chain_scores[to_anchor].score;
+                            << "/" << chain_scores[to_anchor].score;
                 diagram.add_node(here_gvnode, {
                     {"label", label_stream.str()}
                 });
@@ -631,25 +620,25 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
             
             // See if this is the best overall
             best_score.max_in(chain_scores, to_anchor);
-            
+
 #ifdef debug_dp
-            cerr << "\tBest chain end so far: " << best_score << endl;
+            cerr << "\tBest chain end so far: " << best_score << endl; 
 #endif
         }
 #ifdef debug_chaining
-        std::cerr << "[REC INFO] Recombination number for chain: " << best_score.rec_num
-                  << "\tscore: " << best_score.score << "\tpaths: " << best_score.paths << std::endl;
+        std::cerr << "[REC INFO] score: " << best_score.score << "\tpaths: " << best_score.paths << std::endl;
 #endif
     }
+
+    return chain_scores;
 }
 
-vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
-                                                        const VectorView<Anchor>& to_chain,
-                                                        const ChainScoringScheme& scheme,
-                                                        size_t max_tracebacks) {
-    
+vector<SparseAnchorChain> chain_items_traceback(const vector<TracedScore>& chain_scores,
+                                                const VectorView<Anchor>& to_chain,
+                                                size_t item_bonus,
+                                                size_t max_tracebacks) {
     // We will fill this in with all the tracebacks, and then sort and truncate.
-    vector<pair<vector<size_t>, int>> tracebacks;
+    vector<SparseAnchorChain> tracebacks;
     tracebacks.reserve(chain_scores.size());
     
     // Get all of the places to start tracebacks, in score order.
@@ -659,28 +648,29 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
         starts_in_score_order[i] = i;
     }
     std::sort(starts_in_score_order.begin(), starts_in_score_order.end(), [&](const size_t& a, const size_t& b) {
-        // Return true if item a has a better score than item b and should come first.
-        return chain_scores[a] > chain_scores[b];
+        return chain_scores[a].is_better_end(chain_scores[b]);
     });
     
-    // To see if an item is used we have this bit vector.
+    // We don't want to use an item multiple times
     vector<bool> item_is_used(chain_scores.size(), false);
     
     for (auto& trace_from : starts_in_score_order) {
         if (item_is_used[trace_from]) {
+            // We can't trace back from here
             continue;
         }
         // For each unused item in score order, start a traceback stack (in reverse order)
-        std::vector<size_t> traceback;
-        traceback.push_back(trace_from);
-        int score = chain_scores[trace_from].score;
+        tracebacks.emplace_back();
+        tracebacks.back().chain_score = chain_scores[trace_from].score;
+        vector<size_t> cur_anchors = {trace_from};
         size_t here = trace_from;
 #ifdef debug_chaining
-        std::cerr << "[REC INFO] Starting traceback at item #" << here << " with recs: " << chain_scores[here].rec_num << " score: " << chain_scores[here].score << std::endl;
+        std::cerr << "[REC INFO] Starting traceback at item #" << here
+                  << " with score: " << chain_scores[here].score << std::endl;
 #endif
         while (here != TracedScore::nowhere()) {
 #ifdef debug_chaining
-            std::cerr << "\trecs: " << chain_scores[here].rec_num << " paths:\t" << std::bitset<64>(chain_scores[here].paths) << std::endl;
+            std::cerr << "\tpaths:\t" << std::bitset<64>(chain_scores[here].paths) << std::endl;
             std::cerr << "\t\tanchor #" << here << ": " << to_chain[here] << std::endl;
 #endif
             // Mark here as used. Happens once per item, and so limits runtime.
@@ -690,32 +680,30 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                 if (item_is_used[next]) {
                     // We need to stop early and accrue an extra penalty.
                     // Take away all the points we got for coming from there and being ourselves.
-                    score -= chain_scores[here].score;
+                    tracebacks.back().chain_score -= chain_scores[here].score;
                     // But then re-add our score for just us
-                    score += (to_chain[here].score() + scheme.item_bonus);
+                    tracebacks.back().chain_score += (to_chain[here].score() + item_bonus);
                     // TODO: Score this more simply.
                     // TODO: find the edge to nowhere???
                     break;
                 } else {
                     // Add to the traceback
-                    traceback.push_back(next);
+                    cur_anchors.push_back(next);
                 }
             }
             here = next;
         }
 
-        // Now put the traceback in the output list
-        tracebacks.emplace_back();
-        tracebacks.back().second = score;
         // Make sure to order the steps left to right, and not right to left as we generated them.
-        std::copy(traceback.rbegin(), traceback.rend(), std::back_inserter(tracebacks.back().first));
+        std::copy(cur_anchors.rbegin(), cur_anchors.rend(),
+                  std::back_inserter(tracebacks.back().anchors));
     }
     
-    // Sort the tracebacks by score, descending
+    // Sort the tracebacks by score
     std::sort(tracebacks.begin(), tracebacks.end(), 
-    [](const std::pair<std::vector<size_t>, int>& a, const std::pair<std::vector<size_t>, int>& b) {
+    [](const SparseAnchorChain& a, const SparseAnchorChain& b) {
         // Return true if a has the larger score and belongs first
-        return a.second > b.second;
+        return a.chain_score > b.chain_score;
     });
     
     if (tracebacks.size() > max_tracebacks) {
@@ -726,153 +714,89 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
     return tracebacks;
 }
 
-ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
-                              const SnarlDistanceIndex& distance_index,
-                              const HandleGraph& graph,
-                              const transition_iterator& for_each_transition,
-                              const ChainScoringScheme& scheme,
-                              size_t max_chains,
-                              size_t max_indel_bases,
-                              bool show_work) {
-
-    ChainsResult result;
-    if (to_chain.empty()) {
-        ChainWithRec empty_entry;
-        empty_entry.scored_chain = {0, vector<size_t>()};
-        empty_entry.rec_positions = {};
-        empty_entry.rec_intervals = {};
-        result.chains.emplace_back(std::move(empty_entry));
-        return result;
-    }
-        
-    // We actually need to do DP
-    vector<TracedScore> chain_scores;
-    chain_items_dp(chain_scores, to_chain, distance_index, graph, 
-                   for_each_transition, scheme, max_indel_bases, show_work);
-    // Then do the tracebacks
-    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(
-        chain_scores, to_chain, scheme, max_chains);
-    
-    if (tracebacks.empty()) {
-        // Somehow we got nothing
-        ChainWithRec empty_entry;
-        empty_entry.scored_chain = {0, vector<size_t>()};
-        empty_entry.rec_positions = {};
-        empty_entry.rec_intervals = {};
-        result.chains.emplace_back(std::move(empty_entry));
-        return result;
-    }
-        
-    // Convert from traceback and penalty to score and traceback.
-    // Everything is already sorted.
-    result.chains.reserve(tracebacks.size());
-    for (auto& traceback : tracebacks) {
-        // Move over the list of items
-        std::vector<size_t> chain_indexes = std::move(traceback.first);
-
+void mark_rec_count(const VectorView<Anchor>& to_chain, vector<SparseAnchorChain>& chains) {
+    for (SparseAnchorChain& cur_trace : chains) {
         // Compute the anchor indices in this chain that introduce an
         // inter-anchor recombination event. We simulate the path-bit
         // propagation along the chain using the same logic as
         // TracedScore::set_shared_paths (but without modifying the state).
-        std::vector<size_t> rec_positions;
-        if (!chain_indexes.empty()) {
-            // Start with the endpoint paths of the first anchor.
-            size_t first_idx = chain_indexes.front();
-            path_flags_t current_paths = to_chain[first_idx].anchor_end_paths();
+        // Start with the endpoint paths of the first anchor.
+        const Anchor& first_anchor = to_chain[cur_trace.anchors.front()];
+        // Is the first anchor internally recombinant?
+        cur_trace.rec_count = first_anchor.anchor_start_paths() != first_anchor.anchor_end_paths();
 
-            // Walk the chain from the second anchor onward and apply the
-            // same recombination-detection rules used in set_shared_paths.
-            for (size_t k = 1; k < chain_indexes.size(); ++k) {
-                size_t anchor_idx = chain_indexes[k];
-                auto new_paths = to_chain[anchor_idx].anchor_paths();
-                // If the anchor's start and end paths are equal, it's not an
-                // internally recombinant anchor; check inter-anchor overlap.
-                if (new_paths.first == new_paths.second) {
-                    if ((current_paths & new_paths.first) == 0) {
-                        // No overlap -> inter-anchor recombination occurred here.
-                        rec_positions.push_back(anchor_idx);
-                        // Reset current paths to the anchor's start paths.
-                        current_paths = new_paths.first;
-                    } else {
-                        // Intersect supported paths and continue.
-                        current_paths &= new_paths.first;
-                    }
-                } else {
-                    // Recombinant anchor: do not count as inter-anchor
-                    // recombination per original logic; reset paths to the
-                    // anchor's end paths.
-                    // TODO: since no fragmenting, probably unnecessary to track
-                    current_paths = new_paths.second;
-                }
-            }
-        }
-
-        // Symmetric backward pass: walk the chain right-to-left to find the
-        // left boundary of each recombination event. An anchor is a left
-        // boundary when, intersecting suffix path supports, its end_paths do
-        // not overlap with the supports accumulated from anchors to its right.
-        std::vector<size_t> left_rec_positions;
-        if (chain_indexes.size() > 1) {
-            size_t last_idx = chain_indexes.back();
-            path_flags_t current_paths = to_chain[last_idx].anchor_start_paths();
-
-            for (size_t k = chain_indexes.size() - 1; k > 0; --k) {
-                size_t anchor_idx = chain_indexes[k - 1];
-                auto new_paths = to_chain[anchor_idx].anchor_paths();
-                if (new_paths.first == new_paths.second) {
-                    if ((current_paths & new_paths.second) == 0) {
-                        left_rec_positions.push_back(anchor_idx);
-                        current_paths = new_paths.second;
-                    } else {
-                        current_paths &= new_paths.second;
-                    }
-                } else {
-                    // Internally recombinant anchor: mirror the forward
-                    // logic by resetting to the "far side" (start_paths here).
+        // Walk the chain from the second anchor onward and apply the
+        // same recombination-detection rules used in set_shared_paths.
+        path_flags_t current_paths = first_anchor.anchor_end_paths();
+        for (size_t i = 1; i < cur_trace.anchors.size(); ++i) {
+            auto new_paths = to_chain[cur_trace.anchors[i]].anchor_paths();
+            // If the anchor's start and end paths are equal, it's not an
+            // internally recombinant anchor; check inter-anchor overlap.
+            if (new_paths.first == new_paths.second) {
+                if ((current_paths & new_paths.first) == 0) {
+                    // No overlap -> inter-anchor recombination occurred here.
+                    cur_trace.rec_count++;
+                    // Reset current paths to the anchor's start paths.
                     current_paths = new_paths.first;
+                } else {
+                    // Intersect supported paths and continue.
+                    current_paths &= new_paths.first;
                 }
-            }
-            std::reverse(left_rec_positions.begin(), left_rec_positions.end());
-        }
-
-        // Pair forward (right) and backward (left) boundaries into intervals.
-        // When counts disagree (e.g. internally recombinant anchors break
-        // the symmetry) leave rec_intervals empty so consumers fall back
-        // to rec_positions.
-        std::vector<std::pair<size_t, size_t>> rec_intervals;
-        if (left_rec_positions.size() == rec_positions.size()) {
-            rec_intervals.reserve(rec_positions.size());
-            for (size_t i = 0; i < rec_positions.size(); ++i) {
-                rec_intervals.emplace_back(left_rec_positions[i], rec_positions[i]);
+            } else {
+                // Recombinant anchor: do not count as inter-anchor
+                // recombination per original logic; reset paths to the
+                // anchor's end paths.
+                // TODO: since no fragmenting, probably unnecessary to track
+                cur_trace.rec_count++;
+                current_paths = new_paths.second;
             }
         }
-
-        ChainWithRec entry;
-        entry.scored_chain = {traceback.second, std::move(chain_indexes)};
-        entry.rec_positions = std::move(rec_positions);
-        entry.rec_intervals = std::move(rec_intervals);
-        result.chains.emplace_back(std::move(entry));
     }
-    return result;
 }
 
-pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
-                                          const SnarlDistanceIndex& distance_index,
-                                          const HandleGraph& graph,
-                                          const transition_iterator& for_each_transition,
-                                          const ChainScoringScheme& scheme,
-                                          size_t max_indel_bases) {
-                                                                 
-    ChainsResult cr = find_best_chains(
-        to_chain,
-        distance_index,
-        graph,
-        for_each_transition,
-        scheme,
-        1,
-        max_indel_bases
-    );
-    return cr.chains.front().scored_chain;
+vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
+                                           const transition_iterator& for_each_transition,
+                                           const ChainScoringScheme& scoring_scheme,
+                                           size_t max_chains,
+                                           size_t max_indel_bases,
+                                           bool show_work) {
+
+    if (to_chain.empty()) {
+        throw runtime_error("Cannot chain an empty group of anchors!");
+    }
+        
+    // We actually need to do DP
+    vector<TracedScore> chain_scores = chain_items_dp(to_chain, for_each_transition,
+                                                      scoring_scheme, max_indel_bases, show_work);
+    
+    // Then do the tracebacks
+    vector<SparseAnchorChain> tracebacks = chain_items_traceback(chain_scores, to_chain, scoring_scheme.item_bonus, max_chains);
+    
+    if (tracebacks.empty()) {
+        throw runtime_error("No tracebacks found during chaining.");
+    }
+
+    // Sort the tracebacks by optimal score
+    std::sort(tracebacks.begin(), tracebacks.end(), 
+    [](const SparseAnchorChain& a, const SparseAnchorChain& b) {
+        // Return true if a has the larger score and belongs first
+        return a.chain_score > b.chain_score;
+    });
+
+    mark_rec_count(to_chain, tracebacks);
+
+    return tracebacks;
+}
+
+SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
+                                  const transition_iterator& for_each_transition,
+                                  const ChainScoringScheme& scoring_scheme,
+                                  size_t max_indel_bases) {
+    return find_best_chains(to_chain,
+                            for_each_transition,
+                            scoring_scheme,
+                            1, // only one chain!
+                            max_indel_bases).front();
 }
 
 //#define skip_zipcodes

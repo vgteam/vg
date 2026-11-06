@@ -449,6 +449,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_indel_bases_per_base,
         "maximum indel length in a transition when chaining, per read base"
     );
+    chaining_opts.add_flag(
+        "allow-seed-overlap",
+        &MinimizerMapper::allow_seed_overlap,
+        MinimizerMapper::default_allow_seed_overlap,
+        "allow seeds to overlap when chaining"
+    );
     chaining_opts.add_range(
         "item-bonus",
         &MinimizerMapper::item_bonus,
@@ -481,15 +487,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "chain-score-threshold",
         &MinimizerMapper::chain_score_threshold,
         MinimizerMapper::default_chain_score_threshold,
-        "only align chains if their score is within this many points of the best score",
-        double_is_nonnegative
+        "only align chains if their score is within this many points of the best score"
     );
     chaining_opts.add_range(
         "target-alignment-attempts",
         &MinimizerMapper::target_alignment_attempts,
         MinimizerMapper::default_target_alignment_attempts,
-        "ignore score threshold (but not min score) to get this many chains aligned",
-        int_is_nonnegative
+        "ignore score threshold (but not min score) to get this many chains aligned"
     );
     chaining_opts.add_range(
         "min-chain-score-per-base",
@@ -521,8 +525,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "max-chains-per-tree",
         &MinimizerMapper::max_chains_per_tree,
         MinimizerMapper::default_max_chains_per_tree,
-        "align up to this many chains from each tree",
-        size_t_is_positive
+        "align up to this many chains from each tree"
     );
     
     chaining_opts.add_range(
@@ -616,12 +619,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_softclip_penalty,
         "penalize candidate alignment scores this many points per softclipped base",
         double_is_nonnegative
-    );
-    chaining_opts.add_flag(
-        "sort-by-chain-score",
-        &MinimizerMapper::sort_by_chain_score,
-        MinimizerMapper::default_sort_by_chain_score,
-        "order alignment candidates by chain score instead of base-level score"
     );
     chaining_opts.add_range(
         "min-unique-node-fraction",
@@ -999,8 +996,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 0.27579)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 12)
-        .add_entry<double>("chain-score-threshold", 234.0)
-        .add_entry<int>("target-alignment-attempts", 2)
+        .add_entry<size_t>("chain-score-threshold", 234)
+        .add_entry<size_t>("target-alignment-attempts", 2)
+        .add_entry<double>("min-unique-node-fraction", 0.2)
         .add_entry<double>("min-chain-score-per-base", 0.24)
         .add_entry<size_t>("max-chains-per-tree", 3)
         .add_entry<int>("max-min-chain-score", 46)
@@ -1044,7 +1042,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
         .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
         .add_entry<double>("zipcode-tree-scale", 2.0)
-        //Don't do gapless extension
+        // Don't do gapless extension
         .add_entry<size_t>("gapless-extension-limit", 0)
         .add_entry<int>("min-chaining-problems", 6)
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
@@ -1058,8 +1056,9 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 0.06759721757973396)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 13)
-        .add_entry<double>("chain-score-threshold", 160.0)
-        .add_entry<int>("target-alignment-attempts", 2)
+        .add_entry<size_t>("chain-score-threshold", 160)
+        .add_entry<size_t>("target-alignment-attempts", 2)
+        .add_entry<double>("min-unique-node-fraction", 0.2)
         .add_entry<size_t>("max-chains-per-tree", 3)
         // Lowering this can reduce wrong reads in mapping experiments, but
         // seems to *increase* miscalls; see
@@ -1118,11 +1117,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("max-graph-lookback-bases-per-base", 0)
         .add_entry<size_t>("max-indel-bases", 1600)
         .add_entry<double>("max-indel-bases-per-base", 0)
-        .add_entry<double>("chain-score-threshold", 100.0)
+        .add_entry<size_t>("chain-score-threshold", 100)
         .add_entry<double>("min-chain-score-per-base", 0.01)
         .add_entry<int>("max-min-chain-score", 200.0)
         .add_entry<int>("item-bonus", 0)
-        .add_entry<int>("target-alignment-attempts", 3)
+        .add_entry<size_t>("target-alignment-attempts", 3)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 4)
         // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
@@ -1146,7 +1145,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
         .add_entry<double>("max-graph-lookback-bases-per-base", 0)
         .add_entry<double>("max-indel-bases-per-base", 0)
-        .add_entry<int>("target-alignment-attempts", 4)
+        .add_entry<size_t>("target-alignment-attempts", 4)
         .add_entry<size_t>("max-chains-per-tree", 5)
         .add_entry<size_t>("max-alignments", 5);
         
