@@ -146,7 +146,7 @@ The first step is to clone the vg repository:
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
 
-#### Mac: Install Dependencies
+#### Mac: Install and Update Dependencies
 
 VG depends on a number of packages being installed on the system where it is being built. Dependencies can be installed using either [MacPorts](https://www.macports.org/install.php) or [Homebrew](http://brew.sh/).
 
@@ -175,6 +175,57 @@ As with Linux, you can add `-j16` or other numbers at the end to run multiple bu
 **Note that static binaries cannot yet be built for Mac.**
 
 The vg Mac build targets whatever the current version of Apple Clang is, and whatever version of Apple Clang is provided by our Github Actions Mac CI system. If your Clang is up to date and vg does not build for you, please open an issue.
+
+### Mac: Check Compiler
+
+Before doing these steps, check that your Clang version is 21.0 or higher:
+
+```
+clang -v
+```
+
+To update them, first list the available software updates:
+
+```
+softwareupdate --list
+```
+
+Look for an entry whose label starts with `Command Line Tools for Xcode`. If the `Command Line Tools for Xcode` isn't shown that means you have the updated compiler.
+
+``` 
+Software Update found the following new or updated software:
+* Label: Command Line Tools for Xcode 26.5-26.5
+	Title: Command Line Tools for Xcode 26.5, Version: 26.5, Size: 920416KiB, Recommended: YES, 
+* Label: Command Line Tools for Xcode 26.6-26.6
+	Title: Command Line Tools for Xcode 26.6, Version: 26.6, Size: 920431KiB, Recommended: YES, 
+* Label: Safari27.2TahoeAuto-27.2
+	Title: Safari, Version: 27.2, Size: 250130KiB, Recommended: YES, 
+* Label: macOS Tahoe 26.7.2-25G332
+	Title: macOS Tahoe 26.7.2, Version: 26.7.2, Size: 2994108KiB, Recommended: YES, Action: restart,
+```
+Example:
+
+In the above example label is 'Command Line Tools for Xcode 26.5-26.5'
+
+So,
+
+sudo softwareupdate --install 'Command Line Tools for Xcode 26.5-26.5'
+
+```
+sudo softwareupdate --install "<label>"
+```
+
+You can also install the update by opening System Settings -> General in the left sidebar -> Software Update -> Update Now
+
+    Note: Info on the Software update panel displays whether Command Line Tools is included
+
+If you have the full Xcode app installed and selected, update Xcode from the App Store instead.
+
+To confirm that your complier is 21.0 or higher, run:
+
+```    
+clang -v
+```
 
 #### Mac: Run
 
