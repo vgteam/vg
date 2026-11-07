@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 102
+plan tests 115
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -364,6 +364,99 @@ vg index -j uncrossable.dist uncrossable.gbz
 vg haplotypes --validate -H uncrossable.hapl uncrossable.gbz
 is $? 0 "haplotype information for a chain with a snarl that no walk crosses"
 
+# Where haplotypes reach the ends of the top-level chains, nothing is opened.
+vg haplotypes -v 3 --subchain-length 300 -H /dev/null full.gbz 2> log.txt
+is $(grep -c "no haplotype reaches" log.txt) 0 "chain ends that haplotypes reach are not opened"
+
+# As vg clip -Sk leaves a graph: GRCh38 ends in tips of its own, and the haplotypes that end on its end nodes
+# get tips of their own there. No haplotype reaches the ends of the top-level chains, so the outermost
+# subchains become prefixes and suffixes, and the sampled haplotypes need not take GRCh38's ends.
+awk 'BEGIN { FS = OFS = "\t" }
+    function flip(s) { return (substr(s, 1, 1) == ">" ? "<" : ">") substr(s, 2) }
+    function link(a, b) { return "L\t" substr(a, 2) "\t" (a ~ /^>/ ? "+" : "-") "\t" substr(b, 2) "\t" (b ~ /^>/ ? "+" : "-") "\t0M\n" }
+    NR == FNR {
+        if ($1 == "S" && $2 + 0 > max) { max = $2 + 0 }
+        if ($1 == "W" && $2 == "GRCh38") { n++; match($7, /^[<>][0-9]+/); first[n] = substr($7, RSTART, RLENGTH); match($7, /[<>][0-9]+$/); last[n] = substr($7, RSTART, RLENGTH) }
+        next
+    }
+    FNR == 1 {
+        for (i = 1; i <= n; i++) {
+            rs[i] = ">" ++max; re[i] = ">" ++max; hs[i] = ">" ++max; he[i] = ">" ++max
+            extra = extra "S\t" substr(rs[i], 2) "\tA\nS\t" substr(re[i], 2) "\tT\nS\t" substr(hs[i], 2) "\tC\nS\t" substr(he[i], 2) "\tG\n"
+            extra = extra link(rs[i], first[i]) link(last[i], re[i]) link(hs[i], first[i]) link(last[i], he[i])
+        }
+    }
+    $1 == "W" && $2 == "GRCh38" { j++; $7 = rs[j] $7 re[j] }
+    $1 == "W" && $2 != "GRCh38" && $2 != "CHM13" {
+        for (i = 1; i <= n; i++) {
+            if ($7 ~ "^" first[i] "([<>]|$)") { $7 = hs[i] $7 } else if ($7 ~ "^" flip(last[i]) "([<>]|$)") { $7 = flip(he[i]) $7 }
+            if ($7 ~ "[0-9]" last[i] "$") { $7 = $7 he[i] } else if ($7 ~ "[0-9]" flip(first[i]) "$") { $7 = $7 flip(hs[i]) }
+        }
+    }
+    { print }
+    END { printf "%s", extra }' haplotype-sampling/micb-kir3dl1.gfa haplotype-sampling/micb-kir3dl1.gfa > ref_tips.gfa
+vg gbwt -G ref_tips.gfa --gbz-format -g ref_tips.gbz -r ref_tips.ri
+vg index -j ref_tips.dist -P GRCh38 ref_tips.gbz
+vg haplotypes -v 3 --validate --subchain-length 300 -H ref_tips.hapl ref_tips.gbz 2> log.txt
+is $? 0 "haplotype information for chains whose ends only the reference reaches"
+is $(grep -c "no haplotype reaches its start or end; opened as a prefix / suffix" log.txt) 2 "both ends of both chains are opened"
+# Number of ends of sampled haplotypes on the end nodes of GRCh38.
+grch38_ends() {
+    vg convert -f $1 | awk '$1 == "W" { s = $7; gsub(/[<>]/, " ", s); k = split(s, a, " ") }
+        $1 == "W" && $2 == "GRCh38" { e[a[1]] = 1; e[a[k]] = 1 }
+        $1 == "W" && $2 == "recombination" { n++; f[n] = a[1]; l[n] = a[k] }
+        END { for (i = 1; i <= n; i++) { c += (f[i] in e) + (l[i] in e) }; print c + 0, 2 * n }'
+}
+vg haplotypes --validate -i ref_tips.hapl -k haplotype-sampling/HG003.kff --include-reference -g ref_tips_sampled.gbz ref_tips.gbz
+is $? 0 "sampling haplotypes past chain ends that only the reference reaches"
+is $(grch38_ends ref_tips_sampled.gbz | awk '{ print ($1 < $2) }') 1 "the sampled haplotypes don't all take the ends of the reference"
+vg haplotypes --validate -i ref_tips.hapl -k haplotype-sampling/HG003.kff --include-reference --ban-sample GRCh38 -g ref_tips_banned.gbz ref_tips.gbz
+is $? 0 "sampling with the reference banned"
+is "$(grch38_ends ref_tips_banned.gbz)" "0 16" "no sampled haplotype takes the ends of a banned reference"
+vg haplotypes --validate -i ref_tips.hapl -k haplotype-sampling/HG003.kff --include-reference --ban-sample GRCh38 --diploid-sampling -g ref_tips_diploid.gbz ref_tips.gbz
+is "$? $(grch38_ends ref_tips_diploid.gbz)" "0 0 8" "diploid sampling with the reference banned"
+
+# HG00621#2 folds back past the end of the chr6 chain: after its copy of GRCh38's last base, it turns around and
+# runs back over the whole chain. The suffix opened there only takes the sequences that stay in it, so the fold-back
+# is not a candidate, and no sampled haplotype takes it (as the best candidate, it made a haplotype twice as long).
+awk 'BEGIN { FS = OFS = "\t" }
+    $1 == "W" && $2 == "HG00621" && $3 == 2 && $4 == "JAHBCC010000005.1" {
+        s = $7; gsub(/[<>]/, " &", s); n = split(s, a, " ")
+        for (i = n - 1; i >= 1; i--) { $7 = $7 (substr(a[i], 1, 1) == ">" ? "<" : ">") substr(a[i], 2) }
+        fold = "L\t" substr(a[n], 2) "\t+\t" substr(a[n - 1], 2) "\t-\t0M"
+    }
+    { print }
+    END { print fold }' ref_tips.gfa > ref_tips_fold.gfa
+vg gbwt -G ref_tips_fold.gfa --gbz-format -g ref_tips_fold.gbz -r ref_tips_fold.ri
+vg index -j ref_tips_fold.dist -P GRCh38 ref_tips_fold.gbz
+vg haplotypes --validate --subchain-length 300 -H ref_tips_fold.hapl ref_tips_fold.gbz 2> log.txt
+is "$? $(grep -c 'kmer collisions' log.txt)" "0 0" "haplotype information with a haplotype that folds back out of an opened suffix"
+# Number of sampled haplotypes that visit a node more than once.
+revisits() {
+    vg convert -f $1 | awk '$1 == "W" && $2 == "recombination" { s = $7; gsub(/[<>]/, " ", s); k = split(s, a, " "); delete seen; r = 0
+        for (i = 1; i <= k; i++) { if (a[i] in seen) { r = 1 }; seen[a[i]] = 1 }; c += r } END { print c + 0 }'
+}
+vg haplotypes --validate -i ref_tips_fold.hapl -k haplotype-sampling/HG003.kff --include-reference -g ref_tips_fold_sampled.gbz ref_tips_fold.gbz
+is "$? $(revisits ref_tips_fold_sampled.gbz)" "0 0" "no sampled haplotype folds back out of an opened suffix"
+vg haplotypes --validate -i ref_tips_fold.hapl -k haplotype-sampling/HG003.kff --include-reference --diploid-sampling -g ref_tips_fold_diploid.gbz ref_tips_fold.gbz
+is "$? $(revisits ref_tips_fold_diploid.gbz)" "0 0" "no haplotype from diploid sampling folds back out of an opened suffix"
+
+# REF ends in tips of its own (1 and 11), and the haplotypes visit 2 and 10 instead. H3 starts at 3, the end of
+# the prefix that the chain starts with, and has no kmers in it. With one subchain per snarl, and a single subchain.
+{
+    printf 'H\tVN:Z:1.1\tRS:Z:REF\n'
+    printf 'S\t%s\t%s\n' 1 G 2 G 3 ATTACAGATTACA 4 C 5 T 6 TTAGGTTAGGTTAG 7 A 8 C 9 GGGATTTGGGATT 10 T 11 T 12 CCGCCG 13 AATAAT
+    printf 'L\t%s\t+\t%s\t+\t0M\n' 1 3 2 3 12 2 3 4 3 5 4 6 5 6 6 7 6 8 7 9 8 9 9 10 9 11 10 13
+    printf 'W\t%s\t%s\t%s\t0\t*\t%s\n' REF 0 chr1 '>1>3>4>6>7>9>11' H1 1 chr1 '>12>2>3>4>6>7>9>10>13' \
+        H2 1 chr1 '>2>3>5>6>8>9>10' H3 1 chr1 '>3>5>6>7>9'
+} > ref_tips_toy.gfa
+vg gbwt -G ref_tips_toy.gfa --gbz-format -g ref_tips_toy.gbz -r ref_tips_toy.ri
+vg index -j ref_tips_toy.dist -P REF ref_tips_toy.gbz
+for length in 1 10000; do
+    vg haplotypes -v 3 --validate --kmer-length 11 --window-length 5 --subchain-length $length -H ref_tips_toy.hapl ref_tips_toy.gbz 2> log.txt
+    is "$? $(grep -c 'opened as a prefix' log.txt)" "0 1" "valid haplotype information with a sequence that starts at the end of an opened prefix (subchain length $length)"
+done
+
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
 rm -f indirect.gbz direct.gbz ignored.gbz no_ref.gbz ban_ref.gbz
@@ -388,3 +481,6 @@ rm -f auto_nondip.HG003.* auto_nondip.gam auto_nondip.dist
 rm -f auto_oneref.HG003.* auto_oneref.gam auto_oneref.dist
 rm -f log.txt
 rm -f uncrossable.gfa uncrossable.gbz uncrossable.ri uncrossable.dist uncrossable.hapl
+rm -f ref_tips.gfa ref_tips.gbz ref_tips.ri ref_tips.dist ref_tips.hapl ref_tips_sampled.gbz ref_tips_banned.gbz ref_tips_diploid.gbz
+rm -f ref_tips_fold.gfa ref_tips_fold.gbz ref_tips_fold.ri ref_tips_fold.dist ref_tips_fold.hapl ref_tips_fold_sampled.gbz ref_tips_fold_diploid.gbz
+rm -f ref_tips_toy.gfa ref_tips_toy.gbz ref_tips_toy.ri ref_tips_toy.dist ref_tips_toy.hapl
