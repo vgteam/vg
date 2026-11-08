@@ -211,6 +211,19 @@ If you still experience build problems after this, delete the whole checkout and
 
 Whether or not that helps, please then [open an issue](https://github.com/vgteam/vg/issues/new) so we can help fix the build.
 
+### Build Options
+The vg `Makefile` supports some build options.
+
+You can pass `jemalloc=off` on the command line to turn off the `jemalloc` allocator and use the system allocator.
+
+You can pass `mimalloc=on` to use the `mimalloc` allocator instead.
+
+You can pass `curl=on` to build htslib with networking support (which requires libcurl, which does Bad Things in static builds when they are taken to different machines).
+
+You can pass `s3=on` to build htslib with networking support *and* S3 support (which additionally requires libcrypto).
+
+Note that the vg build system won't know to *re*build htslib; if you want to change these settings, make sure to `rm lib/libhts.a` first.
+
 ## Usage
 
 ### Variation graph construction
