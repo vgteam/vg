@@ -692,7 +692,9 @@ void help_call(char** argv) {
          << "                            when phasing a site that is not in the chain, where" << endl
          << "                            too few sites measure how often it is wrong [3]" << endl
          << "      --phase-cap N         maximum evidence, in log10 units, from the reads" << endl
-         << "                            linking two sites; 0 for no maximum [0]" << endl
+         << "                            linking two sites, or phasing a site outside the" << endl
+         << "                            chain against one read-linked stretch of it; 0 for" << endl
+         << "                            no maximum [0]" << endl
          << "      --phase-coherence F   minimum fraction of a site's reads that agree with" << endl
          << "                            their phase at other sites, for the site to stay" << endl
          << "                            in the phase chain; 0 disables the check [0.70]" << endl

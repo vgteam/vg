@@ -127,10 +127,10 @@ struct PhaseSite {
     /// it and oriented as those links alone say. Reads fix the orders of one run's sites relative
     /// to each other but not to another run's, so a read's strand is comparable only with the
     /// strands of the run it was found in. The phase chain's runs are numbered from 0 along the
-    /// phase set. A site off the chain takes the run whose read links to it agree with the order it
-    /// was given and add up to the most, or, if no link agrees, the run of the site whose panel
-    /// order it kept. Sites the panel does not order (see `panel_ordered`) that no read links to
-    /// the chain, and that reads order only among themselves, make runs of their own, numbered
+    /// phase set. A site off the chain takes the run whose reads' vote on it agrees with the order
+    /// it was given and is the largest, or, if no run's vote agrees, the run of the site whose
+    /// panel order it kept. Sites the panel does not order (see `panel_ordered`) that no read links
+    /// to the chain, and that reads order only among themselves, make runs of their own, numbered
     /// after the chain's. A site the panel orders that neither reads nor the panel relate to a run
     /// is in none.
     size_t run = NO_RUN;
@@ -184,7 +184,8 @@ struct ReadPhasingParams {
     ///
     /// At 0, a site that no read links to the chain keeps the panel's order.
     double panel_weight = 3.0;
-    /// The limit on the size of one link, or 0 for none.
+    /// The limit on the size of one link, and of the vote of one run's reads on a site hung off
+    /// the phase chain, or 0 for none.
     ///
     /// Reads are treated as independent, so a link from many reads can be far larger than its real
     /// reliability.

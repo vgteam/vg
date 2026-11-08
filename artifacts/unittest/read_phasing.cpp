@@ -193,7 +193,7 @@ TEST_CASE("a run of the chain takes the panel's order from its first site the pa
 TEST_CASE("each site takes the run of the chain its order is relative to", "[read_phasing]") {
     // Sites 1-3 share reads 0-19 and sites 4-5 reads 500-519, so no read joins the two runs. Site
     // 6 is unreliable and shares reads only with the second run, though the nearest site the panel
-    // orders is in the first, so the links that order it are to the second run. Site 7 shares no
+    // orders is in the first, so the reads that order it vote from the second run. Site 7 shares no
     // read with anything and keeps the panel's order relative to site 1, the nearest site the
     // panel orders.
     vector sites{site(1, 100, 0), site(7, 120, 0, 20, 1.0, 900), site(2, 200, 0),
@@ -215,8 +215,8 @@ TEST_CASE("each site takes the run of the chain its order is relative to", "[rea
 TEST_CASE("a hung site keeps the run of the reads that agree with it, however weak",
           "[read_phasing]") {
     // Site 6 has one read, which it shares with sites 4 and 5 of the second run and which agrees
-    // with them. The panel's vote, toward site 3 of the first run, outweighs those links but
-    // agrees with them too, so the site's order is the one its read gives it.
+    // with them. The panel's vote, toward site 3 of the first run, outweighs its read's vote from
+    // the second run but agrees with it, so the site's order is the one its read gives it.
     vector sites{site(1, 100, 0), site(2, 200, 0), site(3, 300, 0),
                             site(6, 350, 1, 1, 1.0, 500), site(4, 400, 0, 20, 12.0, 500),
                             site(5, 500, 0, 20, 12.0, 500)};
@@ -227,6 +227,50 @@ TEST_CASE("a hung site keeps the run of the reads that agree with it, however we
     for (const PhaseSite& s : sites) {
         REQUIRE(s.run == (s.record_key <= 3 ? 0 : 1));
     }
+}
+
+TEST_CASE("a read votes once on a hung site however many of one run's phase-chain sites it spans",
+          "[read_phasing]") {
+    // Six reliable sites in one run whose 20 reads all span them, and an unreliable site in their
+    // middle sharing one of those reads, read 0, which puts it the other way round from the panel.
+    // Its link to each of the six is about -1.3, so the six links would outvote a panel vote of 3.
+    // As one read its vote is about -1.6, so the site keeps the panel's order against a vote of 3
+    // and takes the read's against a vote of 1.
+    vector<PhaseSite> sites;
+    for (size_t k = 1; k <= 6; ++k) {
+        sites.push_back(site(k, 100 * k, 0));
+    }
+    sites.insert(sites.begin() + 3, site(7, 350, 0, 1, 1.0));
+    REQUIRE(phase_link(sites[3], sites[0], 0.0) < -1.0);
+    ReadPhasingParams params;
+    REQUIRE(6 * phase_link(sites[3], sites[0], 0.0) + params.panel_weight < 0.0);
+    vector<PhaseSite> again = sites;
+    ReadPhasingCounters counters;
+    const auto flips = read_phase_flips(sites, params, counters);
+    REQUIRE(!counters.panel.fitted);
+    REQUIRE(counters.hung == 1);
+    REQUIRE(flips.empty());
+    params.panel_weight = 1.0;
+    REQUIRE(read_phase_flips(again, params, counters) == unordered_set<size_t>{7});
+}
+
+TEST_CASE("a read that cannot tell a hung site's alleles apart does not link it to the chain",
+          "[read_phasing]") {
+    // Site 7, which no panel haplotype orders, shares read 0 with the chain, but the read fits its
+    // two alleles equally well. The site stays unordered rather than taking an arbitrary order
+    // from that read.
+    vector sites{site(1, 100, 0), site(2, 200, 0), site(7, 250, 0, 1, 1.0), site(3, 300, 0)};
+    sites[2].panel_ordered = false;
+    sites[2].q0[0] = 0.5f;
+    REQUIRE(phase_link(sites[2], sites[0], 0.0) == 0.0);
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    unordered_set<size_t> read_ordered;
+    const auto flips = read_phase_flips(sites, params, counters, &read_ordered);
+    REQUIRE(counters.hung == 1);
+    REQUIRE(counters.hung_no_reads == 1);
+    REQUIRE(!read_ordered.contains(7));
+    REQUIRE(flips.empty());
 }
 
 TEST_CASE("sites only reads among themselves order make a run of their own", "[read_phasing]") {

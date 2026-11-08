@@ -138,6 +138,13 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap) {
 
 namespace {
 
+/// Return the likelihood of a read's allele at a site if the read came from the strand of slot 0,
+/// for `q` the probability that it carries the allele in slot 0 and `c` the probability that it
+/// came from one of the two strands. For the strand of slot 1, pass 1 - q.
+double strand_likelihood(double q, double c) {
+    return c * q + (1.0 - c) * 0.5;
+}
+
 /// Add one phase set's counters into the totals for all phase sets.
 ///
 /// `sites` is counted once for all phase sets, and `strands_rederived` belongs to the caller, so
@@ -177,14 +184,15 @@ struct PhaseSetResult {
     vector<pair<size_t, bool>> panel_pairs;
 };
 
-/// A tally of the links that vote on whether to flip one site.
+/// A tally of the votes on whether to flip one site.
 struct FlipVote {
-    /// Sum of the link sizes, in log10 units, positive for keeping the site's order and negative
-    /// for flipping it.
+    /// Sum of the votes, in log10 units, positive for keeping the site's order and negative for
+    /// flipping it.
     double total = 0.0;
-    /// How many links had any read.
+    /// How many of the votes from reads were not 0: the link to one site, or the vote of one run's
+    /// sites.
     size_t links = 0;
-    /// The part of `total` from the links to the voting sites of each run (see `PhaseSite::run`).
+    /// The part of `total` from the reads' votes from each run's sites (see `PhaseSite::run`).
     vector<pair<size_t, double>> by_run;
     /// The part of `total` from the panel's vote.
     double panel = 0.0;
@@ -195,7 +203,8 @@ struct FlipVote {
     /// 1 to flip the site, 0 to keep its order. A tie keeps it.
     int flip() const { return total < 0.0 ? 1 : 0; }
 
-    /// Add `size` to the vote, from a site of run `run`.
+    /// Add the vote `size`, positive for keeping the site's order, to the total and to the part
+    /// of run `run`.
     void add(double size, size_t run) {
         total += size;
         if (run == NO_RUN) {
@@ -216,9 +225,9 @@ struct FlipVote {
         panel_run = run;
     }
 
-    /// Return the run the site's order is relative to: the run whose links agree with the decision
-    /// and add up to the most, the lower run on a tie. If no link agrees, the order came from the
-    /// panel, and this is the panel's run if the panel agrees, or else `NO_RUN`.
+    /// Return the run the site's order is relative to: the run whose reads' vote agrees with the
+    /// decision and is the largest, the lower run on a tie. If no run's vote agrees, the order came
+    /// from the panel, and this is the panel's run if the panel agrees, or else `NO_RUN`.
     size_t deciding_run() const {
         const double sign = flip() ? -1.0 : 1.0;
         size_t best = NO_RUN;
@@ -284,7 +293,7 @@ private:
     /// How often the panel's order is wrong.
     PanelErrorModel panel;
 
-    /// Nearest sites on each side that hanging a site links it to.
+    /// The number of nearest sites on each side that vote on a site off the phase chain.
     size_t per_side;
 
     /// For each site, 1 to flip it against the panel's order.
@@ -364,6 +373,19 @@ private:
     /// Add the link between sites `t` and `u` to `vote` on flipping `t`, given `u`'s flip.
     /// Return whether any read made the link.
     bool add_link_vote(size_t t, size_t u, FlipVote& vote) const;
+    /// Add to `vote` on flipping `t` the reads' vote from the oriented sites `voters`, one part for
+    /// each run among them.
+    ///
+    /// Each read that `t` shares with a run's voters votes once, however many of them it spans:
+    /// its alleles there say which strand it came from, and its allele at `t` then favours `t`'s
+    /// order or the flipped one. With one voter, this is the link between the two sites. Each
+    /// run whose vote is not 0 counts in `FlipVote::links`.
+    void add_read_votes(size_t t, const vector<size_t>& voters, FlipVote& vote) const;
+    /// Multiply into `strand0` and `strand1`, for each read `t` shares with the oriented site `u`,
+    /// the likelihood of its allele at `u` if it came from strand 0 and if it came from strand 1.
+    /// Both are indexed by `t`'s rows.
+    void add_strand_likelihoods(size_t t, size_t u, vector<double>& strand0,
+                                vector<double>& strand1) const;
 };
 
 PhaseSetPhaser::PhaseSetPhaser(const PhaseSite* first_site, size_t site_count,
@@ -635,8 +657,8 @@ void PhaseSetPhaser::count_agreeing_reads(vector<size_t>& agree, vector<size_t>&
         for (size_t k = 0; k < obs.size(); ++k) {
             const double p = obs[k].c;
             const double q = flip[chain[obs[k].chain_index]] ? 1.0 - obs[k].q0 : obs[k].q0;
-            t0[k] = log10(p * q + (1.0 - p) * 0.5);
-            t1[k] = log10(p * (1.0 - q) + (1.0 - p) * 0.5);
+            t0[k] = log10(strand_likelihood(q, p));
+            t1[k] = log10(strand_likelihood(1.0 - q, p));
             l0 += t0[k];
             l1 += t1[k];
         }
@@ -697,6 +719,76 @@ bool PhaseSetPhaser::add_link_vote(size_t t, size_t u, FlipVote& vote) const {
     return true;
 }
 
+void PhaseSetPhaser::add_strand_likelihoods(size_t t, size_t u, vector<double>& strand0,
+                                           vector<double>& strand1) const {
+    const PhaseSite& target = site(t);
+    const PhaseSite& voter = site(u);
+    // Both read lists are sorted by key, one row per key, so we merge them.
+    size_t i = 0;
+    size_t j = 0;
+    while (i < target.read_key.size() && j < voter.read_key.size()) {
+        if (target.read_key[i] < voter.read_key[j]) {
+            ++i;
+        } else if (voter.read_key[j] < target.read_key[i]) {
+            ++j;
+        } else {
+            const double c = voter.c[j];
+            const double q = flip[u] ? 1.0 - voter.q0[j] : voter.q0[j];
+            strand0[i] *= strand_likelihood(q, c);
+            strand1[i] *= strand_likelihood(1.0 - q, c);
+            ++i;
+            ++j;
+        }
+    }
+}
+
+/// Return the vote of `target`'s reads, in log10 units, on keeping its order, from each read's
+/// likelihoods `strand0` and `strand1` of having come from strand 0 and strand 1, limited to `cap`
+/// if that is not 0.
+double strand_vote(const PhaseSite& target, const vector<double>& strand0,
+                   const vector<double>& strand1, double cap) {
+    double total = 0.0;
+    for (size_t i = 0; i < target.read_key.size(); ++i) {
+        // The likelihoods of the read's allele at the site on the strand of slot 0 and on the
+        // strand of slot 1.
+        const double on0 = strand_likelihood(target.q0[i], target.c[i]);
+        const double on1 = strand_likelihood(1.0 - target.q0[i], target.c[i]);
+        // A read that shares no voting site has equal strand likelihoods and adds nothing.
+        const double keep = strand0[i] * on0 + strand1[i] * on1;
+        const double flipped = strand0[i] * on1 + strand1[i] * on0;
+        if (keep > 0.0 && flipped > 0.0) {
+            total += log10(keep / flipped);
+        }
+    }
+    return cap > 0.0 ? max(-cap, min(cap, total)) : total;
+}
+
+void PhaseSetPhaser::add_read_votes(size_t t, const vector<size_t>& voters, FlipVote& vote) const {
+    vector<size_t> runs;
+    for (size_t u : voters) {
+        if (std::ranges::find(runs, result.run[u]) == runs.end()) {
+            runs.push_back(result.run[u]);
+        }
+    }
+    // For each of `t`'s reads, the likelihoods of its alleles at one run's voters if it came from
+    // strand 0 and if it came from strand 1.
+    vector<double> strand0(site(t).read_key.size());
+    vector<double> strand1(site(t).read_key.size());
+    for (size_t run : runs) {
+        std::ranges::fill(strand0, 1.0);
+        std::ranges::fill(strand1, 1.0);
+        for (size_t u : voters) {
+            if (result.run[u] == run) {
+                add_strand_likelihoods(t, u, strand0, strand1);
+            }
+        }
+        if (const double total = strand_vote(site(t), strand0, strand1, params.cap); total != 0.0) {
+            vote.add(total, run);
+            ++vote.links;
+        }
+    }
+}
+
 size_t PhaseSetPhaser::nearest_panel_ordered(size_t t) const {
     const auto after = std::ranges::lower_bound(chain_panel_ordered, t);
     if (after == chain_panel_ordered.begin()) {
@@ -712,18 +804,15 @@ size_t PhaseSetPhaser::nearest_panel_ordered(size_t t) const {
 vector<size_t> PhaseSetPhaser::hang_unchained() {
     vector<size_t> unlinked;
     for (size_t t : unchained) {
-        FlipVote vote;
         // The phase-chain sites before `t` are chain[0, split) and those after it
-        // chain[split, end), since `chain` is sorted and does not hold `t`.
+        // chain[split, end), since `chain` is sorted and does not hold `t`. The nearest on each
+        // side vote, so that a site near an end of the chain still hears from both sides.
         const size_t split = std::ranges::lower_bound(chain, t) - chain.begin();
-        // Link to the nearest phase-chain sites on both sides, nearest first, before `t` and then
-        // after it. A site near an end of the chain thus still hears from both sides.
-        for (size_t k = 0; k < per_side && k < split; ++k) {
-            add_link_vote(t, chain[split - 1 - k], vote);
-        }
-        for (size_t k = split; k < chain.size() && k - split < per_side; ++k) {
-            add_link_vote(t, chain[k], vote);
-        }
+        const size_t lo = split > per_side ? split - per_side : 0;
+        const vector<size_t> voters(chain.begin() + lo,
+                                    chain.begin() + min(chain.size(), split + per_side));
+        FlipVote vote;
+        add_read_votes(t, voters, vote);
         const bool panel_ordered = site(t).panel_ordered;
         if (!chain_panel_ordered.empty() && panel_ordered) {
             // The panel votes for keeping this site's order relative to the nearest phase-chain

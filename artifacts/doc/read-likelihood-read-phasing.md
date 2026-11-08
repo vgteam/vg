@@ -65,7 +65,8 @@ and everything below counts each read once.
 
 ### Links between sites
 
-Two sites $s$ and $t$ are **linked** by the reads they share. For a shared read $r$, let
+Two sites $s$ and $t$ are **linked** by each read they share that tells both their alleles apart,
+that is, whose term in the link below is not 0. For a shared read $r$, let
 
 $$
 m_r = q_{rs} q_{rt} + (1 - q_{rs})(1 - q_{rt})
@@ -80,7 +81,7 @@ $$
 $$
 
 A positive link favours the two sites' current phases. A link's **size** is its absolute value.
-`--phase-cap`, when not 0, limits the size of each link.
+`--phase-cap`, when not 0, limits the size of each link, and of each run's vote in stage 4 below.
 
 ### Reliable sites
 
@@ -137,16 +138,34 @@ Each phase set goes through four stages:
    This stops when the stage removes no site, or after it has removed sites `--phase-coh-rounds`
    times (once if that is 0). The stage runs only on a phase chain of at least 3 sites, and removes
    sites only when at least 2 would be left. `--phase-coherence 0` skips this stage.
-4. **Hang.** Each phaseable site of the phase set that is not in the phase chain, because it is
-   unreliable or stage 3 removed it, is then phased on its own. Its nearest phase-chain sites are
-   used, up to $\lfloor H/2 \rfloor + 1$ on each side, so that $H$, `--phase-hang`, is shared
-   between the two sides. The link to each of them votes for the phase it implies, with a weight
-   equal to its size. The panel votes too, to keep the site's phase relative to the nearest
-   phase-chain site where it orders the two alleles, as it gave it: it favours flipping the site if
-   that site was flipped, and keeping its phase if not. Its vote is the panel's vote at the
-   distance between the two sites (see [The panel's errors](#the-panels-errors)), or, with nothing
-   fitted, `--phase-prior`. The site takes the phase with the larger total vote, and a tie keeps the
-   panel's phase.
+4. **Hang.** Each phaseable site $t$ of the phase set that is not in the phase chain, because it
+   is unreliable or stage 3 removed it, is then phased on its own. Its nearest phase-chain sites
+   are used, up to $\lfloor H/2 \rfloor + 1$ on each side, where $H$ is `--phase-hang`. The reads
+   that $t$ shares with them vote, once for each run (see [Runs](#runs)) among those sites. For the
+   sites $U$ of one run that a read $r$ spans, in their current phases, the read's alleles have
+   likelihood
+
+   $$
+   L_{r0} = \prod_{u \in U} \left(c_{ru} q_{ru} + \frac{1 - c_{ru}}{2}\right), \qquad
+   L_{r1} = \prod_{u \in U} \left(c_{ru} (1 - q_{ru}) + \frac{1 - c_{ru}}{2}\right)
+   $$
+
+   if it came from strand 0 and from strand 1. In the phase the panel gave $t$, its allele at $t$
+   has likelihood $g_r = c_{rt} q_{rt} + (1 - c_{rt})/2$ on strand 0 and
+   $h_r = c_{rt} (1 - q_{rt}) + (1 - c_{rt})/2$ on strand 1. The run's vote is
+
+   $$
+   \sum_r \log_{10} \frac{L_{r0} g_r + L_{r1} h_r}{L_{r0} h_r + L_{r1} g_r}
+   $$
+
+   positive for keeping $t$'s phase. A read thus counts once for each run, however many of that
+   run's sites it spans, so that one long read cannot outweigh the panel's vote by counting its
+   allele at $t$ once for each site. With one site, a run's vote is the link between it and $t$. The
+   panel votes too, to keep the site's phase relative to the nearest phase-chain site where it
+   orders the two alleles, as it gave it: it favours flipping the site if that site was flipped, and
+   keeping its phase if not. Its vote is the panel's vote at the distance between the two sites (see
+   [The panel's errors](#the-panels-errors)), or, with nothing fitted, `--phase-prior`. The site
+   takes the phase with the larger total vote, and a tie keeps the panel's phase.
 
 When read phasing flips a site, its alleles change strands, and so does every nested haploid chain
 that takes its strand from them, directly or through another nested haploid chain. A diploid
@@ -159,14 +178,14 @@ relative to each other. A break starts a new run unless reads link across it and
 sign of their links alone, so a break that no read links, or one where the panel's vote outweighed
 the reads, starts one.
 
-Each site is given the run its phase is relative to. A phase-chain site is in the run it is part
-of. A site hung in stage 4 takes the run whose links to it agree with the phase it took and add up
-to the most, the lower-numbered run on a tie. If no link agrees, its phase came from the panel's
+Each site is given the run its phase is relative to. A phase-chain site is in the run it is part of.
+A site hung in stage 4 takes the run whose reads' vote agrees with the phase it took and is the
+largest, the lower-numbered run on a tie. If no run's vote agrees, its phase came from the panel's
 vote, and it takes the run of the site whose panel phase it kept. A site the panel does not order
 that no read links to the phase chain is ordered by reads against the nearest ordered sites, and
-takes its run from their links the same way. Sites that are ordered only against each other make a
-run of their own for each set of them that reads join. A site that the panel phases but that
-neither a read nor the panel's vote relates to a run is in none.
+takes the run whose links to it agree with the phase it took and add up to the most. Sites that are
+ordered only against each other make a run of their own for each set of them that reads join. A site
+that the panel phases but that neither a read nor the panel's vote relates to a run is in none.
 
 Each run but the first of a phase set has a **run correlation** with the run before it: $2p - 1$,
 for the probability $p = 1/(1 + 10^{-\vert S \vert})$ that the decision at the break between them
