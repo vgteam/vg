@@ -247,16 +247,19 @@ TEST_CASE("A strand from another phase set is NaN in the anchor path, and no str
     REQUIRE(strands.read_strand_log_odds(12, "elsewhere") == 0.0);
 }
 
-TEST_CASE("A strand from another run is NaN in the anchor path", "[graph_caller]") {
-    // Only the panel relates one run's strands to another's, so at a site of run 0 a read whose
-    // other sites lie in run 1 has no strand to tilt its slot by, and a read whose other sites lie
-    // in both runs keeps the part from run 0.
+TEST_CASE("A strand from another run counts in the anchor path as far as the runs correlate",
+          "[graph_caller]") {
+    // Reads fix one run's strands relative to each other but not to another run's. At a site of
+    // run 0, a read whose other sites lie in run 1 has no strand to tilt its slot by where the
+    // runs' correlation is 0, and its own strand where the correlation is all but 1. A read whose
+    // other sites lie in both runs keeps the part from run 0.
     auto key = [](const string& name) { return (uint64_t)std::hash<std::string_view>{}(name); };
     auto site = [&](size_t record_key, size_t run, const vector<string>& reads, float q0) {
         PhaseSite s;
         s.record_key = record_key;
         s.phase_set = 7;
         s.run = run;
+        s.run_correlation = 0.0;
         for (const string& name : reads) {
             s.read_key.push_back(key(name));
             s.q0.push_back(q0);
@@ -274,10 +277,16 @@ TEST_CASE("A strand from another run is NaN in the anchor path", "[graph_caller]
     pc.phase_set = 7;
     strands.build_lambda({pc}, [](const string&, size_t phase_set) { return phase_set; },
                          StrandCalibration{1.0, 1.0}, RegenotypeParams());
+    strands.run_correlations() = RunCorrelationTable(strands.sites());
     const double near = strands.read_strand_log_odds(20, "near");
     REQUIRE(near > 0.0);
-    REQUIRE(std::isnan(strands.read_strand_log_odds(20, "far")));
+    REQUIRE(strands.read_strand_log_odds(20, "far") == 0.0);
     REQUIRE(strands.read_strand_log_odds(20, "both") == Approx(near));
+    // Where the runs' correlation is all but 1, a strand from run 1 counts as fully as one from
+    // run 0.
+    strands.sites()[2].run_correlation = 1.0 - 1e-6;
+    strands.run_correlations() = RunCorrelationTable(strands.sites());
+    REQUIRE(strands.read_strand_log_odds(20, "far") == Approx(-near).epsilon(1e-4));
 }
 
 TEST_CASE("A parent's phase swap carries its nested strands and their haplotypes with it",

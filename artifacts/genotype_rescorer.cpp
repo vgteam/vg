@@ -18,17 +18,14 @@ struct SitePhase {
     ///
     /// A read's strand is usable only at sites of the phase set it was found in.
     size_t phase_set = NO_PHASE_SET;
-    /// The run of read phasing the site's order is relative to (see `PhaseSite::run`), or `NO_RUN`.
+    /// The run of read phasing (see `PhaseSite::run`) that the site's order is in, or, for a nested
+    /// chain at ploidy 1, that its strand is named in, or `NO_RUN`.
     size_t run = NO_RUN;
     /// The traversal on strand 0 at a diploid site, or -1 where the phase gives no order.
     int strand0_allele = -1;
     /// For a nested chain at ploidy 1, +1 if it is on strand 0 of its phase set and -1 if it is on
     /// strand 1. 0 for other sites, which take the diploid correction.
     int haploid_strand = 0;
-    /// For a nested chain at ploidy 1, the run of the order its strand is named in: that of the
-    /// nearest enclosing site that is not a chain at ploidy 1, or `NO_RUN` if that site has no read
-    /// evidence.
-    size_t frame_run = NO_RUN;
     /// The read evidence read phasing used at the site, or null if it used none, as at a
     /// homozygote.
     const PhaseSite* phase_site = nullptr;
@@ -66,42 +63,37 @@ unordered_map<size_t, SitePhase> collect_site_phases(
 }
 
 /**
- * Give each nested chain at ploidy 1 in `phases` the run of the order its strand is named in.
+ * Give each nested chain at ploidy 1 in `phases` the run its strand is named in.
  *
- * Its strand is one of its parent's two, so it is in the frame of the parent's order. A parent at
- * ploidy 1 has the strand of its own parent, so we go up through such parents to the first site
- * that is not one. If that site has read evidence, its run is the chain's; otherwise the chain
- * keeps `NO_RUN`.
+ * Its strand is one of its parent's two, so it is named in the run of the parent's order. A
+ * parent at ploidy 1 has the strand of its own parent, so we go up through such parents to the
+ * first site that is not one, and take its run, which is `NO_RUN` if it has no read evidence.
  */
-void set_frame_runs(unordered_map<size_t, SitePhase>& phases, StagedSiteTable& staged) {
+void set_haploid_runs(unordered_map<size_t, SitePhase>& phases, StagedSiteTable& staged) {
     unordered_map<size_t, size_t> parent_of;
-    staged.for_each([&](const StagedSite& rec) {
+    staged.for_each([&parent_of](const StagedSite& rec) {
         if (rec.placement.level > 0) {
             parent_of[rec.record_key] = rec.placement.parent_record_key;
         }
     });
-    for (auto& [key, phase] : phases) {
-        if (phase.haploid_strand == 0) {
-            continue;
-        }
-        size_t at = key;
-        for (size_t depth = 0; depth < parent_of.size(); ++depth) {
-            const auto parent = parent_of.find(at);
-            if (parent == parent_of.end()) {
-                break;
-            }
-            at = parent->second;
-            const auto above = phases.find(at);
+    // The run of the first site enclosing `key` that is not a haploid chain, which names the
+    // chain's strand.
+    auto enclosing_run = [&parent_of, &phases](size_t key) {
+        for (auto parent = parent_of.find(key); parent != parent_of.end();
+             parent = parent_of.find(parent->second)) {
+            const auto above = phases.find(parent->second);
             if (above == phases.end()) {
-                break;
-            }
-            if (above->second.phase_site != nullptr) {
-                phase.frame_run = above->second.run;
-                break;
+                return NO_RUN;
             }
             if (above->second.haploid_strand == 0) {
-                break;
+                return above->second.run;
             }
+        }
+        return NO_RUN;
+    };
+    for (auto& [key, phase] : phases) {
+        if (phase.haploid_strand != 0) {
+            phase.run = enclosing_run(key);
         }
     }
 }
@@ -188,17 +180,14 @@ void restore_direct_pass(SiteScore& score, const ReadLikelihoodSnarlCaller& geno
 
 /// The inputs of one round of correction, shared by every site.
 struct CorrectionRound {
-    /// The summed strand log-odds of each read.
-    const LambdaTable& lambda;
+    /// What the round knows about each read's strand.
+    const StrandModel& strands;
     /// What the phase says about each site.
     const unordered_map<size_t, SitePhase>& site_phases;
     /// The record keys of the sites whose strands read phasing swapped.
     const unordered_set<size_t>& phase_flips;
     /// The genotyper that recomputes GQ.
     const ReadLikelihoodSnarlCaller& genotyper;
-    const RegenotypeParams& params;
-    /// The calibration of every read's strand log-odds.
-    StrandCalibration calibration;
     /// Whether the corrected likelihoods replace each site's own.
     ///
     /// When false, they are computed and counted, and then thrown away. `genotype_lls` is what
@@ -278,12 +267,10 @@ void SiteCorrector::correct(StagedSite& rec) {
     map<vector<int>, double>& target = round.keep ? score->genotype_lls : scratch;
     const bool site_moved =
         phase.haploid_strand != 0
-            ? haploid_inclusion_correction(*pe, round.lambda, phase.phase_set, phase.frame_run, own,
-                                           round.calibration, phase.haploid_strand, round.params,
-                                           target, counters)
-            : phase_aware_correction(*pe, round.lambda, phase.phase_set, phase.run,
-                                     phase.strand0_allele, own, round.calibration, round.params,
-                                     target, counters);
+            ? haploid_inclusion_correction(*pe, round.strands, RunKey {phase.phase_set, phase.run},
+                                           phase.haploid_strand, own, target, counters)
+            : phase_aware_correction(*pe, round.strands, RunKey {phase.phase_set, phase.run},
+                                     phase.strand0_allele, own, target, counters);
     if (round.keep && site_moved) {
         // Recompute GQ from the corrected likelihoods. GQI and GQN stay, because the achievable
         // gap of GQN assumes the site's own mixture weights, not per-read ones.
@@ -313,10 +300,8 @@ void SiteCorrector::correct_other_ploidy(SiteScore& alt, const PhaseReadEvidence
                                          const SitePhase& phase) {
     restore_direct_pass(alt, round.genotyper);
     RegenotypeCounters ignored;
-    if (phase_aware_correction(evidence, round.lambda, phase.phase_set,
-                               phase.run != NO_RUN ? phase.run : phase.frame_run,
-                               phase.strand0_allele, own, round.calibration, round.params,
-                               alt.genotype_lls, ignored)) {
+    if (phase_aware_correction(evidence, round.strands, RunKey {phase.phase_set, phase.run},
+                               phase.strand0_allele, own, alt.genotype_lls, ignored)) {
         round.genotyper.recompute_gq(alt);
     }
 }
@@ -373,7 +358,7 @@ bool GenotypeRescorer::rescore(
 
     unordered_map<size_t, SitePhase> site_phases = collect_site_phases(
         calls, phase_sites, phase_set_id, regenotype_params.haploid_include);
-    set_frame_runs(site_phases, staged);
+    set_haploid_runs(site_phases, staged);
 
     const StrandCalibration calibration = choose_calibration(phase_sites, phase_flips, lambda);
     fit.keep(counters);
@@ -388,8 +373,9 @@ bool GenotypeRescorer::rescore(
     const ReadLikelihoodSnarlCaller* genotyper = reader.genotyper;
     size_t moved = 0;
     if (genotyper != nullptr) {
-        const CorrectionRound round {lambda, site_phases, phase_flips, *genotyper,
-                                     regenotype_params, calibration, max_passes >= 2,
+        const StrandModel model {lambda, calibration, strands.run_correlations(),
+                                 regenotype_params};
+        const CorrectionRound round {model, site_phases, phase_flips, *genotyper, max_passes >= 2,
                                      want_ledger};
         // Stride the records across one worker per queue, and merge the workers in queue order.
         const vector<StagedSite*> all_records = staged.in_order();
@@ -427,13 +413,12 @@ void GenotypeRescorer::report(const StrandCalibration& calibration, bool show_ca
          << c.sites_would_move << " would move (" << c.moved_hom_to_het << " hom->het, "
          << c.moved_het_to_hom << " het->hom, " << c.moved_het_to_het << " het->het), "
          << c.order_reversed << " where the reads prefer the other order, "
-         << c.sites_split_runs << " whose reads come from more than one run, "
-         << c.sites_mixed_reads << " with reads from two or more" << endl;
+         << c.sites_split_runs << " whose reads were scored in more than one group by run" << endl;
     if (regenotype_params.haploid_include) {
         cerr << "[vg call] re-genotyping: " << c.haploid_sites
              << " nested haploid chains weighted by whether the reads belong to their strand, "
-             << c.haploid_would_move << " would move, " << c.haploid_other_run
-             << " with reads from another run left unweighted" << endl;
+             << c.haploid_would_move << " would move, " << c.haploid_split_runs
+             << " whose reads were scored in more than one group by run" << endl;
     }
     if (show_calibration && !c.fit_count.empty()) {
         cerr << "[vg call] re-genotyping calibration, |Lambda| / observed / predicted / n:";

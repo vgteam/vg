@@ -6,6 +6,7 @@
 /// after it, and nothing in the VCF looks unusual. These tests pin the convention.
 ///
 
+#include <cmath>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -195,7 +196,7 @@ TEST_CASE("each site takes the run of the chain its order is relative to", "[rea
     // orders is in the first, so the links that order it are to the second run. Site 7 shares no
     // read with anything and keeps the panel's order relative to site 1, the nearest site the
     // panel orders.
-    vector<PhaseSite> sites{site(1, 100, 0), site(7, 120, 0, 20, 1.0, 900), site(2, 200, 0),
+    vector sites{site(1, 100, 0), site(7, 120, 0, 20, 1.0, 900), site(2, 200, 0),
                             site(3, 300, 0), site(6, 350, 0, 20, 1.0, 500),
                             site(4, 400, 0, 20, 12.0, 500), site(5, 500, 0, 20, 12.0, 500)};
     ReadPhasingParams params;
@@ -216,7 +217,7 @@ TEST_CASE("a hung site keeps the run of the reads that agree with it, however we
     // Site 6 has one read, which it shares with sites 4 and 5 of the second run and which agrees
     // with them. The panel's vote, toward site 3 of the first run, outweighs those links but
     // agrees with them too, so the site's order is the one its read gives it.
-    vector<PhaseSite> sites{site(1, 100, 0), site(2, 200, 0), site(3, 300, 0),
+    vector sites{site(1, 100, 0), site(2, 200, 0), site(3, 300, 0),
                             site(6, 350, 1, 1, 1.0, 500), site(4, 400, 0, 20, 12.0, 500),
                             site(5, 500, 0, 20, 12.0, 500)};
     ReadPhasingParams params;
@@ -231,7 +232,7 @@ TEST_CASE("a hung site keeps the run of the reads that agree with it, however we
 TEST_CASE("sites only reads among themselves order make a run of their own", "[read_phasing]") {
     // Sites 8 and 9 are unreliable, the panel does not order them, and they share reads only with
     // each other, so they are ordered against each other and are a run apart from the chain's.
-    vector<PhaseSite> sites{site(1, 100, 0), site(2, 200, 0), site(8, 300, 0, 20, 1.0, 700),
+    vector sites{site(1, 100, 0), site(2, 200, 0), site(8, 300, 0, 20, 1.0, 700),
                             site(9, 400, 0, 20, 1.0, 700)};
     sites[2].panel_ordered = false;
     sites[3].panel_ordered = false;
@@ -243,6 +244,145 @@ TEST_CASE("sites only reads among themselves order make a run of their own", "[r
         run[s.record_key] = s.run;
     }
     REQUIRE(run == unordered_map<size_t, size_t>{{1, 0}, {2, 0}, {8, 1}, {9, 1}});
+}
+
+/// `count` sites 1 kb apart from position `start`, each sharing 20 reads with the next, so that
+/// reads join them into one piece. The panel orders site k's slots the wrong way round where
+/// `swapped(k)`. Even read keys, counted from `first_read`, come from strand 0 and odd ones from
+/// strand 1.
+template <typename Swapped>
+static vector<PhaseSite> linked_sites(size_t count, size_t start, uint64_t first_read,
+                                      const Swapped& swapped) {
+    vector<PhaseSite> sites;
+    for (size_t k = 0; k < count; ++k) {
+        PhaseSite s;
+        s.record_key = start / 1000 + k + 1;
+        s.phase_set = 1;
+        s.position = start + 1000 * k;
+        s.reliability = 12.0;
+        for (uint64_t read = first_read + 20 * k; read < first_read + 20 * k + 40; ++read) {
+            s.read_key.push_back(read);
+            s.q0.push_back((read % 2 == 1) == swapped(k) ? 1.0f : 0.0f);
+            s.c.push_back(0.95f);
+        }
+        sites.push_back(s);
+    }
+    return sites;
+}
+
+TEST_CASE("read phasing fits the panel's error rates from its pieces", "[read_phasing]") {
+    // 399 neighbouring pairs 1 kb apart, the panel switching between 9 of them.
+    vector<PhaseSite> sites =
+        linked_sites(400, 1000, 0, [](size_t k) { return (k / 40) % 2 == 1; });
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    read_phase_flips(sites, params, counters);
+    REQUIRE(counters.breaks == 0);
+    REQUIRE(counters.panel_pairs == 399);
+    REQUIRE(counters.panel_pairs_reversed == 9);
+    REQUIRE(counters.panel.fitted);
+    // Every pair is 1 kb apart, so the fit sees only the agreement at 1 kb.
+    const double agreement = (1.0 + counters.panel.correlation(1000)) / 2.0;
+    REQUIRE(agreement == Approx(390.0 / 399.0).epsilon(0.003));
+    REQUIRE(counters.panel_fit.size() == 8);
+
+    // Too few pairs fit no rates.
+    vector<PhaseSite> few = linked_sites(100, 1000, 0, [](size_t) { return false; });
+    ReadPhasingCounters few_counters;
+    read_phase_flips(few, params, few_counters);
+    REQUIRE(few_counters.panel_pairs == 99);
+    REQUIRE(!few_counters.panel.fitted);
+
+    // Pairs the panel never reverses still leave it a flip rate, so that its vote stays finite.
+    vector<PhaseSite> clean = linked_sites(300, 1000, 0, [](size_t) { return false; });
+    ReadPhasingCounters clean_counters;
+    read_phase_flips(clean, params, clean_counters);
+    REQUIRE(clean_counters.panel.fitted);
+    REQUIRE(clean_counters.panel.flip_rate > 0.0);
+    REQUIRE(std::isfinite(clean_counters.panel.vote(0)));
+}
+
+TEST_CASE("the panel orients a run against the one before it at the break between them",
+          "[read_phasing]") {
+    // Two runs no read joins, the second 1 kb after the first. The panel switches halfway through
+    // the first run and has no error from there on. Each run's own first site would say the
+    // second run keeps the panel's order; the sites either side of the break say that it is flipped
+    // with the end of the first run.
+    auto swapped = [](size_t k) { return k >= 150; };
+    vector<PhaseSite> sites = linked_sites(300, 1000, 0, swapped);
+    vector<PhaseSite> second =
+        linked_sites(300, 301000, 1000000, [](size_t) { return true; });
+    sites.insert(sites.end(), second.begin(), second.end());
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    const auto flips = read_phase_flips(sites, params, counters);
+    REQUIRE(counters.panel.fitted);
+    REQUIRE(counters.breaks_no_reads == 1);
+    for (const PhaseSite& s : sites) {
+        // Sites from the 151st on are the other way round from the panel, in both runs.
+        REQUIRE(flips.contains(s.record_key) == (s.position >= 151000));
+        REQUIRE(s.run == (s.position > 300000 ? 1 : 0));
+        if (s.run == 1) {
+            REQUIRE(s.run_correlation == Approx(counters.panel.correlation(1000)));
+        }
+    }
+}
+
+
+TEST_CASE("a break the panel decides against the reads starts a run", "[read_phasing]") {
+    // Two pieces that one weak read joins, saying their sites either side of the break are the
+    // other way round from the panel's order. The panel's vote outweighs it, so the later piece
+    // keeps the panel's order, and starts a run whose correlation says how likely that is right.
+    vector<PhaseSite> sites = linked_sites(300, 1000, 0, [](size_t) { return false; });
+    vector<PhaseSite> second = linked_sites(300, 301000, 1000000, [](size_t) { return false; });
+    sites.insert(sites.end(), second.begin(), second.end());
+    const uint64_t weak = 5000000;
+    for (size_t k : {size_t(299), size_t(300)}) {
+        sites[k].read_key.push_back(weak);
+        sites[k].q0.push_back(k == 299 ? 1.0f : 0.0f);
+        sites[k].c.push_back(0.6f);
+    }
+    REQUIRE(phase_link(sites[299], sites[300], 0.0) < 0.0);
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    const auto flips = read_phase_flips(sites, params, counters);
+    REQUIRE(counters.panel.fitted);
+    REQUIRE(counters.breaks == 1);
+    REQUIRE(counters.breaks_no_reads == 0);
+    REQUIRE(flips.empty());
+    for (const PhaseSite& s : sites) {
+        REQUIRE(s.run == (s.position > 300000 ? 1 : 0));
+        if (s.run == 1) {
+            REQUIRE(s.run_correlation > 0.99);
+            REQUIRE(s.run_correlation < 1.0);
+        }
+    }
+}
+
+TEST_CASE("the panel relates a run only to sites oriented against the run before it",
+          "[read_phasing]") {
+    // Three runs no read joins. The panel orders no site of the middle one, so it relates neither
+    // neighbour to the middle run, and its order of the sites either side of the middle run says
+    // nothing about how either is oriented against it.
+    vector<PhaseSite> sites = linked_sites(300, 1000, 0, [](size_t) { return false; });
+    vector<PhaseSite> middle = linked_sites(2, 301000, 1000000, [](size_t) { return false; });
+    for (PhaseSite& s : middle) {
+        s.panel_ordered = false;
+    }
+    vector<PhaseSite> last = linked_sites(300, 303000, 2000000, [](size_t) { return true; });
+    sites.insert(sites.end(), middle.begin(), middle.end());
+    sites.insert(sites.end(), last.begin(), last.end());
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    read_phase_flips(sites, params, counters);
+    REQUIRE(counters.panel.fitted);
+    REQUIRE(counters.breaks_no_reads == 2);
+    for (const PhaseSite& s : sites) {
+        // The run starts at 1000, 301000 and 303000.
+        const size_t run = (s.position >= 301000 ? 1 : 0) + (s.position >= 303000 ? 1 : 0);
+        REQUIRE(s.run == run);
+        REQUIRE(s.run_correlation == 0.0);
+    }
 }
 
 TEST_CASE("a chain site the panel does not order is ordered by reads only with company", "[read_phasing]") {

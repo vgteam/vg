@@ -357,7 +357,8 @@ void MultiPassCaller::phase_reads() {
         read_phaser.phase(staged_sites, phase_table, read_strands,
                           [this](const string& contig, size_t phase_set) {
                               return phase_set_id(contig, phase_set);
-                          });
+                          },
+                          show_progress);
     }
 }
 

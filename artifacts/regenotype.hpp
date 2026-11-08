@@ -14,9 +14,12 @@
  *     pi_r^0 = v_0 e^{y_r} / (v_0 e^{y_r} + v_1),   pi_r^1 = 1 - pi_r^0
  *
  * where `y_r` is the read's tempered strand log-odds (see `StrandCalibration`), computed from
- * the other sites the read spans in its phase set. At temper 0, and for a read that spans no other
- * site, `pi_r = v` and the read's correction is zero. A homozygous genotype's read term does not
- * depend on the weights, so its likelihood does not change.
+ * the other sites the read spans in its phase set. Where those sites lie in more than one run of
+ * read phasing, `y_r` comes from one run's sites (see `read_strand`), and a site's reads are scored
+ * in groups by run, which the run correlations relate (see `phase_aware_correction`). At temper
+ * 0, and for a read that spans no other site, `pi_r = v` and the read's correction is zero. A
+ * homozygous genotype's read term does not depend on the weights, so its likelihood does not
+ * change.
  *
  * The correction is the read term with `pi` minus the read term with `v`, and it is added to the
  * likelihood the direct pass computed. The rest of that likelihood, such as the depth term, stays
@@ -25,6 +28,7 @@
  * described in artifacts/doc/read-likelihood-read-phasing.md, under "Re-genotyping from the phase".
  */
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -38,6 +42,7 @@
 namespace vg {
 
 using std::map;
+using std::pair;
 using std::size_t;
 using std::uint64_t;
 using std::unordered_map;
@@ -64,16 +69,20 @@ struct ReadLambda {
     ///
     /// Then `lambda` mixes unrelated strand labellings, and the read's strand is usable nowhere.
     bool multi_phase_set = false;
-    /// The first two runs (`PhaseSite::run`) the read's sites lie in, or `NO_RUN`.
+    /// The part of `lambda` from the sites of one run (see `PhaseSite::run`).
+    struct RunPart {
+        /// The run, or `NO_RUN` for a part not yet used.
+        size_t run = NO_RUN;
+        /// How many of the read's sites lie in the run.
+        size_t sites = 0;
+        /// Their sum of the read's log-odds.
+        double lambda = 0.0;
+    };
+    /// The parts of the first two runs the read's sites lie in. Sites with no run are not counted.
     ///
     /// Only the panel relates one run's strands to another's, so the read's strand is comparable
-    /// only with those of the run its other sites lie in (see `read_run`). Sites with no run are
-    /// not counted.
-    size_t runs[2] = {NO_RUN, NO_RUN};
-    /// How many of the read's sites lie in each of `runs`.
-    size_t run_sites[2] = {0, 0};
-    /// The part of `lambda` from the sites in each of `runs`.
-    double run_lambda[2] = {0.0, 0.0};
+    /// only with those of the run its other sites lie in (see `read_strand`).
+    std::array<RunPart, 2> run_parts;
     /// Whether the read's sites lie in more than two runs.
     bool many_runs = false;
 };
@@ -84,15 +93,64 @@ using LambdaTable = unordered_map<uint64_t, ReadLambda>;
 /// The phase set of a site that has none, because the linkage model did not phase it.
 constexpr size_t NO_PHASE_SET = std::numeric_limits<size_t>::max();
 
-/// The run `read_run` gives a read whose other sites lie in more than one run.
-constexpr size_t MIXED_RUNS = NO_RUN - 1;
+/// A run of read phasing: its phase set, and its number there (see `PhaseSite::run`).
+struct RunKey {
+    size_t phase_set = NO_PHASE_SET;
+    size_t run = NO_RUN;
+    auto operator<=>(const RunKey&) const = default;
+};
 
-/// Return the run that a read's sites lie in, leaving out one site of run `own_run`, or `NO_RUN`
-/// to leave out none.
+/// A read's strand log-odds at one site, and the run they come from.
+struct ReadStrand {
+    /// The log-odds, leaving the site's own contribution out.
+    double log_odds = 0.0;
+    /// The run they come from, with `NO_RUN` for none.
+    RunKey run;
+};
+
+/// Return a read's strand log-odds at a site of run `site_run`, leaving out the site's own
+/// contribution, `own_log_odds`, which `read` holds if `has_own`.
 ///
-/// It is `NO_RUN` if none of the other sites has a run, and `MIXED_RUNS` if they lie in more than
-/// one.
-size_t read_run(const ReadLambda& read, size_t own_run);
+/// Only the panel relates one run's strands to another's, so the parts of a read's log-odds from
+/// different runs do not add up. A read whose other sites lie in two runs keeps the part from
+/// `site_run` if it is one of them, and otherwise the larger part. A read whose sites, this one
+/// included, lie in more than two runs has no strand.
+ReadStrand read_strand(const ReadLambda& read, size_t site_run, bool has_own, double own_log_odds);
+
+/// Return log-odds `y` of a read's strand in its own run's frame, as seen from a run that the
+/// panel orients against its own as reads would with probability `agreement`, at least 1/2.
+///
+/// They shrink towards 0 as `agreement` falls to 1/2, where they are exactly 0.
+double reoriented_log_odds(double y, double agreement);
+
+/**
+ * A table of each run's correlation with the run before it, which gives how likely read phasing
+ * orients one run against another as reads would.
+ *
+ * Reads fix the orientation of a run's sites against each other. Read phasing orients each run
+ * against the one before it rightly with a probability p, and gives the run's correlation as
+ * 2p - 1 (see `PhaseSite::run_correlation`). The table treats the errors at different breaks as
+ * independent, so between two runs the correlations multiply. They are not independent where one
+ * site the panel orders is the nearest to two breaks: its flip then counts twice, which understates
+ * the agreement.
+ */
+class RunCorrelationTable {
+public:
+    /// Orient no run against another.
+    RunCorrelationTable() = default;
+
+    /// Take the correlation of each run of `sites`.
+    explicit RunCorrelationTable(const vector<PhaseSite>& sites);
+
+    /// Return the probability that read phasing orients run `b` against run `a` as reads would:
+    /// (1 + the product of the correlations of the runs after the earlier one, up to the later)
+    /// / 2. It is 1/2 for runs of different phase sets, and where either is in no run.
+    double agreement(const RunKey& a, const RunKey& b) const;
+
+private:
+    /// The correlation of each run with the run before it.
+    map<RunKey, double> correlation;
+};
 
 /// Return whether a read's strand can be used at a site of phase set `phase_set`.
 ///
@@ -177,15 +235,13 @@ struct RegenotypeCounters {
     /// with the chain about this site's phase. Counted only at the called pair, since at a site
     /// with several alleles most candidate pairs are carried by no haplotype.
     size_t order_reversed = 0;
-    /// Sites whose reads with a strand come from more than one run, so that their heterozygotes
-    /// are scored in groups (see `phase_aware_correction`).
+    /// Corrected sites whose reads were scored in more than one group, because some of their
+    /// strands come from a run other than the frame group's (see `phase_aware_correction`).
     size_t sites_split_runs = 0;
-    /// Sites with a read whose other sites lie in more than one run, so that it kept the part of
-    /// one, or none.
-    size_t sites_mixed_reads = 0;
-    /// Nested chains at ploidy 1 that left reads unchanged because their strands came from a run
-    /// other than the chain's.
-    size_t haploid_other_run = 0;
+    /// Nested chains at ploidy 1 whose reads were scored in more than one group, because some of
+    /// their strands come from a run other than the frame group's (see
+    /// `haploid_inclusion_correction`).
+    size_t haploid_split_runs = 0;
     /// The calibration the round used, which `fit_calibration` fills when it fits one.
     StrandCalibration calibration;
     /// Nested chains at ploidy 1 where some read's strand log-odds are nonzero.
@@ -235,15 +291,26 @@ StrandCalibration fit_calibration(const vector<PhaseSite>& sites,
                                   const unordered_set<size_t>& flipped, const LambdaTable& lambda,
                                   const RegenotypeParams& params, RegenotypeCounters& counters);
 
+/**
+ * What one round of re-genotyping knows about the strand each read came from, which every site it
+ * corrects shares.
+ */
+struct StrandModel {
+    /// Each read's summed strand log-odds.
+    const LambdaTable& lambda;
+    /// How far each read's log-odds are believed.
+    StrandCalibration calibration;
+    /// How likely read phasing orients each run against another as reads would.
+    const RunCorrelationTable& correlations;
+    const RegenotypeParams& params;
+};
+
 /// Add the correction at a nested chain at ploidy 1 to its genotype likelihoods, in place.
 ///
 /// The chain sits on one of its parent's two strands, and reads from the other strand can reach
 /// it only as mismapped reads. `strand_sign` is +1 when the chain is on strand 0 of its phase set
-/// `phase_set` and -1 on strand 1, so that a read's log-odds are for or against this chain. That
-/// strand is in the frame of run `frame_run`, the run of the parent's order, or `NO_RUN` if it is
-/// not known. A read whose strand is not usable in `phase_set` (see `read_strand_usable`), or whose
-/// strand comes only from runs other than `frame_run`, is left unchanged. A read whose other sites
-/// lie in `frame_run` and one other run counts only those in `frame_run`:
+/// and -1 on strand 1, so that a read's log-odds are for or against this chain. A read whose
+/// strand is not usable in the chain's phase set (see `read_strand_usable`) is left unchanged:
 ///
 ///     incl  = min(1, exp(x))          x = strand_sign * calibration.log_odds(...)
 ///     e_r'  = e_r + (1 - e_r)(1 - incl)
@@ -253,13 +320,18 @@ StrandCalibration fit_calibration(const vector<PhaseSite>& sites,
 /// this strand would be 1/2. A read that points to the other strand counts less for or against the
 /// allele.
 ///
+/// `chain` is the chain's phase set and the run its strand is named in, the run of the parent's
+/// order, or `NO_RUN` if that is not known. The reads are grouped by the run their strands come
+/// from. The frame group, which keeps `strand_sign`, is that of the chain's run, or, where that is
+/// not known, of the run most of the reads' strands come from, and holds the reads with no strand.
+/// Each other group takes `strand_sign` with the probability `strands.correlations` gives for its
+/// run against the frame group's, and the opposite sign otherwise.
+///
 /// Returns true if the corrected best genotype differs from the called one.
-bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
-                                  size_t phase_set, size_t frame_run,
+bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const StrandModel& strands,
+                                  const RunKey& chain, int strand_sign,
                                   const unordered_map<uint64_t, double>& own,
-                                  const StrandCalibration& calibration, int strand_sign,
-                                  const RegenotypeParams& params, map<vector<int>, double>& gl,
-                                  RegenotypeCounters& counters);
+                                  map<vector<int>, double>& gl, RegenotypeCounters& counters);
 
 /// Add the phase-aware correction to one site's genotype likelihoods, in place.
 ///
@@ -267,33 +339,32 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const Lambd
 /// Both assignments of a heterozygote's alleles to the strands are scored, and the larger
 /// correction is kept, so the phase information is not averaged away.
 ///
-/// Only the panel relates one run's strands to another's (see `PhaseSite::run`), so the reads are
-/// scored in groups by the run their strands come from (see `read_run`), keyed by phase set too at
-/// a site with no phase set. A read whose other sites lie in more than one run keeps only the part
-/// of its log-odds from the run whose part is larger, or none if its sites, this one included, lie
-/// in more than two runs. The anchor group, that of `site_run` (the site's own
-/// run) if a read with a strand comes from it and otherwise the largest, takes the larger
-/// assignment. Every other group's assignment is unknown, so its term is averaged over the two,
-/// each with probability 1/2. Reads with no strand, or none from any run, join the anchor, except
-/// that at a site with no phase set those from another phase set make groups of their own. A site
-/// whose reads with a strand come from one run is scored as one group, as if there were no runs.
+/// Reads fix the strands of one run's sites relative to each other but not to another run's (see
+/// `PhaseSite::run`), so the reads are scored in groups by the run their strands come from (see
+/// `read_strand`). Reads with no strand
+/// join the frame group: the group of the site's own run if a read with a strand comes from it,
+/// and otherwise the largest group.
+///
+/// Each assignment of the frame group is scored with the other groups: each takes the same
+/// assignment with the probability `strands.correlations` gives for its run against the frame
+/// group's, and the other otherwise. The larger of the two totals is kept. A site whose reads with
+/// a strand come from one run is scored as one group, as if there were no runs.
+///
+/// `site` is the site's phase set, or `NO_PHASE_SET`, and its own run. A read whose strand is not
+/// usable in the phase set (see `read_strand_usable`) gets the site's own weights.
 ///
 /// `own` is this site's own per-read contribution to Lambda, negated where read phasing flipped
 /// the site. It is subtracted so that a site does not confirm its own genotype. Empty for a site
 /// with no `PhaseSite`, such as a homozygote.
 ///
-/// `phase_set` is the site's phase set, or `NO_PHASE_SET`; a read whose strand is not usable there
-/// (see `read_strand_usable`) gets the site's own weights.
-///
 /// `strand0_allele` is the allele the chain puts on strand 0 at this site, or -1 where the chain
-/// gives it no order. `order_reversed` counts the site when the reads of its own group prefer the
-/// other order.
+/// gives it no order. `order_reversed` counts the site when the reads prefer the other order, if
+/// the site has no run or the frame group is its own run.
 ///
 /// Returns true if the corrected best genotype differs from the called one.
-bool phase_aware_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
-                            size_t phase_set, size_t site_run, int strand0_allele,
+bool phase_aware_correction(const PhaseReadEvidence& evidence, const StrandModel& strands,
+                            const RunKey& site, int strand0_allele,
                             const unordered_map<uint64_t, double>& own,
-                            const StrandCalibration& calibration, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters);
 
 /// Fill `out` with a site's contribution to each read's Lambda, for subtracting from each read's

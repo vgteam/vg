@@ -787,13 +787,16 @@ fitted in the same way from the final phase.
 
 - At a phaseable site, a read's slot is by default chosen from its $x_{ra}$ with $v_a$ replaced by
   the per-read weights $\pi$ of [Likelihood
-  correction](read-likelihood-read-phasing.md#likelihood-correction). If the read's other sites
-  lie in the site's own [run](read-likelihood-read-phasing.md#deciding-the-phases) and one other,
-  only its terms from sites of the site's run count. A read whose other sites lie only in other
-  runs, or in more than two, is placed from its $x_{ra}$ alone. The read's anchor confidence
-  is still computed from the $x_{ra}$. `--no-anchors-phase-hets` chooses the slot from the $x_{ra}$
-  alone. `--anchors-strict-hets` chooses it from the sign of $y_{rs}$ alone, slot 0 for a positive
-  sign, and a read whose $y_{rs}$ is 0 then keeps the slot its $x_{ra}$ give.
+  correction](read-likelihood-read-phasing.md#likelihood-correction). At a site in a
+  [run](read-likelihood-read-phasing.md#runs), $y_{rs}$ comes from $\Lambda_{rs}$ as [Strand
+  log-odds](read-likelihood-read-phasing.md#strand-log-odds) defines it, and a read whose strand
+  comes from another run has its $y_{rs}$ replaced by
+  $\mathrm{logit}(p \sigma(y_{rs}) + (1 - p) \sigma(-y_{rs}))$, with $p$ the probability that read
+  phasing orients the two runs as the reads would. At a site in no run, $y_{rs}$ comes from the
+  read's whole sum over its other sites of the phase set, whatever their runs. The read's anchor
+  confidence is still computed from the $x_{ra}$. `--no-anchors-phase-hets` chooses the slot from
+  the $x_{ra}$ alone. `--anchors-strict-hets` chooses it from the sign of $y_{rs}$ alone, slot 0 for
+  a positive sign, and a read whose $y_{rs}$ is 0 then keeps the slot its $x_{ra}$ give.
 - `--anchors-hom-split`, which needs `--read-phasing`, divides the reads of a diploid site that is
   not phaseable between two slots by the sign of their $y_{rs}$. A site is split only when, for each
   sign, at least `--split-min-side` reads have a $y_{rs}$ of that sign and of absolute value at
@@ -899,3 +902,4 @@ holds it.
 | the `min_length` argument of `set_depth_quality` | `artifacts/read_likelihood_caller.hpp` | the change in allele length at which `--depth-quality` applies |
 | the minimum counted reads in `read_phase_flips` | `artifacts/read_phasing.cpp` | the reads a site needs before low coherence can remove it from the phase chain |
 | `RegenotypeParams::fit_bins`, `fit_min_per_bin`, and the grid in `fit_calibration` | `artifacts/regenotype.hpp`, `artifacts/regenotype.cpp` | the bins, the fewest observations per bin, and the candidate values used to fit $\tau$ |
+| `PANEL_FIT_MIN_PAIRS`, `PANEL_FIT_BINS`, and the grid in `fit_panel_errors` | `artifacts/read_phasing.cpp` | the fewest pairs of sites the panel's error rates $\lambda$ and $f$ are fitted to, the bins of the fit's report, and the candidate rates |

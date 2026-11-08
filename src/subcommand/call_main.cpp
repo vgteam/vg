@@ -689,7 +689,8 @@ void help_call(char** argv) {
          << "      --phase-hang N        sites of the chain used to phase a site outside" << endl
          << "                            it: the nearest N/2+1 on each side [4]" << endl
          << "      --phase-prior N       weight, in log10 units, of the haplotypes' phase" << endl
-         << "                            when phasing a site that is not in the chain [3]" << endl
+         << "                            when phasing a site that is not in the chain, where" << endl
+         << "                            too few sites measure how often it is wrong [3]" << endl
          << "      --phase-cap N         maximum evidence, in log10 units, from the reads" << endl
          << "                            linking two sites; 0 for no maximum [0]" << endl
          << "      --phase-coherence F   minimum fraction of a site's reads that agree with" << endl
