@@ -126,6 +126,17 @@ public:
     // Print progress and per-stage counts to stderr while computing.
     void set_verbose(bool verbose);
 
+    // Keep these paths from sourcing cover fragments.
+    //
+    // A node an excluded path visits is still covered when a path that is not excluded
+    // visits it.  A node only excluded paths visit stays uncovered, so no fragment carries
+    // its sequence.  The cover is then built from the remaining paths, which is what keeps
+    // sequence that only the excluded samples carry off the gref.
+    //
+    // The caller picks both these paths and the reference paths the cover starts from, so
+    // the two sets are independent here.  compute() reads this one.
+    void set_excluded_source_paths(const unordered_set<path_handle_t>& paths);
+
 
     // Summary of how the final cover sits inside the top-level snarl decomposition.
     // Filled in by assign_top_level_snarls(); all zero when no distance index was supplied.
@@ -380,6 +391,10 @@ protected:
 
     // Whether to print progress and per-stage counts to stderr.
     bool verbose = false;
+
+    // Paths that may not source a cover fragment.
+    // See set_excluded_source_paths().
+    unordered_set<path_handle_t> excluded_source_paths;
 
     // Copy the base reference paths into the gref namespace.
     // Creates new paths like "gref_CHM13#0#chr1" from "CHM13#0#chr1".
