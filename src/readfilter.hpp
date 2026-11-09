@@ -1622,6 +1622,12 @@ inline void ReadFilter<Alignment>::emit_tsv(Alignment& read, std::ostream& out) 
             } else {
                 out << "False";
             }
+        } else if (field == "refpos") {
+            if (read.refpos_size()) {
+                out << read.refpos(0).name() << ":" << read.refpos(0).offset();
+            } else {
+                out << "none";
+            }
         } else if (field == "annotation") {
             // Since annotation is a Protobuf Struct, it comes out as JSON
             // describing the Struct and not what the Struct describes if

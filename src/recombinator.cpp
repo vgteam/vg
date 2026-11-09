@@ -25,15 +25,20 @@ constexpr size_t Recombinator::COVERAGE;
 constexpr double Recombinator::PRESENT_DISCOUNT;
 constexpr double Recombinator::HET_ADJUSTMENT;
 constexpr double Recombinator::ABSENT_SCORE;
+constexpr size_t Recombinator::LONG_READ_HOMOPOLYMERS;
 constexpr size_t Recombinator::MIN_GREF_LENGTH;
 
-//------------------------------------------------------------------------------
+// Other static class variables.
 
-// Returns true if the path is a gref fragment (`gref_CHM13#0#chr1_7_alt`), even if it
-// has already been clipped (`gref_CHM13#0#chr1_7_alt[500]`).
-bool is_gref_fragment(const gbwtgraph::GBWTGraph& graph, path_handle_t path) {
-    return GrefCover::is_gref_derived(graph.get_path_name(path)) && GrefCover::is_gref_name(graph.get_locus_name(path));
-}
+const std::vector<std::pair<Recombinator::Parameters::preset_t, std::string>> Recombinator::Parameters::PRESETS = {
+    { Recombinator::Parameters::preset_default, "default" },
+    { Recombinator::Parameters::preset_haploid, "haploid" },
+    { Recombinator::Parameters::preset_diploid, "diploid" },
+    { Recombinator::Parameters::preset_hifi, "hifi" },
+    { Recombinator::Parameters::preset_ont, "ont" }
+};
+
+//------------------------------------------------------------------------------
 
 // Returns true if the path belongs to a gref cover: a copy of a reference path
 // (`gref_CHM13#0#chr1`, or `gref_x` for a generic path) or a fragment of one.
@@ -137,7 +142,8 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     // change them. Skip gref fragments (`chr1_7_alt`) and loci in the reserved gref namespace
     // (`gref_x`, a non-PanSN copy); a PanSN gref copy (`gref_CHM13#0#chr1`) has the base locus.
     auto contig_names = jobs.contig_names(this->gbz.graph, [&](const path_handle_t& path) -> bool {
-        return !GrefCover::is_gref_derived(this->gbz.graph.get_locus_name(path)) && !is_gref_fragment(this->gbz.graph, path);
+        std::string path_name = this->gbz.graph.get_path_name(path);
+        return !GrefCover::is_gref_derived(this->gbz.graph.get_locus_name(path)) && !GrefCover::is_gref_fragment(path_name);
     });
     for (size_t job_id = 0; job_id < result.jobs(); job_id++) {
         for (auto& chain : chains_by_job[job_id]) {
@@ -1255,6 +1261,27 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotyp
 
 //------------------------------------------------------------------------------
 
+std::string Recombinator::Parameters::preset_list(std::string_view separator) {
+    std::string result = "{";
+    for (const auto& preset : PRESETS) {
+        if (result.size() > 1) {
+            result += separator;
+        }
+        result += preset.second;
+    }
+    result += "}";
+    return result;
+}
+
+std::optional<Recombinator::Parameters::preset_t> Recombinator::Parameters::parse_preset(std::string_view name) {
+    for (const auto& preset : PRESETS) {
+        if (preset.second == name) {
+            return preset.first;
+        }
+    }
+    return std::nullopt;
+}
+
 Recombinator::Parameters::Parameters(preset_t preset) {
     if (preset == preset_haploid) {
         this->haploid_scoring = true;
@@ -1263,6 +1290,16 @@ Recombinator::Parameters::Parameters(preset_t preset) {
         this->num_haplotypes = NUM_CANDIDATES;
         this->diploid_sampling = true;
         this->include_reference = true;
+    } else if (preset == preset_hifi) {
+        this->num_haplotypes = NUM_CANDIDATES;
+        this->diploid_sampling = true;
+        this->include_reference = true;
+        this->ignore_homopolymers = LONG_READ_HOMOPOLYMERS;
+    } else if (preset == preset_ont) {
+        this->num_haplotypes = NUM_CANDIDATES;
+        this->diploid_sampling = true;
+        this->include_reference = true;
+        this->ignore_homopolymers = LONG_READ_HOMOPOLYMERS;
     }
 }
 
@@ -1287,6 +1324,9 @@ void Recombinator::Parameters::print(std::ostream& out) const {
     }
     if (this->include_reference) {
         out << "- include reference paths (gref fragments clipped, min length " << this->min_gref_length << ")" << std::endl;
+    }
+    if (this->ignore_homopolymers != std::numeric_limits<size_t>::max()) {
+        out << "- ignore homopolymers of length >= " << this->ignore_homopolymers << std::endl;
     }
     if (!this->high_coverage_chains.empty()) {
         out << "- " << this->high_coverage_chains.size() << " high-coverage chains ("
@@ -1432,6 +1472,7 @@ double get_or_estimate_coverage(
         std::cerr << "Estimating kmer coverage" << std::endl;
     }
     std::map<size_t, size_t> count_to_frequency;
+    // FIXME: parameter to include singletons in the estimation.
     for (auto iter = counts.begin(); iter != counts.end(); ++iter) {
         // We are only interested in kmers with multiple occurrences, as unique
         // kmers are likely sequencing errors.
@@ -1539,7 +1580,8 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
             size_t job_id = this->jobs_for_cached_paths[i];
             gbwt::size_type path_id = this->gbz.graph.named_paths[i].id;
             if (job_id < this->haplotypes.jobs() && excluded_path_ids.find(path_id) == excluded_path_ids.end()) {
-                if (is_gref_fragment(this->gbz.graph, handlegraph::as_path_handle(i))) {
+                std::string path_name = this->gbz.graph.get_path_name(handlegraph::as_path_handle(i));
+                if (GrefCover::is_gref_fragment(path_name)) {
                     gref_fragment_paths[job_id].push_back(path_id);
                 } else {
                     reference_paths[job_id].push_back(path_id);
@@ -1654,13 +1696,45 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
 
 //------------------------------------------------------------------------------
 
+// Return true if the kmer contains a homopolymer of length threshold or more.
+// The kmer must be encoded with 2 bits per symbol in the low 2k bits. The high
+// bits must be 0.
+bool contains_homopolymer(const Haplotypes::Subchain::kmer_type kmer, size_t k, size_t threshold) {
+    if (threshold > k) {
+        return false;
+    }
+    if (threshold <= 1) {
+        return true;
+    }
+
+    // 2-bit field i is 0 iff symbols i and i+1 are the same.
+    Haplotypes::Subchain::kmer_type diff = kmer ^ (kmer >> 2);
+    // Field i is 1 iff symbols i and i+1 are the same.
+    Haplotypes::Subchain::kmer_type equal = ~(diff | (diff >> 1)) & 0x5555555555555555ull;
+    // Mask out the last field, as it compares the last symbol to the padding.
+    equal &= (Haplotypes::Subchain::kmer_type(1) << (2 * (k - 1))) - 1;
+
+    // A homopolymer of length `threshold` is a run of `threshold - 1` set bits in
+    // `equal`, 2 bits apart. We find such runs by shifting and ANDing. After each
+    // step, bit i is set when the original `equal` has covered set bits starting
+    // at bit i. Each step doubles `covered`, and the last one adds only what is
+    // still needed.
+    size_t needed = threshold - 1;
+    for (size_t covered = 1; covered < needed && equal != 0; ) {
+        size_t step = std::min(covered, needed - covered);
+        equal &= equal >> (2 * step);
+        covered += step;
+    }
+    return (equal != 0);
+}
+
 // Classify the kmers in the subchain according to the kmer counts and the
 // coverage. Return a vector of kmer types and their initial scores. Update the
 // statistics with the number of non-frequent kmers if necessary.
 std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> classify_kmers(
     const Haplotypes::Subchain& subchain,
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
-    double coverage,
+    double coverage, size_t k,
     Recombinator::Statistics* statistics,
     const Recombinator::Parameters& parameters
 ) {
@@ -1676,6 +1750,10 @@ std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> classify
     size_t selected_kmers = 0;
     for (size_t kmer_id = 0; kmer_id < subchain.num_kmers(); kmer_id++) {
         double count = kmer_counts.at(subchain.kmers[kmer_id]);
+        if (contains_homopolymer(subchain.kmers[kmer_id], k, parameters.ignore_homopolymers)) {
+            kmer_types.push_back({ KmerPresenceMatrix::ignored, 0.0 });
+            continue;
+        }
         switch (parameters.scoring_model) {
         case Recombinator::Parameters::high_coverage_scoring:
             // High-coverage model: the frequent component is the true signal,
@@ -1789,13 +1867,15 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     const gbwtgraph::GBZ& gbz,
     const Haplotypes::Subchain& subchain,
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
-    double coverage,
+    double coverage, size_t k,
     Recombinator::Statistics* statistics,
     std::vector<Recombinator::LocalHaplotype>* local_haplotypes,
     const Recombinator::Parameters& parameters
 ) {
     // Classify the kmers.
-    std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmer_types = classify_kmers(subchain, kmer_counts, coverage, statistics, parameters);
+    std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmer_types = classify_kmers(
+        subchain, kmer_counts, coverage, k, statistics, parameters
+    );
 
     // Select the haplotypes greedily.
     std::vector<std::pair<size_t, double>> selected_haplotypes;
@@ -1924,7 +2004,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             // Select the haplotypes greedily. If we are doing diploid sampling and we get
             // extra fragments, store them for later processing.
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
-                this->gbz, subchain, kmer_counts, coverage, &statistics, nullptr, parameters
+                this->gbz, subchain, kmer_counts, coverage, this->haplotypes.k(), &statistics, nullptr, parameters
             );
 #ifdef debug_selected_haplotypes
             for (size_t i = 0; i < selected_haplotypes.size(); i++) {
