@@ -67,7 +67,10 @@ void help_paths(char** argv) {
          << "  -G, --generic-paths       select generic, non-reference, non-haplotype paths" << endl
          << "  -R, --reference-paths     select reference paths" << endl
          << "  -H, --haplotype-paths     select haplotype paths" << endl
-         << "      --exclude-sample STR  exclude paths belonging to this sample" << endl
+         << "      --exclude-sample STR  exclude paths belonging to this sample; repeat the" << endl
+         << "                            option to exclude several.  With -u, these samples'" << endl
+         << "                            paths also may not source cover fragments, so the" << endl
+         << "                            cover is built from the remaining paths" << endl
          << "graph reference computation:" << endl
          << "  -u, --compute-gref        compute graph reference path cover, written as" << endl
          << "                            a gref_ copy of each reference path plus the" << endl
@@ -153,7 +156,7 @@ int main_paths(int argc, char** argv) {
     bool compute_gref = false;
     int64_t min_gref_length = 50;
     string gref_segments_file;
-    string exclude_sample;
+    unordered_set<string> excluded_samples;
 
     constexpr int OPT_PROGRESS = 1001;
     constexpr int OPT_GREF_SEGMENTS = 1002;
@@ -358,7 +361,10 @@ int main_paths(int argc, char** argv) {
             break;
 
         case OPT_EXCLUDE_SAMPLE:
-            exclude_sample = optarg;
+            if (*optarg == '\0') {
+                logger.error() << "--exclude-sample needs a sample name" << std::endl;
+            }
+            excluded_samples.insert(optarg);
             break;
 
         case 'h':
@@ -435,7 +441,7 @@ int main_paths(int argc, char** argv) {
     if (!gref_segments_file.empty() && !compute_gref) {
         logger.error() << "--gref-segs requires --compute-gref" << std::endl;
     }
-    if (!exclude_sample.empty() && !sample_name.empty() && exclude_sample == sample_name) {
+    if (!sample_name.empty() && excluded_samples.count(sample_name)) {
         logger.error() << "--exclude-sample and --sample cannot specify the same sample" << std::endl;
     }
 
@@ -502,8 +508,14 @@ int main_paths(int argc, char** argv) {
             return 1;
         }
 
-        // Collect reference paths matching the prefix from -Q
+        // Collect reference paths matching the prefix from -Q, and the paths of the
+        // excluded samples.  Resolving the samples to paths here costs one path name per
+        // path; leaving the cover to match sample names itself would cost one per step of
+        // every uncovered node.
         unordered_set<path_handle_t> ref_paths;
+        unordered_set<path_handle_t> excluded_paths;
+        unordered_map<string, size_t> excluded_path_counts;
+        size_t excluded_from_prefix = 0;
         graph->for_each_path_handle([&](path_handle_t ph) {
             string path_name = graph->get_path_name(ph);
             // Skip anything already in the gref namespace: a previous cover is about to
@@ -511,16 +523,39 @@ int main_paths(int argc, char** argv) {
             if (GrefCover::is_gref_derived(path_name)) {
                 return;
             }
-            if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
-                if (!exclude_sample.empty() &&
-                    graph->get_sample_name(ph) == exclude_sample) {
+            bool matches_prefix = path_name.compare(0, path_prefix.size(), path_prefix) == 0;
+            if (!excluded_samples.empty()) {
+                string sample = graph->get_sample_name(ph);
+                if (excluded_samples.count(sample)) {
+                    excluded_paths.insert(ph);
+                    excluded_path_counts[sample]++;
+                    excluded_from_prefix += matches_prefix ? 1 : 0;
                     return;
                 }
+            }
+            if (matches_prefix) {
                 ref_paths.insert(ph);
             }
         });
+        // A sample that names no path leaves the cover exactly as it was.  Where the
+        // sample really is absent, as an XX sample is from a chrY graph, that cover is
+        // right and a run over every chromosome with one exclusion list should carry on.
+        // Where the name is a misspelling of a sample that is present, the sequence it was
+        // meant to hold back still reaches the gref, and nothing else in the output would
+        // show it.  The two are indistinguishable from here, so say so and go on.
+        for (const string& sample : excluded_samples) {
+            if (!excluded_path_counts.count(sample)) {
+                logger.warn() << "--exclude-sample " << sample << " matches no path in the graph, "
+                              << "so nothing is held back for it" << std::endl;
+            }
+        }
         if (ref_paths.empty()) {
-            logger.error() << "no paths found matching prefix: " << path_prefix << std::endl;
+            if (excluded_from_prefix > 0) {
+                logger.error() << "every path matching prefix " << path_prefix << " belongs to an "
+                               << "excluded sample" << std::endl;
+            } else {
+                logger.error() << "no paths found matching prefix: " << path_prefix << std::endl;
+            }
             return 1;
         }
 
@@ -564,6 +599,10 @@ int main_paths(int argc, char** argv) {
         // Compute and apply gref cover
         GrefCover cover;
         cover.set_verbose(progress);
+        // The excluded samples were kept out of the reference paths above; keep their
+        // paths from sourcing fragments too, so --exclude-sample means one thing
+        // throughout the cover.
+        cover.set_excluded_source_paths(excluded_paths);
         cover.clear(mutable_graph);
         cover.compute(graph, &distance_index, ref_paths, min_gref_length);
 
@@ -686,13 +725,13 @@ int main_paths(int argc, char** argv) {
             }
         }
 
-        if (!exclude_sample.empty()) {
+        if (!excluded_samples.empty()) {
             std::vector<gbwt::size_type> filtered_ids;
             filtered_ids.reserve(thread_ids.size());
             for (gbwt::size_type id : thread_ids) {
                 PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, id, gbwt_reference_samples);
                 std::string sample = gbwtgraph::get_path_sample_name(*gbwt_index, id, sense);
-                if (sample != exclude_sample) {
+                if (!excluded_samples.count(sample)) {
                     filtered_ids.push_back(id);
                 }
             }
@@ -794,8 +833,7 @@ int main_paths(int argc, char** argv) {
                     if (graph->has_path(name)) {
                         auto path_handle = graph->get_path_handle(name);
                         if (path_senses.count(graph->get_sense(path_handle))) {
-                            if (!exclude_sample.empty() &&
-                                graph->get_sample_name(path_handle) == exclude_sample) {
+                            if (excluded_samples.count(graph->get_sample_name(path_handle))) {
                                 continue;
                             }
                             // But only take those with senses we want.
@@ -821,9 +859,8 @@ int main_paths(int argc, char** argv) {
                 graph->for_each_path_matching(&path_senses, sample_name_filter, locus_name_filter,
                     [&](const path_handle_t& path_handle) {
 
-                    // Filter out excluded sample
-                    if (!exclude_sample.empty() &&
-                        graph->get_sample_name(path_handle) == exclude_sample) {
+                    // Filter out excluded samples
+                    if (excluded_samples.count(graph->get_sample_name(path_handle))) {
                         return;
                     }
 
