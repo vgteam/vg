@@ -374,6 +374,16 @@ using namespace std;
                                           vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                           vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
+        /// Return true if the anchor sequence occurs again at a start position
+        /// within max_slide bases in the read or on its target path.
+        ///
+        /// Search radius is min(max_slide, 2 * anchor span), measured in
+        /// read bases (query sequence) for the read search and reference
+        /// bases (target-path sequence) for the path search.
+        bool anchor_has_nearby_repeat(
+            const string& sequence, const path_chunk_t& chunk,
+            const pair<step_handle_t, step_handle_t>& step_range) const;
+
         void prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
                                     vector<pair<step_handle_t, step_handle_t>>& step_ranges,
                                     size_t left_tail_length = 0, size_t right_tail_length = 0) const;
