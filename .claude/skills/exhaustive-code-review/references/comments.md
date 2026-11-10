@@ -19,6 +19,10 @@ CLAUDE.md about documentation apply too.
 - Comments that narrate the conversation or the task ("as requested", "new
   approach", "Step 2b") instead of explaining the code.
 - Comments about what used to be there, or what the code does not do.
+- Comments that answer a question no reader would ask: an edge case whose
+  behavior is the obvious one ("a zero-length tail prunes nothing"), or a
+  denial of something nobody would assume ("these coordinates are not relative
+  to the path"). They make the reader wonder why the case was worth a note.
 - Comments that reassure instead of explaining ("safely", "robustly",
   "to avoid silently dropping"). These often hide something nobody worked out.
 - Missing comments: an invariant at a storage location with no note there, a
@@ -31,6 +35,8 @@ CLAUDE.md about documentation apply too.
   em-dash chains). The `humanizer` skill lists them.
 - `///` and `/** */` comments apply only to the next declaration.
 
+The `explanatory-comments` skill's full protocol is for an author rewriting
+their own comments; in a review, apply its rules without running the protocol.
 To test a hard comment, give it with its declaration, and nothing else, to a
 subagent with no context, and ask what it means. Report where its answer goes
 wrong.

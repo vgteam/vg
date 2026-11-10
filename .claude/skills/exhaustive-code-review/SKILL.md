@@ -43,8 +43,9 @@ Follow these steps in order. Don't skip step 1 or step 5.
 
 Establish what you're reviewing and why before judging anything:
 
-- Get the diff. For a branch/PR: `git diff <base>...<head>` (three-dot, so you
-  see only what this branch added). For uncommitted work: `git diff` and
+- Get the diff. Use the range the caller names, if any; otherwise follow the
+  `vg-code-review` skill. For a branch/PR: `git diff <base>...<head>`
+  (three-dot, so you see only what this branch added). For uncommitted work: `git diff` and
   `git diff --staged`. For a file, read the whole file, not just changed lines —
   context determines whether a change is correct.
 - Read the intent: PR description, linked issue, commit messages. A change can be

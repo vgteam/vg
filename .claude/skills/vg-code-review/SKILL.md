@@ -10,7 +10,9 @@ description: Scope rules and bug patterns for reviewing changes to vg (C++ varia
 - Review C++ under `src/` (including `src/subcommand/` and `src/unittest/`), the
   Bash-TAP tests under `test/t/`, scripts under `scripts/`, and the build
   (`Makefile`, `source_me.sh`, CI files).
-- Leave `deps/` alone, except for a change to which submodule commit vg uses.
+- Leave `deps/` out of the review, except for a change to which submodule
+  commit vg uses. Reading a dependency at its pinned commit, to check what vg
+  relies on, is fine.
   Then check that the new commit exists upstream and that vg still builds and
   passes the tests that exercise that dependency.
 - Leave out generated or bulky test data (`test/graphs/`, `test/small/` data
@@ -80,9 +82,24 @@ description: Scope rules and bug patterns for reviewing changes to vg (C++ varia
   checks the exit code, a `REQUIRE` inside a loop that never runs, an expected
   value copied from the program's own output with the bug in it. Back the fix
   out and check the test goes red.
+- **Tests that cost more than they are worth.** Reviewers push back on these as
+  hard as on bugs. Tests longer or harder to follow than the code they test.
+  Setup steps written as tests (an `is` on the exit code of `vg convert` or of
+  writing an input file), which test some other subcommand or nothing. A test
+  that an option got the short letter it was given. A long test aimed at one
+  imagined mistake, where a few small tests of the real cases (each orientation
+  of the read against the path, say) would cover it. A test whose logic, with
+  many moving parts, is not explained. For each test, ask what bug it would
+  catch that no other test would; suggest cutting the ones with no answer.
+- **Test inputs built at run time.** GFA, GAM or JSON written out from strings
+  inside a `.t` file or a unit test is hard to read and review. Prefer small
+  input files committed under `test/`, or a heredoc with real newlines and tabs.
+  Scratch files go in the current directory with fixed names, as in the rest of
+  the `.t` files, not in a temporary directory of their own.
 - **A subcommand option added without its help text, or a help text with no
-  option.** Check the `help_<subcommand>` function, the `long_options` array, the
-  short-option string and the `switch` all agree.
+  option.** `scripts/lint.py` checks that the help text, `long_options`, the
+  short-option string and the `switch` agree; run it rather than checking by
+  hand, and do not ask for a test of it.
 
 ## Settling "regression or pre-existing"
 
@@ -90,6 +107,14 @@ For each bug that matters, build the merge base in a scratch worktree (`git
 worktree add --detach <dir> $(git merge-base origin/master HEAD)`), run the same
 input against both builds, and say which it is. A vg build takes a long time;
 ask before starting one, and reuse an existing build of the base if there is one.
+
+## Without a build
+
+A fresh worktree has no vg build, and a build takes a long time. Unless the
+user asks for one, review by reading: run `scripts/lint.py` and anything else
+that needs no build, compile a small standalone program to settle a question
+about the language, and trace each finding through the code. Mark such findings
+"traced, not run", and say in the report what could not run.
 
 ## Running sanitizers
 

@@ -20,6 +20,8 @@ in code it made reachable; the rest are pre-existing.
 
 ## Static analysis
 
+- `python3 scripts/lint.py` checks that each subcommand's help text and option
+  parsing agree. It needs no build.
 - `clang-tidy <file> -- -std=c++17 -Isrc -Iinclude` with the
   `bugprone-*,performance-*,clang-analyzer-*` checks, if installed.
 - `cppcheck --enable=warning,performance --std=c++17 -Isrc <file>`, if
