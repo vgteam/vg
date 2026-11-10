@@ -92,7 +92,7 @@ var searchData=
   ['find_5fbest_5fchains_1865',['find_best_chains',['../namespacevg_1_1algorithms.html#a807263572c4bf64cd817fa2a7c71c6a8',1,'vg::algorithms']]],
   ['find_5fbreakpoints_1866',['find_breakpoints',['../namespacevg.html#ac80bc94af296d0a543d983eae79afac0',1,'vg']]],
   ['find_5fbubble_1867',['find_bubble',['../classvg_1_1RepresentativeTraversalFinder.html#ad8cc120dc63491eadfdc7b00cd1dc519',1,'vg::RepresentativeTraversalFinder']]],
-  ['find_5fchain_5falignment_1868',['find_chain_alignment',['../classvg_1_1MinimizerMapper.html#a3b83e5072a6a0654ba90ed097e8e7a52',1,'vg::MinimizerMapper']]],
+  ['find_5fchain_5falignment_1868',['find_chain_alignment',['../classvg_1_1MinimizerMapper.html#a17159e36ad9bf4ec79494259b22457a2',1,'vg::MinimizerMapper']]],
   ['find_5fconstriction_5fbicliques_1869',['find_constriction_bicliques',['../classvg_1_1Surjector.html#a54b0b7fe9db83a6cfdbebf9dbeb81f04',1,'vg::Surjector']]],
   ['find_5fcontaining_5fsubpath_1870',['find_containing_subpath',['../namespacevg.html#a8c98b9242341b733da17c5a7fbf42c39',1,'vg']]],
   ['find_5fcycle_5fpath_5fin_5fcactus_1871',['find_cycle_path_in_cactus',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#af554cefbab4c2bd70529342b2916d30e',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],

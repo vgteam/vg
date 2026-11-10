@@ -34,7 +34,7 @@ var searchData=
   ['generate_5finitial_5fguess_9903',['generate_initial_guess',['../classvg_1_1MCMCGenotyper.html#aac263c28f16acd3eb17d1f6013b5709e',1,'vg::MCMCGenotyper']]],
   ['generate_5fpaths_9904',['generate_paths',['../classvg_1_1PhaseUnfolder.html#a7a2015207e502ecd4d294af79936bda2',1,'vg::PhaseUnfolder']]],
   ['generate_5fthreads_9905',['generate_threads',['../classvg_1_1PhaseUnfolder.html#abc5cead86bec1446aedd4cb2ec291d3f',1,'vg::PhaseUnfolder']]],
-  ['generate_5fzip_5ftree_5ftransitions_9906',['generate_zip_tree_transitions',['../namespacevg_1_1algorithms.html#a811dca9cf68892af421fac6d69bc8005',1,'vg::algorithms']]],
+  ['generate_5fzip_5ftree_5ftransitions_9906',['generate_zip_tree_transitions',['../namespacevg_1_1algorithms.html#a346eb922c4c48c5c2825f0be05a776fc',1,'vg::algorithms']]],
   ['genotype_9907',['genotype',['../classvg_1_1SnarlCaller.html#a3e4d1ad4ece1a1bc1daa4ea6ecfbfa54',1,'vg::SnarlCaller::genotype()'],['../classvg_1_1RatioSupportSnarlCaller.html#afa1d42f1ba7e32ca274e23d0e9795278',1,'vg::RatioSupportSnarlCaller::genotype()'],['../classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833',1,'vg::PoissonSupportSnarlCaller::genotype()']]],
   ['genotype_5ffrom_5fparent_5fsets_9908',['genotype_from_parent_sets',['../classvg_1_1FlowCaller.html#a8481c0eeab612099daa33095c4cf2192',1,'vg::FlowCaller']]],
   ['genotype_5flikelihood_9909',['genotype_likelihood',['../classvg_1_1PoissonSupportSnarlCaller.html#a4a555a22f275a83ade8fcd35a1572908',1,'vg::PoissonSupportSnarlCaller']]],

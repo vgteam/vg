@@ -118,7 +118,7 @@ var searchData=
   ['generate_5finitial_5fguess_2289',['generate_initial_guess',['../classvg_1_1MCMCGenotyper.html#aac263c28f16acd3eb17d1f6013b5709e',1,'vg::MCMCGenotyper']]],
   ['generate_5fpaths_2290',['generate_paths',['../classvg_1_1PhaseUnfolder.html#a7a2015207e502ecd4d294af79936bda2',1,'vg::PhaseUnfolder']]],
   ['generate_5fthreads_2291',['generate_threads',['../classvg_1_1PhaseUnfolder.html#abc5cead86bec1446aedd4cb2ec291d3f',1,'vg::PhaseUnfolder']]],
-  ['generate_5fzip_5ftree_5ftransitions_2292',['generate_zip_tree_transitions',['../namespacevg_1_1algorithms.html#a811dca9cf68892af421fac6d69bc8005',1,'vg::algorithms']]],
+  ['generate_5fzip_5ftree_5ftransitions_2292',['generate_zip_tree_transitions',['../namespacevg_1_1algorithms.html#a346eb922c4c48c5c2825f0be05a776fc',1,'vg::algorithms']]],
   ['generic_2293',['GENERIC',['../namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271cac942dc2a9f958acddc67e11472d3ca0b',1,'handlegraph']]],
   ['genome_2294',['genome',['../classvg_1_1MCMCCaller.html#ad4278b11272792c879ab3463b513ae1e',1,'vg::MCMCCaller']]],
   ['genotype_2295',['genotype',['../classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833',1,'vg::PoissonSupportSnarlCaller::genotype()'],['../classvg_1_1RatioSupportSnarlCaller.html#afa1d42f1ba7e32ca274e23d0e9795278',1,'vg::RatioSupportSnarlCaller::genotype()'],['../classvg_1_1SnarlCaller.html#a3e4d1ad4ece1a1bc1daa4ea6ecfbfa54',1,'vg::SnarlCaller::genotype()'],['../structvg_1_1Locus.html#a144d9dc0f9d61910db33decca23e4755',1,'vg::Locus::genotype()'],['../structvg_1_1CalledSite.html#aaa32f7907b520fb9e8445abc7892d700',1,'vg::CalledSite::genotype()']]],

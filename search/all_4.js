@@ -300,7 +300,7 @@ var searchData=
   ['divide_5fnode_1420',['divide_node',['../classvg_1_1VG.html#a7bee7317e4f7e42d85d8e7ef8d07273a',1,'vg::VG::divide_node(Node *node, vector&lt; int &gt; &amp;positions, vector&lt; Node * &gt; &amp;parts)'],['../classvg_1_1VG.html#ad06f0fcad4bf5b1c29cf937a870a58b4',1,'vg::VG::divide_node(Node *node, int pos, Node *&amp;left, Node *&amp;right)']]],
   ['divide_5fpath_1421',['divide_path',['../classvg_1_1VG.html#a0466bd1a92042266f6a99aa306d387c9',1,'vg::VG']]],
   ['dna3bit_1422',['dna3bit',['../namespacexg.html#a0b632a6673e7464eced03fe8bb491f97',1,'xg']]],
-  ['do_5falignment_5fon_5fchains_1423',['do_alignment_on_chains',['../classvg_1_1MinimizerMapper.html#aa40432469d321fcf7a27bf752d425e7a',1,'vg::MinimizerMapper']]],
+  ['do_5falignment_5fon_5fchains_1423',['do_alignment_on_chains',['../classvg_1_1MinimizerMapper.html#a02a9c616acc91e7d6281a09fea8003fb',1,'vg::MinimizerMapper']]],
   ['do_5fchaining_5fon_5ftrees_1424',['do_chaining_on_trees',['../classvg_1_1MinimizerMapper.html#a0680e65534d4751b74df5967b201335d',1,'vg::MinimizerMapper']]],
   ['do_5fdp_1425',['do_dp',['../classvg_1_1MinimizerMapper.html#a80efe32334434e2121f45d9683e2b53b',1,'vg::MinimizerMapper']]],
   ['do_5fpoa_1426',['do_poa',['../classvg_1_1DozeuInterface.html#a4f8194b77acf4e94604b5b0759231c62',1,'vg::DozeuInterface']]],
