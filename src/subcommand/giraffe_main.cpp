@@ -977,6 +977,25 @@ bool giraffe_rec_mode(const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
     return use_rec_mode;
 }
 
+void set_up_giraffe_mapper(GroupedOptionGroup& parser, bool use_rec_mode, MinimizerMapper& mapper) {
+    ScoringOptions scoring_options;
+    parser.apply(mapper);
+    parser.apply(scoring_options);
+
+    enforce_min_max(mapper.wfa_max_mismatches, "wfa-max-mismatches",
+                    mapper.wfa_max_max_mismatches, "wfa-max-max-mismatches");
+    enforce_min_max(mapper.wfa_distance, "wfa-distance",
+                    mapper.wfa_max_distance, "wfa-max-distance");
+    enforce_min_max(mapper.min_chaining_problems, "min-chaining-problems",
+                    mapper.max_chaining_problems, "max-chaining-problems");
+    enforce_min_max(mapper.min_extensions, "min-extensions",
+                    mapper.max_extensions, "max-extensions");
+
+    mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch,
+        scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
+    mapper.use_payload_paths &= use_rec_mode;
+}
+
 void configure_giraffe_mapper(MinimizerMapper& mapper, const std::string& preset,
                               const std::vector<std::pair<std::string, std::string>>& overrides) {
     std::unique_ptr<GroupedOptionGroup> parser = parse_giraffe_parameters(preset, overrides);
@@ -1195,8 +1214,6 @@ int main_giraffe(int argc, char** argv) {
     // Main Giraffe program options struct
     // Not really initialized until after we load all the indexes though...
     GiraffeMainOptions main_options;
-    // Scoring options struct
-    ScoringOptions scoring_options;
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -2155,25 +2172,8 @@ int main_giraffe(int argc, char** argv) {
         if (show_progress) {
             parser->print_options(cerr);
         }
-        parser->apply(minimizer_mapper);
+        set_up_giraffe_mapper(*parser, use_rec_mode, minimizer_mapper);
         parser->apply(main_options);
-        parser->apply(scoring_options);
-
-        // Make sure that options that represent ranges are sensible, nonempty
-        // ranges.
-        //
-        // TODO: It would be nice if we did this earlier when setting up the
-        // option ranges to iterate, to make it happen before indexing/index
-        // loading, but then we'd have to know how to do the comparison on the
-        // range objects themselves.
-        enforce_min_max(minimizer_mapper.wfa_max_mismatches, "wfa-max-mismatches",
-                        minimizer_mapper.wfa_max_max_mismatches, "wfa-max-max-mismatches");
-        enforce_min_max(minimizer_mapper.wfa_distance, "wfa-distance",
-                        minimizer_mapper.wfa_max_distance, "wfa-max-distance");
-        enforce_min_max(minimizer_mapper.min_chaining_problems, "min-chaining-problems",
-                        minimizer_mapper.max_chaining_problems, "max-chaining-problems");
-        enforce_min_max(minimizer_mapper.min_extensions, "min-extensions",
-                        minimizer_mapper.max_extensions, "max-extensions");
 
         // Make a line of JSON about our command line options.
         // We may embed it in the output file later.
@@ -2238,17 +2238,12 @@ int main_giraffe(int argc, char** argv) {
         }
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
         report_paired_flag("rec-mode", use_rec_mode);
-        minimizer_mapper.use_payload_paths &= use_rec_mode;
         
 
         params_json << "}" << std::endl;
 
         minimizer_mapper.sample_name = sample_name;
         minimizer_mapper.read_group = read_group;
-
-        // Apply scoring parameters, after they have been parsed
-        minimizer_mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch, 
-            scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
 
         // Work out the number of threads we will have
         size_t thread_count = omp_get_max_threads();

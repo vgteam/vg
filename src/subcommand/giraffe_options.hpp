@@ -13,12 +13,19 @@
 #include <vector>
 
 #include <gbwtgraph/minimizer.h>
+#include "options.hpp"
 
 namespace vg {
 
 class MinimizerMapper;
 
 namespace subcommand {
+
+/// Write the parser's values into the mapper, check that the range options
+/// are sensible, and set the alignment scores and recombination-aware mode.
+/// use_rec_mode is not a parser option. It comes from giraffe_rec_mode(),
+/// which needs the loaded minimizer index.
+void set_up_giraffe_mapper(GroupedOptionGroup& parser, bool use_rec_mode, MinimizerMapper& mapper);
 
 /// Get the names of vg giraffe's parameter presets.
 std::vector<std::string> giraffe_preset_names();
