@@ -14,13 +14,7 @@ safely? These findings rank lowest unless they hide a bug.
   synonym makes a reader look for a second idea.
 - **Dead code.** Unused functions, parameters, includes or options left by the
   change. Commented-out code.
-- **Tests.** Is the new behavior tested at the level it lives at: a unit test
-  for a class, a Bash-TAP test for a subcommand option? Then judge the tests as
-  code: are they in proportion to what they test, does each one catch a bug no
-  other test would, and can a reader see what each checks and why? Too many or
-  too elaborate tests are a finding, as much as missing ones. The
-  `vg-code-review` skill lists the shapes to look for.
 - **Change size.** Is unrelated reformatting or renaming mixed into the diff,
   hiding the real change?
 
-Comments get their own lens (`comments.md`).
+Tests and comments get their own lenses (`tests.md`, `comments.md`).

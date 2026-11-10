@@ -1,9 +1,18 @@
 # Comments lens
 
 Ask only: is each comment the change adds or edits true, needed, and readable
-by someone new to the code? Read the `intelligible-comments` and
-`explanatory-comments` skills first; they are the standard. The rules in
-CLAUDE.md about documentation apply too.
+by someone new to the code, and does each new idea have one? Before starting,
+read the `intelligible-comments` and `explanatory-comments` skills in
+`.claude/skills/`; they are the standard, and this lens is not done without
+them. The rules in CLAUDE.md about documentation apply too.
+
+## Present
+
+- A concept the change introduces, used in names or comments in several places
+  (a kind of status that is passed on, a "group" of records), with no doc
+  comment that says what it is and how it fits with the rest. Say where the
+  overview belongs: usually the class or header doc comment.
+- A term a test or comment uses that the code under test never defines.
 
 ## True
 
@@ -13,6 +22,11 @@ CLAUDE.md about documentation apply too.
 - Is the comment narrower or broader than the code it sits on?
 - Does a doc comment say what the function guarantees and what it needs from
   its caller, or only restate its name?
+- Does a comment explain code by what other code relies on ("callers expect the
+  primary first") instead of by what this code guarantees ("put the primary
+  first")? Rewrite it as the guarantee.
+- Does a comment describe something that happens elsewhere instead of what the
+  code under it does?
 
 ## Needed
 

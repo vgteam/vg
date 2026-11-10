@@ -14,7 +14,8 @@ Keep it short. Leave out any section with nothing in it.
 ### Blocking
 1. `src/file.cpp:123` — <the problem, as the input that triggers it and the
    wrong result>. <Why it matters.> Fix: <concrete change>. (Regression /
-   pre-existing.)
+   pre-existing, when both versions were run; "probable regression, traced"
+   when settled only by reading.)
 
 ### Important
 1. ...

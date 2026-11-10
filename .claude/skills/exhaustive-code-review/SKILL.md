@@ -75,7 +75,9 @@ brief, for C/C++:
 - Run the existing tests; note coverage gaps over the changed lines.
 
 If a tool can't be run in this environment, say so explicitly in the report
-rather than silently implying that class of bug was checked.
+rather than silently implying that class of bug was checked. When there is no
+vg build, follow "Without a build" in the `vg-code-review` skill instead of the
+build steps above.
 
 ### 3. Route: choose the lenses
 
@@ -90,7 +92,8 @@ skipped it (and why) so the author knows it wasn't an oversight.
 | Portability | …uses sizes/endianness/alignment assumptions, platform APIs, compiler extensions, or builds for multiple arches | `references/portability.md` |
 | Performance | …adds work to a hot path, allocates in loops, changes algorithmic complexity, or touches I/O patterns | `references/performance.md` |
 | Maintainability | …is non-trivial in size or will be read/extended by others (almost always, but lowest severity) | `references/maintainability.md` |
-| Comments | …adds or changes any comment or doc comment | `references/comments.md` |
+| Tests | …adds or changes any test | `references/tests.md` |
+| Comments | …adds or changes any comment or doc comment, or adds a concept a reader would need explained | `references/comments.md` |
 
 A pure mechanical refactor with green tests might warrant only Correctness +
 Maintainability. A new subcommand option that reads a file warrants Correctness +
@@ -101,8 +104,11 @@ Memory & safety at minimum. Reach for the others by the triggers above.
 For each lens, **read its reference file**, then pass over the diff with only
 that lens's questions in mind. Keep passes separate — don't blend them — so each
 gets undiluted attention. If you have subagents available, spawn one per lens in
-parallel, each loading its own reference file; if not, do them sequentially.
-Collect raw findings per lens; don't filter yet.
+parallel, each loading its own reference file and every skill that file names;
+if not, do them sequentially. Give Tests and Comments their own subagents even
+when you do the other lenses yourself: a reader hunting for bugs stops seeing
+whether tests and comments can be understood. Collect raw findings per lens;
+don't filter yet.
 
 ### 5. Synthesize and triage
 
@@ -114,6 +120,10 @@ This step is what keeps the review usable. Take all raw findings and:
 - **Rank**, and **cut the low-confidence chatter.** A `suggestion`-level item you
   are 40% sure about is noise; drop it or fold it into a single "minor notes"
   line. Spend the author's attention on what's real.
+- **Weigh readability findings fairly.** A test that cannot be checked by
+  reading it, or a new concept that no comment explains, keeps the next person
+  from telling whether the code is right. Rank such findings `important`, not
+  `minor`, and do not cut them as chatter.
 - **Verify before asserting.** If a finding depends on behavior elsewhere in the
   codebase, check it rather than assuming. A confident wrong finding costs more
   trust than a missed nit.
@@ -127,8 +137,9 @@ not its "personality" section.
 
 ### 7. Fix, then record the review
 
-If the user asked for fixes, or the review ran on Claude's own work before
-sending it, fix what the user agrees should be fixed, then run the tests that
+Do this step only when the review covered the code in the current checkout
+that is about to be pushed or handed over, not when reviewing someone else's
+pull request. Fix what the user agrees should be fixed, then run the tests that
 cover the fixes. Then record that this state of the code has been reviewed:
 
 ```
@@ -175,5 +186,6 @@ specific condition under which the bug triggers.
 - `references/portability.md` — sizes, endianness, platform/compiler assumptions
 - `references/performance.md` — complexity, allocation, I/O, hot paths
 - `references/maintainability.md` — structure, naming, testability
+- `references/tests.md` — whether tests are worth their cost and readable
 - `references/comments.md` — whether comments are true, needed and readable
 - `references/report-template.md` — the output format
