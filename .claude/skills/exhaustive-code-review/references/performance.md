@@ -23,4 +23,6 @@ multiplied by those numbers.
   region. A critical section around the work itself rather than its output.
 
 Say how big the cost is (per what, times how many) before ranking it. A cost
-that only runs once per program is not a finding.
+that only runs once per program is not a finding. Avoidable work done per read
+or per anchor in mapping or surjection is `important`, not `minor`: it is
+multiplied by every read of every run.

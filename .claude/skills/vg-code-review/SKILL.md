@@ -20,7 +20,8 @@ description: Scope rules and bug patterns for reviewing changes to vg (C++ varia
   that a test reads only files that are committed or that the test makes.
 - Get the diff against where the branch started: `git diff $(git merge-base
   origin/master HEAD)` for committed work, plus `git diff HEAD` for uncommitted
-  work. Read per commit (`git show <hash>`) when a commit history is messy;
+  work. For a pull request stacked on another, diff from the head of the pull
+  request below it, not from master. Read per commit (`git show <hash>`) when a commit history is messy;
   `git diff A..B -- file` mixes in other people's merged changes.
 
 ## Patterns worth looking for

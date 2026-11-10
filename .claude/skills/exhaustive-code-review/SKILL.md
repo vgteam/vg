@@ -105,7 +105,9 @@ For each lens, **read its reference file**, then pass over the diff with only
 that lens's questions in mind. Keep passes separate — don't blend them — so each
 gets undiluted attention. If you have subagents available, spawn one per lens in
 parallel, each loading its own reference file and every skill that file names;
-if not, do them sequentially. Give Tests and Comments their own subagents even
+if not, do them sequentially. Brief each lens subagent with the diff, the
+intent, its reference file and the constraints, not with what you suspect, so
+its read is not anchored on yours. Give Tests and Comments their own subagents even
 when you do the other lenses yourself: a reader hunting for bugs stops seeing
 whether tests and comments can be understood. Collect raw findings per lens;
 don't filter yet.
