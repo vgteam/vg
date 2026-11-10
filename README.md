@@ -184,13 +184,13 @@ Before doing these steps, check that your Clang version is 21.0 or higher:
 clang -v
 ```
 
-To update them, first list the available software updates:
+To update it, first list the available software updates:
 
 ```
 softwareupdate --list
 ```
 
-Look for an entry whose label starts with `Command Line Tools for Xcode`. If the `Command Line Tools for Xcode` isn't shown that means you have the updated compiler.
+Look for an entry whose label starts with `Command Line Tools for Xcode`. If no `Command Line Tools for Xcode` update is shown, that means your compiler should be the latest one available.
 
 ``` 
 Software Update found the following new or updated software:
@@ -203,21 +203,16 @@ Software Update found the following new or updated software:
 * Label: macOS Tahoe 26.7.2-25G332
 	Title: macOS Tahoe 26.7.2, Version: 26.7.2, Size: 2994108KiB, Recommended: YES, Action: restart,
 ```
-Example:
 
-In the above example label is 'Command Line Tools for Xcode 26.5-26.5'
+In the above example, the label is 'Command Line Tools for Xcode 26.5-26.5'.
 
-So,
+Then, install the update with that label:
 
-sudo softwareupdate --install 'Command Line Tools for Xcode 26.5-26.5'
-
-```
-sudo softwareupdate --install "<label>"
-```
 
 You can also install the update by opening System Settings -> General in the left sidebar -> Software Update -> Update Now
 
-    Note: Info on the Software update panel displays whether Command Line Tools is included
+> [!NOTE]
+> The Software Update panel will display whether a Command Line Tools update is going to be installed.
 
 If you have the full Xcode app installed and selected, update Xcode from the App Store instead.
 
