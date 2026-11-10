@@ -11,8 +11,6 @@
 
 namespace vg {
 
-thread_local AnchorGraphStats g_anchor_graph_stats;
-
 AnchorBackedPositionGraph::AnchorBackedPositionGraph(
     const PathHandleGraph* base,
     const std::vector<PrecomputedAnchor>& anchors,
@@ -92,8 +90,6 @@ size_t AnchorBackedPositionGraph::get_path_length(const path_handle_t& path_hand
 }
 
 size_t AnchorBackedPositionGraph::get_position_of_step(const step_handle_t& step) const {
-    ++g_anchor_graph_stats.pos_of_step_calls;
-
     auto cached = step_pos_.find(step);
     if (cached != step_pos_.end()) {
         return cached->second;
@@ -132,7 +128,6 @@ size_t AnchorBackedPositionGraph::get_position_of_step(const step_handle_t& step
         step_handle_t prev = base_->get_previous_step(cursor);
         accumulated += base_->get_length(base_->get_handle_of_step(prev));
         cursor = prev;
-        ++g_anchor_graph_stats.pos_of_step_walk;
     }
 
     const size_t acc_end = accumulated;
@@ -146,7 +141,6 @@ size_t AnchorBackedPositionGraph::get_position_of_step(const step_handle_t& step
 step_handle_t AnchorBackedPositionGraph::get_step_at_position(
     const path_handle_t& path, const size_t& position) const
 {
-    ++g_anchor_graph_stats.step_at_pos_calls;
     if (!(path == target_path_)) {
         std::ostringstream msg;
         msg << "AnchorBackedPositionGraph::get_step_at_position called for non-target path '"
@@ -182,7 +176,6 @@ step_handle_t AnchorBackedPositionGraph::get_step_at_position(
             cursor = base_->get_previous_step(cursor);
             cursor_pos -= base_->get_length(base_->get_handle_of_step(cursor));
             step_pos_.emplace(cursor, cursor_pos);
-            ++g_anchor_graph_stats.step_at_pos_walk;
         }
         return cursor;
     }
@@ -206,7 +199,6 @@ step_handle_t AnchorBackedPositionGraph::get_step_at_position(
         }
         step_pos_.emplace(cursor, cursor_pos - base_->get_length(h));
         cursor = base_->get_next_step(cursor);
-        ++g_anchor_graph_stats.step_at_pos_walk;
     }
 }
 

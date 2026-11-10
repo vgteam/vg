@@ -419,17 +419,18 @@ TEST_CASE("AnchorBackedPositionGraph: get_position_of_step walks O(gap) to the "
     AnchorBackedPositionGraph adapter(&t.graph, anchors, t.y, t.y_total_length);
 
     SECTION("interior query walks backward only to the nearest known step") {
-        g_anchor_graph_stats = {};
+        size_t before = adapter.cached_position_count();
         REQUIRE(adapter.get_position_of_step(t.y_steps[6]) == t.y_positions[6]);
-        REQUIRE(g_anchor_graph_stats.pos_of_step_calls == 1);
-        REQUIRE(g_anchor_graph_stats.pos_of_step_walk == 1);   // 6 -> 5
+        // Only step 6 is new. Without the anchor at step 5 the walk would
+        // go back to the path start and add steps 1 to 5 too.
+        REQUIRE(adapter.cached_position_count() == before + 1);
     }
 
-    SECTION("a repeated query is served from the memoized backfill (0 walk)") {
+    SECTION("a repeated query is served from the memoized backfill") {
         adapter.get_position_of_step(t.y_steps[6]);            // memoizes step 6
-        g_anchor_graph_stats = {};
+        size_t before = adapter.cached_position_count();
         REQUIRE(adapter.get_position_of_step(t.y_steps[6]) == t.y_positions[6]);
-        REQUIRE(g_anchor_graph_stats.pos_of_step_walk == 0);
+        REQUIRE(adapter.cached_position_count() == before);
     }
 }
 

@@ -32,16 +32,6 @@ struct PrecomputedAnchor {
     size_t path_offset_step_end = 0;
 };
 
-/// Counts of the position queries on this thread and of the steps walked to
-/// answer them. Reset it before a surjection and read it afterwards.
-struct AnchorGraphStats {
-    size_t pos_of_step_calls = 0;  ///< calls to get_position_of_step
-    size_t pos_of_step_walk  = 0;  ///< steps walked by get_position_of_step
-    size_t step_at_pos_calls = 0;  ///< calls to get_step_at_position
-    size_t step_at_pos_walk  = 0;  ///< steps walked by get_step_at_position
-};
-extern thread_local AnchorGraphStats g_anchor_graph_stats;
-
 /**
  * A PathPositionHandleGraph over a PathHandleGraph that knows positions on one
  * target path only
