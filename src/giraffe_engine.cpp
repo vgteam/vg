@@ -1,8 +1,6 @@
 #include "giraffe_engine.hpp"
 
 #include <algorithm>
-#include <chrono>
-#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <atomic>
@@ -652,16 +650,6 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     require_loaded();
     using S = HaplotypeSurjectionResult::Status;
 
-    // If GIRAFFE_SURJECT_TIMING is set, print to stderr where each surjection
-    // spends its time.
-    static const bool surject_timing =
-        (std::getenv("GIRAFFE_SURJECT_TIMING") != nullptr);
-    using surj_clock = std::chrono::steady_clock;
-    surj_clock::time_point t_begin   = surj_clock::now();
-    surj_clock::time_point t_parse   = t_begin, t_pathlen = t_begin,
-                           t_anchors = t_begin, t_build   = t_begin,
-                           t_surject = t_begin;
-
     if (gaf_line.empty()) {
         throw runtime_error("surject_with_anchors: empty GAF input");
     }
@@ -716,41 +704,12 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
         return {ss.str()};
     }
 
-    t_parse = surj_clock::now();
-
     // Walk the target path for its length if the caller did not give it.
     size_t path_length = target_path_length;
     if (path_length == 0) {
         gbwt::size_type gbwt_path_id = gbz_->graph.handle_to_path(target_path);
         path_length = walk_target_path_length(*gbz_, gbwt_path_id);
     }
-    t_pathlen = surj_clock::now();
-
-    // Print this surjection's timing, if timing is on.
-    auto report_timing = [&](const char* outcome) {
-        if (!surject_timing) return;
-        auto ms = [](surj_clock::time_point a, surj_clock::time_point b) {
-            return std::chrono::duration<double, std::milli>(b - a).count();
-        };
-        surj_clock::time_point now = surj_clock::now();
-        std::cerr << "[surject-timing]"
-                  << " read=" << aln.name()
-                  << " read_len=" << aln.sequence().size()
-                  << " n_anchors=" << anchors.size()
-                  << " path_len=" << path_length
-                  << " | parse="   << ms(t_begin,   t_parse)
-                  << " pathlen="   << ms(t_parse,   t_pathlen)
-                  << " anchors="   << ms(t_pathlen, t_anchors)
-                  << " build="     << ms(t_anchors, t_build)
-                  << " surject="   << ms(t_build,   t_surject)
-                  << " post="      << ms(t_surject, now)
-                  << " posq="      << g_anchor_graph_stats.pos_of_step_calls
-                     << "/"        << g_anchor_graph_stats.pos_of_step_walk
-                  << " stepq="     << g_anchor_graph_stats.step_at_pos_calls
-                     << "/"        << g_anchor_graph_stats.step_at_pos_walk
-                  << " total="     << ms(t_begin,   now) << "ms"
-                  << " outcome="   << outcome << std::endl;
-    };
 
     // The anchor-backed position graph needs only the steps and their path
     // offsets.
@@ -764,29 +723,23 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
         pa.path_offset_step_end   = a.path_offset_step_end;
         vg_anchors.push_back(pa);
     }
-    t_anchors = surj_clock::now();
 
     // Surject onto the target path. The anchor-backed position graph answers
     // the surjector's position queries.
     AnchorBackedPositionGraph anchor_graph(&gbz_->graph, vg_anchors,
                                            target_path, path_length);
     Surjector anchor_surjector(&anchor_graph);
-    t_build = surj_clock::now();
 
     unordered_set<path_handle_t> paths;
     paths.insert(target_path);
     vector<tuple<string, int64_t, bool>> positions_out;
     vector<Alignment> surjected;
-    g_anchor_graph_stats = {};  // Count only this surjection's position queries.
     try {
         surjected = anchor_surjector.surject(aln, paths, positions_out,
                                              /*allow_negative_scores=*/false,
                                              /*preserve_deletions=*/false);
-        t_surject = surj_clock::now();
     } catch (const std::exception& e) {
         // The error fails only this surjection, and goes back to the client.
-        t_surject = surj_clock::now();
-        report_timing("surject_exception");
         surj_result.status = S::SURJECTION_FAILED;
         stringstream ss;
         ss << gaf_line;
@@ -800,12 +753,10 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     ss << gaf_line;
     append_surjection_tags(ss, surj_result);
     if (surj_result.status != S::OK) {
-        report_timing("surject_empty");
         return {ss.str()};
     }
     ss << "\tan:i:" << anchors.size()
        << "\tap:Z:" << resolved_target;
-    report_timing("ok");
     return {ss.str()};
 }
 
