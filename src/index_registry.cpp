@@ -132,8 +132,9 @@ double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
 IndexingParameters::Verbosity IndexingParameters::verbosity = IndexingParameters::Basic;
 gbwtgraph::sample_name_set IndexingParameters::haplotype_sampling_reference_samples = {};
-size_t IndexingParameters::haplotype_sampling_num_haplotypes = Recombinator::NUM_CANDIDATES;
-bool IndexingParameters::haplotype_sampling_diploid = true;
+size_t IndexingParameters::haplotype_sampling_preset = Recombinator::Parameters::preset_diploid;
+std::optional<size_t> IndexingParameters::haplotype_sampling_num_haplotypes = std::nullopt;
+std::optional<bool> IndexingParameters::haplotype_sampling_diploid = std::nullopt;
 int IndexingParameters::haplotype_sampling_minimizer_k = 29;
 int IndexingParameters::haplotype_sampling_minimizer_w = 11;
 
@@ -4245,10 +4246,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                ? Haplotypes::verbosity_basic
                                                : Haplotypes::verbosity_silent);
         Recombinator recombinator(gbz, haplotypes, hap_verbosity);
-        Recombinator::Parameters parameters(Recombinator::Parameters::preset_default);
-        parameters.num_haplotypes = IndexingParameters::haplotype_sampling_num_haplotypes;
-        parameters.diploid_sampling = IndexingParameters::haplotype_sampling_diploid;
-        parameters.include_reference = true;
+        Recombinator::Parameters parameters(static_cast<Recombinator::Parameters::preset_t>(IndexingParameters::haplotype_sampling_preset));
+        if (IndexingParameters::haplotype_sampling_num_haplotypes.has_value()) {
+            parameters.num_haplotypes = *IndexingParameters::haplotype_sampling_num_haplotypes;
+        }
+        if (IndexingParameters::haplotype_sampling_diploid.has_value()) {
+            parameters.diploid_sampling = *IndexingParameters::haplotype_sampling_diploid;
+        }
         gbwt::GBWT sampled_gbwt = recombinator.generate_haplotypes(kff_filename, parameters);
 
         // Build GBZ.

@@ -16,9 +16,9 @@
 #include <functional>
 #include <iostream>
 #include <thread>
-#include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <getopt.h>
 #include <omp.h>
@@ -243,7 +243,8 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "                               visiting them multiple times" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
-    std::cerr << "      --preset STR             use preset X {default, haploid, diploid}" << std::endl;
+    std::cerr << "      --preset STR             preset X (use as the first sampling option)" << std::endl;
+    std::cerr << "                               " << Recombinator::Parameters::preset_list(", ") << std::endl;
     std::cerr << "      --coverage N             kmer coverage in KFF file (default: estimate)" << std::endl;
     std::cerr << "      --num-haplotypes N       generate N haplotypes [" << haplotypes_defaults::n() << "]" << std::endl;
     std::cerr << "                               with --diploid-sampling, use N candidates "
@@ -254,6 +255,7 @@ void help_haplotypes(char** argv, bool developer_options) {
                                              << "[" << haplotypes_defaults::adjustment() << "]" << std::endl;
     std::cerr << "      --absent-score F         score absent kmers -F/+F "
                                              << "[" << haplotypes_defaults::absent()  << "]" << std::endl;
+    std::cerr << "      --ignore-homopolymers N  ignore homopolymers of length N or more " << std::endl;
     std::cerr << "      --haploid-scoring        use a scoring model without heterozygous kmers" << std::endl;
     std::cerr << "      --diploid-sampling       choose the best pair from the sampled haplotypes" << std::endl;
     std::cerr << "      --extra-fragments        select all candidates in bad subchains" << std::endl;
@@ -310,20 +312,21 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_PRESENT_DISCOUNT = 1303;
     constexpr int OPT_HET_ADJUSTMENT = 1304;
     constexpr int OPT_ABSENT_SCORE = 1305;
-    constexpr int OPT_HAPLOID_SCORING = 1306;
-    constexpr int OPT_DIPLOID_SAMPLING = 1307;
-    constexpr int OPT_EXTRA_FRAGMENTS = 1308;
-    constexpr int OPT_BADNESS = 1309;
-    constexpr int OPT_INCLUDE_REFERENCE = 1310;
-    constexpr int OPT_SET_REFERENCE = 1311;
-    constexpr int OPT_BAN_SAMPLE = 1312;
-    constexpr int OPT_HIGH_COVERAGE_CONTIG = 1313;
-    constexpr int OPT_HIGH_COVERAGE_NUM_HAPLOTYPES = 1314;
-    constexpr int OPT_HALF_COVERAGE_CONTIG = 1315;
-    constexpr int OPT_HALF_COVERAGE_NUM_HAPLOTYPES = 1316;
-    constexpr int OPT_EXCLUDE_CONTIG = 1317;
-    constexpr int OPT_WRAP = 1318;
-    constexpr int OPT_MIN_GREF_LEN = 1319;
+    constexpr int OPT_IGNORE_HOMOPOLYMERS = 1306;
+    constexpr int OPT_HAPLOID_SCORING = 1307;
+    constexpr int OPT_DIPLOID_SAMPLING = 1308;
+    constexpr int OPT_EXTRA_FRAGMENTS = 1309;
+    constexpr int OPT_BADNESS = 1310;
+    constexpr int OPT_INCLUDE_REFERENCE = 1311;
+    constexpr int OPT_SET_REFERENCE = 1312;
+    constexpr int OPT_BAN_SAMPLE = 1313;
+    constexpr int OPT_HIGH_COVERAGE_CONTIG = 1314;
+    constexpr int OPT_HIGH_COVERAGE_NUM_HAPLOTYPES = 1315;
+    constexpr int OPT_HALF_COVERAGE_CONTIG = 1316;
+    constexpr int OPT_HALF_COVERAGE_NUM_HAPLOTYPES = 1317;
+    constexpr int OPT_EXCLUDE_CONTIG = 1318;
+    constexpr int OPT_WRAP = 1319;
+    constexpr int OPT_MIN_GREF_LEN = 1320;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
     constexpr int OPT_DENSITY = 1600;
@@ -346,6 +349,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
+        { "ignore-homopolymers", required_argument, 0, OPT_IGNORE_HOMOPOLYMERS },
         { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "extra-fragments", no_argument, 0, OPT_EXTRA_FRAGMENTS },
@@ -425,20 +429,15 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
 
         case OPT_PRESET:
             {
-                Recombinator::Parameters::preset_t preset;
-                if (std::string(optarg) == "default") {
-                    preset = Recombinator::Parameters::preset_default;
-                } else if (std::string(optarg) == "haploid") {
-                    preset = Recombinator::Parameters::preset_haploid;
-                } else if (std::string(optarg) == "diploid") {
-                    preset = Recombinator::Parameters::preset_diploid;
+                auto preset = Recombinator::Parameters::parse_preset(optarg);
+                if (preset) {
+                    this->recombinator_parameters = Recombinator::Parameters(*preset);
+                    num_haplotypes_set = true;
                 } else {
                     this->logger.error() << "unknown preset: " << optarg << std::endl;
                 }
-                this->recombinator_parameters = Recombinator::Parameters(preset);
-                num_haplotypes_set = true; // The preset is assumed to include the number of haplotypes.
-                break;
             }
+            break;
         case OPT_COVERAGE:
             this->recombinator_parameters.coverage = parse<size_t>(optarg);
             break;
@@ -465,6 +464,12 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             this->recombinator_parameters.absent_score = parse<double>(optarg);
             if (this->recombinator_parameters.absent_score < 0.0) {
                 this->logger.error() << "absent score must be non-negative" << std::endl;
+            }
+            break;
+        case OPT_IGNORE_HOMOPOLYMERS:
+            this->recombinator_parameters.ignore_homopolymers = parse<size_t>(optarg);
+            if (this->recombinator_parameters.ignore_homopolymers <= 1) {
+                this->logger.error() << "ignore homopolymers must be greater than 1" << std::endl;
             }
             break;
         case OPT_HAPLOID_SCORING:
@@ -716,8 +721,10 @@ void validate_subgraph(const Logger& logger, const gbwtgraph::GBWTGraph& graph,
 // Accepts a plain contig name (matched against chain contig names) or a PanSN-style
 // path name (validated against the graph metadata). Exits with an error if a name
 // cannot be resolved to exactly one chain.
-std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
-                                                  const std::vector<std::string>& names, const Logger& logger);
+std::unordered_set<size_t> resolve_chains_by_name(
+    const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
+    const std::vector<std::string>& names, const Logger& logger
+);
 
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
     omp_set_num_threads(threads_to_jobs(config.threads));
@@ -946,8 +953,10 @@ size_t chain_for_path(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, g
     return result;
 }
 
-std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
-                                                  const std::vector<std::string>& names, const Logger& logger) {
+std::unordered_set<size_t> resolve_chains_by_name(
+    const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
+    const std::vector<std::string>& names, const Logger& logger
+) {
     // Map each canonical contig name stored in the top-level chains to the
     // chains carrying it, so that plain contig names resolve in one lookup.
     std::unordered_map<std::string, std::vector<size_t>> chains_by_contig;
