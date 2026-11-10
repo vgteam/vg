@@ -170,7 +170,7 @@ Some words mean something narrower, or something else, inside one module. In tha
 
 ## Reviewing Before Sending Code
 - Before pushing, opening a pull request, or telling the user code is ready for them to review, run the `exhaustive-code-review` skill on the branch's changes, unless the user has said not to. When the user says to prepare a PR or that code is ready and it has not been reviewed, say you will review it first, and do.
-- `python3 .claude/hooks/review_state.py status` says whether the current state of the code has been reviewed. The review skill records it with `mark` when done. Hooks in `.claude/settings.json` remind you on such prompts and ask the user before `git push` or `gh pr create` of an unreviewed commit.
+- `python3 .claude/hooks/review_state.py status` says whether the current state of the code has been reviewed. The review skill records it with `mark` when done. Hooks in `.claude/settings.json` remind you on such prompts, and refuse `git push` or `gh pr create` of an unreviewed commit. If the user said not to review, or accepted the review's remaining findings, put `VG_SEND_UNREVIEWED=1` in front of the command and tell the user the code went out unreviewed.
 - Run the `humanizer` skill's pattern removal over PR descriptions and commit messages before sending them.
 
 ## Documentation

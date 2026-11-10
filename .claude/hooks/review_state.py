@@ -20,6 +20,11 @@ Usage:
     review_state.py prompt-hook   UserPromptSubmit hook; reads hook JSON on stdin.
     review_state.py send-hook     PreToolUse hook for Bash; reads hook JSON on stdin.
 
+The send hook refuses a push or pull request of an unreviewed commit and tells
+the agent why, instead of prompting the user, so an unattended session never
+waits on a prompt. The agent confirms that it means to send unreviewed code by
+putting `VG_SEND_UNREVIEWED=1` in front of the command.
+
 The hooks never fail the action they watch: on any git error they stay silent.
 """
 
@@ -48,6 +53,11 @@ READY_PATTERN = re.compile(
 
 # Shell commands that send code to other people.
 SEND_PATTERN = re.compile(r"\bgh\s+pr\s+(create|ready)\b|\bgit\s+push\b")
+
+# Setting this variable on a send command means the agent is sure it wants to
+# send unreviewed code. Git and gh ignore it.
+OVERRIDE_VARIABLE = "VG_SEND_UNREVIEWED"
+OVERRIDE_PATTERN = re.compile(r"\b" + OVERRIDE_VARIABLE + r"=1\b")
 
 
 def git(*args, env=None):
@@ -138,20 +148,21 @@ def send_hook(hook_input):
     # What leaves the machine is the committed HEAD, not the working tree.
     if head_tree_hash() in reviewed_trees():
         return
+    if OVERRIDE_PATTERN.search(command):
+        return
     reason = (
-        "The commit being sent has not had an automated review. Strongly "
-        f"recommended: deny this, and have Claude run the `{REVIEW_SKILL}` "
-        "skill first. Approve to send it unreviewed."
+        "The commit being sent has not had an automated review. Run the "
+        f"`{REVIEW_SKILL}` skill on it first, fix what it finds, and send "
+        "again. If you are sure it should go out unreviewed, because the user "
+        "said not to review it or the review's remaining findings were "
+        f"accepted, run the command again with `{OVERRIDE_VARIABLE}=1` in "
+        "front of it, and tell the user it was sent unreviewed."
     )
     print(json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
-            "permissionDecision": "ask",
+            "permissionDecision": "deny",
             "permissionDecisionReason": reason,
-            "additionalContext": (
-                f"If the user denies this, run the `{REVIEW_SKILL}` skill, "
-                "then try again."
-            ),
         }
     }))
 
