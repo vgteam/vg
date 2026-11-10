@@ -51,6 +51,12 @@ READY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Start of a prompt that Claude Code submits for a subagent's report. A report
+# often names a PR, so READY_PATTERN matches it although the user sent nothing.
+# TODO: Does a task notice ever reach the hook? None has been seen to, but the
+# transcript records one as a prompt starting with <task-notification>.
+AGENT_PROMPT_PATTERN = re.compile(r"\A\s*(<agent-message\b|<task-notification>)")
+
 # Shell commands that send code to other people.
 SEND_PATTERN = re.compile(r"\bgh\s+pr\s+(create|ready)\b|\bgit\s+push\b")
 
@@ -118,7 +124,8 @@ def status():
 
 
 def prompt_hook(hook_input):
-    if not READY_PATTERN.search(hook_input.get("prompt", "")):
+    prompt = hook_input.get("prompt", "")
+    if AGENT_PROMPT_PATTERN.match(prompt) or not READY_PATTERN.search(prompt):
         return
     if working_tree_hash() in reviewed_trees():
         return
