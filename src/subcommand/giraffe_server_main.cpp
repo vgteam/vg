@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include <condition_variable>
-#include <cstdlib>
 #include <deque>
 #include <functional>
 #include <iostream>
@@ -216,6 +215,7 @@ int main_giraffe_server(int argc, char** argv) {
     long surject_threads = -1;   // -1 means the --threads value
 
     GiraffeParameters params;
+    params.preset = "hifi";
 
     int c;
     optind = 2;
@@ -317,22 +317,6 @@ int main_giraffe_server(int argc, char** argv) {
         help_giraffe_server(argv);
         return 1;
     }
-
-    // Mapping parameters come from vg giraffe's presets and options. Existing
-    // deployments still set the preset and MAPQ scaling with PANGENOME_*
-    // environment variables. --parameter-preset and --set beat them.
-    if (params.preset.empty()) {
-        const char* e = std::getenv("PANGENOME_GIRAFFE_PRESET");
-        params.preset = e ? e : "hifi";
-    }
-    std::vector<std::pair<std::string, std::string>> env_overrides;
-    if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_SCALE")) {
-        env_overrides.emplace_back("mapq-score-scale", e);
-    }
-    if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_WINDOW")) {
-        env_overrides.emplace_back("mapq-score-window", e);
-    }
-    params.options.insert(params.options.begin(), env_overrides.begin(), env_overrides.end());
 
     // Fill vg giraffe's option parser now, so bad parameters fail before any
     // index is loaded.
