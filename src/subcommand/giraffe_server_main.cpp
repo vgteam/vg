@@ -105,8 +105,8 @@ void help_giraffe_server(char** argv) {
          << endl
          << "optional:" << endl
          << "  -t, --threads N              mapping threads [1]" << endl
-         << "  -M, --max-multimaps N        max mappings per read (0 = the preset's value;" << endl
-         << "                               reporting is capped by max-alignments)" << endl
+         << "  -M, --max-multimaps N        max mappings per read (reporting is capped by" << endl
+         << "                               max-alignments) [the preset's value]" << endl
          << "  -b, --batch-size N           input reads per mapping batch [256]" << endl
          << "      --emit-header            emit GAF header lines before output" << endl
          << "      --framed-output          emit read-grouped framed output for middleware" << endl
@@ -114,8 +114,9 @@ void help_giraffe_server(char** argv) {
          << "                               threads (framed output only; 0 = inline, one at" << endl
          << "                               a time) [--threads]" << endl
          << "      --parameter-preset NAME  vg giraffe parameter preset [hifi]" << endl
-         << "      --set NAME=VALUE         set any vg giraffe option by its long name," << endl
-         << "                               e.g. mapq-score-window=150 (may repeat)" << endl
+         << "      --set NAME[=VALUE]       set any vg giraffe option by its long name," << endl
+         << "                               e.g. mapq-score-window=150; a flag takes no" << endl
+         << "                               value (may repeat)" << endl
          << "  -E, --rec-mode               map recombination-aware, as vg giraffe does" << endl
          << "      --no-rec-mode            don't (default: on for long-read presets when" << endl
          << "                               the minimizer index stores paths)" << endl
@@ -168,11 +169,10 @@ const string PHRED33_CHARS = [] {
     return chars;
 }();
 
-/// Return true if seq is non-empty and holds only IUPAC nucleotide codes, in
-/// either case.
+/// Return true if seq is non-empty and holds only ATCGN
 bool is_nucleotide_sequence(const string& seq) {
-    static const string iupac = "ACGTUNRYKMSWBDHVacgtunrykmswbdhv";
-    return !seq.empty() && seq.find_first_not_of(iupac) == string::npos;
+    static const string allowed = "ATCGNatcgn";
+    return !seq.empty() && seq.find_first_not_of(allowed) == string::npos;
 }
 
 vector<string> split_tab_fields(const string& line) {
@@ -214,9 +214,8 @@ int main_giraffe_server(int argc, char** argv) {
     bool emit_header = false;
     bool framed_output = false;
     long surject_threads = -1;   // -1 means the --threads value
-    std::string preset;          // empty = $PANGENOME_GIRAFFE_PRESET, else "hifi"
-    std::vector<std::pair<std::string, std::string>> overrides;
-    std::optional<bool> rec_mode;   // unset = vg giraffe's default
+
+    GiraffeParameters params;
 
     int c;
     optind = 2;
@@ -264,7 +263,7 @@ int main_giraffe_server(int argc, char** argv) {
                 config.threads = parse<size_t>(optarg);
                 break;
             case 'M':
-                config.max_multimaps = parse<size_t>(optarg);
+                params.options.emplace_back("max-multimaps", optarg);
                 break;
             case 'b':
                 batch_size = parse<size_t>(optarg);
@@ -279,26 +278,31 @@ int main_giraffe_server(int argc, char** argv) {
                 surject_threads = parse<long>(optarg);
                 break;
             case OPT_PARAMETER_PRESET:
-                preset = optarg;
+                params.preset = optarg;
                 break;
             case OPT_SET: {
+                // NAME=VALUE sets an option, and NAME alone turns on a flag.
                 std::string kv = optarg;
                 size_t eq = kv.find('=');
-                if (eq == std::string::npos || eq == 0) {
-                    cerr << "error [vg giraffe-server]: --set expects NAME=VALUE, got " << kv << endl;
+                if (kv.empty() || eq == 0) {
+                    cerr << "error [vg giraffe-server]: --set expects NAME[=VALUE], got " << kv << endl;
                     return 1;
                 }
-                overrides.emplace_back(kv.substr(0, eq), kv.substr(eq + 1));
+                if (eq == std::string::npos) {
+                    params.options.emplace_back(kv, "");
+                } else {
+                    params.options.emplace_back(kv.substr(0, eq), kv.substr(eq + 1));
+                }
                 break;
             }
             case 'S':
                 config.surjection_target_paths.emplace_back(optarg);
                 break;
             case 'E':
-                rec_mode = true;
+                params.rec_mode = true;
                 break;
             case OPT_NO_REC_MODE:
-                rec_mode = false;
+                params.rec_mode = false;
                 break;
             case 'h':
             case '?':
@@ -317,9 +321,9 @@ int main_giraffe_server(int argc, char** argv) {
     // Mapping parameters come from vg giraffe's presets and options. Existing
     // deployments still set the preset and MAPQ scaling with PANGENOME_*
     // environment variables. --parameter-preset and --set beat them.
-    if (preset.empty()) {
+    if (params.preset.empty()) {
         const char* e = std::getenv("PANGENOME_GIRAFFE_PRESET");
-        preset = e ? e : "hifi";
+        params.preset = e ? e : "hifi";
     }
     std::vector<std::pair<std::string, std::string>> env_overrides;
     if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_SCALE")) {
@@ -328,33 +332,36 @@ int main_giraffe_server(int argc, char** argv) {
     if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_WINDOW")) {
         env_overrides.emplace_back("mapq-score-window", e);
     }
-    overrides.insert(overrides.begin(), env_overrides.begin(), env_overrides.end());
-    const bool map_long_reads = giraffe_preset_maps_long_reads(preset);
+    params.options.insert(params.options.begin(), env_overrides.begin(), env_overrides.end());
+
+    // Fill vg giraffe's option parser now, so bad parameters fail before any
+    // index is loaded.
+    std::unique_ptr<GroupedOptionGroup> parser;
     try {
-        check_giraffe_parameters(preset, overrides);   // fail before loading indexes
-        if (rec_mode.value_or(false) && !map_long_reads) {
-            throw std::invalid_argument("Recombination-aware mode cannot be used with short reads yet.");
-        }
+        parser = make_giraffe_parser(params);
     } catch (const std::invalid_argument& e) {
         cerr << "error [vg giraffe-server]: " << e.what() << endl;
         return 1;
     }
-    config.configure_mapper = [preset, overrides, map_long_reads, rec_mode](
-            MinimizerMapper& mapper, const gbwtgraph::DefaultMinimizerIndex& minimizer_index) {
-        configure_giraffe_mapper(mapper, preset, overrides);
-        bool use_rec_mode = giraffe_rec_mode(minimizer_index, map_long_reads, rec_mode);
-        mapper.use_payload_paths &= use_rec_mode;
-        cerr << "[vg giraffe-server] recombination-aware mode: " << (use_rec_mode ? "on" : "off") << endl;
-    };
-    cerr << "[vg giraffe-server] parameter preset: " << preset;
-    for (const auto& kv : overrides) {
-        cerr << " --" << kv.first << " " << kv.second;
+    cerr << "[vg giraffe-server] parameter preset: " << params.preset;
+    for (const auto& kv : params.options) {
+        cerr << " --" << kv.first;
+        if (!kv.second.empty()) {
+            cerr << " " << kv.second;
+        }
     }
     cerr << endl;
 
     try {
         GiraffeEngine engine;
         engine.load(config);
+
+        // Set the mapper's parameters. Recombination-aware mode depends on the
+        // loaded minimizer index.
+        bool use_rec_mode = giraffe_rec_mode(engine.minimizer_index(),
+            giraffe_preset_maps_long_reads(params.preset), params.rec_mode);
+        set_up_giraffe_mapper(*parser, use_rec_mode, engine.mapper());
+        cerr << "[vg giraffe-server] recombination-aware mode: " << (use_rec_mode ? "on" : "off") << endl;
 
         if (emit_header) {
             for (const auto& header : engine.gaf_header_lines()) {

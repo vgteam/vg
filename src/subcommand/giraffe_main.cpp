@@ -902,45 +902,44 @@ std::vector<std::string> giraffe_preset_names() {
     return names;
 }
 
-/// A vg giraffe option parser holding the preset's values and the overrides.
-static std::unique_ptr<GroupedOptionGroup> parse_giraffe_parameters(
-    const std::string& preset, const std::vector<std::pair<std::string, std::string>>& overrides) {
+std::unique_ptr<GroupedOptionGroup> make_giraffe_parser(const GiraffeParameters& params) {
     std::unique_ptr<GroupedOptionGroup> parser = get_options();
     std::map<std::string, Preset> presets = make_giraffe_presets();
-    auto found = presets.find(preset);
+    auto found = presets.find(params.preset);
     if (found == presets.end()) {
-        throw std::invalid_argument("unknown vg giraffe preset: " + preset);
+        throw std::invalid_argument("unknown vg giraffe preset: " + params.preset);
     }
     found->second.apply(*parser);
 
-    // Parse each override as if it came from the command line. The option's
-    // own type parses the value, and it replaces the preset's value.
-    // scripts/lint.py reads any variable named long_options, so this one is
-    // named known.
+    
     std::vector<struct option> known;
     parser->make_long_options(known);
-    for (const auto& kv : overrides) {
-        auto it = std::find_if(known.begin(), known.end(), [&](const struct option& o) {
-            return o.name != nullptr && kv.first == o.name;
-        });
-        if (it == known.end()) {
+    std::map<std::string, const struct option*> by_name;
+    for (const struct option& o : known) {
+        if (o.name != nullptr) {
+            by_name.emplace(o.name, &o);
+        }
+    }
+
+    // Parse each option as if it came from the command line. The option's
+    // own type parses the value, and it replaces the preset's value.
+    // A flag a preset turned on cannot be turned off, same as on the command line.
+    for (const auto& kv : params.options) {
+        auto it = by_name.find(kv.first);
+        if (it == by_name.end()) {
             throw std::invalid_argument("unknown vg giraffe option: --" + kv.first);
         }
-        const bool is_flag = (it->has_arg == no_argument);
-        if (is_flag && !(kv.second.empty() || kv.second == "true" || kv.second == "1")) {
-            throw std::invalid_argument("--" + kv.first + " is a flag and can only be turned on");
+        const struct option& o = *it->second;
+        const bool is_flag = (o.has_arg == no_argument);
+        if (is_flag && !kv.second.empty()) {
+            throw std::invalid_argument("--" + kv.first + " is a flag and takes no value");
         }
-        if (!parser->parse(it->val, is_flag ? nullptr : kv.second.c_str())) {
+        if (!parser->parse(o.val, is_flag ? nullptr : kv.second.c_str())) {
             throw std::invalid_argument("could not set --" + kv.first + " to " + kv.second);
         }
     }
 
     return parser;
-}
-
-void check_giraffe_parameters(const std::string& preset,
-                              const std::vector<std::pair<std::string, std::string>>& overrides) {
-    parse_giraffe_parameters(preset, overrides);
 }
 
 bool giraffe_preset_maps_long_reads(const std::string& preset) {
@@ -996,24 +995,6 @@ void set_up_giraffe_mapper(GroupedOptionGroup& parser, bool use_rec_mode, Minimi
     mapper.use_payload_paths &= use_rec_mode;
 }
 
-void configure_giraffe_mapper(MinimizerMapper& mapper, const std::string& preset,
-                              const std::vector<std::pair<std::string, std::string>>& overrides) {
-    std::unique_ptr<GroupedOptionGroup> parser = parse_giraffe_parameters(preset, overrides);
-    ScoringOptions scoring_options;
-    parser->apply(mapper);
-    parser->apply(scoring_options);
-    // Check and set the scores the same way main_giraffe() does.
-    enforce_min_max(mapper.wfa_max_mismatches, "wfa-max-mismatches",
-                    mapper.wfa_max_max_mismatches, "wfa-max-max-mismatches");
-    enforce_min_max(mapper.wfa_distance, "wfa-distance",
-                    mapper.wfa_max_distance, "wfa-max-distance");
-    enforce_min_max(mapper.min_chaining_problems, "min-chaining-problems",
-                    mapper.max_chaining_problems, "max-chaining-problems");
-    enforce_min_max(mapper.min_extensions, "min-extensions",
-                    mapper.max_extensions, "max-extensions");
-    mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch,
-        scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
-}
 
 } // namespace subcommand
 } // namespace vg

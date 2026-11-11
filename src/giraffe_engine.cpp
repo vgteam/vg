@@ -393,13 +393,6 @@ void GiraffeEngine::load(const GiraffeEngineConfig& config) {
 
     auto mapper = make_unique<MinimizerMapper>(gbz->graph, *minimizer_index, distance_index.get(), zipcodes.get());
 
-    if (config.configure_mapper) {
-        config.configure_mapper(*mapper, *minimizer_index);
-    }
-    if (config.max_multimaps > 0) {
-        mapper->max_multimaps = config.max_multimaps;
-    }
-
     auto assigner = make_unique<HaplotypeAssigner>(*gbz, *distance_index);
 
     // Index the positions of the surjection target paths once, here. The
@@ -442,6 +435,16 @@ bool GiraffeEngine::is_loaded() const {
 
 const GiraffeEngineConfig& GiraffeEngine::config() const {
     return config_;
+}
+
+MinimizerMapper& GiraffeEngine::mapper() {
+    require_loaded();
+    return *mapper_;
+}
+
+const gbwtgraph::DefaultMinimizerIndex& GiraffeEngine::minimizer_index() const {
+    require_loaded();
+    return *minimizer_index_;
 }
 
 vector<string> GiraffeEngine::gaf_header_lines() const {

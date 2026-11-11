@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -71,15 +70,6 @@ struct GiraffeEngineConfig {
 
     /// Number of mapping threads.
     size_t threads = 1;
-
-    /// Function that sets the mapper's parameters, given the minimizer index
-    /// the mapper uses. If empty, the mapper keeps its defaults.
-    std::function<void(MinimizerMapper&, const gbwtgraph::DefaultMinimizerIndex&)> configure_mapper;
-
-    /// Maximum number of alignments per read, if not 0. It replaces the value
-    /// that configure_mapper sets. The mapper still reports at most
-    /// max_alignments.
-    size_t max_multimaps = 0;
 
     /// Page the whole distance index into memory at load time.
     bool preload_distance_index = true;
@@ -151,6 +141,14 @@ public:
     bool is_loaded() const;
 
     const GiraffeEngineConfig& config() const;
+
+    /// The mapper. The caller sets its parameters after load() and before
+    /// mapping. The engine cannot do it: vg giraffe's options are in
+    /// src/subcommand, which is linked into the vg binary and not into libvg.
+    MinimizerMapper& mapper();
+
+    /// The minimizer index the mapper uses.
+    const gbwtgraph::DefaultMinimizerIndex& minimizer_index() const;
 
     /// Return the GAF header lines that name the graph.
     std::vector<std::string> gaf_header_lines() const;
