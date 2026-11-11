@@ -336,13 +336,7 @@ int main_giraffe_server(int argc, char** argv) {
 
     // Fill vg giraffe's option parser now, so bad parameters fail before any
     // index is loaded.
-    std::unique_ptr<GroupedOptionGroup> parser;
-    try {
-        parser = make_giraffe_parser(params);
-    } catch (const std::invalid_argument& e) {
-        cerr << "error [vg giraffe-server]: " << e.what() << endl;
-        return 1;
-    }
+    std::unique_ptr<GroupedOptionGroup> parser = make_giraffe_parser(params);
     cerr << "[vg giraffe-server] parameter preset: " << params.preset;
     for (const auto& kv : params.options) {
         cerr << " --" << kv.first;

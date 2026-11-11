@@ -44,7 +44,7 @@ struct GiraffeParameters {
 
 /// make vg giraffe's option parser and fill it. This helps when we cannot use the argv for all the parameters
 /// like what vg giraffe does right now.
-/// Throws std::invalid_argument for unknown preset or option or bad value
+/// Exits with an error for unknown preset or option or bad value
 std::unique_ptr<GroupedOptionGroup> make_giraffe_parser(const GiraffeParameters& params);
 
 /// Return true if the preset maps long reads.
@@ -56,8 +56,8 @@ bool giraffe_preset_maps_long_reads(const std::string& preset);
  * Use rec_mode if it is set. Otherwise map recombination-aware for long reads
  * when the minimizer payload stores paths.
  *
- * @throws std::invalid_argument if recombination-aware mapping is asked for
- * with short reads, or the minimizer payload does not suit the chosen mode.
+ * Exits with an error if recombination-aware mapping is asked for with short
+ * reads, or the minimizer payload does not suit the chosen mode.
  */
 bool giraffe_rec_mode(const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
                       bool map_long_reads, std::optional<bool> rec_mode);

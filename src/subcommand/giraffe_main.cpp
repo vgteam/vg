@@ -11,8 +11,6 @@
 #include <cstring>
 #include <ctime>
 #include <map>
-#include <stdexcept>
-#include <algorithm>
 #include <optional>
 #include <vector>
 #include <unordered_set>
@@ -907,7 +905,7 @@ std::unique_ptr<GroupedOptionGroup> make_giraffe_parser(const GiraffeParameters&
     std::map<std::string, Preset> presets = make_giraffe_presets();
     auto found = presets.find(params.preset);
     if (found == presets.end()) {
-        throw std::invalid_argument("unknown vg giraffe preset: " + params.preset);
+        logger.error() << "invalid parameter preset: " << params.preset << std::endl;
     }
     found->second.apply(*parser);
 
@@ -927,15 +925,15 @@ std::unique_ptr<GroupedOptionGroup> make_giraffe_parser(const GiraffeParameters&
     for (const auto& kv : params.options) {
         auto it = by_name.find(kv.first);
         if (it == by_name.end()) {
-            throw std::invalid_argument("unknown vg giraffe option: --" + kv.first);
+            logger.error() << "unknown option: --" << kv.first << std::endl;
         }
         const struct option& o = *it->second;
         const bool is_flag = (o.has_arg == no_argument);
         if (is_flag && !kv.second.empty()) {
-            throw std::invalid_argument("--" + kv.first + " is a flag and takes no value");
+            logger.error() << "--" << kv.first << " is a flag and takes no value" << std::endl;
         }
         if (!parser->parse(o.val, is_flag ? nullptr : kv.second.c_str())) {
-            throw std::invalid_argument("could not set --" + kv.first + " to " + kv.second);
+            logger.error() << "could not set --" << kv.first << " to " << kv.second << std::endl;
         }
     }
 
@@ -952,7 +950,7 @@ bool giraffe_rec_mode(const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
                       bool map_long_reads, std::optional<bool> rec_mode) {
     if (rec_mode.value_or(false) && !map_long_reads) {
         // TODO: Get a better idea of if reads are long.
-        throw std::invalid_argument("Recombination-aware mode cannot be used with short reads yet.");
+        logger.error() << "Recombination-aware mode cannot be used with short reads yet." << std::endl;
     }
     bool default_rec_mode = map_long_reads &&
         has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS);
@@ -965,14 +963,7 @@ bool giraffe_rec_mode(const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
     if (!use_rec_mode) {
         allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES);
     }
-    if (!has_payload(minimizer_index, allowed_payloads)) {
-        std::string expected;
-        for (auto type : allowed_payloads) {
-            expected += (expected.empty() ? "\"" : ", \"") + MinimizerIndexParameters::payload_str(type) + "\"";
-        }
-        throw std::invalid_argument("expected a minimizer index with payload type " + expected + " but found \""
-            + minimizer_index.get_tag(MinimizerIndexParameters::PAYLOAD_KEY) + "\"");
-    }
+    require_payload(minimizer_index, allowed_payloads);
     return use_rec_mode;
 }
 
@@ -1547,7 +1538,7 @@ int main_giraffe(int argc, char** argv) {
                         found->second.apply(*parser);
                     }
                 }
-                if (subcommand::giraffe_preset_maps_long_reads(param_preset)) {
+                if (giraffe_preset_maps_long_reads(param_preset)) {
                     map_long_reads = true;
                 }
                 // TODO: We would have to move all haplotype sampling options
@@ -1988,12 +1979,7 @@ int main_giraffe(int argc, char** argv) {
 
     // Decide on recombination-aware mapping, and make sure we have a usable
     // minimizer index payload for it.
-    bool use_rec_mode = false;
-    try {
-        use_rec_mode = subcommand::giraffe_rec_mode(*minimizer_index, map_long_reads, rec_mode);
-    } catch (const std::invalid_argument& e) {
-        logger.error() << e.what() << std::endl;
-    }
+    bool use_rec_mode = giraffe_rec_mode(*minimizer_index, map_long_reads, rec_mode);
     
     // Grab the zipcodes
     if (show_progress) {
