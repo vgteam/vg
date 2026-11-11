@@ -33,13 +33,8 @@ void help_clip(char** argv) {
          << "  -S, --stubbify-paths       clip out the edges on the outer sides of selected" << endl
          << "                             reference paths' end nodes, so the paths end in" << endl
          << "                             stubs (edges a reference path walks are kept)" << endl
-         << "  -k, --keep-connected       with -S, only clip edges from an end back into" << endl
-         << "                             the graph, and edges tying a piece to more than one" << endl
-         << "                             end: a piece hanging off one end stays attached, so" << endl
-         << "                             no node is cut off the reference (a dead end of a" << endl
-         << "                             piece that only loops gets a tip, by cutting the" << endl
-         << "                             edges on one side of one node). run it after any" << endl
-         << "                             -s or -d, which can leave an end on a cycle again" << endl
+         << "  -k, --keep-connected       with -S, cut nothing: end each selected path in a" << endl
+         << "                             tip, a private 1 bp copy of its end base" << endl
          << "snarl selection and clipping options:" << endl
          << "  -n, --min-nodes N          clip out snarls with >N nodes" << endl
          << "  -e, --min-edges N          clip out snarls with >N edges" << endl
@@ -272,12 +267,6 @@ int main_clip(int argc, char** argv) {
         logger.error() << "-k can only be used with -S" << endl;
     }
 
-    // -s would strip the dead ends that -k keeps, but not any cycles among them, which it would leave
-    // hanging off the reference ends with no tip
-    if (keep_connected && stub_clipping) {
-        logger.error() << "-k cannot be used with -s" << endl;
-    }
-
     if (only_net_edges && only_top_net_edges) {
         logger.error() << "-g and -G cannot be used together: choose one" << endl;
     }
@@ -452,7 +441,11 @@ int main_clip(int argc, char** argv) {
             // do the whole graph
             if (stubbify_reference) {
                 // important that this is done first, as it can actually create non-reference stubs that'd need removal below
-                stubbify_ref_paths(graph.get(), ref_prefixes, min_fragment_len, keep_connected, verbose);
+                if (keep_connected) {
+                    split_ref_path_ends(graph.get(), ref_prefixes, verbose);
+                } else {
+                    stubbify_ref_paths(graph.get(), ref_prefixes, min_fragment_len, verbose);
+                }
             }
             if (stub_clipping) {
                 clip_stubs(graph.get(), ref_prefixes, min_fragment_len, verbose);
