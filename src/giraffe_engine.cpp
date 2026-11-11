@@ -221,7 +221,7 @@ HaplotypeSurjectionResult GiraffeEngine::surject_to_indexed_path(
     paths.insert(gbz_path_handle);
     vector<tuple<string, int64_t, bool>> positions_out;
     vector<Alignment> surjected = overlay_surjector_->surject(aln, paths, positions_out,
-                                                              /*allow_negative_scores=*/false,
+                                                              /*allow_negative_scores=*/true,
                                                               /*preserve_deletions=*/false);
     take_best_surjection(surjected, positions_out, *position_overlay_,
                          position_overlay_->get_path_handle(target_path_name), result);
@@ -747,7 +747,7 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     vector<Alignment> surjected;
     try {
         surjected = anchor_surjector.surject(aln, paths, positions_out,
-                                             /*allow_negative_scores=*/false,
+                                             /*allow_negative_scores=*/true,
                                              /*preserve_deletions=*/false);
     } catch (const std::exception& e) {
         // The error fails only this surjection, and goes back to the client.
