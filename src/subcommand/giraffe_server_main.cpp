@@ -318,9 +318,10 @@ int main_giraffe_server(int argc, char** argv) {
         return 1;
     }
 
-    // Fill vg giraffe's option parser now, so bad parameters fail before any
-    // index is loaded.
+    // Fill vg giraffe's option parser now, so bad parameters fail before any index is loaded.
     std::unique_ptr<GroupedOptionGroup> parser = make_giraffe_parser(params);
+    // this variable belongs to surject, so we handle it a bit differently
+    config.prune_suspicious_anchors = parser->get_option_value<bool>("prune-low-cplx");
     cerr << "[vg giraffe-server] parameter preset: " << params.preset;
     for (const auto& kv : params.options) {
         cerr << " --" << kv.first;

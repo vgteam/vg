@@ -86,6 +86,12 @@ string cigar_to_string(const vector<pair<int, char>>& cigar) {
     return ss.str();
 }
 
+/// Apply the engine's surjector settings. vg giraffe has four more, set by
+/// flags the server does not have.
+void set_up_surjector(Surjector& surjector, const GiraffeEngineConfig& config) {
+    surjector.prune_suspicious_anchors = config.prune_suspicious_anchors;
+}
+
 /// Fill `result` from the highest-scoring surjected alignment on `path`.
 /// `positions` holds the path name, start and strand of each alignment. Set
 /// SURJECTION_FAILED if no alignment landed on the path.
@@ -413,6 +419,7 @@ void GiraffeEngine::load(const GiraffeEngineConfig& config) {
         position_overlay = make_unique<bdsg::ReferencePathOverlay>(
             &gbz->graph, /*all_paths=*/false, extras);
         surjector = make_unique<Surjector>(position_overlay.get());
+        set_up_surjector(*surjector, config);
     }
 
     // map_reads() maps on OpenMP threads, whose count is global to the process.
@@ -732,6 +739,7 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     AnchorBackedPositionGraph anchor_graph(&gbz_->graph, vg_anchors,
                                            target_path, path_length);
     Surjector anchor_surjector(&anchor_graph);
+    set_up_surjector(anchor_surjector, config_);
 
     unordered_set<path_handle_t> paths;
     paths.insert(target_path);

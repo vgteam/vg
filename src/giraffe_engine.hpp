@@ -78,6 +78,10 @@ struct GiraffeEngineConfig {
     /// map_reads() surjects nothing.
     std::vector<std::string> surjection_target_paths;
 
+    /// Have the surjectors drop low-complexity anchors. vg giraffe turns this
+    /// on with --prune-low-cplx.
+    bool prune_suspicious_anchors = false;
+
     /// Tag each alignment with the haplotypes that carry its path.
     bool assign_haplotypes = true;
     /// When assigning haplotypes, extend the search out to the enclosing
