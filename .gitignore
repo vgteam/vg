@@ -53,5 +53,3 @@ debug_main.cpp
 /*.gfa
 .vscode/*
 .cache/*
-# Semble code search, installed by the code review skill when pipx is missing
-.claude/semble-venv/

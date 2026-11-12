@@ -125,14 +125,14 @@ ones. For each new part that does a recognizable job:
    - Semble's MCP tools, if this session has them: search for "semble" with
      ToolSearch.
    - The `semble` command, if `command -v semble` finds it.
-   - The project's own copy, `.claude/semble-venv/bin/semble` at the top of
-     the checkout, if it exists.
    - Otherwise install the `semble` package from PyPI. Use `pipx install
-     semble` if pipx is present. If not, make the project's copy, which git
-     ignores:
+     semble` if pipx is present. If not, make a virtual environment in your
+     scratchpad directory (the session's temporary directory that your
+     instructions name; if you have none, make one with `mktemp -d`), and
+     install it there for this session only:
 
      ```
-     venv="$(git rev-parse --show-toplevel)/.claude/semble-venv"
+     venv="<scratchpad>/semble-venv"
      python3 -m venv "$venv" && "$venv/bin/pip" install semble
      ```
 
