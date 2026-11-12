@@ -19,11 +19,15 @@ skill lists test shapes that reviewers have pushed back on; read it first.
 
 ## Readable
 
-- Each case should read as a list of true facts about the expected output for
-  one input: "B is not secondary", "B has score 60". Flag check logic shared
-  across cases through flags, conditionals or ternaries; it hides what each
-  input should give. Repeating the call and the checks per case is better.
-  To share checks, use helper functions that each test one named condition.
+- Each test must map cleanly to plain English: either a list of facts about
+  one situation ("B is not secondary", "B has score 60"), or one statement
+  about every situation in a set ("for every orientation, the anchor is
+  pruned"). Sharing setup and check code is good when the result still reads
+  that way. Flag check logic that does not: one shared block whose
+  conditionals or ternaries give each case a different expectation, so a
+  reader must work out what each input should produce. Fix it with helpers
+  that each check one named condition, or with a table of cases and their
+  expected results.
 - Look things up the way the expectation is stated (by name, from a map), not
   by a property the reader has to work out ("the one that is neither
   secondary nor supplementary").

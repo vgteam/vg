@@ -91,6 +91,7 @@ skipped it (and why) so the author knows it wasn't an oversight.
 | Concurrency | …touches threads, shared mutable state, signals, locks, atomics, or async callbacks | `references/concurrency.md` |
 | Portability | …uses sizes/endianness/alignment assumptions, platform APIs, compiler extensions, or builds for multiple arches | `references/portability.md` |
 | Performance | …adds work to a hot path, allocates in loops, changes algorithmic complexity, or touches I/O patterns | `references/performance.md` |
+| Design | …adds or changes a class, struct, file, function signature, option, or concept (almost always for new features) | `references/design.md` |
 | Maintainability | …is non-trivial in size or will be read/extended by others (almost always, but lowest severity) | `references/maintainability.md` |
 | Tests | …adds or changes any test | `references/tests.md` |
 | Comments | …adds or changes any comment or doc comment, or adds a concept a reader would need explained | `references/comments.md` |
@@ -107,8 +108,8 @@ gets undiluted attention. If you have subagents available, spawn one per lens in
 parallel, each loading its own reference file and every skill that file names;
 if not, do them sequentially. Brief each lens subagent with the diff, the
 intent, its reference file and the constraints, not with what you suspect, so
-its read is not anchored on yours. Give Tests and Comments their own subagents even
-when you do the other lenses yourself: a reader hunting for bugs stops seeing
+its read is not anchored on yours. Give Design, Tests and Comments their own subagents
+even when you do the other lenses yourself: a reader hunting for bugs stops seeing
 whether tests and comments can be understood. Collect raw findings per lens;
 don't filter yet.
 
@@ -187,6 +188,7 @@ specific condition under which the bug triggers.
 - `references/concurrency.md` — races, deadlock, signal/async safety
 - `references/portability.md` — sizes, endianness, platform/compiler assumptions
 - `references/performance.md` — complexity, allocation, I/O, hot paths
+- `references/design.md` — parts, layering, reuse, contracts; patterns code generators produce
 - `references/maintainability.md` — structure, naming, testability
 - `references/tests.md` — whether tests are worth their cost and readable
 - `references/comments.md` — whether comments are true, needed and readable
