@@ -13,6 +13,7 @@
 #include <iostream>
 #include <mutex>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -174,21 +175,6 @@ bool is_nucleotide_sequence(const string& seq) {
     return !seq.empty() && seq.find_first_not_of(allowed) == string::npos;
 }
 
-vector<string> split_tab_fields(const string& line) {
-    vector<string> fields;
-    size_t start = 0;
-    while (true) {
-        size_t tab = line.find('\t', start);
-        if (tab == string::npos) {
-            fields.push_back(line.substr(start));
-            break;
-        }
-        fields.push_back(line.substr(start, tab - start));
-        start = tab + 1;
-    }
-    return fields;
-}
-
 /// Return the number in a request field, or nullopt if the field is not a
 /// decimal number that fits in a size_t. vg's parse<T>(string) exits the
 /// program on bad input, and a bad request must not end the server.
@@ -205,6 +191,64 @@ optional<size_t> parse_request_number(const string& field) {
         // std::stoull throws on a number too big for its type.
     }
     return nullopt;
+}
+
+/// Append the GAF tags for a haplotype assignment.
+void append_haplotype_tags(stringstream& ss, const HaplotypeAssignmentResult& hap) {
+    // hp:Z lists the distinct haplotype names and hn:i counts them. hb:Z is
+    // the representative, and hf:i is 1 if it is a reference. hc:i counts the
+    // candidate sequences before the cap.
+    ss << "\thp:Z:" << join_delim(hap.haplotype_names, ',')
+       << "\thn:i:" << hap.haplotype_names.size()
+       << "\thb:Z:" << (hap.representative_name.empty()
+                        ? string("*") : hap.representative_name)
+       << "\thf:i:" << (hap.representative_is_reference ? 1 : 0)
+       << "\thc:i:" << hap.candidate_count;
+    // hl:i and hr:i are the enclosing snarl's boundary nodes, if one was
+    // found.
+    if (hap.left_boundary_node != 0) {
+        ss << "\thl:i:" << hap.left_boundary_node;
+    }
+    if (hap.right_boundary_node != 0) {
+        ss << "\thr:i:" << hap.right_boundary_node;
+    }
+    // ht:i is 1 if the cap cut the list. hq:i is 1 if one haplotype carries
+    // the whole read. hv:i is the percentage of the read's path that the
+    // longest segment covers, and hs:i counts the segments.
+    ss << "\tht:i:" << (hap.seq_ids.size() < hap.candidate_count ? 1 : 0)
+       << "\thq:i:" << (hap.fully_covered ? 1 : 0)
+       << "\thv:i:" << (hap.path_length_bp
+                        ? (100 * hap.best_covered_bp / hap.path_length_bp)
+                        : 0)
+       << "\ths:i:" << hap.segments.size();
+    // hm:Z lists the segments in path order, if there are several. Each
+    // entry is covered_bp:haplotype_count:representative, and ';' separates
+    // them.
+    if (hap.segments.size() > 1) {
+        ss << "\thm:Z:";
+        for (size_t s = 0; s < hap.segments.size(); ++s) {
+            const auto& seg = hap.segments[s];
+            ss << (s ? ";" : "")
+               << seg.covered_bp << ":"
+               << seg.haplotype_names.size() << ":"
+               << (seg.representative_name.empty()
+                   ? string("*") : seg.representative_name);
+        }
+    }
+}
+
+/// Return the GAF line of a mapped alignment, with its haplotype tags and
+/// surjection tags.
+string mapped_alignment_to_gaf(const HandleGraph& graph, const MappedAlignment& mapped) {
+    stringstream ss;
+    ss << io::alignment_to_gaf(graph, mapped.alignment);
+    if (mapped.haplotypes) {
+        append_haplotype_tags(ss, *mapped.haplotypes);
+    }
+    if (mapped.surjection) {
+        append_surjection_tags(ss, *mapped.surjection);
+    }
+    return ss.str();
 }
 
 int main_giraffe_server(int argc, char** argv) {
@@ -371,7 +415,14 @@ int main_giraffe_server(int argc, char** argv) {
             if (batch.empty()) {
                 return;
             }
-            auto mapped = engine.map_reads(batch);
+            vector<MappedRead> mapped_reads = engine.map_reads(batch);
+            // Write the GAF lines before taking the output lock.
+            vector<vector<string>> mapped(mapped_reads.size());
+            for (size_t i = 0; i < mapped_reads.size(); ++i) {
+                for (const MappedAlignment& mapped_aln : mapped_reads[i].alignments) {
+                    mapped[i].push_back(mapped_alignment_to_gaf(engine.gbz().graph, mapped_aln));
+                }
+            }
             lock_guard<mutex> lk(out_mu);
             for (size_t i = 0; i < mapped.size(); ++i) {
                 const auto& read_mappings = mapped[i];
@@ -423,7 +474,7 @@ int main_giraffe_server(int argc, char** argv) {
             if (line.compare(0, sizeof("SURJECT_WITH_ANCHORS\t") - 1,
                              "SURJECT_WITH_ANCHORS\t") == 0) {
                 flush_batch();
-                auto header_fields = split_tab_fields(line);
+                auto header_fields = split_delims_keep_empty(line, "\t");
                 // The header holds the command, read name, target path, path
                 // length and anchor count.
                 if (header_fields.size() != 5) {
@@ -466,7 +517,7 @@ int main_giraffe_server(int argc, char** argv) {
                     if (!sa_error.empty()) {
                         continue;
                     }
-                    auto af = split_tab_fields(anchor_line);
+                    auto af = split_delims_keep_empty(anchor_line, "\t");
                     vector<size_t> nums;
                     for (const auto& field : af) {
                         optional<size_t> num = parse_request_number(field);
@@ -557,7 +608,7 @@ int main_giraffe_server(int argc, char** argv) {
                 }
                 continue;
             }
-            auto fields = split_tab_fields(line);
+            auto fields = split_delims_keep_empty(line, "\t");
             // A read line has 1 to 4 tab-separated fields:
             //   1: SEQ
             //   2: NAME, SEQ

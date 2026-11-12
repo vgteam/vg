@@ -19,7 +19,6 @@
 #include <limits>
 
 #include "alignment.hpp"
-#include "annotation.hpp"
 #include "anchor_backed_position_graph.hpp"
 #include "gbwtgraph_helper.hpp"
 #include "surjector.hpp"
@@ -258,16 +257,6 @@ std::vector<string> compute_haplotype_names(const gbwtgraph::GBZ& gbz,
     return std::vector<string>(uniq.begin(), uniq.end());
 }
 
-/// Join strings with commas.
-string join_csv(const std::vector<string>& items) {
-    string out;
-    for (size_t i = 0; i < items.size(); ++i) {
-        if (i) out.push_back(',');
-        out += items[i];
-    }
-    return out;
-}
-
 /// Return the PanSN name of a GBWT path. A sample or contig that the metadata
 /// does not name appears as its number.
 string path_name_for(const gbwt::Metadata& md, gbwt::size_type path_id) {
@@ -316,34 +305,8 @@ std::pair<string, bool> choose_representative(const gbwtgraph::GBZ& gbz,
     return {path_name_for(md, chosen / 2), ref_found};
 }
 
-/// Record a haplotype assignment as annotations on its alignment.
-void attach_haplotype_annotations(Alignment& aln, const HaplotypeAssignmentResult& r) {
-    set_annotation(aln, "haplotype_names", join_csv(r.haplotype_names));
-    set_annotation(aln, "haplotype_distinct_count", static_cast<double>(r.haplotype_names.size()));
-    set_annotation(aln, "haplotype_representative", r.representative_name);
-    set_annotation(aln, "haplotype_representative_is_reference", r.representative_is_reference);
-    set_annotation(aln, "haplotype_candidate_count", static_cast<double>(r.candidate_count));
-    if (r.left_boundary_node != 0) {
-        set_annotation(aln, "haplotype_left_boundary", static_cast<double>(r.left_boundary_node));
-    }
-    if (r.right_boundary_node != 0) {
-        set_annotation(aln, "haplotype_right_boundary", static_cast<double>(r.right_boundary_node));
-    }
-    set_annotation(aln, "haplotype_truncated", r.seq_ids.size() < r.candidate_count);
-    // Whether one haplotype carries the whole read, and if not, how the read
-    // splits into haplotype-consistent segments.
-    set_annotation(aln, "haplotype_fully_covered", r.fully_covered);
-    set_annotation(aln, "haplotype_best_covered_bp", static_cast<double>(r.best_covered_bp));
-    set_annotation(aln, "haplotype_path_length_bp", static_cast<double>(r.path_length_bp));
-    set_annotation(aln, "haplotype_num_segments", static_cast<double>(r.segments.size()));
-}
+} // namespace
 
-/// Append the GAF tags for a surjection result.
-///
-/// sj:Z always holds the status. Only a successful result has the others:
-/// sn:Z the path name, sp:i the start, sr:i 1 if on the reverse strand, ss:i
-/// the score, sm:i the MAPQ and sc:Z the CIGAR. sM:i, sX:i, sI:i and sD:i
-/// count the matched, mismatched, inserted and deleted bases.
 void append_surjection_tags(stringstream& ss, const HaplotypeSurjectionResult& r) {
     ss << "\tsj:Z:" << haplotype_surjection_status_token(r.status);
     if (r.status != HaplotypeSurjectionResult::Status::OK) {
@@ -360,8 +323,6 @@ void append_surjection_tags(stringstream& ss, const HaplotypeSurjectionResult& r
        << "\tsI:i:" << r.inserted
        << "\tsD:i:" << r.deleted;
 }
-
-} // namespace
 
 void GiraffeEngine::load(const GiraffeEngineConfig& config) {
     if (config.gbz_path.empty() || config.minimizer_path.empty() || config.distance_path.empty() || config.zipcode_path.empty()) {
@@ -454,15 +415,20 @@ const gbwtgraph::DefaultMinimizerIndex& GiraffeEngine::minimizer_index() const {
     return *minimizer_index_;
 }
 
+const gbwtgraph::GBZ& GiraffeEngine::gbz() const {
+    require_loaded();
+    return *gbz_;
+}
+
 vector<string> GiraffeEngine::gaf_header_lines() const {
     require_loaded();
     gbwtgraph::GraphName graph_name = gbz_->graph_name();
     return graph_name.gaf_header_lines();
 }
 
-vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& reads) {
+vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& reads) {
     require_loaded();
-    vector<vector<string>> results(reads.size());
+    vector<MappedRead> results(reads.size());
     if (reads.empty()) {
         return results;
     }
@@ -509,7 +475,6 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeServerReques
                         hap.representative_name = rep.first;
                         hap.representative_is_reference = rep.second;
                     }
-                    attach_haplotype_annotations(m, hap);
                     hap_results.emplace_back(std::move(hap));
                 }
             }
@@ -546,62 +511,18 @@ vector<vector<string>> GiraffeEngine::map_reads(const vector<GiraffeServerReques
                 }
             }
 
-            auto& lines = results[i];
-            lines.reserve(mapped.size());
+            auto& alignments = results[i].alignments;
+            alignments.reserve(mapped.size());
             for (size_t j = 0; j < mapped.size(); ++j) {
-                auto& m = mapped[j];
-                auto gaf = io::alignment_to_gaf(gbz_->graph, m);
-                stringstream ss;
-                ss << gaf;
+                MappedAlignment out;
+                out.alignment = std::move(mapped[j]);
                 if (!hap_results.empty()) {
-                    const auto& hap = hap_results[j];
-                    // hp:Z lists the distinct haplotype names and hn:i counts
-                    // them. hb:Z is the representative, and hf:i is 1 if it is
-                    // a reference. hc:i counts the candidate sequences before
-                    // the cap.
-                    ss << "\thp:Z:" << join_csv(hap.haplotype_names)
-                       << "\thn:i:" << hap.haplotype_names.size()
-                       << "\thb:Z:" << (hap.representative_name.empty()
-                                        ? string("*") : hap.representative_name)
-                       << "\thf:i:" << (hap.representative_is_reference ? 1 : 0)
-                       << "\thc:i:" << hap.candidate_count;
-                    // hl:i and hr:i are the enclosing snarl's boundary nodes,
-                    // if one was found.
-                    if (hap.left_boundary_node != 0) {
-                        ss << "\thl:i:" << hap.left_boundary_node;
-                    }
-                    if (hap.right_boundary_node != 0) {
-                        ss << "\thr:i:" << hap.right_boundary_node;
-                    }
-                    // ht:i is 1 if the cap cut the list. hq:i is 1 if one
-                    // haplotype carries the whole read. hv:i is the percentage
-                    // of the read's path that the longest segment covers, and
-                    // hs:i counts the segments.
-                    ss << "\tht:i:" << (hap.seq_ids.size() < hap.candidate_count ? 1 : 0)
-                       << "\thq:i:" << (hap.fully_covered ? 1 : 0)
-                       << "\thv:i:" << (hap.path_length_bp
-                                        ? (100 * hap.best_covered_bp / hap.path_length_bp)
-                                        : 0)
-                       << "\ths:i:" << hap.segments.size();
-                    // hm:Z lists the segments in path order, if there are
-                    // several. Each entry is covered_bp:haplotype_count:representative,
-                    // and ';' separates them.
-                    if (hap.segments.size() > 1) {
-                        ss << "\thm:Z:";
-                        for (size_t s = 0; s < hap.segments.size(); ++s) {
-                            const auto& seg = hap.segments[s];
-                            ss << (s ? ";" : "")
-                               << seg.covered_bp << ":"
-                               << seg.haplotype_names.size() << ":"
-                               << (seg.representative_name.empty()
-                                   ? string("*") : seg.representative_name);
-                        }
-                    }
+                    out.haplotypes = std::move(hap_results[j]);
                 }
                 if (j < surj_results.size()) {
-                    append_surjection_tags(ss, surj_results[j]);
+                    out.surjection = std::move(surj_results[j]);
                 }
-                lines.emplace_back(ss.str());
+                alignments.emplace_back(std::move(out));
             }
         } catch (...) {
             lock_guard<mutex> guard(worker_error_mutex);

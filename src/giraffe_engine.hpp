@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -60,6 +62,14 @@ struct HaplotypeSurjectionResult {
 /// Return the token that stands for a status in GAF tags.
 const char* haplotype_surjection_status_token(HaplotypeSurjectionResult::Status status);
 
+/// Append the GAF tags for a surjection result.
+///
+/// sj:Z always holds the status. Only a successful result has the others:
+/// sn:Z the path name, sp:i the start, sr:i 1 if on the reverse strand, ss:i
+/// the score, sm:i the MAPQ and sc:Z the CIGAR. sM:i, sX:i, sI:i and sD:i
+/// count the matched, mismatched, inserted and deleted bases.
+void append_surjection_tags(std::stringstream& ss, const HaplotypeSurjectionResult& r);
+
 /// What GiraffeEngine::load() loads, and how the engine maps.
 struct GiraffeEngineConfig {
     /// The GBZ graph and Giraffe's minimizer, distance and zipcode indexes.
@@ -98,6 +108,23 @@ struct GiraffeServerRequest {
     std::string surjection_target;
 };
 
+/// One alignment of a read, with what the engine found out about it. A read can have multiples.
+struct MappedAlignment {
+    Alignment alignment;
+    /// The haplotypes that carry the alignment's path. Unset if haplotype
+    /// assignment is off.
+    std::optional<HaplotypeAssignmentResult> haplotypes;
+    /// Where the alignment lands on the read's surjection target. Unset if
+    /// the read names no target.
+    std::optional<HaplotypeSurjectionResult> surjection;
+};
+
+/// The alignments of one read, best first. An unmapped read has one unmapped
+/// alignment.
+struct MappedRead {
+    std::vector<MappedAlignment> alignments;
+};
+
 /// One precomputed anchor, as giraffe-server reads it: a run of steps of the
 /// target path, from step_begin to step_end inclusive, with the path offsets
 /// of both steps.
@@ -121,11 +148,11 @@ struct WireAnchor {
 /**
  * Giraffe with its indexes loaded once, for a mapping server.
  *
- * The engine maps batches of reads to GAF lines. It tags each alignment with
- * the haplotypes that carry its path, and can surject it onto one haplotype
- * path. A path indexed at load time can be a surjection target for
- * map_reads(). Any other path can be a target for surject_with_anchors(),
- * given anchors that place some of its steps on the path.
+ * The engine maps batches of reads. It can find the haplotypes that carry each
+ * alignment's path, and can surject the alignment onto one haplotype path. A
+ * path indexed at load time can be a surjection target for map_reads(). Any
+ * other path can be a target for surject_with_anchors(), given anchors that
+ * place some of its steps on the path.
  */
 class GiraffeEngine {
 public:
@@ -154,22 +181,23 @@ public:
     /// The minimizer index the mapper uses.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index() const;
 
+    /// The graph.
+    const gbwtgraph::GBZ& gbz() const;
+
     /// Return the GAF header lines that name the graph.
     std::vector<std::string> gaf_header_lines() const;
 
     /**
      * Map a batch of reads in parallel.
      *
-     * Return one vector per read, in input order, with one GAF line per
-     * alignment. An unmapped read gets one unmapped line. Each line carries
-     * the haplotype tags and, if the read names a surjection target, the
-     * surjection tags.
+     * Return one MappedRead per read, in input order. Each alignment has its
+     * haplotypes and, if the read names a surjection target, its surjection.
      *
      * @throws std::runtime_error if a read's qualities and sequence differ in
      * length. If mapping a read throws, the first such exception is rethrown
      * after the batch.
      */
-    std::vector<std::vector<std::string>> map_reads(const std::vector<GiraffeServerRequest>& reads);
+    std::vector<MappedRead> map_reads(const std::vector<GiraffeServerRequest>& reads);
 
     /**
      * Surject a graph alignment onto a haplotype path, using anchors on the
