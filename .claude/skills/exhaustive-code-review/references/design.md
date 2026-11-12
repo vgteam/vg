@@ -130,14 +130,27 @@ ones. For each new part that does a recognizable job:
      if not, and use the command. If installing fails, say so in the report and
      go on without it.
 
-   Read `semble --help` for its commands. Run `find-related` on each new
-   function and class, and `search` with the job sentence. Index `src/` and the
-   public headers of the dependencies the change uses (for example
-   `deps/libhandlegraph/src/include` and `deps/libbdsg/bdsg/include`). Its
-   results are candidates, many of them wrong: open each likely one and
-   decide.
-   TODO: Find out where Semble keeps its index, and keep it out of the
-   checkout or out of git.
+   Run `semble search "<job sentence>" src -k 20 --format json` for each job;
+   this finds the most. Run `semble find-related <file> <line> src -k 20
+   --format json` on a line inside each new class and each block that does a
+   recognizable job, not on every function; it returns many near-copies of
+   test setup code and few real matches. Give `<file>` relative to `src`, as
+   results print it (`unittest/foo.cpp`, not `src/unittest/foo.cpp`). Add the
+   public header directories of the dependencies the change uses as further
+   paths (for example `deps/libhandlegraph/src/include`); if a submodule
+   directory is empty in this checkout, Semble returns nothing for it without
+   saying so, so check that it has files. The first run builds an index, in
+   about 10 seconds for `src/`; later queries take under a second.
+
+   The change's own files crowd the top of the results. Drop them using the
+   `file_path` field of each result in the JSON, for example with `jq` or
+   `python3`. The rest are candidates, many of them wrong. A hit that is not
+   itself the existing code often calls it, so open each likely one, including
+   tests, and follow what it uses.
+
+   Semble finds code with similar purpose and different names. It misses
+   functions whose names and bodies share little wording with the new code,
+   which the next two steps find; do them too.
 3. Search by signature: grep headers for functions that take the same input
    types and return the same type as the new code.
 4. Read the public methods of the classes whose objects the new code takes
