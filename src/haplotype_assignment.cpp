@@ -2,8 +2,12 @@
 
 #include <algorithm>
 #include <optional>
+#include <set>
 
+#include <gbwtgraph/utils.h>
 #include <vg/vg.pb.h>
+
+#include "handle.hpp"
 
 namespace vg {
 
@@ -197,6 +201,64 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
     result.candidate_count = result.segments[best].candidate_count;
 
     return result;
+}
+
+string haplotype_name(const gbwt::Metadata& metadata, gbwt::size_type path_id) {
+    gbwt::PathName path = metadata.path(path_id);
+    string sample = (metadata.samples() > 0 && path.sample < metadata.samples())
+                    ? metadata.sample(path.sample) : std::to_string(path.sample);
+    string contig = (metadata.contigs() > 0 && path.contig < metadata.contigs())
+                    ? metadata.contig(path.contig) : std::to_string(path.contig);
+    // Only a reference path's name has no fragment, so name it as one.
+    return PathMetadata::create_path_name(PathSense::REFERENCE, sample, contig, path.phase,
+                                          PathMetadata::NO_PHASE_BLOCK, PathMetadata::NO_SUBRANGE);
+}
+
+vector<string> haplotype_names(const gbwtgraph::GBZ& gbz,
+                               const vector<gbwt::size_type>& seq_ids) {
+    std::set<string> uniq;
+    const gbwt::GBWT& index = gbz.index;
+    const bool have_md = index.hasMetadata();
+    const gbwt::Metadata& md = index.metadata;
+    for (gbwt::size_type s : seq_ids) {
+        gbwt::size_type path_id = s / 2;
+        if (!have_md || path_id >= md.paths()) {
+            uniq.insert(std::to_string(s));
+            continue;
+        }
+        uniq.insert(haplotype_name(md, path_id));
+    }
+    return vector<string>(uniq.begin(), uniq.end());
+}
+
+pair<string, bool> choose_representative(const gbwtgraph::GBZ& gbz,
+                                         const vector<gbwt::size_type>& seq_ids) {
+    const gbwt::GBWT& index = gbz.index;
+    if (seq_ids.empty() || !index.hasMetadata()) {
+        return {string(), false};
+    }
+    const gbwt::Metadata& md = index.metadata;
+    const gbwtgraph::sample_name_set& refs = gbz.get_reference_samples();
+
+    bool any = false, ref_found = false;
+    gbwt::size_type best_any = 0, best_ref = 0;
+    for (gbwt::size_type s : seq_ids) {
+        gbwt::size_type path_id = s / 2;
+        if (path_id >= md.paths()) continue;
+        gbwt::PathName pn = md.path(path_id);
+        string sample = (md.samples() > 0 && pn.sample < md.samples())
+                        ? md.sample(pn.sample) : string();
+        bool is_ref = !sample.empty() &&
+                      (refs.count(sample) > 0 ||
+                       sample == gbwtgraph::GENERIC_PATH_SAMPLE_NAME);
+        if (!any || s < best_any) { best_any = s; any = true; }
+        if (is_ref && (!ref_found || s < best_ref)) { best_ref = s; ref_found = true; }
+    }
+    if (!any) {
+        return {string(), false};
+    }
+    gbwt::size_type chosen = ref_found ? best_ref : best_any;
+    return {haplotype_name(md, chosen / 2), ref_found};
 }
 
 } // namespace vg

@@ -10,6 +10,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gbwt/gbwt.h>
@@ -127,6 +128,32 @@ private:
     /// Return true if the snarl, as a canonical net handle, contains the node.
     bool in_snarl(nid_t node_id, const net_handle_t& snarl) const;
 };
+
+/// Return the name of a GBWT path's haplotype, as sample#phase#contig. A
+/// sample or contig that the metadata does not name appears as its number.
+///
+/// This is not the graph's name for the path, which also has the fragment.
+/// The fragments of a haplotype share this name.
+std::string haplotype_name(const gbwt::Metadata& metadata, gbwt::size_type path_id);
+
+/// Return the distinct names, sorted, of the haplotypes with these GBWT
+/// sequence IDs.
+///
+/// A haplotype can have many sequence IDs: one per orientation, per visit
+/// and per fragment of its path. A sequence ID that GBWT metadata does not
+/// name stands for itself, as a number.
+std::vector<std::string> haplotype_names(const gbwtgraph::GBZ& gbz,
+                                         const std::vector<gbwt::size_type>& seq_ids);
+
+/// Choose one haplotype to stand for all the haplotypes with these GBWT
+/// sequence IDs.
+///
+/// Prefer a reference sample or the generic path sample, and then the lowest
+/// sequence ID, so that the choice is the same on every run. Return the
+/// chosen haplotype's name, and whether it is a reference. Return an empty
+/// name if there are no sequence IDs or no GBWT metadata.
+std::pair<std::string, bool> choose_representative(const gbwtgraph::GBZ& gbz,
+                                                   const std::vector<gbwt::size_type>& seq_ids);
 
 } // namespace vg
 

@@ -5,7 +5,6 @@
 #include <iostream>
 #include <atomic>
 #include <mutex>
-#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_set>
@@ -24,7 +23,6 @@
 #include "utility.hpp"
 
 #include <handlegraph/util.hpp>
-#include <gbwtgraph/utils.h>   // sample_name_set, GENERIC_PATH_SAMPLE_NAME
 
 namespace vg {
 
@@ -212,86 +210,6 @@ HaplotypeSurjectionResult GiraffeEngine::surject_to_indexed_path(
     return result;
 }
 
-namespace {
-
-/// Return the distinct PanSN names, sorted, of the haplotypes with these GBWT
-/// sequence IDs.
-///
-/// A haplotype can have many sequence IDs: one per orientation, per visit
-/// and per fragment of its path. A sequence ID that GBWT metadata does not
-/// name stands for itself, as a number.
-std::vector<string> compute_haplotype_names(const gbwtgraph::GBZ& gbz,
-                                            const std::vector<gbwt::size_type>& seq_ids) {
-    std::set<string> uniq;
-    const gbwt::GBWT& index = gbz.index;
-    const bool have_md = index.hasMetadata();
-    const gbwt::Metadata& md = index.metadata;
-    for (gbwt::size_type s : seq_ids) {
-        gbwt::size_type path_id = s / 2;
-        if (!have_md || path_id >= md.paths()) {
-            uniq.insert(std::to_string(s));
-            continue;
-        }
-        gbwt::PathName pn = md.path(path_id);
-        string sample = (md.samples() > 0 && pn.sample < md.samples())
-                        ? md.sample(pn.sample) : std::to_string(pn.sample);
-        string contig = (md.contigs() > 0 && pn.contig < md.contigs())
-                        ? md.contig(pn.contig) : std::to_string(pn.contig);
-        uniq.insert(sample + "#" + std::to_string(pn.phase) + "#" + contig);
-    }
-    return std::vector<string>(uniq.begin(), uniq.end());
-}
-
-/// Return the PanSN name of a GBWT path. A sample or contig that the metadata
-/// does not name appears as its number.
-string path_name_for(const gbwt::Metadata& md, gbwt::size_type path_id) {
-    gbwt::PathName pn = md.path(path_id);
-    string sample = (md.samples() > 0 && pn.sample < md.samples())
-                    ? md.sample(pn.sample) : std::to_string(pn.sample);
-    string contig = (md.contigs() > 0 && pn.contig < md.contigs())
-                    ? md.contig(pn.contig) : std::to_string(pn.contig);
-    return sample + "#" + std::to_string(pn.phase) + "#" + contig;
-}
-
-/// Choose one haplotype to stand for all the haplotypes with these GBWT
-/// sequence IDs.
-///
-/// Prefer a reference sample or the generic path sample, and then the lowest
-/// sequence ID, so that the choice is the same on every run. Return the
-/// chosen haplotype's PanSN name, and whether it is a reference. Return an
-/// empty name if there are no sequence IDs or no GBWT metadata.
-std::pair<string, bool> choose_representative(const gbwtgraph::GBZ& gbz,
-                                              const std::vector<gbwt::size_type>& seq_ids) {
-    const gbwt::GBWT& index = gbz.index;
-    if (seq_ids.empty() || !index.hasMetadata()) {
-        return {string(), false};
-    }
-    const gbwt::Metadata& md = index.metadata;
-    const gbwtgraph::sample_name_set& refs = gbz.get_reference_samples();
-
-    bool any = false, ref_found = false;
-    gbwt::size_type best_any = 0, best_ref = 0;
-    for (gbwt::size_type s : seq_ids) {
-        gbwt::size_type path_id = s / 2;
-        if (path_id >= md.paths()) continue;
-        gbwt::PathName pn = md.path(path_id);
-        string sample = (md.samples() > 0 && pn.sample < md.samples())
-                        ? md.sample(pn.sample) : string();
-        bool is_ref = !sample.empty() &&
-                      (refs.count(sample) > 0 ||
-                       sample == gbwtgraph::GENERIC_PATH_SAMPLE_NAME);
-        if (!any || s < best_any) { best_any = s; any = true; }
-        if (is_ref && (!ref_found || s < best_ref)) { best_ref = s; ref_found = true; }
-    }
-    if (!any) {
-        return {string(), false};
-    }
-    gbwt::size_type chosen = ref_found ? best_ref : best_any;
-    return {path_name_for(md, chosen / 2), ref_found};
-}
-
-} // namespace
-
 void GiraffeEngine::load(const GiraffeEngineConfig& config) {
     if (config.gbz_path.empty() || config.minimizer_path.empty() || config.distance_path.empty() || config.zipcode_path.empty()) {
         throw runtime_error("All index paths must be provided: GBZ, minimizer, distance, zipcodes");
@@ -424,7 +342,7 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
                     // Name the haplotypes of each segment and choose its
                     // representative.
                     for (auto& seg : hap.segments) {
-                        seg.haplotype_names = compute_haplotype_names(*gbz_, seg.seq_ids);
+                        seg.haplotype_names = haplotype_names(*gbz_, seg.seq_ids);
                         seg.representative_name = choose_representative(*gbz_, seg.seq_ids).first;
                     }
                     // Report the longest segment's haplotypes for the whole
