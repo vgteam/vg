@@ -36,11 +36,10 @@ namespace {
 // Codes for the long options with no short form. They start above 255, so
 // they cannot clash with a short option character.
 constexpr int OPT_EMIT_HEADER   = 1000;
-constexpr int OPT_FRAMED_OUTPUT = 1001;
-constexpr int OPT_SURJECT_THREADS = 1002;
-constexpr int OPT_PARAMETER_PRESET = 1003;
-constexpr int OPT_SET = 1004;
-constexpr int OPT_NO_REC_MODE = 1005;
+constexpr int OPT_SURJECT_THREADS = 1001;
+constexpr int OPT_PARAMETER_PRESET = 1002;
+constexpr int OPT_SET = 1003;
+constexpr int OPT_NO_REC_MODE = 1004;
 
 /// A fixed set of threads that run SURJECT_WITH_ANCHORS requests, so several
 /// surjections run at once while the main thread keeps reading stdin.
@@ -94,6 +93,27 @@ private:
     bool stopping_ = false;
 };
 
+/// Writes the server's answers as frames. A frame is written whole, so frames
+/// from different threads never mix.
+class FrameWriter {
+public:
+    explicit FrameWriter(ostream& out) : out(out) {}
+
+    /// Write READ<TAB>NAME<TAB>N and then the read's N GAF lines.
+    void write_result(const string& name, const vector<string>& gaf_lines) {
+        lock_guard<mutex> lock(mu);
+        out << "READ\t" << name << '\t' << gaf_lines.size() << '\n';
+        for (const string& gaf_line : gaf_lines) {
+            out << gaf_line << '\n';
+        }
+        out.flush();
+    }
+
+private:
+    ostream& out;
+    mutex mu;
+};
+
 void help_giraffe_server(char** argv) {
     cerr << "usage: " << argv[0] << " giraffe-server [options]" << endl
          << "Loads Giraffe indexes once and maps sequence batches from stdin." << endl
@@ -110,10 +130,8 @@ void help_giraffe_server(char** argv) {
          << "                               max-alignments) [the preset's value]" << endl
          << "  -b, --batch-size N           input reads per mapping batch [256]" << endl
          << "      --emit-header            emit GAF header lines before output" << endl
-         << "      --framed-output          emit read-grouped framed output for middleware" << endl
          << "      --surject-threads N      run SURJECT_WITH_ANCHORS requests on N worker" << endl
-         << "                               threads (framed output only; 0 = inline, one at" << endl
-         << "                               a time) [--threads]" << endl
+         << "                               threads (0 = inline, one at a time) [--threads]" << endl
          << "      --parameter-preset NAME  vg giraffe parameter preset [hifi]" << endl
          << "      --set NAME[=VALUE]       set any vg giraffe option by its long name," << endl
          << "                               e.g. mapq-score-window=150; a flag takes no" << endl
@@ -141,15 +159,16 @@ void help_giraffe_server(char** argv) {
          << "      path_off_begin, path_off_end, read_begin, read_end," << endl
          << "      src_mapping_begin, src_mapping_end (all tab-separated)" << endl
          << "    followed by ONE graph-alignment GAF line." << endl
-         << "    Response is framed: READ<TAB>NAME<TAB>1 then one GAF line" << endl
+         << "    Response: READ<TAB>NAME<TAB>1 then one GAF line" << endl
          << "    carrying the surjection tags (sj:Z:..., sn:Z:..., etc.)." << endl
          << endl
          << "stdout:" << endl
-         << "  GAF header lines first, with --emit-header. Then, per read in input order," << endl
-         << "  one GAF line per reported alignment (an unmapped read gets one unmapped line)." << endl
-         << "  Default: the GAF lines only; reads with errors are skipped (see stderr)." << endl
-         << "  --framed-output: READ<TAB>NAME<TAB>N, then the read's N GAF lines. N is 0" << endl
-         << "    for a read that could not be mapped because of an error (see stderr)." << endl
+         << "  GAF header lines first, with --emit-header. Then one frame per request:" << endl
+         << "  READ<TAB>NAME<TAB>N, then N GAF lines, one per reported alignment (an" << endl
+         << "  unmapped read gets one unmapped line). N is 0 for a request that failed" << endl
+         << "  with an error (see stderr). Reads are answered in input order. The answer" << endl
+         << "  to a SURJECT_WITH_ANCHORS request can come after the answers to later" << endl
+         << "  requests." << endl
          << "  Each line has extra tags:" << endl
          << "    hp:Z haplotypes carrying the path (comma-separated)  hn:i their count" << endl
          << "    hb:Z representative haplotype  hf:i 1 if it is a reference" << endl
@@ -329,7 +348,6 @@ int main_giraffe_server(int argc, char** argv) {
     GiraffeEngineConfig config;
     size_t batch_size = 256;
     bool emit_header = false;
-    bool framed_output = false;
     long surject_threads = -1;   // -1 means the --threads value
 
     GiraffeParameters params;
@@ -347,7 +365,6 @@ int main_giraffe_server(int argc, char** argv) {
             {"max-multimaps", required_argument, 0, 'M'},
             {"batch-size", required_argument, 0, 'b'},
             {"emit-header", no_argument, 0, OPT_EMIT_HEADER},
-            {"framed-output", no_argument, 0, OPT_FRAMED_OUTPUT},
             {"surject-threads", required_argument, 0, OPT_SURJECT_THREADS},
             {"parameter-preset", required_argument, 0, OPT_PARAMETER_PRESET},
             {"set", required_argument, 0, OPT_SET},
@@ -388,9 +405,6 @@ int main_giraffe_server(int argc, char** argv) {
                 break;
             case OPT_EMIT_HEADER:
                 emit_header = true;
-                break;
-            case OPT_FRAMED_OUTPUT:
-                framed_output = true;
                 break;
             case OPT_SURJECT_THREADS:
                 surject_threads = parse<long>(optarg);
@@ -468,16 +482,15 @@ int main_giraffe_server(int argc, char** argv) {
             cout.flush();
         }
 
-        // Every write to stdout holds out_mu, so a READ line and the read's GAF
-        // lines never mix with another thread's output.
-        mutex out_mu;
+        // Everything after the header goes to stdout through the frame writer.
+        FrameWriter frames(cout);
 
-        // Surjections run on threads only with framed output. Each frame names
-        // its read, so a client can match up answers that come out of order.
+        // Surjections run on threads. Each frame names its read, so a client
+        // can match up answers that come out of order.
         const size_t n_surject = (surject_threads < 0)
             ? static_cast<size_t>(config.threads) : static_cast<size_t>(surject_threads);
         unique_ptr<SurjectPool> surject_pool;
-        if (framed_output && n_surject > 0) {
+        if (n_surject > 0) {
             surject_pool = make_unique<SurjectPool>(n_surject);
         }
 
@@ -491,45 +504,22 @@ int main_giraffe_server(int argc, char** argv) {
                 return;
             }
             vector<MappedRead> mapped_reads = engine.map_reads(batch);
-            // Write the GAF lines before taking the output lock.
-            vector<vector<string>> mapped(mapped_reads.size());
             for (size_t i = 0; i < mapped_reads.size(); ++i) {
+                vector<string> gaf_lines;
                 for (const MappedAlignment& mapped_aln : mapped_reads[i].alignments) {
-                    mapped[i].push_back(mapped_alignment_to_gaf(engine.gbz().graph, mapped_aln));
+                    gaf_lines.push_back(mapped_alignment_to_gaf(engine.gbz().graph, mapped_aln));
                 }
+                frames.write_result(batch[i].read.name(), gaf_lines);
             }
-            lock_guard<mutex> lk(out_mu);
-            for (size_t i = 0; i < mapped.size(); ++i) {
-                const auto& read_mappings = mapped[i];
-                if (framed_output) {
-                    cout << "READ\t" << batch[i].read.name() << '\t' << read_mappings.size() << '\n';
-                }
-                for (const auto& gaf_line : read_mappings) {
-                    cout << gaf_line << '\n';
-                }
-            }
-            cout.flush();
             batch.clear();
         };
 
-        // Report a bad read on stderr. With framed output, also send an empty
-        // frame, so a client waiting for the read gets an answer.
+        // Report a bad read on stderr, and send an empty frame, so a client
+        // waiting for the read gets an answer.
         auto emit_read_error = [&](const string& name, const string& reason) {
             cerr << "warning [vg giraffe-server]: skipping read"
                  << (name.empty() ? "" : " '" + name + "'") << ": " << reason << endl;
-            if (framed_output) {
-                lock_guard<mutex> lk(out_mu);
-                cout << "READ\t" << name << "\t0\n";
-                cout.flush();
-            }
-        };
-
-        auto emit_empty_frame = [&](const string& name) {
-            if (framed_output) {
-                lock_guard<mutex> lk(out_mu);
-                cout << "READ\t" << name << "\t0\n";
-                cout.flush();
-            }
+            frames.write_result(name, {});
         };
 
         size_t line_no = 0;
@@ -555,7 +545,7 @@ int main_giraffe_server(int argc, char** argv) {
                 if (header_fields.size() != 5) {
                     cerr << "error [vg giraffe-server]: malformed SURJECT_WITH_ANCHORS header "
                             "(need 5 tab fields, got " << header_fields.size() << ")" << endl;
-                    if (header_fields.size() >= 2) emit_empty_frame(header_fields[1]);
+                    if (header_fields.size() >= 2) frames.write_result(header_fields[1], {});
                     continue;
                 }
                 const string& sa_name = header_fields[1];
@@ -568,7 +558,7 @@ int main_giraffe_server(int argc, char** argv) {
                     // ignores them with a warning.
                     cerr << "error [vg giraffe-server]: malformed SURJECT_WITH_ANCHORS header "
                             "(anchor count must be a number)" << endl;
-                    emit_empty_frame(sa_name);
+                    frames.write_result(sa_name, {});
                     continue;
                 }
 
@@ -624,52 +614,37 @@ int main_giraffe_server(int argc, char** argv) {
                         cerr << "error [vg giraffe-server]: SURJECT_WITH_ANCHORS hit EOF "
                              << "while reading the GAF line" << endl;
                     }
-                    emit_empty_frame(sa_name);
+                    frames.write_result(sa_name, {});
                     continue;
                 }
                 ++line_no;
                 if (!sa_error.empty()) {
                     cerr << "error [vg giraffe-server]: " << sa_error << endl;
-                    emit_empty_frame(sa_name);
+                    frames.write_result(sa_name, {});
                     continue;
                 }
 
                 // Parsing stays on this thread, which reads stdin. The surjection
                 // needs nothing from other requests, so it can run on the pool.
-                auto task = [&engine, &out_mu, framed_output,
+                auto task = [&engine, &frames,
                              name = sa_name, target = sa_target,
                              gaf = move(sa_gaf_line), anchors = move(sa_anchors),
                              path_len = *sa_path_len]() {
-                    string out_line;
+                    // A failed request gets an empty frame. Each message is one
+                    // string, so messages from two threads do not mix.
+                    vector<string> gaf_lines;
                     try {
-                        out_line = surject_gaf_line(engine, name, gaf, anchors, target, path_len);
+                        gaf_lines.push_back(surject_gaf_line(engine, name, gaf, anchors, target, path_len));
                     } catch (const exception& e) {
-                        lock_guard<mutex> lk(out_mu);
-                        cerr << "error [vg giraffe-server]: surject_with_anchors failed for "
-                             << "read '" << name << "': " << e.what() << endl;
-                        if (framed_output) {
-                            cout << "READ\t" << name << "\t0\n";
-                            cout.flush();
-                        }
-                        return;
+                        cerr << "error [vg giraffe-server]: surject_with_anchors failed for read '"
+                                + name + "': " + e.what() + "\n";
                     } catch (...) {
                         // An exception that escapes a pool thread terminates the
                         // server.
-                        lock_guard<mutex> lk(out_mu);
-                        cerr << "error [vg giraffe-server]: surject_with_anchors failed for "
-                             << "read '" << name << "' (non-standard exception)" << endl;
-                        if (framed_output) {
-                            cout << "READ\t" << name << "\t0\n";
-                            cout.flush();
-                        }
-                        return;
+                        cerr << "error [vg giraffe-server]: surject_with_anchors failed for read '"
+                                + name + "' (non-standard exception)\n";
                     }
-                    lock_guard<mutex> lk(out_mu);
-                    if (framed_output) {
-                        cout << "READ\t" << name << "\t1\n";
-                    }
-                    cout << out_line << "\n";
-                    cout.flush();
+                    frames.write_result(name, gaf_lines);
                 };
                 if (surject_pool) {
                     surject_pool->submit(move(task));
