@@ -461,7 +461,8 @@ int main_giraffe_server(int argc, char** argv) {
         cerr << "[vg giraffe-server] recombination-aware mode: " << (use_rec_mode ? "on" : "off") << endl;
 
         if (emit_header) {
-            for (const auto& header : engine.gaf_header_lines()) {
+            gbwtgraph::GraphName graph_name = engine.gbz().graph_name();
+            for (const auto& header : graph_name.gaf_header_lines()) {
                 cout << header << '\n';
             }
             cout.flush();

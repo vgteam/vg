@@ -388,12 +388,6 @@ const gbwtgraph::GBZ& GiraffeEngine::gbz() const {
     return *gbz_;
 }
 
-vector<string> GiraffeEngine::gaf_header_lines() const {
-    require_loaded();
-    gbwtgraph::GraphName graph_name = gbz_->graph_name();
-    return graph_name.gaf_header_lines();
-}
-
 vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& reads) {
     require_loaded();
     vector<MappedRead> results(reads.size());

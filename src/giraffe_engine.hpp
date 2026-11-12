@@ -167,9 +167,6 @@ public:
     /// The graph.
     const gbwtgraph::GBZ& gbz() const;
 
-    /// Return the GAF header lines that name the graph.
-    std::vector<std::string> gaf_header_lines() const;
-
     /**
      * Map a batch of reads in parallel.
      *
