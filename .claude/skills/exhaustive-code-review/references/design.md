@@ -125,10 +125,17 @@ ones. For each new part that does a recognizable job:
    - Semble's MCP tools, if this session has them: search for "semble" with
      ToolSearch.
    - The `semble` command, if `command -v semble` finds it.
-   - Otherwise install the `semble` package from PyPI, with `pipx install
-     semble` if pipx is present and `python3 -m pip install --user semble`
-     if not, and use the command. If installing fails, say so in the report and
-     go on without it.
+   - Otherwise install the `semble` package from PyPI. Use `pipx install
+     semble` if pipx is present. If not, make a virtual environment outside the
+     checkout and install it there:
+
+     ```
+     venv="${XDG_DATA_HOME:-$HOME/.local/share}/semble-venv"
+     python3 -m venv "$venv" && "$venv/bin/pip" install semble
+     ```
+
+     Then run it as `"$venv/bin/semble"`. If installing fails, say so in the
+     report and go on without it.
 
    Run `semble search "<job sentence>" src -k 20 --format json` for each job;
    this finds the most. Run `semble find-related <file> <line> src -k 20
