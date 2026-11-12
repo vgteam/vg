@@ -170,10 +170,14 @@ public:
     const gbwtgraph::GBZ& gbz() const;
 
     /**
-     * Map a batch of reads in parallel.
+     * Map a batch of reads.
      *
      * Return one MappedRead per read, in input order. Each alignment has its
      * haplotypes and, if the read names a surjection target, its surjection.
+     *
+     * Each read is mapped in an OpenMP task. Call this from inside a parallel
+     * region to map on all its threads. Outside of one, the reads are mapped
+     * one at a time.
      *
      * If mapping a read throws, or its qualities and sequence differ in
      * length, the read gets the message as its error. The other reads are

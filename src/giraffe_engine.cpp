@@ -267,7 +267,8 @@ void GiraffeEngine::load(const GiraffeEngineConfig& config) {
         set_up_surjector(*surjector, config);
     }
 
-    // map_reads() maps on OpenMP threads, whose count is global to the process.
+    // The caller's OpenMP threads run map_reads(). Their count is global to
+    // the process.
     omp_set_num_threads(static_cast<int>(config.threads));
 
     config_ = config;
@@ -311,7 +312,9 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
         return results;
     }
 
-#pragma omp parallel for schedule(dynamic)
+    // One task per read. Without shared(), each task would get its own copy
+    // of the reads and the results.
+#pragma omp taskloop grainsize(1) shared(reads, results)
     for (size_t i = 0; i < reads.size(); ++i) {
         const auto& req = reads[i];
         try {
@@ -398,7 +401,7 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
             results[i].alignments.clear();
             results[i].error = e.what();
         } catch (...) {
-            // An exception that escapes an OpenMP thread terminates the
+            // An exception that escapes an OpenMP task terminates the
             // process.
             results[i].alignments.clear();
             results[i].error = "non-standard exception";
