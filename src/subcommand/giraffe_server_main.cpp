@@ -109,6 +109,19 @@ public:
         out.flush();
     }
 
+    /// Write ERROR<TAB>NAME<TAB>MESSAGE. A frame is one line, so tabs and
+    /// newlines in the message become spaces.
+    void write_error(const string& name, string message) {
+        for (char& c : message) {
+            if (c == '\t' || c == '\n' || c == '\r') {
+                c = ' ';
+            }
+        }
+        lock_guard<mutex> lock(mu);
+        out << "ERROR\t" << name << '\t' << message << '\n';
+        out.flush();
+    }
+
 private:
     ostream& out;
     mutex mu;
@@ -164,11 +177,12 @@ void help_giraffe_server(char** argv) {
          << endl
          << "stdout:" << endl
          << "  GAF header lines first, with --emit-header. Then one frame per request:" << endl
-         << "  READ<TAB>NAME<TAB>N, then N GAF lines, one per reported alignment (an" << endl
-         << "  unmapped read gets one unmapped line). N is 0 for a request that failed" << endl
-         << "  with an error (see stderr). Reads are answered in input order. The answer" << endl
-         << "  to a SURJECT_WITH_ANCHORS request can come after the answers to later" << endl
-         << "  requests." << endl
+         << "    READ<TAB>NAME<TAB>N, then N GAF lines, one per reported alignment (an" << endl
+         << "      unmapped read gets one unmapped line)" << endl
+         << "    ERROR<TAB>NAME<TAB>MESSAGE for a request that failed. NAME is * for a" << endl
+         << "      line that is not a request." << endl
+         << "  Reads are answered in input order. The answer to a SURJECT_WITH_ANCHORS" << endl
+         << "  request can come after the answers to later requests." << endl
          << "  Each line has extra tags:" << endl
          << "    hp:Z haplotypes carrying the path (comma-separated)  hn:i their count" << endl
          << "    hb:Z representative haplotype  hf:i 1 if it is a reference" << endl
@@ -308,7 +322,8 @@ string mapped_alignment_to_gaf(const HandleGraph& graph, const MappedAlignment& 
 }
 
 /// Surject the alignment of a GAF line with anchors. Return the line with the
-/// surjection tags. Throws if the line is empty or is not GAF.
+/// surjection tags. Throws if the line is empty or is not GAF, or if the
+/// surjector throws.
 string surject_gaf_line(GiraffeEngine& engine, const string& read_name, const string& gaf_line,
                         const vector<PathAnchor>& anchors, const string& target,
                         size_t target_path_length) {
@@ -326,15 +341,8 @@ string surject_gaf_line(GiraffeEngine& engine, const string& read_name, const st
     using S = HaplotypeSurjectionResult::Status;
     stringstream ss;
     ss << gaf_line;
-    HaplotypeSurjectionResult result;
-    try {
-        result = engine.surject_with_anchors(aln, anchors, target, target_path_length);
-    } catch (const exception& e) {
-        // se:Z sends the surjector's error back to the client.
-        ss << "\tsj:Z:" << surjection_status_token(S::SURJECTION_FAILED)
-           << "\tse:Z:" << e.what();
-        return ss.str();
-    }
+    HaplotypeSurjectionResult result =
+        engine.surject_with_anchors(aln, anchors, target, target_path_length);
     append_surjection_tags(ss, result);
     if (result.status == S::OK) {
         // an:i counts the anchors and ap:Z is the target path's name.
@@ -514,12 +522,11 @@ int main_giraffe_server(int argc, char** argv) {
             batch.clear();
         };
 
-        // Report a bad read on stderr, and send an empty frame, so a client
-        // waiting for the read gets an answer.
+        // Report a bad read on stderr, and answer it with an error frame.
         auto emit_read_error = [&](const string& name, const string& reason) {
             cerr << "warning [vg giraffe-server]: skipping read"
                  << (name.empty() ? "" : " '" + name + "'") << ": " << reason << endl;
-            frames.write_result(name, {});
+            frames.write_error(name, reason);
         };
 
         size_t line_no = 0;
@@ -543,9 +550,10 @@ int main_giraffe_server(int argc, char** argv) {
                 // The header holds the command, read name, target path, path
                 // length and anchor count.
                 if (header_fields.size() != 5) {
-                    cerr << "error [vg giraffe-server]: malformed SURJECT_WITH_ANCHORS header "
-                            "(need 5 tab fields, got " << header_fields.size() << ")" << endl;
-                    if (header_fields.size() >= 2) frames.write_result(header_fields[1], {});
+                    string error = "malformed SURJECT_WITH_ANCHORS header (need 5 tab fields, got "
+                                   + to_string(header_fields.size()) + ")";
+                    cerr << "error [vg giraffe-server]: " << error << endl;
+                    frames.write_error(header_fields.size() >= 2 ? header_fields[1] : "*", error);
                     continue;
                 }
                 const string& sa_name = header_fields[1];
@@ -554,11 +562,11 @@ int main_giraffe_server(int argc, char** argv) {
                 optional<size_t> sa_n_anchors = parse_request_number(header_fields[4]);
                 if (!sa_n_anchors) {
                     // Without the anchor count we cannot skip the request's
-                    // other lines. They are not reads, so the read parser
-                    // ignores them with a warning.
-                    cerr << "error [vg giraffe-server]: malformed SURJECT_WITH_ANCHORS header "
-                            "(anchor count must be a number)" << endl;
-                    frames.write_result(sa_name, {});
+                    // other lines. They are not reads, so each of them gets
+                    // an error frame of its own.
+                    string error = "malformed SURJECT_WITH_ANCHORS header (anchor count must be a number)";
+                    cerr << "error [vg giraffe-server]: " << error << endl;
+                    frames.write_error(sa_name, error);
                     continue;
                 }
 
@@ -573,8 +581,8 @@ int main_giraffe_server(int argc, char** argv) {
                 for (size_t ai = 0; ai < *sa_n_anchors; ++ai) {
                     string anchor_line;
                     if (!getline(cin, anchor_line)) {
-                        cerr << "error [vg giraffe-server]: SURJECT_WITH_ANCHORS hit EOF "
-                             << "while reading anchor " << ai << "/" << *sa_n_anchors << endl;
+                        sa_error = "SURJECT_WITH_ANCHORS hit EOF while reading anchor "
+                                   + to_string(ai) + "/" + to_string(*sa_n_anchors);
                         sa_eof = true;
                         break;
                     }
@@ -609,18 +617,16 @@ int main_giraffe_server(int argc, char** argv) {
                 }
 
                 string sa_gaf_line;
-                if (sa_eof || !getline(cin, sa_gaf_line)) {
-                    if (!sa_eof) {
-                        cerr << "error [vg giraffe-server]: SURJECT_WITH_ANCHORS hit EOF "
-                             << "while reading the GAF line" << endl;
+                if (!sa_eof) {
+                    if (getline(cin, sa_gaf_line)) {
+                        ++line_no;
+                    } else {
+                        sa_error = "SURJECT_WITH_ANCHORS hit EOF while reading the GAF line";
                     }
-                    frames.write_result(sa_name, {});
-                    continue;
                 }
-                ++line_no;
                 if (!sa_error.empty()) {
                     cerr << "error [vg giraffe-server]: " << sa_error << endl;
-                    frames.write_result(sa_name, {});
+                    frames.write_error(sa_name, sa_error);
                     continue;
                 }
 
@@ -630,21 +636,25 @@ int main_giraffe_server(int argc, char** argv) {
                              name = sa_name, target = sa_target,
                              gaf = move(sa_gaf_line), anchors = move(sa_anchors),
                              path_len = *sa_path_len]() {
-                    // A failed request gets an empty frame. Each message is one
-                    // string, so messages from two threads do not mix.
-                    vector<string> gaf_lines;
+                    // Each stderr message is one string, so messages from two
+                    // threads do not mix.
+                    string gaf_line;
                     try {
-                        gaf_lines.push_back(surject_gaf_line(engine, name, gaf, anchors, target, path_len));
+                        gaf_line = surject_gaf_line(engine, name, gaf, anchors, target, path_len);
                     } catch (const exception& e) {
                         cerr << "error [vg giraffe-server]: surject_with_anchors failed for read '"
                                 + name + "': " + e.what() + "\n";
+                        frames.write_error(name, e.what());
+                        return;
                     } catch (...) {
                         // An exception that escapes a pool thread terminates the
                         // server.
                         cerr << "error [vg giraffe-server]: surject_with_anchors failed for read '"
                                 + name + "' (non-standard exception)\n";
+                        frames.write_error(name, "non-standard exception");
+                        return;
                     }
-                    frames.write_result(name, gaf_lines);
+                    frames.write_result(name, {gaf_line});
                 };
                 if (surject_pool) {
                     surject_pool->submit(move(task));
@@ -660,16 +670,20 @@ int main_giraffe_server(int argc, char** argv) {
             //   3: NAME, SEQ, QUAL
             //   4: NAME, SEQ, QUAL, SURJ_TARGET (QUAL may be empty)
             if (fields.size() < 1 || fields.size() > 4) {
+                string reason = "expected 1-4 tab-separated fields or a known command, got "
+                                + to_string(fields.size());
                 cerr << "warning [vg giraffe-server]: line " << line_no
-                     << ": ignored (expected 1-4 tab-separated fields or a known command, got "
-                     << fields.size() << ")" << endl;
+                     << ": ignored (" << reason << ")" << endl;
+                frames.write_error("*", "line " + to_string(line_no) + ": " + reason);
                 continue;
             }
 
             // A lone field must be a sequence. Anything else is an unknown command.
             if (fields.size() == 1 && !is_nucleotide_sequence(fields[0])) {
+                string reason = "not a known command or a nucleotide sequence";
                 cerr << "warning [vg giraffe-server]: line " << line_no
-                     << ": ignored (not a known command or a nucleotide sequence)" << endl;
+                     << ": ignored (" << reason << ")" << endl;
+                frames.write_error("*", "line " + to_string(line_no) + ": " + reason);
                 continue;
             }
 
