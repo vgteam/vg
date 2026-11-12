@@ -24,6 +24,7 @@
 
 #include "../giraffe_engine.hpp"
 #include <vg/io/alignment_io.hpp>
+#include <vg/io/gafkluge.hpp>
 #include "../utility.hpp"
 
 using namespace std;
@@ -237,6 +238,42 @@ void append_haplotype_tags(stringstream& ss, const HaplotypeAssignmentResult& ha
     }
 }
 
+/// Return the token that stands for a status in the sj:Z tag.
+const char* surjection_status_token(HaplotypeSurjectionResult::Status status) {
+    using S = HaplotypeSurjectionResult::Status;
+    switch (status) {
+        case S::OK:                return "ok";
+        case S::EMPTY_INPUT:       return "empty";
+        case S::UNKNOWN_PATH:      return "unknown_path";
+        case S::PATH_NOT_INDEXED:  return "not_indexed";
+        case S::INCOMPATIBLE:      return "incompatible";
+        case S::SURJECTION_FAILED: return "failed";
+    }
+    return "unknown";
+}
+
+/// Append the GAF tags for a surjection result.
+void append_surjection_tags(stringstream& ss, const HaplotypeSurjectionResult& r) {
+    // sj:Z always holds the status. Only a successful result has the others.
+    ss << "\tsj:Z:" << surjection_status_token(r.status);
+    if (r.status != HaplotypeSurjectionResult::Status::OK) {
+        return;
+    }
+    // sn:Z is the path name, sp:i the start, sr:i 1 if on the reverse strand,
+    // ss:i the score, sm:i the MAPQ and sc:Z the CIGAR. sM:i, sX:i, sI:i and
+    // sD:i count the matched, mismatched, inserted and deleted bases.
+    ss << "\tsn:Z:" << r.path_name
+       << "\tsp:i:" << r.path_position
+       << "\tsr:i:" << (r.path_reverse ? 1 : 0)
+       << "\tss:i:" << r.score
+       << "\tsm:i:" << r.mapping_quality
+       << "\tsc:Z:" << (r.cigar.empty() ? string("*") : r.cigar)
+       << "\tsM:i:" << r.matches
+       << "\tsX:i:" << r.mismatches
+       << "\tsI:i:" << r.inserted
+       << "\tsD:i:" << r.deleted;
+}
+
 /// Return the GAF line of a mapped alignment, with its haplotype tags and
 /// surjection tags.
 string mapped_alignment_to_gaf(const HandleGraph& graph, const MappedAlignment& mapped) {
@@ -247,6 +284,43 @@ string mapped_alignment_to_gaf(const HandleGraph& graph, const MappedAlignment& 
     }
     if (mapped.surjection) {
         append_surjection_tags(ss, *mapped.surjection);
+    }
+    return ss.str();
+}
+
+/// Surject the alignment of a GAF line with anchors. Return the line with the
+/// surjection tags. Throws if the line is empty or is not GAF.
+string surject_gaf_line(GiraffeEngine& engine, const string& read_name, const string& gaf_line,
+                        const vector<PathAnchor>& anchors, const string& target,
+                        size_t target_path_length) {
+    if (gaf_line.empty()) {
+        throw runtime_error("surject_with_anchors: empty GAF input");
+    }
+    gafkluge::GafRecord gaf_record;
+    gafkluge::parse_gaf_record(gaf_line, gaf_record);
+    Alignment aln;
+    io::gaf_to_alignment(engine.gbz().graph, gaf_record, aln);
+    if (!read_name.empty()) {
+        aln.set_name(read_name);
+    }
+
+    using S = HaplotypeSurjectionResult::Status;
+    stringstream ss;
+    ss << gaf_line;
+    HaplotypeSurjectionResult result;
+    try {
+        result = engine.surject_with_anchors(aln, anchors, target, target_path_length);
+    } catch (const exception& e) {
+        // se:Z sends the surjector's error back to the client.
+        ss << "\tsj:Z:" << surjection_status_token(S::SURJECTION_FAILED)
+           << "\tse:Z:" << e.what();
+        return ss.str();
+    }
+    append_surjection_tags(ss, result);
+    if (result.status == S::OK) {
+        // an:i counts the anchors and ap:Z is the target path's name.
+        ss << "\tan:i:" << anchors.size()
+           << "\tap:Z:" << result.path_name;
     }
     return ss.str();
 }
@@ -499,7 +573,7 @@ int main_giraffe_server(int argc, char** argv) {
 
                 // Read all of the request's lines even after an error, so the
                 // next request starts on its own line.
-                vector<WireAnchor> sa_anchors;
+                vector<PathAnchor> sa_anchors;
                 string sa_error;
                 if (!sa_path_len) {
                     sa_error = "malformed SURJECT_WITH_ANCHORS header (path length must be a number)";
@@ -531,18 +605,16 @@ int main_giraffe_server(int argc, char** argv) {
                                    + " (need 10 tab-separated numbers)";
                         continue;
                     }
-                    WireAnchor wa;
-                    wa.step_begin_node        = nums[0];
-                    wa.step_begin_offset      = nums[1];
-                    wa.step_end_node          = nums[2];
-                    wa.step_end_offset        = nums[3];
-                    wa.path_offset_step_begin = nums[4];
-                    wa.path_offset_step_end   = nums[5];
-                    wa.read_begin_offset      = nums[6];
-                    wa.read_end_offset        = nums[7];
-                    wa.source_mapping_begin   = nums[8];
-                    wa.source_mapping_end     = nums[9];
-                    sa_anchors.push_back(wa);
+                    // The last four numbers are the anchor's read and source
+                    // mapping ranges, which the surjection does not use.
+                    PathAnchor anchor;
+                    anchor.step_begin_node        = nums[0];
+                    anchor.step_begin_offset      = nums[1];
+                    anchor.step_end_node          = nums[2];
+                    anchor.step_end_offset        = nums[3];
+                    anchor.path_offset_step_begin = nums[4];
+                    anchor.path_offset_step_end   = nums[5];
+                    sa_anchors.push_back(anchor);
                 }
 
                 string sa_gaf_line;
@@ -567,10 +639,9 @@ int main_giraffe_server(int argc, char** argv) {
                              name = sa_name, target = sa_target,
                              gaf = move(sa_gaf_line), anchors = move(sa_anchors),
                              path_len = *sa_path_len]() {
-                    vector<string> out_lines;
+                    string out_line;
                     try {
-                        out_lines = engine.surject_with_anchors(
-                            name, gaf, anchors, target, path_len);
+                        out_line = surject_gaf_line(engine, name, gaf, anchors, target, path_len);
                     } catch (const exception& e) {
                         lock_guard<mutex> lk(out_mu);
                         cerr << "error [vg giraffe-server]: surject_with_anchors failed for "
@@ -594,11 +665,9 @@ int main_giraffe_server(int argc, char** argv) {
                     }
                     lock_guard<mutex> lk(out_mu);
                     if (framed_output) {
-                        cout << "READ\t" << name << "\t" << out_lines.size() << "\n";
+                        cout << "READ\t" << name << "\t1\n";
                     }
-                    for (const auto& gl : out_lines) {
-                        cout << gl << "\n";
-                    }
+                    cout << out_line << "\n";
                     cout.flush();
                 };
                 if (surject_pool) {

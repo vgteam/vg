@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -58,17 +57,6 @@ struct HaplotypeSurjectionResult {
     uint64_t inserted = 0;    ///< Read bases missing from the path.
     uint64_t deleted = 0;     ///< Path bases missing from the read.
 };
-
-/// Return the token that stands for a status in GAF tags.
-const char* haplotype_surjection_status_token(HaplotypeSurjectionResult::Status status);
-
-/// Append the GAF tags for a surjection result.
-///
-/// sj:Z always holds the status. Only a successful result has the others:
-/// sn:Z the path name, sp:i the start, sr:i 1 if on the reverse strand, ss:i
-/// the score, sm:i the MAPQ and sc:Z the CIGAR. sM:i, sX:i, sI:i and sD:i
-/// count the matched, mismatched, inserted and deleted bases.
-void append_surjection_tags(std::stringstream& ss, const HaplotypeSurjectionResult& r);
 
 /// What GiraffeEngine::load() loads, and how the engine maps.
 struct GiraffeEngineConfig {
@@ -125,24 +113,19 @@ struct MappedRead {
     std::vector<MappedAlignment> alignments;
 };
 
-/// One precomputed anchor, as giraffe-server reads it: a run of steps of the
-/// target path, from step_begin to step_end inclusive, with the path offsets
-/// of both steps.
+/// A run of steps of a path, from step_begin to step_end inclusive, with the
+/// path offsets of both steps. surject_with_anchors() gets its positions on
+/// the target path from these.
 ///
 /// Each step is a GBWT node and an offset in that node's GBWT record, which
-/// is how GBWTGraph encodes a step handle. The engine does not use the read
-/// and source mapping ranges.
-struct WireAnchor {
+/// is how GBWTGraph encodes a step handle.
+struct PathAnchor {
     uint64_t step_begin_node = 0;
     uint64_t step_begin_offset = 0;
     uint64_t step_end_node = 0;
     uint64_t step_end_offset = 0;
     size_t path_offset_step_begin = 0;
     size_t path_offset_step_end = 0;
-    size_t read_begin_offset = 0;
-    size_t read_end_offset = 0;
-    size_t source_mapping_begin = 0;
-    size_t source_mapping_end = 0;
 };
 
 /**
@@ -208,24 +191,20 @@ public:
      *
      * `target_haplotype` is a path name, such as GRCh38#0#chrM, or a sample
      * and haplotype, such as HG002#2. For a name the graph does not have, the
-     * target is the path of the first anchor's step.
-     *
-     * Return one GAF line: `gaf_line` with the surjection tags appended. On
-     * success it also has an:i, the number of anchors, and ap:Z, the target
-     * path's name. If the surjector throws, se:Z holds the error message.
+     * target is the path of the first anchor's step. The result's path_name
+     * is the name of the path that was used.
      *
      * @pre All anchors lie on one path.
      *
      * @param target_path_length Length of the target path in bases, or 0 to
      * have it computed here by walking the path.
      *
-     * @throws std::runtime_error if the engine is not loaded or `gaf_line` is
-     * empty.
+     * @throws std::runtime_error if the engine is not loaded. An exception
+     * from the surjector is not caught.
      */
-    std::vector<std::string> surject_with_anchors(
-        const std::string& read_name,
-        const std::string& gaf_line,
-        const std::vector<WireAnchor>& anchors,
+    HaplotypeSurjectionResult surject_with_anchors(
+        const Alignment& aln,
+        const std::vector<PathAnchor>& anchors,
         const std::string& target_haplotype,
         size_t target_path_length);
 

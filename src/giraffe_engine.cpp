@@ -12,7 +12,6 @@
 
 #include <omp.h>
 
-#include <vg/io/alignment_io.hpp>
 #include <vg/io/vpkg.hpp>
 #include <vg/vg.pb.h>
 
@@ -24,26 +23,12 @@
 #include "surjector.hpp"
 #include "utility.hpp"
 
-#include <vg/io/gafkluge.hpp>
 #include <handlegraph/util.hpp>
 #include <gbwtgraph/utils.h>   // sample_name_set, GENERIC_PATH_SAMPLE_NAME
 
 namespace vg {
 
 using namespace std;
-
-const char* haplotype_surjection_status_token(HaplotypeSurjectionResult::Status status) {
-    using S = HaplotypeSurjectionResult::Status;
-    switch (status) {
-        case S::OK:                return "ok";
-        case S::EMPTY_INPUT:       return "empty";
-        case S::UNKNOWN_PATH:      return "unknown_path";
-        case S::PATH_NOT_INDEXED:  return "not_indexed";
-        case S::INCOMPATIBLE:      return "incompatible";
-        case S::SURJECTION_FAILED: return "failed";
-    }
-    return "unknown";
-}
 
 namespace {
 
@@ -307,23 +292,6 @@ std::pair<string, bool> choose_representative(const gbwtgraph::GBZ& gbz,
 
 } // namespace
 
-void append_surjection_tags(stringstream& ss, const HaplotypeSurjectionResult& r) {
-    ss << "\tsj:Z:" << haplotype_surjection_status_token(r.status);
-    if (r.status != HaplotypeSurjectionResult::Status::OK) {
-        return;
-    }
-    ss << "\tsn:Z:" << r.path_name
-       << "\tsp:i:" << r.path_position
-       << "\tsr:i:" << (r.path_reverse ? 1 : 0)
-       << "\tss:i:" << r.score
-       << "\tsm:i:" << r.mapping_quality
-       << "\tsc:Z:" << (r.cigar.empty() ? string("*") : r.cigar)
-       << "\tsM:i:" << r.matches
-       << "\tsX:i:" << r.mismatches
-       << "\tsI:i:" << r.inserted
-       << "\tsD:i:" << r.deleted;
-}
-
 void GiraffeEngine::load(const GiraffeEngineConfig& config) {
     if (config.gbz_path.empty() || config.minimizer_path.empty() || config.distance_path.empty() || config.zipcode_path.empty()) {
         throw runtime_error("All index paths must be provided: GBZ, minimizer, distance, zipcodes");
@@ -571,41 +539,27 @@ size_t walk_target_path_length(const gbwtgraph::GBZ& gbz, size_t target_gbwt_pat
 
 } // anonymous namespace
 
-std::vector<std::string> GiraffeEngine::surject_with_anchors(
-    const std::string& read_name,
-    const std::string& gaf_line,
-    const std::vector<WireAnchor>& anchors,
+HaplotypeSurjectionResult GiraffeEngine::surject_with_anchors(
+    const Alignment& aln,
+    const std::vector<PathAnchor>& anchors,
     const std::string& target_haplotype,
     size_t target_path_length)
 {
     require_loaded();
     using S = HaplotypeSurjectionResult::Status;
 
-    if (gaf_line.empty()) {
-        throw runtime_error("surject_with_anchors: empty GAF input");
-    }
-
-    gafkluge::GafRecord gaf_record;
-    gafkluge::parse_gaf_record(gaf_line, gaf_record);
-    Alignment aln;
-    vg::io::gaf_to_alignment(gbz_->graph, gaf_record, aln);
-    if (!read_name.empty()) {
-        aln.set_name(read_name);
-    } else if (aln.name().empty()) {
-        aln.set_name(gaf_record.query_name);
+    HaplotypeSurjectionResult surj_result;
+    if (aln.path().mapping_size() == 0) {
+        surj_result.status = S::EMPTY_INPUT;
+        return surj_result;
     }
 
     // Find the target path. A sample and haplotype such as HG002#2 is not a
     // path name in the graph. Then the target is the path of the first
     // anchor's step, since all the anchors lie on the target path.
-    HaplotypeSurjectionResult surj_result;
-    std::string resolved_target = target_haplotype;
     path_handle_t target_path{};
     bool target_resolved = false;
-
-    if (aln.path().mapping_size() == 0) {
-        surj_result.status = S::EMPTY_INPUT;
-    } else if (gbz_->graph.has_path(target_haplotype)) {
+    if (gbz_->graph.has_path(target_haplotype)) {
         target_path = gbz_->graph.get_path_handle(target_haplotype);
         target_resolved = true;
     } else if (!anchors.empty()) {
@@ -613,26 +567,14 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
             anchors[0].step_begin_node, anchors[0].step_begin_offset);
         try {
             target_path = gbz_->graph.get_path_handle_of_step(s);
-            resolved_target = gbz_->graph.get_path_name(target_path);
-            target_resolved = !resolved_target.empty();
+            target_resolved = !gbz_->graph.get_path_name(target_path).empty();
         } catch (const std::exception&) {
             target_resolved = false;
         }
-        if (!target_resolved) {
-            surj_result.status = S::UNKNOWN_PATH;
-        }
-    } else {
-        surj_result.status = S::UNKNOWN_PATH;
     }
-
-    if (!target_resolved || surj_result.status != S::OK) {
-        if (surj_result.status == S::OK) {
-            surj_result.status = S::UNKNOWN_PATH;
-        }
-        stringstream ss;
-        ss << gaf_line;
-        ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status);
-        return {ss.str()};
+    if (!target_resolved) {
+        surj_result.status = S::UNKNOWN_PATH;
+        return surj_result;
     }
 
     // Walk the target path for its length if the caller did not give it.
@@ -665,31 +607,12 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     unordered_set<path_handle_t> paths;
     paths.insert(target_path);
     vector<tuple<string, int64_t, bool>> positions_out;
-    vector<Alignment> surjected;
-    try {
-        surjected = anchor_surjector.surject(aln, paths, positions_out,
-                                             /*allow_negative_scores=*/true,
-                                             /*preserve_deletions=*/false);
-    } catch (const std::exception& e) {
-        // The error fails only this surjection, and goes back to the client.
-        surj_result.status = S::SURJECTION_FAILED;
-        stringstream ss;
-        ss << gaf_line;
-        ss << "\tsj:Z:" << haplotype_surjection_status_token(surj_result.status);
-        ss << "\tse:Z:" << e.what();
-        return {ss.str()};
-    }
+    vector<Alignment> surjected = anchor_surjector.surject(aln, paths, positions_out,
+                                                           /*allow_negative_scores=*/true,
+                                                           /*preserve_deletions=*/false);
 
     take_best_surjection(surjected, positions_out, anchor_graph, target_path, surj_result);
-    stringstream ss;
-    ss << gaf_line;
-    append_surjection_tags(ss, surj_result);
-    if (surj_result.status != S::OK) {
-        return {ss.str()};
-    }
-    ss << "\tan:i:" << anchors.size()
-       << "\tap:Z:" << resolved_target;
-    return {ss.str()};
+    return surj_result;
 }
 
 } // namespace vg
