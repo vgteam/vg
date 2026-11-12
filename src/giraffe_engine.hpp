@@ -111,6 +111,8 @@ struct MappedAlignment {
 /// alignment.
 struct MappedRead {
     std::vector<MappedAlignment> alignments;
+    /// Why the read could not be mapped. If set, there are no alignments.
+    std::optional<std::string> error;
 };
 
 /// A run of steps of a path, from step_begin to step_end inclusive, with the
@@ -173,9 +175,11 @@ public:
      * Return one MappedRead per read, in input order. Each alignment has its
      * haplotypes and, if the read names a surjection target, its surjection.
      *
-     * @throws std::runtime_error if a read's qualities and sequence differ in
-     * length. If mapping a read throws, the first such exception is rethrown
-     * after the batch.
+     * If mapping a read throws, or its qualities and sequence differ in
+     * length, the read gets the message as its error. The other reads are
+     * still mapped.
+     *
+     * @throws std::runtime_error if the engine is not loaded.
      */
     std::vector<MappedRead> map_reads(const std::vector<GiraffeServerRequest>& reads);
 

@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <atomic>
-#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_set>
@@ -312,24 +310,16 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
     if (reads.empty()) {
         return results;
     }
-    for (const auto& req : reads) {
-        if (!req.read.quality().empty() && req.read.quality().size() != req.read.sequence().size()) {
-            throw runtime_error("Read " + req.read.name() + " has mismatched sequence/quality lengths");
-        }
-    }
-    exception_ptr worker_error = nullptr;
-    atomic<bool> has_worker_error(false);
-    mutex worker_error_mutex;
 
 #pragma omp parallel for schedule(dynamic)
     for (size_t i = 0; i < reads.size(); ++i) {
-        if (has_worker_error.load(memory_order_acquire)) {
-            continue;
-        }
         const auto& req = reads[i];
         try {
             Alignment aln = req.read;
-            check_quality_length(aln);
+            // check_quality_length() would exit the process.
+            if (!aln.quality().empty() && aln.quality().size() != aln.sequence().size()) {
+                throw runtime_error("qualities and sequence differ in length");
+            }
             toUppercaseInPlace(*aln.mutable_sequence());
 
             vector<Alignment> mapped = mapper_->map(aln);
@@ -404,16 +394,15 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
                 }
                 alignments.emplace_back(std::move(out));
             }
+        } catch (const exception& e) {
+            results[i].alignments.clear();
+            results[i].error = e.what();
         } catch (...) {
-            lock_guard<mutex> guard(worker_error_mutex);
-            if (worker_error == nullptr) {
-                worker_error = current_exception();
-                has_worker_error.store(true, memory_order_release);
-            }
+            // An exception that escapes an OpenMP thread terminates the
+            // process.
+            results[i].alignments.clear();
+            results[i].error = "non-standard exception";
         }
-    }
-    if (worker_error != nullptr) {
-        rethrow_exception(worker_error);
     }
 
     return results;

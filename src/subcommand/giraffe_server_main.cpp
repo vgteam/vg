@@ -507,26 +507,31 @@ int main_giraffe_server(int argc, char** argv) {
 
         string line;
         size_t auto_id = 0;
+        // Report a bad read on stderr, and answer it with an error frame.
+        auto emit_read_error = [&](const string& name, const string& reason) {
+            cerr << "warning [vg giraffe-server]: skipping read"
+                 << (name.empty() ? "" : " '" + name + "'") << ": " << reason << endl;
+            frames.write_error(name, reason);
+        };
+
         auto flush_batch = [&]() {
             if (batch.empty()) {
                 return;
             }
             vector<MappedRead> mapped_reads = engine.map_reads(batch);
             for (size_t i = 0; i < mapped_reads.size(); ++i) {
+                const string& name = batch[i].read.name();
+                if (mapped_reads[i].error) {
+                    emit_read_error(name, *mapped_reads[i].error);
+                    continue;
+                }
                 vector<string> gaf_lines;
                 for (const MappedAlignment& mapped_aln : mapped_reads[i].alignments) {
                     gaf_lines.push_back(mapped_alignment_to_gaf(engine.gbz().graph, mapped_aln));
                 }
-                frames.write_result(batch[i].read.name(), gaf_lines);
+                frames.write_result(name, gaf_lines);
             }
             batch.clear();
-        };
-
-        // Report a bad read on stderr, and answer it with an error frame.
-        auto emit_read_error = [&](const string& name, const string& reason) {
-            cerr << "warning [vg giraffe-server]: skipping read"
-                 << (name.empty() ? "" : " '" + name + "'") << ": " << reason << endl;
-            frames.write_error(name, reason);
         };
 
         size_t line_no = 0;
