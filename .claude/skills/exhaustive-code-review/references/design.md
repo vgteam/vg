@@ -82,8 +82,9 @@ the first finding. Changes that add many parts and no overview to read them in
 
 ## Reuse and fit
 
-- **Reinventing what exists.** Before reporting, search `src/`,
-  `src/algorithms/`, `src/utility.hpp`, libhandlegraph and libbdsg. Shapes seen:
+- **Reinventing what exists.** For every new function, class or block that
+  does a recognizable job, look for existing code that does it, as described in
+  "Finding existing code" below. Shapes seen:
   a number-to-snarl map where `SnarlManager::translate_snarl_num()` exists;
   hand-built paths-to-GBWT code; a second connected-components routine.
 - **A facade that doesn't abstract.** A new layer that reshapes an adequate
@@ -109,6 +110,41 @@ the first finding. Changes that add many parts and no overview to read them in
   so duplicate-code checkers miss it: a second parser for the same format, a
   second scoring rule for the same quantity, a copy of an existing loop with
   one condition changed.
+
+## Finding existing code
+
+Grep finds code with the same names; reimplementations usually have different
+ones. For each new part that does a recognizable job:
+
+1. Write the job as one sentence without the new code's names ("build a GBWT
+   from a graph's paths"), and list a few verbs and nouns for it, including the
+   CLAUDE.md glossary terms.
+2. Run a similarity search with Semble, which finds functions and classes that
+   do a similar job whatever they are called. Use the first of these that
+   works:
+   - Semble's MCP tools, if this session has them: search for "semble" with
+     ToolSearch.
+   - The `semble` command, if `command -v semble` finds it.
+   - Otherwise install the `semble` package from PyPI, with `pipx install
+     semble` if pipx is present and `python3 -m pip install --user semble`
+     if not, and use the command. If installing fails, say so in the report and
+     go on without it.
+
+   Read `semble --help` for its commands. Run `find-related` on each new
+   function and class, and `search` with the job sentence. Index `src/` and the
+   public headers of the dependencies the change uses (for example
+   `deps/libhandlegraph/src/include` and `deps/libbdsg/bdsg/include`). Its
+   results are candidates, many of them wrong: open each likely one and
+   decide.
+   TODO: Find out where Semble keeps its index, and keep it out of the
+   checkout or out of git.
+3. Search by signature: grep headers for functions that take the same input
+   types and return the same type as the new code.
+4. Read the public methods of the classes whose objects the new code takes
+   apart; the job is often already a method there.
+5. Look in the places shared code goes: `src/algorithms/`, `src/utility.hpp`,
+   the `*_helper.hpp` headers, libhandlegraph's `algorithms/`, libbdsg, and the
+   subcommands that already do the same job.
 
 ## Size and shape
 
