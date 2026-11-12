@@ -525,7 +525,8 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "max-chains-per-tree",
         &MinimizerMapper::max_chains_per_tree,
         MinimizerMapper::default_max_chains_per_tree,
-        "align up to this many chains from each tree"
+        "align up to this many chains from each tree",
+        size_t_is_positive
     );
     
     chaining_opts.add_range(
