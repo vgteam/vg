@@ -1048,6 +1048,10 @@ using namespace std;
                     min(best_interval.second, interval.second)
                     - max(best_interval.first, interval.first));
 
+                // TODO: This makes overlapping alternatives secondary even when
+                // multimap_to_all_paths is off, which says secondaries are opt-in.
+                // TODO: What if two supplementaries overlap each other? Only
+                // overlap with the primary is checked.
                 if (query_overlap > disjoint_interval_allowable_overlap) {
                     annotate_secondary(surjections[i].first);
                 }
