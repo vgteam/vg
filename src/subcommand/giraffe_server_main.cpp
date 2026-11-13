@@ -145,9 +145,13 @@ void help_giraffe_server(char** argv) {
          << "    hl:i, hr:i enclosing snarl's boundary nodes (only when found)" << endl
          << "    hq:i 1 if one haplotype carries the whole path  hv:i % of the path it covers" << endl
          << "    hs:i haplotype-consistent segments  hm:Z bp:count:name per segment" << endl
-         << "  With a SURJ_TARGET: sj:Z status (ok, not_indexed, incompatible, failed, ...)," << endl
-         << "    and if ok sn:Z path, sp:i position, sr:i reverse, ss:i score, sm:i MAPQ," << endl
-         << "    sc:Z CIGAR, sM/sX/sI/sD:i matches, mismatches, insertions, deletions." << endl
+         << "  With a SURJ_TARGET: sj:Z status (ok, empty, unknown_path, not_indexed," << endl
+         << "    incompatible or failed), and if ok sn:Z path, sp:i position, sr:i reverse," << endl
+         << "    ss:i score, sm:i MAPQ, sc:Z CIGAR, sM/sX/sI/sD:i matched, mismatched," << endl
+         << "    inserted and deleted bases." << endl
+         << endl
+         << "The requests, the frames and every tag are described in full at" << endl
+         << "https://github.com/vgteam/vg/wiki/Giraffe-server-protocol" << endl
          << endl;
 }
 
@@ -568,7 +572,7 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
             continue;
         }
         if (!is_nucleotide_sequence(sequence)) {
-            emit_read_error(name, "SEQUENCE has characters that are not IUPAC nucleotides");
+            emit_read_error(name, "SEQUENCE has characters other than A, C, G, T and N");
             continue;
         }
         auto bad_quality = find_if_not(quality.begin(), quality.end(), is_phred33_char);
