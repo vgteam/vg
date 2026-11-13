@@ -60,9 +60,6 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
             gbz_->graph.get_handle(pos.node_id(), pos.is_reverse())));
     }
     const size_t n = path_nodes.size();
-    for (size_t bp : node_bp) {
-        result.path_length_bp += bp;
-    }
 
     // Split the path into segments. From each start we extend a GBWT search
     // forward until no haplotype goes on to the next node. That node starts
@@ -179,28 +176,16 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
         i = j;
     }
 
-    if (result.segments.empty()) {
-        return result;  // No node of the path is in the GBWT.
-    }
-
-    // Report the longest segment at the top level, since its haplotypes carry
-    // the most of the path.
-    size_t best = 0;
-    for (size_t s = 1; s < result.segments.size(); ++s) {
-        if (result.segments[s].covered_bp > result.segments[best].covered_bp) {
-            best = s;
-        }
-    }
-    result.best_segment    = best;
-    result.best_covered_bp = result.segments[best].covered_bp;
-    result.fully_covered   = (result.segments.size() == 1 &&
-                              result.segments.front().start_mapping == 0 &&
-                              result.segments.front().end_mapping == n);
-
-    result.seq_ids         = result.segments[best].seq_ids;
-    result.candidate_count = result.segments[best].candidate_count;
-
     return result;
+}
+
+const HaplotypeAssignmentResult::Segment* longest_segment(const HaplotypeAssignmentResult& result) {
+    // max_element returns the first of equal segments.
+    auto longest = std::max_element(result.segments.begin(), result.segments.end(),
+        [](const HaplotypeAssignmentResult::Segment& a, const HaplotypeAssignmentResult::Segment& b) {
+            return a.covered_bp < b.covered_bp;
+        });
+    return longest == result.segments.end() ? nullptr : &*longest;
 }
 
 string haplotype_name(const gbwt::Metadata& metadata, gbwt::size_type path_id) {

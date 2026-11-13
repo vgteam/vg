@@ -181,16 +181,31 @@ optional<size_t> parse_request_number(const string& field) {
 }
 
 /// Append the GAF tags for a haplotype assignment.
-void append_haplotype_tags(stringstream& ss, const HaplotypeAssignmentResult& hap) {
+void append_haplotype_tags(stringstream& ss, const gbwtgraph::GBZ& gbz, const Alignment& aln,
+                           const HaplotypeAssignmentResult& hap) {
+    // Name the haplotypes of each segment, and choose one to stand for them.
+    vector<vector<string>> names;
+    vector<pair<string, bool>> representatives;
+    for (const auto& seg : hap.segments) {
+        names.push_back(haplotype_names(gbz, seg.seq_ids));
+        representatives.push_back(choose_representative(gbz, seg.seq_ids));
+    }
+    // The tags for the whole alignment describe the longest segment, whose
+    // haplotypes carry the most of the read.
+    const HaplotypeAssignmentResult::Segment* longest = longest_segment(hap);
+    const size_t l = longest ? longest - hap.segments.data() : 0;
+    const vector<string> no_names;
+    const vector<string>& longest_names = longest ? names[l] : no_names;
+    const pair<string, bool> representative = longest ? representatives[l] : make_pair(string(), false);
+
     // hp:Z lists the distinct haplotype names and hn:i counts them. hb:Z is
     // the representative, and hf:i is 1 if it is a reference. hc:i counts the
     // candidate sequences before the cap.
-    ss << "\thp:Z:" << join_delim(hap.haplotype_names, ',')
-       << "\thn:i:" << hap.haplotype_names.size()
-       << "\thb:Z:" << (hap.representative_name.empty()
-                        ? string("*") : hap.representative_name)
-       << "\thf:i:" << (hap.representative_is_reference ? 1 : 0)
-       << "\thc:i:" << hap.candidate_count;
+    ss << "\thp:Z:" << join_delim(longest_names, ',')
+       << "\thn:i:" << longest_names.size()
+       << "\thb:Z:" << (representative.first.empty() ? string("*") : representative.first)
+       << "\thf:i:" << (representative.second ? 1 : 0)
+       << "\thc:i:" << (longest ? longest->candidate_count : 0);
     // hl:i and hr:i are the enclosing snarl's boundary nodes, if one was
     // found.
     if (hap.left_boundary_node != 0) {
@@ -202,11 +217,15 @@ void append_haplotype_tags(stringstream& ss, const HaplotypeAssignmentResult& ha
     // ht:i is 1 if the cap cut the list. hq:i is 1 if one haplotype carries
     // the whole read. hv:i is the percentage of the read's path that the
     // longest segment covers, and hs:i counts the segments.
-    ss << "\tht:i:" << (hap.seq_ids.size() < hap.candidate_count ? 1 : 0)
-       << "\thq:i:" << (hap.fully_covered ? 1 : 0)
-       << "\thv:i:" << (hap.path_length_bp
-                        ? (100 * hap.best_covered_bp / hap.path_length_bp)
-                        : 0)
+    size_t path_length = 0;
+    for (const Mapping& mapping : aln.path().mapping()) {
+        path_length += gbz.graph.get_length(gbz.graph.get_handle(mapping.position().node_id()));
+    }
+    const bool fully_covered = longest && longest->start_mapping == 0
+        && longest->end_mapping == static_cast<size_t>(aln.path().mapping_size());
+    ss << "\tht:i:" << (longest && longest->seq_ids.size() < longest->candidate_count ? 1 : 0)
+       << "\thq:i:" << (fully_covered ? 1 : 0)
+       << "\thv:i:" << (longest && path_length ? (100 * longest->covered_bp / path_length) : 0)
        << "\ths:i:" << hap.segments.size();
     // hm:Z lists the segments in path order, if there are several. Each
     // entry is covered_bp:haplotype_count:representative, and ';' separates
@@ -214,12 +233,10 @@ void append_haplotype_tags(stringstream& ss, const HaplotypeAssignmentResult& ha
     if (hap.segments.size() > 1) {
         ss << "\thm:Z:";
         for (size_t s = 0; s < hap.segments.size(); ++s) {
-            const auto& seg = hap.segments[s];
             ss << (s ? ";" : "")
-               << seg.covered_bp << ":"
-               << seg.haplotype_names.size() << ":"
-               << (seg.representative_name.empty()
-                   ? string("*") : seg.representative_name);
+               << hap.segments[s].covered_bp << ":"
+               << names[s].size() << ":"
+               << (representatives[s].first.empty() ? string("*") : representatives[s].first);
         }
     }
 }
@@ -262,11 +279,11 @@ void append_surjection_tags(stringstream& ss, const HaplotypeSurjectionResult& r
 
 /// Return the GAF line of a mapped alignment, with its haplotype tags and
 /// surjection tags.
-string mapped_alignment_to_gaf(const HandleGraph& graph, const MappedAlignment& mapped) {
+string mapped_alignment_to_gaf(const gbwtgraph::GBZ& gbz, const MappedAlignment& mapped) {
     stringstream ss;
-    ss << io::alignment_to_gaf(graph, mapped.alignment);
+    ss << io::alignment_to_gaf(gbz.graph, mapped.alignment);
     if (mapped.haplotypes) {
-        append_haplotype_tags(ss, *mapped.haplotypes);
+        append_haplotype_tags(ss, gbz, mapped.alignment, *mapped.haplotypes);
     }
     if (mapped.surjection) {
         append_surjection_tags(ss, *mapped.surjection);
@@ -353,22 +370,32 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
             return;
         }
         vector<MappedRead> mapped_reads = engine.map_reads(batch);
+        // Write each read's GAF lines in a task. Naming the haplotypes for
+        // the tags is most of that work. The tasks reach the graph through a
+        // pointer, since a task would copy what a reference refers to.
+        vector<vector<string>> gaf_lines(mapped_reads.size());
+        const gbwtgraph::GBZ* gbz = &engine.gbz();
+#pragma omp taskloop grainsize(1) shared(mapped_reads, gaf_lines)
+        for (size_t i = 0; i < mapped_reads.size(); ++i) {
+            if (mapped_reads[i].error) {
+                continue;
+            }
+            try {
+                for (const MappedAlignment& mapped_aln : mapped_reads[i].alignments) {
+                    gaf_lines[i].push_back(mapped_alignment_to_gaf(*gbz, mapped_aln));
+                }
+            } catch (const exception& e) {
+                mapped_reads[i].error = e.what();
+            }
+        }
+        // Answer the reads in input order.
         for (size_t i = 0; i < mapped_reads.size(); ++i) {
             const string& name = batch[i].read.name();
             if (mapped_reads[i].error) {
                 emit_read_error(name, *mapped_reads[i].error);
-                continue;
+            } else {
+                frames.write_result(name, gaf_lines[i]);
             }
-            vector<string> gaf_lines;
-            try {
-                for (const MappedAlignment& mapped_aln : mapped_reads[i].alignments) {
-                    gaf_lines.push_back(mapped_alignment_to_gaf(engine.gbz().graph, mapped_aln));
-                }
-            } catch (const exception& e) {
-                emit_read_error(name, e.what());
-                continue;
-            }
-            frames.write_result(name, gaf_lines);
         }
         batch.clear();
     };

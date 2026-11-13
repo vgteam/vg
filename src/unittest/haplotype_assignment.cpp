@@ -119,21 +119,21 @@ TEST_CASE("HaplotypeAssigner returns expected haplotypes on a tiny bubble graph"
         Alignment aln = make_alignment({1, 2, 4, 5});
         auto result = assigner.assign(aln, false);
 
-        REQUIRE(result.candidate_count == 2);
-        REQUIRE(result.seq_ids.size() == 2);
-        REQUIRE(result.seq_ids.size() == result.candidate_count);
+        REQUIRE(longest_segment(result)->candidate_count == 2);
+        REQUIRE(longest_segment(result)->seq_ids.size() == 2);
+        REQUIRE(longest_segment(result)->seq_ids.size() == longest_segment(result)->candidate_count);
         REQUIRE(result.left_boundary_node == 0);
         REQUIRE(result.right_boundary_node == 0);
-        REQUIRE(result.seq_ids[0] != result.seq_ids[1]);
+        REQUIRE(longest_segment(result)->seq_ids[0] != longest_segment(result)->seq_ids[1]);
     }
 
     SECTION("Other branch path reports its single haplotype") {
         Alignment aln = make_alignment({1, 3, 4, 5});
         auto result = assigner.assign(aln, false);
 
-        REQUIRE(result.candidate_count == 1);
-        REQUIRE(result.seq_ids.size() == 1);
-        REQUIRE(result.seq_ids.size() == result.candidate_count);
+        REQUIRE(longest_segment(result)->candidate_count == 1);
+        REQUIRE(longest_segment(result)->seq_ids.size() == 1);
+        REQUIRE(longest_segment(result)->seq_ids.size() == longest_segment(result)->candidate_count);
     }
 
     SECTION("Extension mode preserves or narrows haplotype set and reports boundaries") {
@@ -141,8 +141,8 @@ TEST_CASE("HaplotypeAssigner returns expected haplotypes on a tiny bubble graph"
         auto no_extend = assigner.assign(aln, false);
         auto extended = assigner.assign(aln, true);
 
-        REQUIRE(no_extend.candidate_count == 2);
-        REQUIRE(extended.candidate_count <= no_extend.candidate_count);
+        REQUIRE(longest_segment(no_extend)->candidate_count == 2);
+        REQUIRE(longest_segment(extended)->candidate_count <= longest_segment(no_extend)->candidate_count);
         REQUIRE(extended.left_boundary_node == 1);
         REQUIRE(extended.right_boundary_node == 4);
     }
@@ -152,7 +152,7 @@ TEST_CASE("HaplotypeAssigner returns expected haplotypes on a tiny bubble graph"
         Alignment aln = make_alignment({2, 4});
         auto result = assigner.assign(aln, true);
 
-        REQUIRE(result.candidate_count == 2);
+        REQUIRE(longest_segment(result)->candidate_count == 2);
         REQUIRE(result.left_boundary_node == 0);
         REQUIRE(result.right_boundary_node == 0);
     }
@@ -162,9 +162,9 @@ TEST_CASE("HaplotypeAssigner returns expected haplotypes on a tiny bubble graph"
         Alignment aln = make_alignment({1, 2, 4, 5});
         auto result = assigner.assign(aln, false);
 
-        REQUIRE(result.candidate_count == 2);
-        REQUIRE(result.seq_ids.size() == 1);
-        REQUIRE(result.seq_ids.size() < result.candidate_count);
+        REQUIRE(longest_segment(result)->candidate_count == 2);
+        REQUIRE(longest_segment(result)->seq_ids.size() == 1);
+        REQUIRE(longest_segment(result)->seq_ids.size() < longest_segment(result)->candidate_count);
     }
 }
 
@@ -194,16 +194,16 @@ TEST_CASE("HaplotypeAssigner handles nested snarls and extension edge cases",
         Alignment aln = make_alignment({3, 4, 6, 8});
         auto result = assigner.assign(aln, false);
 
-        REQUIRE(result.candidate_count == 2);
-        REQUIRE(result.seq_ids.size() == 2);
-        REQUIRE(result.seq_ids.size() == result.candidate_count);
+        REQUIRE(longest_segment(result)->candidate_count == 2);
+        REQUIRE(longest_segment(result)->seq_ids.size() == 2);
+        REQUIRE(longest_segment(result)->seq_ids.size() == longest_segment(result)->candidate_count);
     }
 
     SECTION("Nested snarl extension finds inner boundaries for inner node") {
         Alignment aln = make_alignment({4});
         auto result = assigner.assign(aln, true);
 
-        REQUIRE(result.candidate_count == 2);
+        REQUIRE(longest_segment(result)->candidate_count == 2);
         REQUIRE(result.left_boundary_node == 3);
         REQUIRE(result.right_boundary_node == 6);
     }
@@ -214,7 +214,7 @@ TEST_CASE("HaplotypeAssigner handles nested snarls and extension edge cases",
         Alignment aln = make_alignment({6});
         auto result = assigner.assign(aln, true);
 
-        REQUIRE(result.candidate_count == 3);
+        REQUIRE(longest_segment(result)->candidate_count == 3);
         REQUIRE(result.left_boundary_node == 0);
         REQUIRE(result.right_boundary_node == 9);
     }
@@ -224,7 +224,7 @@ TEST_CASE("HaplotypeAssigner handles nested snarls and extension edge cases",
         Alignment aln = make_alignment({4, 6});
         auto result = assigner.assign(aln, true);
 
-        REQUIRE(result.candidate_count == 2);
+        REQUIRE(longest_segment(result)->candidate_count == 2);
         REQUIRE(result.left_boundary_node == 1);
         REQUIRE(result.right_boundary_node == 9);
     }
@@ -243,7 +243,7 @@ TEST_CASE("HaplotypeAssigner handles nested snarls and extension edge cases",
         Alignment aln = make_alignment({3});
         auto result = assigner_through_4.assign(aln, true);
 
-        REQUIRE(result.candidate_count == 2);
+        REQUIRE(longest_segment(result)->candidate_count == 2);
         REQUIRE(result.left_boundary_node == 1);
         REQUIRE(result.right_boundary_node == 9);
     }
@@ -253,7 +253,7 @@ TEST_CASE("HaplotypeAssigner handles nested snarls and extension edge cases",
         auto no_extend = assigner.assign(aln, false);
         auto extended = assigner.assign(aln, true);
 
-        REQUIRE(extended.candidate_count <= no_extend.candidate_count);
+        REQUIRE(longest_segment(extended)->candidate_count <= longest_segment(no_extend)->candidate_count);
     }
 }
 

@@ -330,25 +330,8 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
             if (config_.assign_haplotypes && this->haplotype_assigner_) {
                 hap_results.reserve(mapped.size());
                 for (auto& m : mapped) {
-                    auto hap = this->haplotype_assigner_->assign(
-                        m, config_.assign_haplotypes_extend_to_snarls);
-                    // Name the haplotypes of each segment and choose its
-                    // representative.
-                    for (auto& seg : hap.segments) {
-                        seg.haplotype_names = haplotype_names(*gbz_, seg.seq_ids);
-                        seg.representative_name = choose_representative(*gbz_, seg.seq_ids).first;
-                    }
-                    // Report the longest segment's haplotypes for the whole
-                    // alignment, so the tags name the haplotypes that cover
-                    // most of the read.
-                    if (hap.best_segment < hap.segments.size()) {
-                        const auto& best = hap.segments[hap.best_segment];
-                        hap.haplotype_names = best.haplotype_names;
-                        auto rep = choose_representative(*gbz_, best.seq_ids);
-                        hap.representative_name = rep.first;
-                        hap.representative_is_reference = rep.second;
-                    }
-                    hap_results.emplace_back(std::move(hap));
+                    hap_results.emplace_back(this->haplotype_assigner_->assign(
+                        m, config_.assign_haplotypes_extend_to_snarls));
                 }
             }
 
@@ -364,15 +347,15 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
                 } else {
                     for (size_t j = 0; j < mapped.size(); ++j) {
                         // The target must carry the mappings that the reported
-                        // haplotypes carry: the best segment, or the whole
+                        // haplotypes carry: the longest segment, or the whole
                         // path without a haplotype assignment.
                         size_t begin = 0;
                         size_t end = mapped[j].path().mapping_size();
                         if (!hap_results.empty()) {
-                            const auto& hap = hap_results[j];
-                            if (hap.best_segment < hap.segments.size()) {
-                                begin = hap.segments[hap.best_segment].start_mapping;
-                                end = hap.segments[hap.best_segment].end_mapping;
+                            const auto* longest = longest_segment(hap_results[j]);
+                            if (longest) {
+                                begin = longest->start_mapping;
+                                end = longest->end_mapping;
                             } else {
                                 // No haplotype visits any node of the path.
                                 end = begin;

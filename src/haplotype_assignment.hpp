@@ -7,7 +7,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -28,7 +27,6 @@ class Alignment;
  *
  * The path is split into segments, each one as long as some haplotype carries
  * it unbroken. A path that one haplotype carries end to end is one segment.
- * The longest segment is the best one, and the top-level fields describe it.
  */
 struct HaplotypeAssignmentResult {
     /**
@@ -47,21 +45,10 @@ struct HaplotypeAssignmentResult {
         /// The GBWT sequence IDs that carry the run, at most
         /// max_haplotypes_to_report of them.
         std::vector<gbwt::size_type> seq_ids;
-        /// Distinct names of the haplotypes in seq_ids. The caller fills them in.
-        std::vector<std::string> haplotype_names;
-        /// One haplotype from seq_ids to report alone, preferably a reference.
-        /// The caller fills it in.
-        std::string representative_name;
     };
 
-    /// The best segment's seq_ids.
-    std::vector<gbwt::size_type> seq_ids;
-    /// The best segment's haplotype names, as sorted PanSN names. The caller
-    /// fills them in. Without GBWT metadata a sequence ID stands in for a name.
-    std::vector<std::string> haplotype_names;
-    /// The best segment's candidate_count. It is more than seq_ids.size() when
-    /// the cap cut seq_ids short.
-    size_t candidate_count = 0;
+    /// The segments, in path order.
+    std::vector<Segment> segments;
     /// The boundary node before the path, in the path's orientation, of the
     /// smallest snarl that contains the whole path. 0 unless extension was
     /// asked for, the whole path is one segment, some snarl contains it, and
@@ -70,23 +57,12 @@ struct HaplotypeAssignmentResult {
     /// The boundary node after the path, found the same way as
     /// left_boundary_node.
     nid_t right_boundary_node = 0;
-    /// The best segment's representative_name. The caller fills it in.
-    std::string representative_name;
-    /// True if the representative is from a reference sample or the generic
-    /// sample. The caller fills it in.
-    bool representative_is_reference = false;
-
-    /// The segments, in path order.
-    std::vector<Segment> segments;
-    /// True if one segment spans the whole path.
-    bool fully_covered = false;
-    /// Total length of the path's nodes.
-    size_t path_length_bp = 0;
-    /// Total length of the best segment's nodes.
-    size_t best_covered_bp = 0;
-    /// Index of the best segment in segments, or SIZE_MAX if there are none.
-    size_t best_segment = std::numeric_limits<size_t>::max();
 };
+
+/// Return the segment that covers the most bases, the first one if several
+/// do, or nullptr if there are no segments. Its haplotypes carry the most of
+/// the path.
+const HaplotypeAssignmentResult::Segment* longest_segment(const HaplotypeAssignmentResult& result);
 
 /**
  * Finds the haplotypes in a GBZ that carry an alignment's path.
