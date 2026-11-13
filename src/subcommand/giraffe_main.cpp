@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
 #include <map>
 #include <optional>
 #include <vector>
@@ -739,7 +740,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "                                {gam / gaf / json / tsv / SAM / BAM / CRAM} " << endl
          << "      --output-file FILE        write the alignments to FILE instead of standard" << endl
          << "                                output; the extension is the format" << endl
-         << "                                {.gam .gaf .json .tsv .sam .bam .cram}" << endl
+         << "                                {gam / gaf / json / tsv / sam / bam / cram}" << endl
          << "                                (may repeat)" << endl
          << "      --ref-paths FILE          ordered list of paths in the graph, one per line" << endl
          << "                                or HTSlib .dict, for HTSLib @SQ headers" << endl
@@ -913,6 +914,9 @@ int main_giraffe(int argc, char** argv) {
     std::optional<std::string> output_format;
     // Files to write alignments to instead of standard output.
     std::vector<std::string> output_file_names;
+    // Output files that did not exist until checking that they can be written
+    // created them, empty.
+    std::vector<std::string> created_output_file_names;
     // Formats for alignment output.
     std::set<std::string> output_formats = { "GAM", "GAF", "JSON", "TSV", "SAM", "BAM", "CRAM" };
 
@@ -1371,6 +1375,9 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case OPT_OUTPUT_FILE:
+                if (!file_exists(optarg)) {
+                    created_output_file_names.push_back(optarg);
+                }
                 output_file_names.push_back(ensure_writable(logger, optarg));
                 break;
                 
@@ -2024,6 +2031,17 @@ int main_giraffe(int argc, char** argv) {
             report << format_and_file.first << " file\t";
         }
         report << "reads/second/thread" << endl;
+    }
+
+    // When some settings take ranges, each combination of settings writes to
+    // files with the settings in their names, so remove the empty files with
+    // the names as given.
+    std::stringstream varying_settings;
+    parser->print_options(varying_settings, OptionFormat::SLUG);
+    if (!varying_settings.str().empty()) {
+        for (const std::string& file_name : created_output_file_names) {
+            std::filesystem::remove(file_name);
+        }
     }
 
     // We need to loop over all the ranges...
