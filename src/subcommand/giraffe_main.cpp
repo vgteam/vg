@@ -738,7 +738,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "                                NAME format [gam]" << endl
          << "                                {gam / gaf / json / tsv / SAM / BAM / CRAM} " << endl
          << "      --output-file FILE        write the alignments to FILE instead of standard" << endl
-         << "                                output, in the format its extension names" << endl
+         << "                                output; the extension is the format" << endl
+         << "                                {.gam .gaf .json .tsv .sam .bam .cram}" << endl
          << "                                (may repeat)" << endl
          << "      --ref-paths FILE          ordered list of paths in the graph, one per line" << endl
          << "                                or HTSlib .dict, for HTSLib @SQ headers" << endl
@@ -1564,9 +1565,9 @@ int main_giraffe(int argc, char** argv) {
                        << "to output files (--output-file)." << std::endl;
     }
 
-    // Map each output format to the file to write it to. This holds either
-    // standard output ("-") in the format -o names, or each output file in
-    // the format its extension names.
+    // Map each output format to the file to write it to. This holds either one
+    // entry for standard output ("-"), or one entry for each output file,
+    // keyed by its extension in upper case.
     std::unordered_map<std::string, std::string> output_files;
     if (output_file_names.empty()) {
         std::string format = output_format.value_or("GAM");

@@ -21,8 +21,8 @@ namespace {
 using EmitterLog = vector<string>;
 
 /// An emitter that writes what it is given into a log it shares with the test,
-/// and then clears the alignments and data it was given, as an emitter that
-/// moves from its batches would leave them.
+/// and then clears the alignments and data it was given. If two destinations
+/// shared one batch, the second would log empty names.
 class LoggingEmitter : public vg::io::AlignmentEmitter {
 public:
     explicit LoggingEmitter(shared_ptr<EmitterLog> log) : log(std::move(log)) {}
@@ -104,7 +104,8 @@ vector<EmitterLog> emit_through_tee(size_t destination_count) {
     return results;
 }
 
-/// The log a LoggingEmitter makes of the batches that emit_through_tee() gives.
+/// The log lines a LoggingEmitter writes for one extra message and one batch of
+/// each kind, holding reads named a through f2.
 const EmitterLog EXPECTED_LOG {
     "extra PARAMS_JSON {}",
     "single a", "single b",

@@ -18,9 +18,9 @@ namespace vg {
  * An AlignmentEmitter that emits every alignment through each of several other
  * AlignmentEmitters, which it owns.
  *
- * Each destination gets the same batches in the same order, and writes what it
- * would write if it were used alone. Destinations may move from or change the
- * batches they get, so every destination but the last gets its own copy.
+ * Each destination gets every batch, in the order the batches arrive.
+ * Destinations may move from or change the batches they get, so every
+ * destination but the last gets its own copy.
  *
  * It is thread safe if all its destinations are.
  */
