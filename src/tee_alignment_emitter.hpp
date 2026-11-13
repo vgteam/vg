@@ -18,7 +18,8 @@ namespace vg {
  * An AlignmentEmitter that emits every alignment through each of several other
  * AlignmentEmitters, which it owns.
  *
- * Each destination gets every batch, in the order the batches arrive.
+ * Each destination gets every batch. Batches emitted from several threads at
+ * once may reach different destinations in different orders.
  * Destinations may move from or change the batches they get, so every
  * destination but the last gets its own copy.
  *
@@ -37,17 +38,19 @@ public:
     void emit_singles(std::vector<Alignment>&& aln_batch) override;
     /// Emit a batch of Alignments with secondaries through every destination.
     void emit_mapped_singles(std::vector<std::vector<Alignment>>&& alns_batch) override;
-    /// Emit a batch of pairs of Alignments, with the maximum pairing distance
-    /// of each pair, through every destination.
+    /// Emit a batch of pairs of Alignments through every destination.
+    /// tlen_limit_batch holds, for each pair, the longest pairing distance at
+    /// which it counts as properly paired.
     void emit_pairs(std::vector<Alignment>&& aln1_batch, std::vector<Alignment>&& aln2_batch,
                     std::vector<int64_t>&& tlen_limit_batch) override;
-    /// Emit the mappings of a batch of pairs of Alignments, with the maximum
-    /// pairing distance of each pair, through every destination.
+    /// Emit the mappings of a batch of pairs of Alignments through every
+    /// destination. tlen_limit_batch holds, for each pair, the longest pairing
+    /// distance at which it counts as properly paired.
     void emit_mapped_pairs(std::vector<std::vector<Alignment>>&& alns1_batch,
                            std::vector<std::vector<Alignment>>&& alns2_batch,
                            std::vector<int64_t>&& tlen_limit_batch) override;
-    /// Emit some extra type-tagged data through every destination whose format
-    /// supports it.
+    /// Pass some extra type-tagged data to every destination. Each one emits it
+    /// only if its format supports it.
     void emit_extra_message(const std::string& tag, std::string&& data) override;
 
 private:

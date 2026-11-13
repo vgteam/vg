@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 100
+plan tests 106
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -85,8 +85,14 @@ rm -f x.longread.zipcodes
 
 rm -Rf grid-out
 mkdir grid-out
-vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-file grid-out/file.gam --hard-hit-cap 5:6
-is "$(ls grid-out/*.gam | wc -l)" "2" "Grid search works end-inclusive"
+touch grid-out/kept.gaf
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-file grid-out/file.gam --output-file grid-out/kept.gaf --hard-hit-cap 5:6 --report-name grid-out/report.tsv
+is "$(ls grid-out/file*.gam | wc -l)" "2" "Grid search works end-inclusive"
+is "$(ls grid-out/file.gam 2>/dev/null | wc -l)" "0" "giraffe removes the empty output file named as given when settings vary"
+is "$(ls grid-out/kept.gaf | wc -l)" "1" "giraffe keeps an output file that existed before when settings vary"
+is "$(head -n 1 grid-out/report.tsv | tr -d '#' | tr '\t' '\n' | sort | tr '\n' ',')" "GAF file,GAM file,reads/second/thread," "giraffe reports a column for each output file"
+# Count the report rows whose GAM and GAF columns, found by their headers, name files of those formats.
+is "$(awk -F'\t' 'NR == 1 {sub(/^#/, ""); for (i = 1; i <= NF; i++) col[$i] = i; next} $col["GAM file"] ~ /\.gam$/ && $col["GAF file"] ~ /\.gaf$/ {n++} END {print n}' grid-out/report.tsv)" "2" "giraffe reports the files of each combination of settings under their formats"
 rm -Rf grid-out
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
@@ -207,31 +213,32 @@ diff direct.flags surject.flags
 is $? 0 "SAM flags are the same between giraffe and surject"
 
 # Alignments written to output files match what goes to standard output, in
-# each format. Every GAM record holds the time it took to map, which differs
-# from run to run, so that is ignored.
+# SAM, GAM and GAF. Each GAM record holds its mapping time, which differs
+# between runs, so GAM comparisons blank time_used.
+gam_without_times() {
+    vg view -aj "$1" | jq -c '.time_used = null' | md5sum
+}
 GIRAFFE_PAIRED="vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 -t 1"
 ${GIRAFFE_PAIRED} -o SAM > stdout.sam
 ${GIRAFFE_PAIRED} -o GAM > stdout.gam
 ${GIRAFFE_PAIRED} -o GAF > stdout.gaf
 
-${GIRAFFE_PAIRED} --output-file one.gam > one.stdout
-is "$(vg view -aj one.gam | jq -c '.time_used = null' | md5sum)" "$(vg view -aj stdout.gam | jq -c '.time_used = null' | md5sum)" "giraffe writes the same GAM to an output file as to standard output"
+${GIRAFFE_PAIRED} --output-file one.gaf > one.stdout
+is "$(md5sum < one.gaf)" "$(md5sum < stdout.gaf)" "giraffe writes the same GAF to an output file as to standard output"
 is "$(wc -c < one.stdout)" "0" "giraffe writes nothing to standard output when given an output file"
 
 ${GIRAFFE_PAIRED} --output-file many.sam --output-file many.gam --output-file many.GAF > many.stdout
 is "$(md5sum < many.sam)" "$(md5sum < stdout.sam)" "giraffe writes the same SAM to one of several output files as to standard output"
-is "$(vg view -aj many.gam | jq -c '.time_used = null' | md5sum)" "$(vg view -aj stdout.gam | jq -c '.time_used = null' | md5sum)" "giraffe writes the same GAM to one of several output files as to standard output"
+is "$(gam_without_times many.gam)" "$(gam_without_times stdout.gam)" "giraffe writes the same GAM to one of several output files as to standard output"
 is "$(vg view --extract-tag PARAMS_JSON many.gam)" "$(vg view --extract-tag PARAMS_JSON stdout.gam)" "GAM in one of several output files embeds the same parameters"
 is "$(md5sum < many.GAF)" "$(md5sum < stdout.gaf)" "giraffe writes the same GAF to one of several output files, named in upper case, as to standard output"
 is "$(wc -c < many.stdout)" "0" "giraffe writes nothing to standard output when given several output files"
 
-${GIRAFFE_PAIRED} -o GAM --output-file one.gam 2>/dev/null >/dev/null
-is "$?" "1" "giraffe refuses an output format with output files"
-${GIRAFFE_PAIRED} --output-file one.txt 2>/dev/null >/dev/null
-is "$?" "1" "giraffe refuses an output file without an alignment format extension"
-${GIRAFFE_PAIRED} --output-file one.gam --output-file two.gam 2>/dev/null >/dev/null
-is "$?" "1" "giraffe refuses two output files in the same format"
-rm -f stdout.sam stdout.gam stdout.gaf one.gam two.gam one.stdout one.txt many.sam many.gam many.GAF many.stdout
+is "$(${GIRAFFE_PAIRED} -o GAM --output-file one.gam 2>&1 >/dev/null | grep -c 'cannot be used with output files')" "1" "giraffe refuses an output format with output files"
+is "$(${GIRAFFE_PAIRED} -n --output-file one.gam 2>&1 >/dev/null | grep -c 'Cannot discard alignments')" "1" "giraffe refuses to discard alignments with output files"
+is "$(${GIRAFFE_PAIRED} --output-file one.txt 2>&1 >/dev/null | grep -c 'must have an alignment format as its extension')" "1" "giraffe refuses an output file without an alignment format extension"
+is "$(${GIRAFFE_PAIRED} --output-file one.gam --output-file two.gam 2>&1 >/dev/null | grep -c 'Cannot write GAM to both')" "1" "giraffe refuses two output files in the same format"
+rm -f stdout.sam stdout.gam stdout.gaf one.gaf one.gam two.gam one.stdout one.txt many.sam many.gam many.GAF many.stdout
 
 # Test paired surjected mapping
 vg giraffe x.fa x.vcf.gz --show-work -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
@@ -347,12 +354,15 @@ is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph wit
 is "$(grep -c '^@' mapped.gaf)" 2 "GAF has a header"
 is "$(grep -c '^@RN' mapped.gaf)" 1 "GAF has a reference name header"
 
+vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -z brca.shortread.zipcodes -d brca.dist -G reads.gam --named-coordinates -o gaf --track-correctness > mapped-tracked.gaf
+is "$?" "0" "Mapping reads as GAF to named coordinates succeeds when giraffe also loads a positional graph"
+
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
 cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.txt
 
 is "$(md5sum gaf_names.txt | cut -f1 -d' ')" "$(md5sum gam_names.txt | cut -f1 -d' ')" "Mapping reads as named GAF uses the same names as named GAM"
 
-rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
+rm -f reads.gam mapped.gam mapped.gaf mapped-tracked.gaf brca.* gam_names.txt gaf_names.txt
 
 # Try long read alignment with Distance Index 2
 vg construct -S -a -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >1mb1kgp.vg 2>/dev/null

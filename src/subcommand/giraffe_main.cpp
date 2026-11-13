@@ -739,9 +739,9 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "                                NAME format [gam]" << endl
          << "                                {gam / gaf / json / tsv / SAM / BAM / CRAM} " << endl
          << "      --output-file FILE        write the alignments to FILE instead of standard" << endl
-         << "                                output; the extension is the format" << endl
+         << "                                output, in the format its extension names" << endl
          << "                                {gam / gaf / json / tsv / sam / bam / cram}" << endl
-         << "                                (may repeat)" << endl
+         << "                                (may repeat, one file per format)" << endl
          << "      --ref-paths FILE          ordered list of paths in the graph, one per line" << endl
          << "                                or HTSlib .dict, for HTSLib @SQ headers" << endl
          << "      --ref-name NAME           name of reference in the graph for HTSlib output" << endl
@@ -757,9 +757,9 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "      --show-work               log how the mapper comes to its conclusions" << endl
              << "                                about mapping locations (use one read at a time)" << endl
              << "Many settings take a range of values, as start[:end[:step]] with end" << endl
-             << "inclusive, to map the reads once for each combination of values. Each" << endl
-             << "combination writes its own output files, named with its settings before" << endl
-             << "the extension." << endl;
+             << "inclusive, to map the reads once for each combination of values. With" << endl
+             << "--output-file, each combination writes its own files, named with the" << endl
+             << "varying settings before the extension." << endl;
              
     }
 
@@ -914,9 +914,6 @@ int main_giraffe(int argc, char** argv) {
     std::optional<std::string> output_format;
     // Files to write alignments to instead of standard output.
     std::vector<std::string> output_file_names;
-    // Output files that did not exist until checking that they can be written
-    // created them, empty.
-    std::vector<std::string> created_output_file_names;
     // Formats for alignment output.
     std::set<std::string> output_formats = { "GAM", "GAF", "JSON", "TSV", "SAM", "BAM", "CRAM" };
 
@@ -1375,10 +1372,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case OPT_OUTPUT_FILE:
-                if (!file_exists(optarg)) {
-                    created_output_file_names.push_back(optarg);
-                }
-                output_file_names.push_back(ensure_writable(logger, optarg));
+                output_file_names.push_back(optarg);
                 break;
                 
             case OPT_ADD_GRAPH_ALIGNMENT:
@@ -1563,9 +1557,8 @@ int main_giraffe(int argc, char** argv) {
     }
     
     if (output_format && !output_file_names.empty()) {
-        logger.error() << "Output files (--output-file) take their formats from their extensions, "
-                       << "and nothing goes to standard output, so an output format (-o) "
-                       << "cannot be used with them." << std::endl;
+        logger.error() << "An output format (-o) cannot be used with output files (--output-file), "
+                       << "which take their formats from their extensions." << std::endl;
     }
     if (discard_alignments && !output_file_names.empty()) {
         logger.error() << "Cannot discard alignments (-n) and also write them "
@@ -1586,7 +1579,7 @@ int main_giraffe(int argc, char** argv) {
     for (const std::string& file_name : output_file_names) {
         std::string format = vg::toUppercase(split_ext(file_name).second);
         if (output_formats.find(format) == output_formats.end()) {
-            logger.error() << "Output file " << file_name << " must end in an alignment format: "
+            logger.error() << "Output file " << file_name << " must have an alignment format as its extension: "
                            << join_delim(std::vector<std::string>(output_formats.begin(), output_formats.end()), ' ')
                            << std::endl;
         }
@@ -1596,6 +1589,20 @@ int main_giraffe(int argc, char** argv) {
                            << " and " << file_name << std::endl;
         }
         output_files.emplace_hint(found, format, file_name);
+    }
+
+    // Check that the output files can be written. When some settings vary,
+    // each combination of settings writes files with the varying settings in
+    // their names, so remove any empty file the check made with the name as
+    // given.
+    std::stringstream varying_settings;
+    parser->print_options(varying_settings, OptionFormat::SLUG);
+    for (const std::string& file_name : output_file_names) {
+        bool existed = file_exists(file_name);
+        ensure_writable(logger, file_name);
+        if (!existed && !varying_settings.str().empty()) {
+            std::filesystem::remove(file_name);
+        }
     }
 
     // Decide if we are outputting to an htslib format, and so need to surject.
@@ -2033,23 +2040,12 @@ int main_giraffe(int argc, char** argv) {
         report << "reads/second/thread" << endl;
     }
 
-    // When some settings take ranges, each combination of settings writes to
-    // files with the settings in their names, so remove the empty files with
-    // the names as given.
-    std::stringstream varying_settings;
-    parser->print_options(varying_settings, OptionFormat::SLUG);
-    if (!varying_settings.str().empty()) {
-        for (const std::string& file_name : created_output_file_names) {
-            std::filesystem::remove(file_name);
-        }
-    }
-
     // We need to loop over all the ranges...
     for_each_combo([&]() {
     
         // Name the output files for this combination of settings, by putting
-        // the settings that vary before the extension. With no ranges, no
-        // settings vary and the names stay as given.
+        // the settings that vary before the extension. When no setting varies,
+        // the names stay as given.
         std::stringstream settings_slug;
         parser->print_options(settings_slug, OptionFormat::SLUG);
         std::unordered_map<std::string, std::string> tick_output_files;
@@ -2282,13 +2278,18 @@ int main_giraffe(int argc, char** argv) {
                     flags |= ALIGNMENT_EMITTER_FLAG_HTS_LEFT_ALIGN;
                 }
                 
-                // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
-                // TODO: What if we need both a positional graph and a NamedNodeBackTranslation???
-                const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
                 std::vector<unique_ptr<AlignmentEmitter>> output_emitters;
                 for (const auto& format_and_file : tick_output_files) {
+                    const std::string& format = format_and_file.first;
+                    // Surjection needs the positional graph. The other formats
+                    // need only node lengths and sequences, which the GBWTGraph
+                    // has, and named-segment translation, which only the
+                    // GBWTGraph can do.
+                    bool is_hts = (format == "SAM" || format == "BAM" || format == "CRAM");
+                    const HandleGraph* emitter_graph = is_hts ? (const HandleGraph*)path_position_graph
+                                                              : (const HandleGraph*)&(gbz->graph);
                     output_emitters.push_back(get_alignment_emitter(
-                        format_and_file.second, format_and_file.first,
+                        format_and_file.second, format,
                         paths, thread_count, emitter_graph, flags
                     ));
                 }

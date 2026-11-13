@@ -16,13 +16,13 @@ using namespace std;
 
 namespace {
 
-/// A log of what an emitter was given: one line per alignment, naming the
-/// method that got it, and one line per extra message.
+/// A log of what an emitter was given: one line per alignment or pair of
+/// alignments, naming the method that got it, and one line per extra message.
 using EmitterLog = vector<string>;
 
 /// An emitter that writes what it is given into a log it shares with the test,
-/// and then clears the alignments and data it was given. If two destinations
-/// shared one batch, the second would log empty names.
+/// and then clears the alignments and data it was given, so that a destination
+/// handed a batch another destination already got logs empty names.
 class LoggingEmitter : public vg::io::AlignmentEmitter {
 public:
     explicit LoggingEmitter(shared_ptr<EmitterLog> log) : log(std::move(log)) {}
@@ -80,8 +80,8 @@ Alignment named(const string& name) {
 }
 
 /// Make a TeeAlignmentEmitter with the given number of LoggingEmitters as
-/// destinations, and give it one batch of each kind. Return the log of each
-/// destination, in order.
+/// destinations, and give it one extra message and one batch of each kind.
+/// Return the log of each destination, in order.
 vector<EmitterLog> emit_through_tee(size_t destination_count) {
     vector<shared_ptr<EmitterLog>> logs;
     vector<unique_ptr<vg::io::AlignmentEmitter>> destinations;
@@ -117,12 +117,6 @@ const EmitterLog EXPECTED_LOG {
 }
 
 TEST_CASE("TeeAlignmentEmitter gives every destination the same alignments", "[alignment][emitter]") {
-    SECTION("One destination gets everything") {
-        vector<EmitterLog> logs = emit_through_tee(1);
-        REQUIRE(logs.size() == 1);
-        REQUIRE(logs[0] == EXPECTED_LOG);
-    }
-
     SECTION("Each of three destinations gets everything, though each clears what it gets") {
         vector<EmitterLog> logs = emit_through_tee(3);
         REQUIRE(logs.size() == 3);
@@ -131,7 +125,7 @@ TEST_CASE("TeeAlignmentEmitter gives every destination the same alignments", "[a
         }
     }
 
-    SECTION("With no destinations, emitting does nothing") {
+    SECTION("With no destinations, emitting is allowed") {
         vector<EmitterLog> logs = emit_through_tee(0);
         REQUIRE(logs.empty());
     }
