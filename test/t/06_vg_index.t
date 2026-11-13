@@ -143,16 +143,15 @@ rm -rf x1337.gam x1337.sorted.gam.gai2 x1337.sorted.gam.gai x1337.sorted.gam
 
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
-vg construct -r small/x.fa -v small/x.vcf.gz >y.vg
-vg construct -r small/x.fa -v small/x.vcf.gz >z.vg
+vg construct -r small/y.fa -v small/y.vcf.gz >y.vg
 
-vg concat x.vg y.vg z.vg >q.vg
+vg combine x.vg y.vg >q.vg
 
 vg index -x q.xg q.vg
 
 is $? 0 "storage of multiple graphs in an index succeeds"
 
-rm x.vg y.vg z.vg q.vg
+rm x.vg y.vg q.vg
 rm -rf q.xg
 
 # Now test backward nodes
