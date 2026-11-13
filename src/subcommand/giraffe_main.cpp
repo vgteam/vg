@@ -1370,7 +1370,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case OPT_OUTPUT_FILE:
-                output_file_names.push_back(ensure_writable(logger, optarg));
+                output_file_names.push_back(optarg);
                 break;
                 
             case OPT_ADD_GRAPH_ALIGNMENT:
