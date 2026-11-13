@@ -360,10 +360,12 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
 
     string line;
     size_t auto_id = 0;
-    // Report a bad read on stderr, and answer it with an error frame.
+    // Report a bad read on stderr, and answer it with an error frame. Tasks
+    // write to stderr too, so every message here is one string. Written in
+    // pieces, it could get a task's message in the middle.
     auto emit_read_error = [&](const string& name, const string& reason) {
         cerr << "warning [vg giraffe-server]: skipping read"
-             << (name.empty() ? "" : " '" + name + "'") << ": " << reason << endl;
+                + (name.empty() ? "" : " '" + name + "'") + ": " + reason + "\n";
         frames.write_error(name, reason);
     };
 
@@ -425,7 +427,7 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
             if (header_fields.size() != 5) {
                 string error = "malformed SURJECT_WITH_ANCHORS header (need 5 tab fields, got "
                                + to_string(header_fields.size()) + ")";
-                cerr << "error [vg giraffe-server]: " << error << endl;
+                cerr << "error [vg giraffe-server]: " + error + "\n";
                 frames.write_error(header_fields.size() >= 2 ? header_fields[1] : "*", error);
                 continue;
             }
@@ -438,7 +440,7 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
                 // other lines. They are not reads, so each of them gets
                 // an error frame of its own.
                 string error = "malformed SURJECT_WITH_ANCHORS header (anchor count must be a number)";
-                cerr << "error [vg giraffe-server]: " << error << endl;
+                cerr << "error [vg giraffe-server]: " + error + "\n";
                 frames.write_error(sa_name, error);
                 continue;
             }
@@ -498,7 +500,7 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
                 }
             }
             if (!sa_error.empty()) {
-                cerr << "error [vg giraffe-server]: " << sa_error << endl;
+                cerr << "error [vg giraffe-server]: " + sa_error + "\n";
                 frames.write_error(sa_name, sa_error);
                 continue;
             }
@@ -509,8 +511,6 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
                             name = sa_name, target = sa_target,
                             gaf = move(sa_gaf_line), anchors = move(sa_anchors),
                             path_len = *sa_path_len]() {
-                // Each stderr message is one string, so messages from two
-                // threads do not mix.
                 string gaf_line;
                 try {
                     gaf_line = surject_gaf_line(engine, name, gaf, anchors, target, path_len);
@@ -544,8 +544,8 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
         if (fields.size() < 1 || fields.size() > 4) {
             string reason = "expected 1-4 tab-separated fields or a known command, got "
                             + to_string(fields.size());
-            cerr << "warning [vg giraffe-server]: line " << line_no
-                 << ": ignored (" << reason << ")" << endl;
+            cerr << "warning [vg giraffe-server]: line " + to_string(line_no)
+                    + ": ignored (" + reason + ")\n";
             frames.write_error("*", "line " + to_string(line_no) + ": " + reason);
             continue;
         }
@@ -553,8 +553,8 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
         // A lone field must be a sequence. Anything else is an unknown command.
         if (fields.size() == 1 && !is_nucleotide_sequence(fields[0])) {
             string reason = "not a known command or a nucleotide sequence";
-            cerr << "warning [vg giraffe-server]: line " << line_no
-                 << ": ignored (" << reason << ")" << endl;
+            cerr << "warning [vg giraffe-server]: line " + to_string(line_no)
+                    + ": ignored (" + reason + ")\n";
             frames.write_error("*", "line " + to_string(line_no) + ": " + reason);
             continue;
         }
