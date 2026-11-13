@@ -5,6 +5,7 @@
 #include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -53,21 +54,37 @@ AnchorBackedPositionGraph::AnchorBackedPositionGraph(
     // Index the steps in each anchor's run by node, for
     // for_each_step_on_handle_impl. Runs can overlap, as when adjacent anchors
     // share an end step, so list each step once.
+    //
+    // The walk also checks the anchor: it must reach step_end exactly at
+    // step_end's offset. Anchors made for another graph or another path do
+    // not, and a position query on them would never end.
     std::unordered_set<step_handle_t> indexed;
     for (const auto& a : anchors) {
         step_handle_t step = a.step_begin;
-        // A run has at most as many steps as the path has bases. The cap stops
-        // the walk if step_end is not ahead of step_begin.
-        for (size_t guard = 0; guard <= target_path_length_ + 1; ++guard) {
+        size_t offset = a.path_offset_step_begin;
+        while (true) {
+            handle_t handle = base_->get_handle_of_step(step);
+            nid_t node = base_->get_id(handle);
+            if (!base_->has_node(node)) {
+                throw std::invalid_argument("AnchorBackedPositionGraph: an anchor has a step on node "
+                                            + std::to_string(node) + ", which is not in the graph");
+            }
             if (indexed.insert(step).second) {
-                nid_t node = base_->get_id(base_->get_handle_of_step(step));
                 node_target_steps_[node].push_back(step);
             }
             if (step == a.step_end) {
+                if (offset != a.path_offset_step_end) {
+                    throw std::invalid_argument("AnchorBackedPositionGraph: an anchor's last step is at offset "
+                                                + std::to_string(offset) + " on the path, not at "
+                                                + std::to_string(a.path_offset_step_end));
+                }
                 break;
             }
-            if (!base_->has_next_step(step)) {
-                break;
+            offset += base_->get_length(handle);
+            if (offset > a.path_offset_step_end || !base_->has_next_step(step)) {
+                throw std::invalid_argument("AnchorBackedPositionGraph: an anchor's last step is not "
+                                            + std::to_string(a.path_offset_step_end - a.path_offset_step_begin)
+                                            + " bases after its first step on the path");
             }
             step = base_->get_next_step(step);
         }
@@ -317,6 +334,11 @@ bool AnchorBackedPositionGraph::has_previous_step(const step_handle_t& step_hand
 }
 
 step_handle_t AnchorBackedPositionGraph::get_next_step(const step_handle_t& step_handle) const {
+    // A caller that walks until it meets a step would never stop if that step
+    // is not ahead on the path, as with anchors that are not on one path.
+    if (step_handle == base_->path_end(target_path_)) {
+        throw std::runtime_error("AnchorBackedPositionGraph: walked past the end of the target path");
+    }
     return base_->get_next_step(step_handle);
 }
 

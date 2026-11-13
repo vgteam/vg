@@ -61,7 +61,9 @@ public:
      * @param base The graph to forward to. It is not owned.
      * @param target_path_length The length of target_path in bases, which
      * get_path_length returns and which must be correct.
-     * @throws std::invalid_argument if base is null.
+     * @throws std::invalid_argument if base is null, or if the walk from an
+     * anchor's first step does not reach its last step at the last step's
+     * offset.
      */
     AnchorBackedPositionGraph(const PathHandleGraph* base,
                               const std::vector<PrecomputedAnchor>& anchors,
@@ -107,6 +109,8 @@ public:
     virtual step_handle_t path_front_end(const path_handle_t& path_handle) const override;
     virtual bool has_next_step(const step_handle_t& step_handle) const override;
     virtual bool has_previous_step(const step_handle_t& step_handle) const override;
+    /// @throws std::runtime_error for path_end, so that a walk towards a
+    /// step that is not ahead on the path stops at the end of the path.
     virtual step_handle_t get_next_step(const step_handle_t& step_handle) const override;
     virtual step_handle_t get_previous_step(const step_handle_t& step_handle) const override;
 

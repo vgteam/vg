@@ -466,6 +466,15 @@ HaplotypeSurjectionResult GiraffeEngine::surject_with_anchors(
     if (gbz_->graph.has_path(target_haplotype)) {
         target_path = gbz_->graph.get_path_handle(target_haplotype);
         target_resolved = true;
+        // The anchors must be on that path. Checking the first one is enough
+        // to catch anchors made for another target.
+        if (!anchors.empty()) {
+            handlegraph::step_handle_t s = make_step_handle(
+                anchors[0].step_begin_node, anchors[0].step_begin_offset);
+            if (!(gbz_->graph.get_path_handle_of_step(s) == target_path)) {
+                throw runtime_error("the anchors are not on the target path " + target_haplotype);
+            }
+        }
     } else if (!anchors.empty()) {
         handlegraph::step_handle_t s = make_step_handle(
             anchors[0].step_begin_node, anchors[0].step_begin_offset);

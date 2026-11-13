@@ -274,9 +274,35 @@ string mapped_alignment_to_gaf(const HandleGraph& graph, const MappedAlignment& 
     return ss.str();
 }
 
+/// Throw if a GAF record's path is not a walk in the graph. gaf_to_alignment()
+/// asserts on such a path, which would end the server.
+void check_gaf_path(const HandleGraph& graph, const gafkluge::GafRecord& gaf_record) {
+    if (gaf_record.path.empty()) {
+        // An unmapped read.
+        return;
+    }
+    int64_t path_length = 0;
+    for (const gafkluge::GafStep& step : gaf_record.path) {
+        optional<size_t> node = step.is_stable ? nullopt : parse_request_number(step.name);
+        if (!node) {
+            throw runtime_error("GAF path step " + step.name + " is not a node");
+        }
+        if (!graph.has_node(*node)) {
+            throw runtime_error("GAF path has node " + step.name + ", which is not in the graph");
+        }
+        path_length += graph.get_length(graph.get_handle(*node));
+    }
+    if (gaf_record.path_start < 0 || gaf_record.path_start > gaf_record.path_end
+        || gaf_record.path_end > path_length) {
+        throw runtime_error("GAF path range " + to_string(gaf_record.path_start) + "-"
+                            + to_string(gaf_record.path_end) + " is not inside its path of length "
+                            + to_string(path_length));
+    }
+}
+
 /// Surject the alignment of a GAF line with anchors. Return the line with the
-/// surjection tags. Throws if the line is empty or is not GAF, or if the
-/// surjector throws.
+/// surjection tags. Throws if the line is empty or is not GAF, if its path is
+/// not in the graph, or if the surjector throws.
 string surject_gaf_line(GiraffeEngine& engine, const string& read_name, const string& gaf_line,
                         const vector<PathAnchor>& anchors, const string& target,
                         size_t target_path_length) {
@@ -285,6 +311,7 @@ string surject_gaf_line(GiraffeEngine& engine, const string& read_name, const st
     }
     gafkluge::GafRecord gaf_record;
     gafkluge::parse_gaf_record(gaf_line, gaf_record);
+    check_gaf_path(engine.gbz().graph, gaf_record);
     Alignment aln;
     io::gaf_to_alignment(engine.gbz().graph, gaf_record, aln);
     if (!read_name.empty()) {
@@ -333,8 +360,13 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
                 continue;
             }
             vector<string> gaf_lines;
-            for (const MappedAlignment& mapped_aln : mapped_reads[i].alignments) {
-                gaf_lines.push_back(mapped_alignment_to_gaf(engine.gbz().graph, mapped_aln));
+            try {
+                for (const MappedAlignment& mapped_aln : mapped_reads[i].alignments) {
+                    gaf_lines.push_back(mapped_alignment_to_gaf(engine.gbz().graph, mapped_aln));
+                }
+            } catch (const exception& e) {
+                emit_read_error(name, e.what());
+                continue;
             }
             frames.write_result(name, gaf_lines);
         }
