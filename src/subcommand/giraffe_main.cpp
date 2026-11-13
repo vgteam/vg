@@ -26,6 +26,7 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include "../hts_alignment_emitter.hpp"
+#include "../../artifacts/tee_alignment_emitter.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_registry.hpp"
 #include "../utility.hpp"
@@ -738,7 +739,10 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "      --ref-paths FILE          ordered list of paths in the graph, one per line" << endl
          << "                                or HTSlib .dict, for HTSLib @SQ headers" << endl
          << "      --ref-name NAME           name of reference in the graph for HTSlib output" << endl
-         << "      --named-coordinates       make GAM/GAF output in named-segment (GFA) space" << endl;
+         << "      --named-coordinates       make GAM/GAF output in named-segment (GFA) space" << endl
+         << "      --graph-output FILE       also write the graph alignments to FILE, as" << endl
+         << "                                -o GAM/GAF would, before any surjection" << endl
+         << "      --graph-output-fmt NAME   format for --graph-output {gam / gaf} [gam]" << endl;
     if (full_help) {
         cerr << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
              << "      --left-align              attempt to left-align indels in linear formats" << endl
@@ -810,6 +814,8 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_OFF_REF_POSITION = 1014;
     constexpr int OPT_LEFT_ALIGN = 1015;
     constexpr int OPT_NO_REC_MODE = 1016;
+    constexpr int OPT_GRAPH_OUTPUT = 1017;
+    constexpr int OPT_GRAPH_OUTPUT_FORMAT = 1018;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
 
     constexpr int OPT_KFF_NAME = 1101;
@@ -847,6 +853,9 @@ int main_giraffe(int argc, char** argv) {
 
     string output_basename;
     string report_name;
+    // File for a second copy of the graph alignments, and its format.
+    string graph_output_name;
+    string graph_output_format = "GAM";
     bool show_progress = false;
     
     // Main Giraffe program options struct
@@ -1185,6 +1194,8 @@ int main_giraffe(int argc, char** argv) {
         {"off-ref-position", no_argument, 0, OPT_OFF_REF_POSITION},
         {"left-align", no_argument, 0, OPT_LEFT_ALIGN},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
+        {"graph-output", required_argument, 0, OPT_GRAPH_OUTPUT},
+        {"graph-output-fmt", required_argument, 0, OPT_GRAPH_OUTPUT_FORMAT},
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
         {"report-name", required_argument, 0, OPT_REPORT_NAME},
@@ -1369,6 +1380,20 @@ int main_giraffe(int argc, char** argv) {
 
             case OPT_NAMED_COORDINATES:
                 named_coordinates = true;
+                break;
+
+            case OPT_GRAPH_OUTPUT:
+                graph_output_name = ensure_writable(logger, optarg);
+                break;
+
+            case OPT_GRAPH_OUTPUT_FORMAT:
+                graph_output_format = optarg;
+                for (char& c : graph_output_format) {
+                    c = std::toupper(c);
+                }
+                if (graph_output_format != "GAM" && graph_output_format != "GAF") {
+                    logger.error() << "Invalid graph output format: " << graph_output_format << std::endl;
+                }
                 break;
                 
             case OPT_ADD_GRAPH_ALIGNMENT:
@@ -1570,6 +1595,15 @@ int main_giraffe(int argc, char** argv) {
     if (output_format != "GAM" && !output_basename.empty()) {
         logger.error() << "Using an output basename (--output-basename) "
                        << "only makes sense for GAM format (-o GAM)." << std::endl;
+    }
+
+    if (!graph_output_name.empty() && !output_basename.empty()) {
+        logger.error() << "A graph output file (--graph-output) cannot be used "
+                       << "with an output basename (--output-basename)." << std::endl;
+    }
+    if (!graph_output_name.empty() && discard_alignments) {
+        logger.error() << "A graph output file (--graph-output) cannot be used "
+                       << "when discarding alignments (-n)." << std::endl;
     }
     
     if (interleaved && !fastq_filename_2.empty()) {
@@ -2241,11 +2275,29 @@ int main_giraffe(int argc, char** argv) {
                 // Emit GAF header lines now, if applicable.
                 // TODO: We should have a function that can take any graph and any alignment emitter
                 // and determine if there is any header information it can emit.
-                io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(alignment_emitter.get());
-                if (gaf_emitter != nullptr) {
-                    gbwtgraph::GraphName graph_name = gbz->graph_name();
-                    std::vector<std::string> header_lines = graph_name.gaf_header_lines();
-                    gaf_emitter->emit_header_lines(header_lines);
+                auto emit_gaf_header = [&](vg::io::AlignmentEmitter* emitter) {
+                    io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(emitter);
+                    if (gaf_emitter != nullptr) {
+                        gbwtgraph::GraphName graph_name = gbz->graph_name();
+                        std::vector<std::string> header_lines = graph_name.gaf_header_lines();
+                        gaf_emitter->emit_header_lines(header_lines);
+                    }
+                };
+                emit_gaf_header(alignment_emitter.get());
+
+                if (!graph_output_name.empty()) {
+                    // Write a second copy of every alignment, before any
+                    // surjection, to the file the user named. This emitter is
+                    // the one `-o GAM` or `-o GAF` would make, so the file
+                    // holds the same records a separate run with that output
+                    // format would write.
+                    unique_ptr<AlignmentEmitter> graph_emitter = get_alignment_emitter(
+                        graph_output_name, graph_output_format,
+                        SequenceDictionary(), thread_count, emitter_graph, flags
+                    );
+                    emit_gaf_header(graph_emitter.get());
+                    alignment_emitter = make_unique<TeeAlignmentEmitter>(std::move(alignment_emitter),
+                                                                         std::move(graph_emitter));
                 }
             }
 

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 90
+plan tests 96
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -205,6 +205,24 @@ samtools view direct.bam | cut -f2 | sort | uniq -c > direct.flags
 samtools view surject.bam | cut -f2 | sort | uniq -c > surject.flags
 diff direct.flags surject.flags
 is $? 0 "SAM flags are the same between giraffe and surject"
+
+# One mapping run can write SAM/BAM/CRAM and also the graph alignments, as a
+# separate run with -o GAM or -o GAF would write them. Every GAM record holds
+# the time it took to map, which differs from run to run, so that is ignored.
+GIRAFFE_PAIRED="vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 -t 1"
+${GIRAFFE_PAIRED} -o SAM > plain.sam
+${GIRAFFE_PAIRED} -o SAM --graph-output both.gam > both-gam.sam
+${GIRAFFE_PAIRED} -o SAM --graph-output both.gaf --graph-output-fmt gaf > both-gaf.sam
+${GIRAFFE_PAIRED} -o GAM > alone.gam
+${GIRAFFE_PAIRED} -o GAF > alone.gaf
+is "$(md5sum < both-gam.sam)" "$(md5sum < plain.sam)" "giraffe SAM output is unchanged by also writing GAM"
+is "$(md5sum < both-gaf.sam)" "$(md5sum < plain.sam)" "giraffe SAM output is unchanged by also writing GAF"
+is "$(vg view -aj both.gam | jq -c '.time_used = null' | md5sum)" "$(vg view -aj alone.gam | jq -c '.time_used = null' | md5sum)" "giraffe can write the GAM of a separate run beside SAM"
+is "$(vg view --extract-tag PARAMS_JSON both.gam)" "$(vg view --extract-tag PARAMS_JSON alone.gam)" "GAM written beside SAM embeds the same parameters"
+is "$(md5sum < both.gaf)" "$(md5sum < alone.gaf)" "giraffe can write the GAF of a separate run beside SAM"
+${GIRAFFE_PAIRED} -o GAM --graph-output both.gam --output-basename x 2>/dev/null >/dev/null
+is "$?" "1" "giraffe refuses a graph output file with an output basename"
+rm -f plain.sam both-gam.sam both-gaf.sam both.gam both.gaf alone.gam alone.gaf
 
 # Test paired surjected mapping
 vg giraffe x.fa x.vcf.gz --show-work -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
