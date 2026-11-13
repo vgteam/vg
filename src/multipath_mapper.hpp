@@ -75,9 +75,6 @@ namespace vg {
         /// when mappings are likely to have occurred by chance
         void calibrate_mismapping_detection(size_t num_simulations, const vector<size_t>& simulated_read_lengths);
         
-        /// Experimental: skeleton code for predicting path distance from minimum distance
-        void determine_distance_correlation();
-        
         using AlignerClient::set_alignment_scores;
 
         /// Set the algner scoring parameters and create the stored aligner instances. The
@@ -201,12 +198,6 @@ namespace vg {
 
         // A function for computing band padding
         std::function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding;
-        
-        //static size_t PRUNE_COUNTER;
-        //static size_t SUBGRAPH_TOTAL;
-        //static size_t SECONDARY_RESCUE_COUNT;
-        //static size_t SECONDARY_RESCUE_ATTEMPT;
-        //static size_t SECONDARY_RESCUE_TOTAL;
         
         /// We often pass around clusters of MEMs and their graph positions, paired with a multiplicity
         using memcluster_t = pair<vector<pair<const MaximalExactMatch*, pos_t>>, double>;
@@ -581,14 +572,6 @@ namespace vg {
                                               vector<double>* pair_multiplicities = nullptr) const;
         
         /// Estimates the number of equivalent mappings (including this one), which we may not have seen due to
-        /// unexplored rescues.
-        double estimate_missed_rescue_multiplicity(size_t which_pair,
-                                                   const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                                   const vector<clustergraph_t>& cluster_graphs1,
-                                                   const vector<clustergraph_t>& cluster_graphs2,
-                                                   bool from_secondary_rescue) const;
-        
-        /// Estimates the number of equivalent mappings (including this one), which we may not have seen due to
         /// limits on the numbers of hits returns for a MEM
         double cluster_multiplicity(const memcluster_t& cluster) const;
         
@@ -640,11 +623,6 @@ namespace vg {
         
         /// Get a thread_local RRMemo with these parameters
         haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
-        
-        /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
-        /// inverts the distances in the cluster pairs vector according to the strand
-        void establish_strand_consistency(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
-                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
         
         /// A restrained estimate of the amount of gap we would like to align for a read tail
         int64_t pessimistic_gap(int64_t length, double multiplier) const;
