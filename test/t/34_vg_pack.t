@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 20
+plan tests 22
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -72,7 +72,10 @@ rm -f tiny.vg tiny.xg tiny.gam tiny.vgpu tiny.pack
 
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index -x x.xg x.vg
-vg sim -s 1 -n 1000 -l 150 -x x.xg -a > sim.gam
+# Simulate substitutions and insertions. Pack reads GAF without looking up
+# matched bases, so these reads arrive with only part of their sequence. The
+# GAF and GAM tables below agree only if pack measures reads along their paths.
+vg sim -s 1 -n 1000 -l 150 -e 0.01 -i 0.002 -x x.xg -a > sim.gam
 vg pack -x x.xg -g sim.gam -o x.xg.cx
 vg pack -x x.vg -g sim.gam -o x.vg.cx -t 1
 vg pack -x x.xg -i x.xg.cx -d | awk '!($1="")' | sort > node-table.xg.tsv
@@ -93,7 +96,8 @@ vg pack -x x.vg -g sim.gam -D -t 2 | sort > edge-table.vg.t3.tsv
 diff edge-table.vg.tsv edge-table.vg.t3.tsv
 is "$?" 0 "edge packs same on vg when using 2 threads as when using 1"
 
-vg convert x.vg -G sim.gam | bgzip | vg pack -x x.vg -a - -o x.vg.gaf.cx
+vg convert x.vg -G sim.gam > sim.gaf
+bgzip -c sim.gaf | vg pack -x x.vg -a - -o x.vg.gaf.cx
 vg pack -x x.vg -i x.vg.gaf.cx -d | awk '!($1="")' | sort > node-table.vg.gaf.tsv
 diff node-table.vg.gaf.tsv node-table.vg.tsv
 is "$?" 0 "node packs on gaf same as gam"
@@ -102,7 +106,17 @@ vg pack -x x.vg -i x.vg.gaf.cx -D | sort > edge-table.vg.gaf.tsv
 diff edge-table.vg.gaf.tsv edge-table.vg.tsv
 is "$?" 0 "edge packs on gaf same as gam"
 
-rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx node-table.vg.tsv node-table.xg.tsv edge-table.vg.tsv edge-table.xg.tsv edge-table.vg.t3.tsv node-table.vg.t3.tsv x.vg.gaf.cx node-table.vg.gaf.tsv edge-table.vg.gaf.tsv
+vg pack -x x.vg -g sim.gam -s 5 -d | awk '!($1="")' | sort > node-table.vg.s5.tsv
+vg pack -x x.vg -a sim.gaf -s 5 -d | awk '!($1="")' | sort > node-table.vg.gaf.s5.tsv
+diff node-table.vg.gaf.s5.tsv node-table.vg.s5.tsv
+is "$?" 0 "node packs on gaf same as gam when ignoring read ends"
+
+vg pack -x x.vg -g sim.gam -s 5 -D | sort > edge-table.vg.s5.tsv
+vg pack -x x.vg -a sim.gaf -s 5 -D | sort > edge-table.vg.gaf.s5.tsv
+diff edge-table.vg.gaf.s5.tsv edge-table.vg.s5.tsv
+is "$?" 0 "edge packs on gaf same as gam when ignoring read ends"
+
+rm -f x.vg x.xg sim.gam sim.gaf x.xg.cx x.vg.cx node-table.vg.tsv node-table.xg.tsv edge-table.vg.tsv edge-table.xg.tsv edge-table.vg.t3.tsv node-table.vg.t3.tsv x.vg.gaf.cx node-table.vg.gaf.tsv edge-table.vg.gaf.tsv node-table.vg.s5.tsv node-table.vg.gaf.s5.tsv edge-table.vg.s5.tsv edge-table.vg.gaf.s5.tsv
 
 vg construct -m 5 -r tiny/tiny.fa >flat.vg
 vg index flat.vg -g flat.gcsa

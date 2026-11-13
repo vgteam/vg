@@ -347,6 +347,10 @@ using namespace std;
         
         // Read mapper-declared tail lengths.
         // Missing annotations are interpreted as zero.
+        // TODO: What if a tail length is negative, NaN or huge? Casting it to size_t is undefined.
+        // TODO: The multipath branch casts the annotation pointer without
+        // checking its type, so a null or bool annotation is read as a double.
+        // get_annotation<double>() checks the type.
         size_t left_tail_length = 0, right_tail_length = 0;
         if (source_aln) {
             if (has_annotation(*source_aln, "left_tail_length")) {
@@ -364,6 +368,9 @@ using namespace std;
                 right_tail_length = static_cast<size_t>(*((const double*) source_mp_aln->get_annotation("right_tail_length").second));
             }
         }
+        // TODO: Pruning compacts each path's chunks but leaves connections
+        // pointing at the old chunk indexes. Do spliced surjections then follow
+        // connections to the wrong chunks, or past the end?
         for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
             prune_and_trim_anchors(source_aln ? source_aln->sequence() : source_mp_aln->sequence(),
                                    it->second.first, it->second.second,
@@ -3214,6 +3221,9 @@ using namespace std;
         vector<pair<Alignment, pair<step_handle_t, step_handle_t>>> surjected;
         
         // find the end-inclusive intervals of the ref path we need to consider
+        // TODO: Is this right without report_supplementary? A read across a
+        // deletion longer than the gap is split here, and choose_primary()
+        // then drops the smaller piece instead of keeping the deletion.
         size_t interval_gap = min(max_disjoint_gap,
                                   max<size_t>(min_disjoint_gap, read_length_prop_disjoint_gap * (override_read_length ? override_read_length : source.sequence().size())));
         auto ref_path_intervals = compute_disjoint_path_intervals(path_position_graph, source,
@@ -4728,6 +4738,9 @@ using namespace std;
         size_t path_length = graph->get_path_length(path_handle);
         size_t mapping_offset = first_pos.offset();
         crash_unless(mapping_offset <= node_length);
+        // TODO: What if the anchor crosses the origin of a circular path? Chunks
+        // are extended with get_next_step(), which wraps there, so the anchor's
+        // span can run past the path end and the checks below would crash.
 
         size_t anchor_start;
         if (reverse_relative_to_path) {
@@ -4959,6 +4972,8 @@ using namespace std;
         }
         
         // make sure we didn't flag all of the anchors for removal
+        // TODO: What if all anchors are in the declared tails? This keeps one
+        // anyway, so a path that only a tail maps to still gets a surjection.
         if (kept_anchors == 0) {
             // we filtered out all of the anchors, choose the longest one to keep
             // even though it failed the filter

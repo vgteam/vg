@@ -588,11 +588,11 @@ int main_index(int argc, char** argv) {
 
                 // Create the SnarlDistanceIndex
                 add_ref_weights(*xg.get());
-                IntegratedSnarlFinder snarl_finder(*xg.get(), extra_node_weight);
+                
                 SnarlDistanceIndex distance_index;
 
                 //Fill it in
-                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false);
+                fill_in_distance_index_by_component(&distance_index, xg.get(), extra_node_weight, snarl_limit, only_top_level_chain_distances, false);
                 // Save it
                 distance_index.serialize(dist_name);
             } else {
@@ -605,11 +605,11 @@ int main_index(int argc, char** argv) {
                     
                     // Create the SnarlDistanceIndex
                     add_ref_weights(gbz->graph);
-                    IntegratedSnarlFinder snarl_finder(gbz->graph, extra_node_weight);
+                    
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder, snarl_limit, only_top_level_chain_distances, false);
+                    fill_in_distance_index_by_component(&distance_index, &(gbz->graph), extra_node_weight, snarl_limit, only_top_level_chain_distances, false);
                     // Save it
                     distance_index.serialize(dist_name);
                 } else if (get<1>(options)) {
@@ -618,11 +618,11 @@ int main_index(int argc, char** argv) {
                     
                     // Create the SnarlDistanceIndex
                     add_ref_weights(*graph.get());
-                    IntegratedSnarlFinder snarl_finder(*graph.get(), extra_node_weight);
+                    
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false);
+                    fill_in_distance_index_by_component(&distance_index, graph.get(), extra_node_weight, snarl_limit, only_top_level_chain_distances, false);
                     // Save it
                     distance_index.serialize(dist_name);
                 } else {
