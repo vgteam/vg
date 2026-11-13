@@ -135,7 +135,7 @@ public:
     /// Run vcflib's vcffixup on a record, filling AC, AN and the like.
     void vcf_fixup(vcflib::Variant& var) const;
 
-    /// The nesting INFO header lines, for both vg call and vg deconstruct.
+    /// The nesting INFO header lines, for vg call, vg deconstruct and vg lift.
     static string nesting_info_headers();
 
     /// A record longer than this is refused.
