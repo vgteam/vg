@@ -1354,7 +1354,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case 'o':
-                output_format = toUppercase(optarg);
+                output_format = vg::toUppercase(optarg);
                 break;
                 
             case OPT_REF_PATHS:
@@ -1581,7 +1581,7 @@ int main_giraffe(int argc, char** argv) {
         }
     };
     for (const std::string& file_name : output_file_names) {
-        add_output(toUppercase(split_ext(file_name).second), file_name);
+        add_output(vg::toUppercase(split_ext(file_name).second), file_name);
     }
     if (output_file_names.empty()) {
         add_output(output_format.value_or("GAM"), "-");
