@@ -2341,6 +2341,8 @@ Functions</h2></td></tr>
 <tr class="separator:a004ed92d4db665ce8ec4e527f150a7c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac7b8c3e17638ecacbdf519c4095bc20e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac7b8c3e17638ecacbdf519c4095bc20e">fill_in_distance_index</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, bool only_top_level_chain_distances, bool silence_warnings)</td></tr>
 <tr class="separator:ac7b8c3e17638ecacbdf519c4095bc20e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab5cb59baaa86805285f38cf3b58e626f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab5cb59baaa86805285f38cf3b58e626f">fill_in_distance_index_by_component</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;extra_node_weight, size_t size_limit, bool only_top_level_chain_distances, bool silence_warnings)</td></tr>
+<tr class="separator:ab5cb59baaa86805285f38cf3b58e626f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae55954f00a00c8b34d20966f7d9fe72a"><td class="memItemLeft" align="right" valign="top">SnarlDistanceIndex::TemporaryDistanceIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae55954f00a00c8b34d20966f7d9fe72a">make_temporary_distance_index</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, bool only_top_level_chain_distances)</td></tr>
 <tr class="separator:ae55954f00a00c8b34d20966f7d9fe72a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a384fa37748dbf57a92140998bcd5ad34"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a384fa37748dbf57a92140998bcd5ad34">populate_snarl_index</a> (SnarlDistanceIndex::TemporaryDistanceIndex &amp;temp_index, SnarlDistanceIndex::temp_record_ref_t snarl_index, size_t size_limit, bool only_top_level_chain_distances, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
@@ -5002,6 +5004,17 @@ template&lt;typename Iter &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Convert a paired <a class="el" href="structvg_1_1Alignment.html">Alignment</a> to a BAM record. If the alignment is unmapped, refpos must be -1. Otherwise, refpos must be the position on the reference sequence to which the alignment is aligned. Similarly, refseq must be the sequence aligned to, or "" if unaligned. The mateseq and matepos fields must be set similarly for the mate. Note that mateseq must not be "=". If tlen_max is given, it is a limit on the magnitude of tlen to consider the read properly paired.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">bam_header</td><td>the file's metadata </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">alignment</td><td>vg's representation of the read (name, sequence, quality scores) </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">refseq</td><td>(reference sequence) what chromosome it was placed on (chr1) </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">refpos</td><td>(reference position) what sequence offset it was placed at on that chromosome (124566). This follows SAM/BAM conventions, and gives the lowest position in the reference regardless of read orientation. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">refrev</td><td>(reference reverse-ness) whether it was placed on the reverse strand (true) or forward strand (false) </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">cigar</td><td>the alignment description (50M 2I)</td></tr>
+  </table>
+  </dd>
+</dl>
 <p>Remember to clean up with bam_destroy1(b); </p>
 
 </div>
@@ -10784,6 +10797,59 @@ template&lt;class RandomIt &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Fill in the index size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances </p>
+
+</div>
+</div>
+<a id="ab5cb59baaa86805285f38cf3b58e626f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab5cb59baaa86805285f38cf3b58e626f">&#9670;&nbsp;</a></span>fill_in_distance_index_by_component()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::fill_in_distance_index_by_component </td>
+          <td>(</td>
+          <td class="paramtype">SnarlDistanceIndex *&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>extra_node_weight</em> = <code>{}</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>size_limit</em> = <code>50000</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>only_top_level_chain_distances</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>silence_warnings</em> = <code>true</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Fill in the index using an <a class="el" href="classvg_1_1IntegratedSnarlFinder.html">IntegratedSnarlFinder</a> with the given extra node weights. Each weakly connected component of the graph gets its own snarl finder and temporary index, and the components are processed in parallel. </p>
 
 </div>
 </div>

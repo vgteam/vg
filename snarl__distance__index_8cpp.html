@@ -74,8 +74,12 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="snarl__distance__index_8hpp.html">snarl_distance_index.hpp</a>&quot;</code><br />
-<code>#include &lt;unordered_set&gt;</code><br />
+<code>#include &quot;<a class="el" href="integrated__snarl__finder_8hpp.html">integrated_snarl_finder.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="subgraph__overlay_8hpp.html">subgraph_overlay.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="decomposition__neighbors_8hpp.html">decomposition_neighbors.hpp</a>&quot;</code><br />
+<code>#include &lt;gbwtgraph/algorithms.h&gt;</code><br />
+<code>#include &lt;omp.h&gt;</code><br />
+<code>#include &lt;unordered_set&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -94,6 +98,8 @@ Functions</h2></td></tr>
 <tr class="separator:a004ed92d4db665ce8ec4e527f150a7c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac7b8c3e17638ecacbdf519c4095bc20e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac7b8c3e17638ecacbdf519c4095bc20e">vg::fill_in_distance_index</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const HandleGraphSnarlFinder *snarl_finder, size_t size_limit, bool only_top_level_chain_distances, bool silence_warnings)</td></tr>
 <tr class="separator:ac7b8c3e17638ecacbdf519c4095bc20e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab5cb59baaa86805285f38cf3b58e626f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab5cb59baaa86805285f38cf3b58e626f">vg::fill_in_distance_index_by_component</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const std::unordered_map&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, size_t &gt; &amp;extra_node_weight, size_t size_limit, bool only_top_level_chain_distances, bool silence_warnings)</td></tr>
+<tr class="separator:ab5cb59baaa86805285f38cf3b58e626f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae55954f00a00c8b34d20966f7d9fe72a"><td class="memItemLeft" align="right" valign="top">SnarlDistanceIndex::TemporaryDistanceIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae55954f00a00c8b34d20966f7d9fe72a">vg::make_temporary_distance_index</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const HandleGraphSnarlFinder *snarl_finder, size_t size_limit, bool only_top_level_chain_distances)</td></tr>
 <tr class="separator:ae55954f00a00c8b34d20966f7d9fe72a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a384fa37748dbf57a92140998bcd5ad34"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a384fa37748dbf57a92140998bcd5ad34">vg::populate_snarl_index</a> (SnarlDistanceIndex::TemporaryDistanceIndex &amp;temp_index, SnarlDistanceIndex::temp_record_ref_t snarl_index, size_t size_limit, bool only_top_level_chain_distances, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>

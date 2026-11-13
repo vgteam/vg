@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['qualadjaligner_7849',['QualAdjAligner',['../classvg_1_1QualAdjAligner.html',1,'vg']]],
-  ['qualadjalignmentscorer_7850',['QualAdjAlignmentScorer',['../classvg_1_1QualAdjAlignmentScorer.html',1,'vg']]],
-  ['qualadjxdropaligner_7851',['QualAdjXdropAligner',['../classvg_1_1QualAdjXdropAligner.html',1,'vg']]]
+  ['qualadjaligner_7852',['QualAdjAligner',['../classvg_1_1QualAdjAligner.html',1,'vg']]],
+  ['qualadjalignmentscorer_7853',['QualAdjAlignmentScorer',['../classvg_1_1QualAdjAlignmentScorer.html',1,'vg']]],
+  ['qualadjxdropaligner_7854',['QualAdjXdropAligner',['../classvg_1_1QualAdjXdropAligner.html',1,'vg']]]
 ];

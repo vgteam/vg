@@ -111,6 +111,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:accce085e825e7a72ebde0be6e1677263"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerIndexParameters.html#accce085e825e7a72ebde0be6e1677263">validate</a> () const</td></tr>
 <tr class="memdesc:accce085e825e7a72ebde0be6e1677263"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns an error message if the parameters are invalid.  <a href="structvg_1_1MinimizerIndexParameters.html#accce085e825e7a72ebde0be6e1677263">More...</a><br /></td></tr>
 <tr class="separator:accce085e825e7a72ebde0be6e1677263"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac9ee7411610e5f1481278c39923925ff"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerIndexParameters.html#ac9ee7411610e5f1481278c39923925ff">estimate_keys</a> (size_t sequence_length) const</td></tr>
+<tr class="separator:ac9ee7411610e5f1481278c39923925ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -143,6 +145,8 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ae0df440891fcbf124723d999f1a3c6e8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerIndexParameters.html#ae0df440891fcbf124723d999f1a3c6e8">hash_table_width</a> = 0</td></tr>
 <tr class="memdesc:ae0df440891fcbf124723d999f1a3c6e8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initial hash table width (in bits) for kmer counting (0 = guess).  <a href="structvg_1_1MinimizerIndexParameters.html#ae0df440891fcbf124723d999f1a3c6e8">More...</a><br /></td></tr>
 <tr class="separator:ae0df440891fcbf124723d999f1a3c6e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a723204e9a57bf9cc38defa440ec3fc20"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerIndexParameters.html#a723204e9a57bf9cc38defa440ec3fc20">expected_keys</a> = 0</td></tr>
+<tr class="separator:a723204e9a57bf9cc38defa440ec3fc20"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a548d209f9fcf9f3f6bf90db400e6fd33"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerIndexParameters.html#a548d209f9fcf9f3f6bf90db400e6fd33">progress</a> = false</td></tr>
 <tr class="memdesc:a548d209f9fcf9f3f6bf90db400e6fd33"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print progress information during construction.  <a href="structvg_1_1MinimizerIndexParameters.html#a548d209f9fcf9f3f6bf90db400e6fd33">More...</a><br /></td></tr>
 <tr class="separator:a548d209f9fcf9f3f6bf90db400e6fd33"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -161,6 +165,8 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:ae6cd5606e22cad0d7b2857bef2bbe576"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerIndexParameters.html#ae6cd5606e22cad0d7b2857bef2bbe576">HASH_TABLE_MIN_WIDTH</a> = 10</td></tr>
 <tr class="memdesc:ae6cd5606e22cad0d7b2857bef2bbe576"><td class="mdescLeft">&#160;</td><td class="mdescRight">Lower bound for <code>hash_table_width</code>.  <a href="structvg_1_1MinimizerIndexParameters.html#ae6cd5606e22cad0d7b2857bef2bbe576">More...</a><br /></td></tr>
 <tr class="separator:ae6cd5606e22cad0d7b2857bef2bbe576"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9e919f573a4f886568733c6e4a84d102"><td class="memItemLeft" align="right" valign="top">constexpr static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerIndexParameters.html#a9e919f573a4f886568733c6e4a84d102">KEY_ESTIMATE_FACTOR</a> = 0.8</td></tr>
+<tr class="separator:a9e919f573a4f886568733c6e4a84d102"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a29f28908d4efd14c17e41014d475b53c"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerIndexParameters.html#a29f28908d4efd14c17e41014d475b53c">HASH_TABLE_MAX_WIDTH</a> = 36</td></tr>
 <tr class="memdesc:a29f28908d4efd14c17e41014d475b53c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Upper bound for <code>hash_table_width</code>.  <a href="structvg_1_1MinimizerIndexParameters.html#a29f28908d4efd14c17e41014d475b53c">More...</a><br /></td></tr>
 <tr class="separator:a29f28908d4efd14c17e41014d475b53c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -197,6 +203,25 @@ Static Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="ac9ee7411610e5f1481278c39923925ff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac9ee7411610e5f1481278c39923925ff">&#9670;&nbsp;</a></span>estimate_keys()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerIndexParameters::estimate_keys </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>sequence_length</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns <code>expected_keys</code> or an estimate of the distinct keys, used to pre-size the hash table. The estimate is kept low on purpose: too low only costs the rehashing that would happen anyway, but the table never shrinks, so too high may leave it larger than needed. </p>
+
+</div>
+</div>
 <a id="a2e994c54880560eb3f75fe9fd8eb75fe"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2e994c54880560eb3f75fe9fd8eb75fe">&#9670;&nbsp;</a></span>kmer_counting()</h2>
 
@@ -478,6 +503,21 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a723204e9a57bf9cc38defa440ec3fc20"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a723204e9a57bf9cc38defa440ec3fc20">&#9670;&nbsp;</a></span>expected_keys</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerIndexParameters::expected_keys = 0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Expected number of keys in the minimizer index (0 = estimate from the total sequence length). Used for pre-sizing the hash table. </p>
+
+</div>
+</div>
 <a id="a29f28908d4efd14c17e41014d475b53c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a29f28908d4efd14c17e41014d475b53c">&#9670;&nbsp;</a></span>HASH_TABLE_MAX_WIDTH</h2>
 
@@ -571,6 +611,29 @@ Static Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>k-mer length. </p>
+
+</div>
+</div>
+<a id="a9e919f573a4f886568733c6e4a84d102"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9e919f573a4f886568733c6e4a84d102">&#9670;&nbsp;</a></span>KEY_ESTIMATE_FACTOR</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr static double vg::MinimizerIndexParameters::KEY_ESTIMATE_FACTOR = 0.8</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Distinct keys per expected minimizer (length * density); repeats and shared alleles make it &lt; 1. Measured on HPRC v2.0 graphs (k = 29, w = 11): 0.83-0.84, but 1.0 on the full whole-genome graph. Kept low; see <a class="el" href="structvg_1_1MinimizerIndexParameters.html#ac9ee7411610e5f1481278c39923925ff">estimate_keys()</a>. </p>
 
 </div>
 </div>
