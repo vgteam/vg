@@ -80,6 +80,10 @@ int64_t GrefCover::parse_gref_index(const string& gref_name) {
     return stoll(gref_name.substr(underscore_pos + 1, alt_pos - underscore_pos - 1));
 }
 
+void GrefCover::set_excluded_source_paths(const unordered_set<path_handle_t>& paths) {
+    this->excluded_source_paths = paths;
+}
+
 void GrefCover::set_verbose(bool verbose) {
     this->verbose = verbose;
 }
@@ -226,9 +230,15 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
                 string path_name = graph->get_path_name(path_handle);
                 // Skip existing gref paths: covering a fragment with a copy of itself would
                 // make the cover depend on whether one was already there.
-                if (!is_gref_name(path_name)) {
-                    candidate_paths[path_name] = path_handle;
+                if (is_gref_name(path_name)) {
+                    return true;
                 }
+                // An excluded path offers the cover nothing, so a node that only
+                // excluded paths visit stays uncovered.
+                if (this->excluded_source_paths.count(path_handle)) {
+                    return true;
+                }
+                candidate_paths[path_name] = path_handle;
                 return true;
             });
         }

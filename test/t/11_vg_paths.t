@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 131
+plan tests 137
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -190,6 +190,28 @@ vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-gref --min-gref-len 1 -
 is $(grep -v "^#" gref_sample_test.segs | cut -f4 | grep -c "^gref_") 2 "gref-segs names are all in the gref namespace"
 
 is $(vg paths -x gref_sample_test.vg -L | grep -c "^gref_") 3 "compute-gref writes the base copy and its fragments together"
+
+# --exclude-sample keeps a sample's paths from sourcing cover fragments.  In
+# two_sample_alts.gfa node 4 is SAMPLEA's alone, node 5 is SAMPLEB's alone, and node 6 is off
+# the reference but visited by both, so how many fragments appear says how many samples were
+# allowed to contribute, and node 6 says that excluding one sample leaves what another covers.
+vg paths -x nesting/two_sample_alts.gfa -Q CHM13 --compute-gref --min-gref-len 1 > excl_none.vg
+is $(vg paths -x excl_none.vg -L | grep -c "_alt$") 3 "both samples source a fragment when nothing is excluded, and the node they share sources a third"
+
+vg paths -x nesting/two_sample_alts.gfa -Q CHM13 --compute-gref --min-gref-len 1 \
+  --exclude-sample SAMPLEB --gref-segs excl_one.segs > excl_one.vg
+is $(vg paths -x excl_one.vg -L | grep -c "_alt$") 2 "excluding a sample drops the fragment only it could source and keeps the node another path visits"
+is "$(grep -v "^#" excl_one.segs | cut -f1 | sort -u | tr '\n' ' ')" "SAMPLEA#1#chr1 " "every surviving fragment is sourced from the sample that was kept"
+
+# An excluded sample keeps its own paths.  A gref built from training haplotypes is still used
+# to place features on the held-out haplotypes, which vg lift can only do while they are present.
+is $(vg paths -x excl_one.vg -L | grep -c "^SAMPLEB#") 1 "an excluded sample keeps its own paths in the graph"
+
+is $(vg paths -x nesting/two_sample_alts.gfa -L --exclude-sample SAMPLEA --exclude-sample SAMPLEB | grep -c "#") 1 "repeating --exclude-sample excludes every sample named when only listing paths"
+
+vg paths -x nesting/two_sample_alts.gfa -Q CHM13 --compute-gref --min-gref-len 1 \
+  --exclude-sample SAMPLEB --exclude-sample SAMPLEA > excl_both.vg
+is $(vg paths -x excl_both.vg -L | grep -c "_alt$") 0 "repeating --exclude-sample excludes every sample named"
 
 # Test cross-path interval merging (left merge: new interval absorbs previous from different path)
 vg paths -x nesting/cross_path_merge.gfa -Q x --compute-gref --min-gref-len 1 > cross_merge_test.vg
