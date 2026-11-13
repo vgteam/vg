@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -162,7 +163,8 @@ static unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> copy_matrix
 
 pair<vector<int>, unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo>>
 ReadLikelihoodSnarlCaller::genotype_at(const MaterializedSite& site, const Ploidies& ploidies,
-                                       const vector<nid_t>& fallback_nodes) {
+                                       const vector<nid_t>& fallback_nodes,
+                                       const vector<int>* group_of) {
     const vector<Traversal>& traversals = site.alleles.walks;
     const int ref_trav_idx = site.alleles.ref_allele;
     const int ploidy = ploidies.ploidy;
@@ -196,7 +198,7 @@ ReadLikelihoodSnarlCaller::genotype_at(const MaterializedSite& site, const Ploid
     }
 
     vector<int> best_genotype =
-        call_at_ploidy(matrix, ploidy, ref_trav_idx, traversals.size(), *call_info);
+        call_at_ploidy(matrix, ploidy, ref_trav_idx, traversals.size(), *call_info, group_of);
     if (best_genotype.empty()) {
         return make_pair(vector<int>(), std::move(call_info));
     }
@@ -207,7 +209,8 @@ ReadLikelihoodSnarlCaller::genotype_at(const MaterializedSite& site, const Ploid
     if (ploidies.also_score_other && traversals.size() > 1) {
         const int other = ploidy == 1 ? 2 : 1;
         unique_ptr<ReadLikelihoodCallInfo> alt = copy_matrix_fields(*call_info, other);
-        vector<int> alt_best = call_at_ploidy(matrix, other, ref_trav_idx, traversals.size(), *alt);
+        vector<int> alt_best =
+            call_at_ploidy(matrix, other, ref_trav_idx, traversals.size(), *alt, group_of);
         if (!alt_best.empty()) {
             call_info->alt_ploidy_best = alt_best;
             call_info->alt_ploidy_info = std::move(alt);
@@ -285,15 +288,181 @@ size_t reference_genotype_index(const vector<pair<vector<int>, double>>& scored,
     return 0;
 }
 
+/// The best scores among the genotypes of one multiset of groups. The own score of a genotype is
+/// its ln likelihood. Its shared score is its ln likelihood with the relative likelihood of each read
+/// for an allele replaced by the best relative likelihood of the read over the allele's group. Each
+/// score comes with the index, in the scored list, of the first genotype that has it.
+struct MultisetBest {
+    double shared;
+    size_t by_shared;
+    double own;
+    size_t by_own;
+};
+
+/// The `MultisetBest` of each multiset of groups, keyed by the sorted multiset.
+using BestScoreTable = map<vector<int>, MultisetBest>;
+
+/// Return the sorted multiset of the groups of the alleles of `genotype`.
+vector<int> groups_of(vector<int> genotype, const vector<int>& group_of) {
+    for (int& allele : genotype) {
+        allele = group_of[allele];
+    }
+    std::ranges::sort(genotype);
+    return genotype;
+}
+
+/// Return the best shared and own scores of each multiset of groups among the genotypes of `own`.
+/// `own` holds the own score of each genotype. `shared` holds the shared score of each of the same
+/// genotypes, in the same order.
+BestScoreTable best_scores(const vector<pair<vector<int>, double>>& own,
+                           const vector<pair<vector<int>, double>>& shared,
+                           const vector<int>& group_of) {
+    BestScoreTable best;
+    const double none = -numeric_limits<double>::infinity();
+    for (size_t i = 0; i < own.size(); ++i) {
+        MultisetBest& entry =
+            best.try_emplace(groups_of(own[i].first, group_of), none, i, none, i).first->second;
+        if (shared[i].second > entry.shared) {
+            entry.shared = shared[i].second;
+            entry.by_shared = i;
+        }
+        if (own[i].second > entry.own) {
+            entry.own = own[i].second;
+            entry.by_own = i;
+        }
+    }
+    return best;
+}
+
+/// Return the best genotypes in `best`, each with one more copy of a group. Each new genotype is a
+/// best genotype of a multiset plus one allele of one of the multiset's groups of two or more
+/// alleles. `best` holds indexes into `genotypes`. The result is sorted, with each genotype once.
+vector<vector<int>> genotypes_with_one_more_copy(const BestScoreTable& best,
+                                                 const vector<vector<int>>& genotypes,
+                                                 const vector<int>& group_of,
+                                                 const vector<int>& members) {
+    vector<vector<int>> bigger;
+    for (const auto& [groups, scores] : best) {
+        for (int allele = 0; allele < (int)group_of.size(); ++allele) {
+            if (members[group_of[allele]] < 2
+                || !std::ranges::binary_search(groups, group_of[allele])) {
+                continue;
+            }
+            for (size_t i : {scores.by_shared, scores.by_own}) {
+                vector<int> genotype = genotypes[i];
+                genotype.insert(std::ranges::upper_bound(genotype, allele), allele);
+                bigger.push_back(std::move(genotype));
+            }
+        }
+    }
+    std::ranges::sort(bigger);
+    bigger.erase(std::ranges::unique(bigger).begin(), bigger.end());
+    return bigger;
+}
+
+/**
+ * Return the ln likelihood of every genotype of `matrix` at `ploidy`, in VCF GL order, when the
+ * groups of the site's alleles choose its genotype and the alleles choose within the chosen groups.
+ *
+ * Each multiset of groups gets two scores from its genotypes. Its shared score is their best ln
+ * likelihood with the relative likelihood of each read for an allele replaced by its best relative
+ * likelihood over the allele's group. Its own score is the best of their own ln likelihoods. The
+ * shared score less the own score is the gain from letting each read choose its allele within a
+ * copy of a group. The gain measures how the reads fit the alleles, so we take both of its scores
+ * without the depth term, which scores only the number of reads.
+ *
+ * Crediting the gain is right where one haplotype is a mosaic of the alleles of a group, and wrong
+ * where one copy of a group carries the reads of two haplotypes. One more copy of the group takes
+ * over the reads of the second haplotype, so the gain drops. One more allele of the group does not
+ * spell a mosaic either, so a mosaic should lose less of its gain, though how much it keeps depends
+ * on the reads. So we charge each multiset the largest drop in its gain that one more copy of one of its groups of two
+ * or more alleles brings, or nothing if no such copy lowers the gain.
+ *
+ * The number of genotypes at ploidy + 1 grows with the cube of the number of alleles at a diploid
+ * site, so we take the gain of a multiset at ploidy + 1 from fewer genotypes. Each multiset at
+ * `ploidy` has a best genotype by each of its two scores without the depth term, the first in VCF
+ * GL order where genotypes tie. Adding one allele of one of the multiset's groups of two or more
+ * alleles to either best genotype gives a genotype at ploidy + 1. The gain of a multiset at
+ * ploidy + 1 is the best shared score of the genotypes made this way with its multiset of groups,
+ * less their best own score.
+ *
+ * Each genotype scores the shared score of its multiset with the depth term, less the charge, less
+ * its shortfall from the own score of its multiset with the depth term. The best genotype is then
+ * the best one of the multiset that scores best. GQ is the smaller of two gaps: the gap to the
+ * runner-up of the same multiset, and the gap to the best genotype of the next-best multiset.
+ *
+ * Where the alleles form one group, every genotype has the one multiset, and each genotype scores
+ * its own ln likelihood.
+ */
+vector<pair<vector<int>, double>> let_groups_decide(const AlleleReadLikelihoods& matrix,
+                                                    int ploidy, const vector<int>& group_of) {
+    // The number of alleles in each group.
+    vector<int> members(*std::ranges::max_element(group_of) + 1);
+    for (int group : group_of) {
+        ++members[group];
+    }
+    // The alleles form one group, so every genotype has the one multiset. The groups would shift
+    // every genotype alike, which changes neither the call nor GQ.
+    if (members.size() == 1) {
+        return matrix.score_genotypes(ploidy);
+    }
+    // Score each genotype from its reads alone, and take the best genotypes of each multiset by
+    // those scores. Then add the depth term, which gives the ln likelihood of each genotype.
+    const auto genotypes = AlleleReadLikelihoods::enumerate_genotypes(matrix.num_alleles(), ploidy);
+    auto scored = matrix.score_genotypes(genotypes, nullptr, false);
+    auto shared = matrix.score_genotypes(genotypes, &group_of, false);
+    const BestScoreTable best_reads = best_scores(scored, shared, group_of);
+    for (size_t i = 0; i < scored.size(); ++i) {
+        const double depth = matrix.depth_term(scored[i].first);
+        scored[i].second += depth;
+        shared[i].second += depth;
+    }
+    const BestScoreTable best = best_scores(scored, shared, group_of);
+
+    // Score the multisets at ploidy + 1 from the best genotypes by reads alone, each with one more
+    // copy of a group.
+    const auto bigger = genotypes_with_one_more_copy(best_reads, genotypes, group_of, members);
+    const BestScoreTable bigger_reads =
+        best_scores(matrix.score_genotypes(bigger, nullptr, false),
+                    matrix.score_genotypes(bigger, &group_of, false), group_of);
+
+    // Charge the multiset of each genotype, and score the genotype from its multiset.
+    for (auto& [genotype, ll] : scored) {
+        // An impossible genotype stays impossible.
+        if (!std::isfinite(ll)) {
+            continue;
+        }
+        const vector<int> groups = groups_of(genotype, group_of);
+        const MultisetBest& with_depth = best.at(groups);
+        const MultisetBest& by_reads = best_reads.at(groups);
+        double charge = 0.0;
+        for (int group : groups) {
+            if (members[group] > 1) {
+                vector<int> plus = groups;
+                plus.insert(std::ranges::upper_bound(plus, group), group);
+                const MultisetBest& plus_reads = bigger_reads.at(plus);
+                charge = max(charge, (by_reads.shared - by_reads.own)
+                                         - (plus_reads.shared - plus_reads.own));
+            }
+        }
+        ll = with_depth.shared - charge - (with_depth.own - ll);
+    }
+    return scored;
+}
+
 } // namespace
 
 vector<int> ReadLikelihoodSnarlCaller::call_at_ploidy(const AlleleReadLikelihoods& matrix,
                                                       int ploidy, int ref_trav_idx,
                                                       size_t trav_count,
-                                                      ReadLikelihoodCallInfo& info) const {
+                                                      ReadLikelihoodCallInfo& info,
+                                                      const vector<int>* group_of) const {
     // Score every genotype. For K alleles and ploidy 2 that is K(K+1)/2 genotypes, each one pass
-    // over the reads.
-    const vector<pair<vector<int>, double>> scored = matrix.score_genotypes(ploidy);
+    // over the reads. Where the alleles have groups, the groups choose the multiset of groups of
+    // the genotype, and the alleles choose within it.
+    vector<pair<vector<int>, double>> scored = group_of != nullptr
+                                                   ? let_groups_decide(matrix, ploidy, *group_of)
+                                                   : matrix.score_genotypes(ploidy);
     if (scored.empty()) {
         return vector<int>();
     }
@@ -455,7 +624,7 @@ vector<string> written_gl(const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInf
  *
  * Take it from the posterior of the all-reference genotype, renormalised against all the scored
  * genotypes. Only the column of the reference allele is needed, so a record with an unscored
- * allele, such as a star allele, still gets one.
+ * allele still gets one.
  *
  * @return QUAL, or 0 for a reference call or where the posterior is unknown.
  */
@@ -519,8 +688,8 @@ void ReadLikelihoodSnarlCaller::write_vcf_fields(const vector<int>& site_to_scor
     }
 
     // Write AD over the written alleles, rounded to integers. It need not sum to DP, since a read
-    // whose best allele was scored but not written has no entry. An allele with no scored column,
-    // such as a star allele, gets 0, since AD needs one entry per allele.
+    // whose best allele was scored but not written has no entry. An allele with no scored column
+    // gets 0, since AD needs one entry per allele.
     variant.format.push_back("AD");
     for (int k : site_to_scored) {
         long v = 0;

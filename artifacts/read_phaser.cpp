@@ -116,7 +116,7 @@ static vector<PhaseTable::NestedLink> nested_links(
 
 void ReadPhaser::phase(
     StagedSiteTable& staged, PhaseTable& phases, ReadStrandTable& strands,
-    const function<size_t(const string& contig, size_t phase_set)>& phase_set_id) {
+    const function<size_t(const string& contig, size_t phase_set)>& phase_set_id, bool show_fit) {
     if (!on || phases.calls().empty()) {
         return;
     }
@@ -135,15 +135,16 @@ void ReadPhaser::phase(
 
     strands.read_ordered().clear();
     strands.flips() = read_phase_flips(sites, params, counters, &strands.read_ordered());
+    strands.run_correlations() = RunCorrelationTable(sites);
 
     // Block records spell the phase in their ALTs, so swapping a nested site can change the
     // allele numbers in its GT.
     counters.strands_rederived += phases.swap_strands(strands.flips(),
                                                       nested_links(staged, phase_index));
-    report();
+    report(show_fit);
 }
 
-void ReadPhaser::report() const {
+void ReadPhaser::report(bool show_fit) const {
     const ReadPhasingCounters& c = counters;
     cerr << "[vg call] read phasing: " << c.sites << " het sites, " << c.reliable
          << " reliable, " << c.chains << " blocks, " << c.breaks << " chain breaks ("
@@ -161,6 +162,22 @@ void ReadPhaser::report() const {
                     " a coherent fixed point";
         } else {
             cerr << " (every chain reached a coherent fixed point)";
+        }
+        cerr << endl;
+    }
+    cerr << "[vg call] panel phase against the reads: " << c.panel_pairs_reversed << " of "
+         << c.panel_pairs << " pairs of neighbouring panel-ordered sites in one piece reversed";
+    if (c.panel.fitted) {
+        cerr << "; it switches once per " << 1.0 / c.panel.switch_rate << " bases and flips "
+             << c.panel.flip_rate << " of sites" << endl;
+    } else {
+        cerr << "; too few to fit its error rates" << endl;
+    }
+    if (show_fit && !c.panel_fit.empty()) {
+        cerr << "[vg call] panel phase fit, distance / agreement observed / predicted / n:";
+        for (const PanelFitBin& bin : c.panel_fit) {
+            cerr << "  " << bin.distance << " " << bin.observed << " " << bin.predicted << " "
+                 << bin.count;
         }
         cerr << endl;
     }

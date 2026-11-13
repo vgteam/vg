@@ -72,6 +72,10 @@ public:
     unordered_set<size_t>& read_ordered() { return ordered_by_reads; }
     /// Get the sites that the reads ordered where the panel did not (see `PhaseSite::panel_ordered`).
     const unordered_set<size_t>& read_ordered() const { return ordered_by_reads; }
+    /// Get the correlations between the runs of `sites()`.
+    RunCorrelationTable& run_correlations() { return correlations; }
+    /// Get the correlations between the runs of `sites()`.
+    const RunCorrelationTable& run_correlations() const { return correlations; }
 
     /**
      * Sum the strand log-odds of each read over `sites()`, for the anchors.
@@ -94,10 +98,18 @@ public:
      * Return the tempered strand log-odds of a read, leaving out the site `record_key`.
      *
      * Leaving out the site keeps a site from judging its own reads. A positive value favors anchor
-     * slot 0. The value is 0 when there is no table, no fitted temper, or no other site the read
-     * contributed to. It is NaN when the read has a strand that is not usable in the phase set of
-     * the site (see `read_strand_usable`); a split homozygous site drops such a read, but places a
-     * read with no strand by a coin.
+     * slot 0. It is NaN when the read has a strand that is not usable in the phase set of the site
+     * (see `read_strand_usable`); a split homozygous site drops such a read, but places a read
+     * with no strand by a coin.
+     *
+     * At a site with a run (`PhaseSite::run`), the read's strand is the one `read_strand` gives,
+     * and a strand from another run is shrunk towards 0 by how likely read phasing orients that
+     * run against the site's as reads would (see `reoriented_log_odds`). At a site in no run, such
+     * as a homozygous one, it is the read's whole sum over its other sites, whatever their runs.
+     *
+     * The value is 0 when there is no table, no fitted temper, or no other site the read
+     * contributed to; and, at a site with a run, when the read's sites lie in more than two runs,
+     * or its strand comes from a run that nothing orients against the site's.
      *
      * @param site_own The log-odds of each read at this site alone, from
      * `site_own_strand_log_odds` for the same `record_key`, or null to compute them here. A caller
@@ -123,6 +135,8 @@ private:
     unordered_set<size_t> phase_flips;
     /// The record keys of the sites that the reads ordered where the panel did not.
     unordered_set<size_t> ordered_by_reads;
+    /// The correlations between the runs of `phase_sites`.
+    RunCorrelationTable correlations;
 
     /// The strand log-odds of each read, from `build_lambda`, by hash of the read name.
     ///

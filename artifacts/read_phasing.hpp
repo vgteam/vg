@@ -7,16 +7,19 @@
  * that span it and other heterozygous sites, within the phase sets the panel gave.
  *
  * Genotypes do not change. To flip a site is to swap its pair against the order the panel gave.
- * Each phase set is phased in stages:
+ * The pieces of stage 1 first measure how often the panel's order is wrong (see
+ * `PanelErrorModel`), across all phase sets. Then each phase set is phased in stages:
  *
  *   1. Link each reliable site to the next, making the phase chain. Break it where a link is
  *      weak, and orient each piece from its first site.
- *   2. Decide each break from the links across it. Turn each run of pieces that reads join so
- *      that its first site the panel orders keeps the panel's order.
+ *   2. Decide each break from the links across it and from the panel's order of the sites either
+ *      side, weighed by how often that is wrong. Turn each stretch of pieces so decided so that its
+ *      first site the panel orders keeps the panel's order.
  *   3. Remove phase-chain sites whose reads disagree with the rest of the chain, and repeat
  *      stages 1 and 2.
- *   4. Hang every other site from its nearest phase-chain sites. A wrong decision there flips one
- *      site, where a wrong link in the chain would flip every site after it.
+ *   4. Hang every other site from its nearest phase-chain sites and the panel's order. A wrong
+ *      decision there flips one site, where a wrong link in the chain would flip every site after
+ *      it.
  *   5. Order by reads alone the sites the panel does not order that no read links to the chain.
  *
  * The method is described in artifacts/doc/read-likelihood-read-phasing.md, under "Read phasing".
@@ -24,6 +27,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <unordered_set>
 #include <vector>
 
@@ -33,6 +37,9 @@ using std::size_t;
 using std::uint64_t;
 using std::unordered_set;
 using std::vector;
+
+/// The run of a site that is in none (see `PhaseSite::run`).
+constexpr size_t NO_RUN = std::numeric_limits<size_t>::max();
 
 /**
  * A site's per-read evidence, kept from the direct pass until read phasing runs after the linkage
@@ -114,6 +121,24 @@ struct PhaseSite {
     /// as for a heterozygote whose ALT no haplotype carries. Such a site is ordered by its reads
     /// alone, and never lends the panel's order to another site.
     bool panel_ordered = true;
+    /// The run that the site's order is relative to, or `NO_RUN`. `read_phase_flips` fills it.
+    ///
+    /// A run of the phase chain is a series of its pieces, each linked by reads to the one before
+    /// it and oriented as those links alone say. Reads fix the orders of one run's sites relative
+    /// to each other but not to another run's, so a read's strand is comparable only with the
+    /// strands of the run it was found in. The phase chain's runs are numbered from 0 along the
+    /// phase set. A site off the chain takes the run whose reads' vote on it agrees with the order
+    /// it was given and is the largest, or, if no run's vote agrees, the run of the site whose
+    /// panel order it kept. Sites the panel does not order (see `panel_ordered`) that no read links
+    /// to the chain, and that reads order only among themselves, make runs of their own, numbered
+    /// after the chain's. A site the panel orders that neither reads nor the panel relate to a run
+    /// is in none.
+    size_t run = NO_RUN;
+    /// The correlation of the site's run with the run before it in the phase set: 2p - 1, for the
+    /// probability p that read phasing oriented the run against that one as reads would. It is 0
+    /// for the first run, a run that nothing oriented against the one before, and a run of sites
+    /// ordered only among themselves. `read_phase_flips` fills it.
+    double run_correlation = 0.0;
 };
 
 /// Return a read's confidence at a site.
@@ -154,11 +179,13 @@ struct ReadPhasingParams {
     ///
     /// We use the nearest hang / 2 + 1 on each side, so up to 6 in all at the default of 4.
     size_t hang = 4;
-    /// The weight, in log10 units, of a vote for the panel's order when hanging a site.
+    /// The weight, in log10 units, of a vote for the panel's order when hanging a site, where the
+    /// panel's error rates could not be fitted (see `PanelErrorModel`).
     ///
     /// At 0, a site that no read links to the chain keeps the panel's order.
     double panel_weight = 3.0;
-    /// The limit on the size of one link, or 0 for none.
+    /// The limit on the size of one link, and of the vote of one run's reads on a site hung off
+    /// the phase chain, or 0 for none.
     ///
     /// Reads are treated as independent, so a link from many reads can be far larger than its real
     /// reliability.
@@ -176,6 +203,48 @@ struct ReadPhasingParams {
     /// Each round measures coherence on the phase chain the previous round produced. More rounds
     /// remove more sites, so the remaining links span further, are weaker, and break more often.
     size_t coherence_rounds = 2;
+};
+
+/**
+ * A model of the errors in the panel's phase: switches at `switch_rate` per base, and flips of
+ * single sites at `flip_rate` per site.
+ *
+ * The panel errs in two ways. A switch puts every site after it the other way round, and switches
+ * fall at random at `switch_rate` per base. A flip puts one site the other way round, with
+ * probability `flip_rate` at each site. The panel then orders two sites `d` bases apart as the
+ * reads would with the probability of an even number of errors between them:
+ *
+ *     p(d) = (1 + (1 - 2 flip_rate)^2 e^(-2 switch_rate d)) / 2,
+ *
+ * which falls from (1 + (1 - 2 flip_rate)^2) / 2 to 1/2 with distance.
+ */
+struct PanelErrorModel {
+    /// The rate of switches per base.
+    double switch_rate = 0.0;
+    /// The probability of a flip at each site.
+    double flip_rate = 0.0;
+    /// Whether the rates were fitted. When false, `correlation()` and `vote()` return 0.
+    bool fitted = false;
+
+    /// Return 2 p(d) - 1, (1 - 2 flip_rate)^2 e^(-2 switch_rate d), which falls from
+    /// (1 - 2 flip_rate)^2 to 0 as the panel's order of two sites `distance` bases apart becomes a
+    /// coin toss. It is 0 if the rates were not fitted.
+    double correlation(size_t distance) const;
+    /// Return the panel's vote for its order of two sites `distance` bases apart, in the log10
+    /// units of a link: log10(p(d) / (1 - p(d))).
+    double vote(size_t distance) const;
+};
+
+/// A bin of the pairs of sites the panel's error rates are fitted to, by distance.
+struct PanelFitBin {
+    /// The mean distance between the sites of a pair, in bases.
+    double distance = 0.0;
+    /// The fraction of the pairs that the panel orders as the reads do.
+    double observed = 0.0;
+    /// That fraction as the fitted rates predict it.
+    double predicted = 0.0;
+    /// The number of pairs.
+    size_t count = 0;
 };
 
 /// A report of what read phasing did.
@@ -204,7 +273,17 @@ struct ReadPhasingCounters {
     size_t coherence_rounds_run = 0;
     /// Phase chains still losing sites in the last round allowed.
     size_t coherence_unconverged = 0;
+    /// Pairs of phase-chain sites of one piece that the panel orders, with no such site between
+    /// them, whose relative order the reads fix.
+    size_t panel_pairs = 0;
+    /// Of those, the pairs the reads order the other way round from the panel.
+    size_t panel_pairs_reversed = 0;
+    /// The panel's error rates, fitted from those pairs.
+    PanelErrorModel panel;
+    /// The fit's table, in bins of the pairs by distance.
+    vector<PanelFitBin> panel_fit;
 };
+
 
 /// Return the size of the link between two sites.
 ///
@@ -219,7 +298,8 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap);
  * `position`, then `record_key`, in place. Each site's rows are merged by `merge_mates`, in place,
  * so a site built by hand is treated as `reduce_to_pair` would build it.
  *
- * With no read evidence, no site is flipped.
+ * With no read evidence, no site is flipped. The panel's error rates are fitted into `counters`
+ * first, and each site's `run` and `run_correlation` are filled.
  *
  * @returns The record keys of the sites to flip.
  *

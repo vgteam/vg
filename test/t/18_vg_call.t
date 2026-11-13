@@ -268,12 +268,35 @@ is $(grep -v "^#" nest_hap.vcf | awk '$2 == 30' | cut -f10 | cut -d: -f1) "1|0" 
 is $(grep -v "^#" nest_hap.vcf | awk '$2 == 51' | cut -f10 | cut -d: -f1) ".|1" \
    "the nested haploid record names the strand its parent leaves the chain on"
 
+# Groups of a site's walks choose its genotype by default: walks that differ only inside child
+# chains share a group. The sample carries the insertion >2>10..13>5 on both strands, which differ
+# inside it at node 11 or 12, and the SNP at node 7 or 8 on one strand. The walks through the
+# insertion share a group, though the reference does not cross its chain, and so do the walks that
+# differ only at the SNP. The reads have no MAPQ, so each may be mismapped.
+vg gbwt -G nesting/deletion_over_insertion_and_snp.gfa --gbz-format -g nest_off.gbz --set-reference GRCh 2>/dev/null
+vg sim -x nest_off.gbz -n 200 -l 60 -a -s 71 --path "p1#0#chr1#0" > nest_off.gam 2>/dev/null
+vg sim -x nest_off.gbz -n 200 -l 60 -a -s 73 --path "p1#1#chr1#0" >> nest_off.gam 2>/dev/null
+# Each record as POS:number of ALTs:GT, with the GT's two alleles sorted, since either strand order
+# is the same call.
+calls_of() {
+  grep -v '^#' "$1" | awk -F'\t' '{split($10, a, ":"); split(a[1], g, "|");
+                                   printf "%s:%s:%s ", $2, split($5, b, ","), (g[1] < g[2] ? g[1] "|" g[2] : g[2] "|" g[1])}'
+}
+vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp 2>/dev/null > nest_off.vcf
+is "$(calls_of nest_off.vcf)" "47:2:1|2 71:1:0|1 " \
+   "by default groups of walks call both insertion alleles, and the SNP on one strand"
+vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp --no-group-candidates \
+    2>/dev/null > nest_off_walks.vcf
+is "$(calls_of nest_off_walks.vcf)" "29:1:0|1 47:1:.|1 71:1:.|1 " \
+   "with --no-group-candidates the walks alone choose, and call the deletion on one strand"
+
 rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 \
       callrl_nopack.vcf callrl_nopack_z.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf \
       rl_t1.vcf rl_t4.vcf rl_link_off.vcf rl_link_default.vcf \
       rl_default.vcf rl_mosaic.tsv rl_paths.gaf rl_graph.gfa rl_expand.txt \
       rl_anchors.tsv rl_anchors.vcf rl_anchors.err \
-      nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt
+      nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt \
+      nest_off.gbz nest_off.gam nest_off.vcf nest_off_walks.vcf
 
 
 # subpath test
@@ -582,16 +605,14 @@ is "$NESTED_LINE_COUNT" "2" "nested vg call emits both top-level and child snarl
 
 rm -f nested_snp.vg nested_snp.gam nested_snp.pack nested_snp.vcf
 
-## Read-likelihood genotyping of a nested site, with a star allele
+## Read-likelihood genotyping of a deletion over a nested site
 # x = 1>2>3>5>6 and y1 = 1>6, which deletes the nested SNP: a het deletion over a haploid nested site.
 vg view -Fv nesting/nested_snp_in_del.gfa > ns.vg 2>/dev/null
 vg sim -x ns.vg -P x -n 150 -l 4 -a -s 7 > ns_het.gam 2>/dev/null
 vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 2 -a -s 8 >> ns_het.gam 2>/dev/null
 vg pack -x ns.vg -g ns_het.gam -o ns_het.pack 2>/dev/null
-vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
-is $(grep -v "^#" ns_rl.vcf | wc -l | tr -d ' ') "2" "nested read-likelihood emits both the parent and the child site"
+vg call ns.vg -k ns_het.pack -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
 is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "the parent deletion is called from boundary-to-boundary reads"
-is $(grep -v "^#" ns_rl.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "the nested site is a star allele, not a strand-artefact het SNP"
 rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf
 # Test: Star allele option validation (-Y requires --top-down)
 vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg

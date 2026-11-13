@@ -31,18 +31,21 @@ public:
     /**
      * Re-phase `phases` from the reads of `staged`, and report what changed.
      *
-     * The read evidence of each diploid heterozygous site goes to `strands.sites()`, and the
-     * record keys of the sites whose strands the reads swap go to `strands.flips()`. The swaps
-     * are then made in `phases`, and carried down to the nested sites.
+     * The read evidence of each diploid heterozygous site goes to `strands.sites()`, the record
+     * keys of the sites whose strands the reads swap go to `strands.flips()`, and the
+     * correlations between the runs of the sites go to `strands.run_correlations()`. The swaps are
+     * then made in `phases`, and carried down to the nested sites.
      *
      * This does nothing when read phasing is off or `phases` is empty. When no site has read
      * evidence, it leaves `strands.flips()` as it was, so a later round keeps an earlier round's
      * swaps.
      *
      * @param phase_set_id Returns the run-wide ID of a phase set of a contig.
+     * @param show_fit Whether to report the table of the fit of the panel's error rates.
      */
     void phase(StagedSiteTable& staged, PhaseTable& phases, ReadStrandTable& strands,
-               const function<size_t(const string& contig, size_t phase_set)>& phase_set_id);
+               const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
+               bool show_fit);
 
 private:
     /// Fill `sites` with the read evidence of each diploid heterozygous site, in record order.
@@ -54,8 +57,8 @@ private:
                        const function<size_t(const string& contig, size_t phase_set)>&
                            phase_set_id) const;
 
-    /// Write what the last `phase()` did to standard error.
-    void report() const;
+    /// Write what the last `phase()` did to standard error, with the fit's table if `show_fit`.
+    void report(bool show_fit) const;
 
     /// Whether read phasing is on.
     bool on = false;

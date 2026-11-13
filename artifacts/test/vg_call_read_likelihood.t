@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 307
+plan tests 304
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -629,6 +629,19 @@ is "$(grep -o -- "--read-likelihood cannot be used with .*" rl_modes.txt)" \
    "--read-likelihood cannot be used with --bottom-up, -I/--chains" \
    "--read-likelihood refuses the modes it does not have, naming each"
 rm -f mos_norl.txt multi_norl.txt trav_norl.txt nested_norl.txt rl_modes.txt
+
+# Nor has it the support-based caller's --top-down or -Y/--star-allele, together or alone.
+vg call x.vg -k x.pack --read-likelihood --gam sim.gam --top-down -Y -t 1 >/dev/null 2>rl_topdown.txt
+is "$?" "1" "--read-likelihood with --top-down and -Y is refused"
+is "$(grep -o -- "--read-likelihood cannot be used with .*" rl_topdown.txt)" \
+   "--read-likelihood cannot be used with --top-down, -Y/--star-allele" \
+   "and the refusal names both"
+vg call x.vg -k x.pack --read-likelihood --gam sim.gam -Y -t 1 >/dev/null 2>rl_topdown.txt
+is "$?" "1" "--read-likelihood with -Y alone is refused"
+is "$(grep -o -- "--read-likelihood cannot be used with .*" rl_topdown.txt)" \
+   "--read-likelihood cannot be used with -Y/--star-allele" \
+   "and the refusal names -Y"
+rm -f rl_topdown.txt
 
 # --anchors-hom-split splits a homozygous site by each read's phase across the OTHER sites it
 # crosses, and that log-odds comes from the read-phasing chain.  With no phasing,
@@ -1555,10 +1568,6 @@ is $(grep -c "re-genotyping" rl_rg_preoff.err) "0" "--no-regenotype turns it bac
 vg call x.gbz --read-likelihood --phased --gam sim.gam --preset ont --no-read-phasing -t 1 \
     >/dev/null 2>rl_rg_nph.err
 is "$?" "0" "--preset ont --no-read-phasing declines re-genotyping instead of failing"
-vg call x.gbz --read-likelihood --gam sim.gam --preset ont --no-read-phasing --top-down -t 1 \
-    >/dev/null 2>rl_rg_td.err
-is "$?" "0" "and so does --preset ont with --top-down"
-rm -f rl_rg_td.err
 
 # --preset hifi is the ont settings with three changed. It must apply exactly the settings its help
 # line lists, so its calls are the calls those settings make when given one by one.
@@ -1602,23 +1611,11 @@ vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenoty
     --regeno-ceiling 1.5 -t 1 >/dev/null 2>rl_rg_ceilhi.err
 is "$?" "1" "and so is a ceiling above 1"
 
-# The one combination the correction genuinely cannot be made safe in. `--top-down` builds each
-# child's traversal sets out of its parent's CALLED genotype, and those sets decide the child's
-# ploidy, are merged into its candidate list and supply its pseudo-reference -- so moving a parent
-# leaves the child scored against alleles the parent no longer carries, and no amount of
-# re-resolving repairs that, because the columns were never in the matrix. The read-likelihood
-# descent is not affected: it passes children a null traversal set, so they enumerate their own.
-rm -f rl_rg_td.err rl_rg_bu.err
-vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenotype \
-    --top-down -t 1 >/dev/null 2>rl_rg_td.err
-is "$?" "1" "--regenotype with --top-down is refused"
-is $(grep -c "no longer carries" rl_rg_td.err) "1" "and says which way the staleness runs"
-
 # Every `rm -f` in this block is a PRE-run guard, so without this the block leaves sixteen files
 # behind in test/. Cleaned up here, at the end, where the convention puts it.
 rm -f rl_rg_off.vcf rl_rg_t0.vcf rl_rg_t0.err rl_rg_bad.err rl_rg_passes.err rl_rg_cap.err \
       rl_rg_pre.err rl_rg_preoff.err rl_rg_nph.err rl_rg_ext.vcf rl_rg_ext.err rl_rg_ceil0.err \
-      rl_rg_ceilhi.err rl_rg_nohap.err rl_rg_td.err rl_rg_bu.err
+      rl_rg_ceilhi.err rl_rg_nohap.err
 
 # `slot` IS the phase, and it is the only thing in the file that carries it. This is checked because
 # it once silently was not: `LinkageCollector::settled_traversals` decodes an unordered genotype
@@ -1885,7 +1882,7 @@ rm -f rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_anchors_hom.tsv rl_anchors
 rm -f chainblk.gfa chainblk.gbz chainblk.gam chainblk.vcf nestblk.mosaic.tsv nestblk_mosaic.err nest_del.gam nest_del_lw0.vcf nest_del_link.vcf nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nestdup.gfa nestdup.gbz nestdup.gam nestdup.vcf blkleaf.gfa blkleaf.gbz blkleaf.gam blkleaf.vcf blksame.gfa blksame.gbz blksame.gam blksame.vcf blksame.err blktwice.gfa blktwice.gbz blktwice.gam blktwice.vcf blktwice.err nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt gb_dead.txt sim.gaf sim.unsorted.gaf sim.gaf.db fake_gaf_base dead_gaf_base rl_gafmem.vcf rl_fakebase.vcf rl_fakebase_t4.vcf rl_fakebase_w32.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 # The same nodes and edges under --read-likelihood, which reaches the chain inside the insertion
-# by descent rather than by --top-down.  A gref cover is what makes it reportable: the reference
+# by descent.  A gref cover is what makes it reportable: the reference
 # bypasses the insertion, so without one the SNP inside it has no REF and no POS and is genotyped
 # and thrown away.  Needs a GBZ, because allele enumeration comes from the panel; the truth pair
 # lives in a second graph so the sample's own walks are not in the panel it is called against.
@@ -2056,7 +2053,7 @@ rm -f sb_hap_d.txt sb_hap_bed.txt preset.txt preset_err.txt
 
 rm -f small_cluster_call.gfa small_cluster_call.vg small_cluster_call.gam small_cluster_call.pack call_a.gam call_b.gam
 
-## Read-level genotyping over a nested site with a star allele
+## Read-level genotyping of a deletion over a nested site
 # nested_snp_in_del.gfa: x = 1>2>3>5>6, y0 = 1>2>4>5>6, y1 = 1>6 (deletes the
 # region holding the nested SNP). Reads from x and y1 only, so the top-level site
 # is a het deletion and the nested site is traversed by one haplotype.
@@ -2065,18 +2062,13 @@ vg sim -x ns.vg -P x -n 150 -l 4 -a -s 7 > ns_het.gam 2>/dev/null
 vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 2 -a -s 8 >> ns_het.gam 2>/dev/null
 vg pack -x ns.vg -g ns_het.gam -o ns_het.pack 2>/dev/null
 # --mismap-max pinned, because `vg sim` reads carry MAPQ 0, which makes e_r the cap for every read.
-vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
-
+vg call ns.vg -k ns_het.pack -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>ns_fwd.err > ns_rl.vcf
 
 # Regression: reads traversing the deletion edge touch only the snarl's boundary
 # nodes. A node-based informativeness test discarded them, which left the parent
 # with reference-supporting reads only, called it hom-ref, and dropped the record
 # entirely. The deletion must be called, and its DP must include those reads.
 is $(grep -v "^#" ns_rl.vcf | awk -F'\t' '$4=="CATG"{nk=split($9,k,":"); di=0; for(j=1;j<=nk;j++) if(k[j]=="DP") di=j; split($10,f,":"); print f[di]}') "300" "deletion-spanning reads are counted, not discarded"
-
-# Regression: half these reads are reverse strand. Failing to flip them meant they
-# anchored on nothing and scored against the wrong allele, which turned the nested
-# site into a spurious het SNP instead of a star allele.
 
 # Independent nested calling (-A): every snarl genotyped on its own reads, with no
 # parent restriction and no phase propagation.
@@ -2118,10 +2110,7 @@ vg sim -x nsr.vg -P x -n 150 -l 4 -a -s 7 > nsr_het.gam 2>/dev/null
 vg sim -x nsr.vg -P 'a#2#y1#0' -n 150 -l 2 -a -s 8 >> nsr_het.gam 2>/dev/null
 vg pack -x nsr.vg -g nsr_het.gam -o nsr_het.pack 2>/dev/null
 # --mismap-max pinned, because `vg sim` reads carry MAPQ 0, which makes e_r the cap for every read.
-vg call nsr.vg -k nsr_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam nsr_het.gam 2>nsr_rl.err > nsr_rl.vcf
-
-is $(grep -v "^#" nsr_rl.vcf | wc -l | tr -d ' ') "2" "a backwards reference path still emits both the parent and the child site"
-is $(grep -v "^#" nsr_rl.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "the nested site is a star allele on a backwards reference path too"
+vg call nsr.vg -k nsr_het.pack -p x --read-likelihood --mismap-max 0.7 --gam nsr_het.gam 2>nsr_rl.err > nsr_rl.vcf
 
 # The coverage assertions. Without them "the tests pass" says nothing about whether the reversed
 # branch ran at all, which is exactly how the original defect survived.
@@ -2129,35 +2118,13 @@ is "$(sed -n 's/.*atomize: \([0-9]*\) sites where projection is inert.*/\1/p' ns
 REV_SITES=$(sed -n 's/.*resolve, \([0-9]*\) resolved as the reversal.*/\1/p' nsr_rl.err | head -1)
 is "$([ "${REV_SITES:-0}" -ge 1 ] && echo yes || echo no)" "yes" "the reversed-snarl branch is exercised end to end"
 
-# And the control: ns.vg, whose reference path runs forward, must NOT take that branch, or the
-# counter is measuring something other than reversal.
-vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>ns_fwd.err >/dev/null
+# And the control: the ns_rl.vcf call on ns.vg, whose reference path runs forward, must NOT take that
+# branch, or the counter is measuring something other than reversal.
 is "$(sed -n 's/.*resolve, \([0-9]*\) resolved as the reversal.*/\1/p' ns_fwd.err | head -1)" "0" "a forward reference path never takes the reversed branch"
 
 rm -f nsr.vg nsr_het.gam nsr_het.pack nsr_rl.vcf nsr_rl.err ns_fwd.err
 
-# Effective ploidy at a nested site only one parent haplotype traverses.
-# Reads: 100 from x (ref SNP), 30 from y0 (alt SNP), 100 from y1 (deletion). The
-# child site is reached by one haplotype only, so it must be genotyped haploid.
-# Genotyping it as diploid lets a spurious heterozygote absorb the 30 minority
-# reads for free, which shows up as a badly depressed GQ (38 rather than 256).
-vg sim -x ns.vg -P x -n 100 -l 4 -a -s 11 > ns_mix.gam 2>/dev/null
-vg sim -x ns.vg -P 'a#1#y0#0' -n 30 -l 4 -a -s 12 >> ns_mix.gam 2>/dev/null
-vg sim -x ns.vg -P 'a#2#y1#0' -n 100 -l 2 -a -s 13 >> ns_mix.gam 2>/dev/null
-vg pack -x ns.vg -g ns_mix.gam -o ns_mix.pack 2>/dev/null
-# --mismap-max is pinned rather than defaulted, because every read here comes
-# straight from `vg sim` and so carries MAPQ 0. That makes e_r equal to the cap for
-# all 230 reads, and the GQ assertion below becomes a measurement of the cap rather
-# than of the ploidy handling it is named for: the same correct 1/0 call scores GQ
-# 161, 83 or 24 at caps 0.5, 0.7 and 0.9. Pinning keeps this a ploidy test. The cap
-# itself is swept against real data, where reads have real mapping qualities.
-vg call ns.vg -k ns_mix.pack --top-down -Y -p x --read-likelihood --gam ns_mix.gam --mismap-max 0.5 2>/dev/null > ns_mix.vcf
-
-is $(grep -v "^#" ns_mix.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "mixed-read nested site still yields a star allele"
-STAR_GQ=$(grep -v "^#" ns_mix.vcf | awk -F'\t' '$5=="*"{nk=split($9,k,":"); qi=0; for(j=1;j<=nk;j++) if(k[j]=="GQ") qi=j; split($10,f,":"); print f[qi]}')
-is $(if [ "${STAR_GQ}" -gt 100 ]; then echo 1; else echo 0; fi) "1" "a singly-traversed nested site is genotyped at its own ploidy, not diluted by a spurious het"
-
-rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf ns_rl_a.vcf ns_mix.gam ns_mix.pack ns_mix.vcf ns_rl_a_nested.err
+rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf ns_rl_a.vcf ns_rl_a_nested.err
 
 
 
