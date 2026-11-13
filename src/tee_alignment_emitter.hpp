@@ -15,37 +15,27 @@
 namespace vg {
 
 /**
- * An AlignmentEmitter that emits every alignment through each of several other
- * AlignmentEmitters, which it owns.
+ * An AlignmentEmitter that duplicates alignments out to several other emitters.
  *
- * Each destination gets every batch. Batches emitted from several threads at
- * once may reach different destinations in different orders.
- * Destinations may move from or change the batches they get, so every
- * destination but the last gets its own copy.
- *
- * It is thread safe if all its destinations are.
+ * Note that, because different threads can call into the emit methods, the
+ * different downstream emitters can see batches in different orders.
  */
 class TeeAlignmentEmitter : public vg::io::AlignmentEmitter {
 public:
 
-    /// Make a TeeAlignmentEmitter that emits through the given destinations,
-    /// in order. With no destinations, it discards everything.
+    /// Make a TeeAlignmentEmitter that emits to the given destinations.
+    ///
+    /// An empty list of destinations is allowed.
     ///
     /// Throws std::invalid_argument if any destination is null.
     explicit TeeAlignmentEmitter(std::vector<std::unique_ptr<vg::io::AlignmentEmitter>>&& destinations);
 
-    /// Emit a batch of Alignments through every destination.
+    // AlignmentEmitter implementation methods
+    
     void emit_singles(std::vector<Alignment>&& aln_batch) override;
-    /// Emit a batch of Alignments with secondaries through every destination.
     void emit_mapped_singles(std::vector<std::vector<Alignment>>&& alns_batch) override;
-    /// Emit a batch of pairs of Alignments through every destination.
-    /// tlen_limit_batch holds, for each pair, the longest pairing distance at
-    /// which it counts as properly paired.
     void emit_pairs(std::vector<Alignment>&& aln1_batch, std::vector<Alignment>&& aln2_batch,
                     std::vector<int64_t>&& tlen_limit_batch) override;
-    /// Emit the mappings of a batch of pairs of Alignments through every
-    /// destination. tlen_limit_batch holds, for each pair, the longest pairing
-    /// distance at which it counts as properly paired.
     void emit_mapped_pairs(std::vector<std::vector<Alignment>>&& alns1_batch,
                            std::vector<std::vector<Alignment>>&& alns2_batch,
                            std::vector<int64_t>&& tlen_limit_batch) override;
@@ -54,7 +44,7 @@ public:
     void emit_extra_message(const std::string& tag, std::string&& data) override;
 
 private:
-    /// The emitters that every batch goes to, in order. None is null.
+    /// The downstream alignment emitters.
     std::vector<std::unique_ptr<vg::io::AlignmentEmitter>> destinations;
 };
 

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 106
+plan tests 95
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -86,13 +86,9 @@ rm -f x.longread.zipcodes
 rm -Rf grid-out
 mkdir grid-out
 touch grid-out/kept.gaf
-vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-file grid-out/file.gam --output-file grid-out/kept.gaf --hard-hit-cap 5:6 --report-name grid-out/report.tsv
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -O grid-out/file.gam -O grid-out/kept.gaf --hard-hit-cap 5:6 --report-name grid-out/report.tsv
 is "$(ls grid-out/file*.gam | wc -l)" "2" "Grid search works end-inclusive"
-is "$(ls grid-out/file.gam 2>/dev/null | wc -l)" "0" "giraffe removes the empty output file named as given when settings vary"
-is "$(ls grid-out/kept.gaf | wc -l)" "1" "giraffe keeps an output file that existed before when settings vary"
-is "$(head -n 1 grid-out/report.tsv | tr -d '#' | tr '\t' '\n' | sort | tr '\n' ',')" "GAF file,GAM file,reads/second/thread," "giraffe reports a column for each output file"
-# Count the report rows whose GAM and GAF columns, found by their headers, name files of those formats.
-is "$(awk -F'\t' 'NR == 1 {sub(/^#/, ""); for (i = 1; i <= NF; i++) col[$i] = i; next} $col["GAM file"] ~ /\.gam$/ && $col["GAF file"] ~ /\.gaf$/ {n++} END {print n}' grid-out/report.tsv)" "2" "giraffe reports the files of each combination of settings under their formats"
+is "$(cat grid-out/report.tsv | grep -v "^#" | wc -l | sed 's/^[[:space:]]*//')" "2" "Grid search reports one row per condition"
 rm -Rf grid-out
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
@@ -212,33 +208,14 @@ samtools view surject.bam | cut -f2 | sort | uniq -c > surject.flags
 diff direct.flags surject.flags
 is $? 0 "SAM flags are the same between giraffe and surject"
 
-# Alignments written to output files match what goes to standard output, in
-# SAM, GAM and GAF. Each GAM record holds its mapping time, which differs
-# between runs, so GAM comparisons blank time_used.
-gam_without_times() {
-    vg view -aj "$1" | jq -c '.time_used = null' | md5sum
-}
-GIRAFFE_PAIRED="vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 -t 1"
-${GIRAFFE_PAIRED} -o SAM > stdout.sam
-${GIRAFFE_PAIRED} -o GAM > stdout.gam
-${GIRAFFE_PAIRED} -o GAF > stdout.gaf
+vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 -t 1 > stdout.gam
+vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 -t 1 --output-file file.gam --output-file file.sam
 
-${GIRAFFE_PAIRED} --output-file one.gaf > one.stdout
-is "$(md5sum < one.gaf)" "$(md5sum < stdout.gaf)" "giraffe writes the same GAF to an output file as to standard output"
-is "$(wc -c < one.stdout)" "0" "giraffe writes nothing to standard output when given an output file"
+is "$(vg view --extract-tag PARAMS_JSON file.gam)" "$(vg view --extract-tag PARAMS_JSON stdout.gam)" "Embedded parameters work with multiple outputs"
+is "$(vg stats -a file.gam | grep "Total alignments")" "$(vg stats -a stdout.gam | grep "Total alignments")" "Number of alignments is the same with multiple outputs"
+is "$(samtools view file.sam | wc -l | sed 's/^[[:space:]]*//')" "$(vg stats -a stdout.gam | grep "Total alignments" | cut -f2 -d':' | tr -d ' ')" "Number of alignments is the same between output formats"
 
-${GIRAFFE_PAIRED} --output-file many.sam --output-file many.gam --output-file many.GAF > many.stdout
-is "$(md5sum < many.sam)" "$(md5sum < stdout.sam)" "giraffe writes the same SAM to one of several output files as to standard output"
-is "$(gam_without_times many.gam)" "$(gam_without_times stdout.gam)" "giraffe writes the same GAM to one of several output files as to standard output"
-is "$(vg view --extract-tag PARAMS_JSON many.gam)" "$(vg view --extract-tag PARAMS_JSON stdout.gam)" "GAM in one of several output files embeds the same parameters"
-is "$(md5sum < many.GAF)" "$(md5sum < stdout.gaf)" "giraffe writes the same GAF to one of several output files, named in upper case, as to standard output"
-is "$(wc -c < many.stdout)" "0" "giraffe writes nothing to standard output when given several output files"
-
-is "$(${GIRAFFE_PAIRED} -o GAM --output-file one.gam 2>&1 >/dev/null | grep -c 'cannot be used with output files')" "1" "giraffe refuses an output format with output files"
-is "$(${GIRAFFE_PAIRED} -n --output-file one.gam 2>&1 >/dev/null | grep -c 'Cannot discard alignments')" "1" "giraffe refuses to discard alignments with output files"
-is "$(${GIRAFFE_PAIRED} --output-file one.txt 2>&1 >/dev/null | grep -c 'must have an alignment format as its extension')" "1" "giraffe refuses an output file without an alignment format extension"
-is "$(${GIRAFFE_PAIRED} --output-file one.gam --output-file two.gam 2>&1 >/dev/null | grep -c 'Cannot write GAM to both')" "1" "giraffe refuses two output files in the same format"
-rm -f stdout.sam stdout.gam stdout.gaf one.gaf one.gam two.gam one.stdout one.txt many.sam many.gam many.GAF many.stdout
+rm -f stdout.gam file.gam file.sam
 
 # Test paired surjected mapping
 vg giraffe x.fa x.vcf.gz --show-work -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam

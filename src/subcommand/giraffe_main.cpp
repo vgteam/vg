@@ -294,7 +294,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         double_is_nonnegative
     );
     comp_opts.add_flag(
-        "no-dp", 'O',
+        "no-dp",
         &MinimizerMapper::do_dp,
         MinimizerMapper::default_do_dp,
         "disable all gapped alignment"
@@ -738,7 +738,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "  -o, --output-format NAME      write the alignments to standard output in" << endl
          << "                                NAME format [gam]" << endl
          << "                                {gam / gaf / json / tsv / SAM / BAM / CRAM} " << endl
-         << "      --output-file FILE        write the alignments to FILE instead of standard" << endl
+         << "  -O, --output-file FILE        write the alignments to FILE instead of standard" << endl
          << "                                output, in the format its extension names" << endl
          << "                                {gam / gaf / json / tsv / sam / bam / cram}" << endl
          << "                                (may repeat, one file per format)" << endl
@@ -756,10 +756,10 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "      --report-name FILE        write a TSV of output files and mapping speed" << endl
              << "      --show-work               log how the mapper comes to its conclusions" << endl
              << "                                about mapping locations (use one read at a time)" << endl
-             << "Many settings take a range of values, as start[:end[:step]] with end" << endl
-             << "inclusive, to map the reads once for each combination of values. With" << endl
-             << "--output-file, each combination writes its own files, named with the" << endl
-             << "varying settings before the extension." << endl;
+             << endl
+             << "Setting values for many options can be provided as ranges in the format" << endl
+             << "start[:end[:step]], with end being inclusive. This maps the reads for each"
+             << "combination of values, to files with the settings added before the extension." << endl;
              
     }
 
@@ -815,7 +815,6 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_OFF_REF_POSITION = 1014;
     constexpr int OPT_LEFT_ALIGN = 1015;
     constexpr int OPT_NO_REC_MODE = 1016;
-    constexpr int OPT_OUTPUT_FILE = 1017;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
 
     constexpr int OPT_KFF_NAME = 1101;
@@ -1193,7 +1192,7 @@ int main_giraffe(int argc, char** argv) {
         {"off-ref-position", no_argument, 0, OPT_OFF_REF_POSITION},
         {"left-align", no_argument, 0, OPT_LEFT_ALIGN},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
-        {"output-file", required_argument, 0, OPT_OUTPUT_FILE},
+        {"output-file", required_argument, 0, 'O'},
         {"discard", no_argument, 0, 'n'},
         {"report-name", required_argument, 0, OPT_REPORT_NAME},
         {"parameter-preset", required_argument, 0, 'b'},
@@ -1213,7 +1212,7 @@ int main_giraffe(int argc, char** argv) {
     parser->make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:nb:t:A:E";
+    std::string short_options = "h?Z:x:g:H:m:z:d:pG:f:iN:R:o:O:nb:t:A:E";
     parser->make_short_options(short_options);
 
     if (argc == 2) {
@@ -1371,7 +1370,7 @@ int main_giraffe(int argc, char** argv) {
                 named_coordinates = true;
                 break;
 
-            case OPT_OUTPUT_FILE:
+            case 'O':
                 output_file_names.push_back(optarg);
                 break;
                 
@@ -1557,17 +1556,16 @@ int main_giraffe(int argc, char** argv) {
     }
     
     if (output_format && !output_file_names.empty()) {
-        logger.error() << "An output format (-o) cannot be used with output files (--output-file), "
-                       << "which take their formats from their extensions." << std::endl;
+        logger.error() << "-o/--output-format only applies to standard output."
+                       << " Format for -O/--output-file is autodetected from the extension."
+                       << std::endl;
     }
     if (discard_alignments && !output_file_names.empty()) {
         logger.error() << "Cannot discard alignments (-n) and also write them "
-                       << "to output files (--output-file)." << std::endl;
+                       << "to -O/--output-file." << std::endl;
     }
 
-    // Map each output format to the file to write it to. This holds either one
-    // entry for standard output ("-"), or one entry for each output file,
-    // keyed by its extension in upper case.
+    // Map each output format to the file to write it to.
     std::unordered_map<std::string, std::string> output_files;
     if (output_file_names.empty()) {
         std::string format = output_format.value_or("GAM");
@@ -1585,24 +1583,13 @@ int main_giraffe(int argc, char** argv) {
         }
         auto found = output_files.find(format);
         if (found != output_files.end()) {
-            logger.error() << "Cannot write " << format << " to both " << found->second
-                           << " and " << file_name << std::endl;
+            // It's convenient for us to have one file per format, and the user
+            // probably wouldn't try to generate the same file twice on
+            // purpose.
+            logger.error() << "Command line asked for " << format << " in both " << found->second
+                           << " and " << file_name << ". Probably only one was really intended."<< std::endl;
         }
         output_files.emplace_hint(found, format, file_name);
-    }
-
-    // Check that the output files can be written. When some settings vary,
-    // each combination of settings writes files with the varying settings in
-    // their names, so remove any empty file the check made with the name as
-    // given.
-    std::stringstream varying_settings;
-    parser->print_options(varying_settings, OptionFormat::SLUG);
-    for (const std::string& file_name : output_file_names) {
-        bool existed = file_exists(file_name);
-        ensure_writable(logger, file_name);
-        if (!existed && !varying_settings.str().empty()) {
-            std::filesystem::remove(file_name);
-        }
     }
 
     // Decide if we are outputting to an htslib format, and so need to surject.
@@ -1653,6 +1640,27 @@ int main_giraffe(int argc, char** argv) {
         // The user has specifically asked fro recombination-aware mapping on short reads, which isn't available.
         // TODO: Get a better idea of if reads are long.
         logger.error() << "Recombination-aware mode cannot be used with short reads yet." << endl;
+    }
+
+    // TODO: We don't have an O(1) way to find out if we are going to visit multiple parameter combinations.
+    size_t combinations = 0;
+    for_each_combo([&]() {
+        ++combinations;
+    });
+    if (combinations > 1) {
+        logger.info() << "Going to run " << combinations << " parameter combinations" << std::endl;
+    }
+    if (combinations == 1) {
+        // We're going to use the actual filenames specified on the command
+        // line, so make sure we can write to them before loading the indexes.
+        for (const std::string& file_name : output_file_names) {
+            if (file_name != "-") {
+                // We're unusual in using "-" to represent standard output;
+                // usually it represents standard input, so the checker thinks
+                // it can't be writable.
+                ensure_writable(logger, file_name);
+            }
+        }
     }
     
     // Use all the provided indexes
@@ -2043,17 +2051,18 @@ int main_giraffe(int argc, char** argv) {
     // We need to loop over all the ranges...
     for_each_combo([&]() {
     
-        // Name the output files for this combination of settings, by putting
-        // the settings that vary before the extension. When no setting varies,
-        // the names stay as given.
-        std::stringstream settings_slug;
-        parser->print_options(settings_slug, OptionFormat::SLUG);
+        // Generate file names with the variable settings (if any) before the extension.
         std::unordered_map<std::string, std::string> tick_output_files;
         for (const auto& format_and_file : output_files) {
             std::string file_name = format_and_file.second;
             if (file_name != "-") {
-                std::pair<std::string, std::string> stem_and_extension = split_ext(file_name);
-                file_name = stem_and_extension.first + settings_slug.str() + "." + stem_and_extension.second;
+                std::pair<std::string, std::string> parts = split_ext(file_name);
+                std::stringstream name_stream;
+                name_stream << parts.first;
+                parser->print_options(name_stream, OptionFormat::SLUG);
+                name_stream << "." << parts.second;
+                file_name = name_stream.str();
+                ensure_writable(logger, file_name);
             }
             tick_output_files.emplace(format_and_file.first, file_name);
         }
@@ -2281,10 +2290,10 @@ int main_giraffe(int argc, char** argv) {
                 std::vector<unique_ptr<AlignmentEmitter>> output_emitters;
                 for (const auto& format_and_file : tick_output_files) {
                     const std::string& format = format_and_file.first;
-                    // Surjection needs the positional graph. The other formats
-                    // need only node lengths and sequences, which the GBWTGraph
-                    // has, and named-segment translation, which only the
-                    // GBWTGraph can do.
+                    // To surject, we need a positional graph. But for GAF/GAM
+                    // in named segment space, we need a graph that knows about
+                    // the named node back-translation, so we can't use the
+                    // positional graph all the time.
                     bool is_hts = (format == "SAM" || format == "BAM" || format == "CRAM");
                     const HandleGraph* emitter_graph = is_hts ? (const HandleGraph*)path_position_graph
                                                               : (const HandleGraph*)&(gbz->graph);
@@ -2295,8 +2304,7 @@ int main_giraffe(int argc, char** argv) {
                 }
 
                 // Emit GAF header lines now, if applicable.
-                // TODO: We should have a function that can take any graph and any alignment emitter
-                // and determine if there is any header information it can emit.
+                // TODO: Redesign this to be a more general way to pass header information to formats.
                 for (auto& emitter : output_emitters) {
                     io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(emitter.get());
                     if (gaf_emitter != nullptr) {
@@ -2656,7 +2664,7 @@ int main_giraffe(int argc, char** argv) {
             report << reads_per_second_per_thread << endl;
         }
     });
-        
+
     return 0;
 }
 

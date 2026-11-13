@@ -11,9 +11,10 @@ namespace vg {
 
 TeeAlignmentEmitter::TeeAlignmentEmitter(std::vector<std::unique_ptr<vg::io::AlignmentEmitter>>&& destinations) :
     destinations(std::move(destinations)) {
+    // TODO: Is it worth having code in the constructor *just* to check the invariant?
     for (auto& destination : this->destinations) {
         if (!destination) {
-            throw std::invalid_argument("TeeAlignmentEmitter cannot emit through a null emitter");
+            throw std::invalid_argument("Downstream alignment emitters cannot be null");
         }
     }
 }
@@ -23,10 +24,15 @@ void TeeAlignmentEmitter::emit_singles(std::vector<Alignment>&& aln_batch) {
         return;
     }
     for (size_t i = 0; i + 1 < destinations.size(); i++) {
+        // Emit copies to all but the last destination
         destinations[i]->emit_singles(std::vector<Alignment>(aln_batch));
     }
+    // And hand the original off to the last destination
     destinations.back()->emit_singles(std::move(aln_batch));
 }
+
+// TODO: If we were in a fancy language with macros we could say "just do that
+// to all the functions". But we aren't.
 
 void TeeAlignmentEmitter::emit_mapped_singles(std::vector<std::vector<Alignment>>&& alns_batch) {
     if (destinations.empty()) {
