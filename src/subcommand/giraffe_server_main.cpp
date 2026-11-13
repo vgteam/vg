@@ -1,12 +1,23 @@
 /**
  * \file giraffe_server_main.cpp
- * vg giraffe-server: load the Giraffe indexes once, then map reads streamed on
- * stdin and write GAF to stdout.
+ * vg giraffe-server: load the Giraffe indexes once, then answer the requests
+ * streamed on stdin with frames on stdout.
+ *
+ * The rule for requests and errors:
+ *  - A request is one read line, or one SURJECT_WITH_ANCHORS block.
+ *  - Every request gets exactly one frame: a result frame or an error frame.
+ *  - An error in a request affects only that request. The server goes on.
+ *  - A line that is neither a request nor PROCESS_BATCH gets an error frame
+ *    with the name *. Empty lines are skipped.
+ *  - A frame is written whole. A client never sees half of one.
+ *  - The server stops at end of input, after answering everything it read.
+ *    Before the first request it also stops on a failure (options, indexes).
  */
 
 #include <getopt.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <exception>
 #include <iostream>
 #include <mutex>
@@ -140,12 +151,10 @@ void help_giraffe_server(char** argv) {
          << endl;
 }
 
-/// Characters allowed in a phred+33 quality string.
-const string PHRED33_CHARS = [] {
-    string chars;
-    for (char c = '!'; c <= '~'; ++c) chars.push_back(c);
-    return chars;
-}();
+/// Return true if c is a phred+33 quality character.
+bool is_phred33_char(char c) {
+    return '!' <= c && c <= '~';
+}
 
 /// Return true if seq is non-empty and holds only ATCGN
 bool is_nucleotide_sequence(const string& seq) {
@@ -501,8 +510,14 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
             emit_read_error(name, "SEQUENCE has characters that are not IUPAC nucleotides");
             continue;
         }
-        if (quality.find_first_not_of(PHRED33_CHARS) != string::npos) {
-            emit_read_error(name, "QUALITY has characters outside phred+33 ('!' to '~')");
+        auto bad_quality = find_if_not(quality.begin(), quality.end(), is_phred33_char);
+        if (bad_quality != quality.end()) {
+            // No character outside the range is printable, so report its code.
+            emit_read_error(name,
+                "QUALITY has character code "
+                + to_string(static_cast<unsigned char>(*bad_quality))
+                + " at offset " + to_string(bad_quality - quality.begin())
+                + ", outside phred+33 ('!' to '~')");
             continue;
         }
         if (!quality.empty() && quality.size() != sequence.size()) {
