@@ -739,7 +739,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "                                NAME format [gam]" << endl
          << "                                {gam / gaf / json / tsv / SAM / BAM / CRAM} " << endl
          << "  -O, --output-file FILE        write the alignments to FILE instead of standard" << endl
-         << "                                output, in the format its extension names" << endl
+         << "                                output. File must have a supported extension." << endl
          << "                                {gam / gaf / json / tsv / sam / bam / cram}" << endl
          << "                                (may repeat, one file per format)" << endl
          << "      --ref-paths FILE          ordered list of paths in the graph, one per line" << endl
