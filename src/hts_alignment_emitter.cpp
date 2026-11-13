@@ -13,7 +13,6 @@
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
 #include "crash.hpp"
-#include "utility.hpp"
 
 #include <sstream>
 
@@ -94,18 +93,6 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
     }
     
     return emitter;
-}
-
-string alignment_format_for_extension(const string& filename) {
-    string extension = split_ext(filename).second;
-    for (char& c : extension) {
-        c = std::toupper(c);
-    }
-    static const std::unordered_set<string> FORMATS {"GAM", "GAF", "JSON", "TSV", "SAM", "BAM", "CRAM"};
-    if (FORMATS.count(extension)) {
-        return extension;
-    }
-    return "";
 }
 
 std::unordered_map<string, size_t> index_sequence_dictionary(const SequenceDictionary& paths) {

@@ -93,12 +93,6 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
                                                    const SequenceDictionary& paths, size_t max_threads,
                                                    const HandleGraph* graph = nullptr, int flags = ALIGNMENT_EMITTER_FLAG_NONE);
 
-/// Get the format name, as get_alignment_emitter() takes it, that the
-/// extension of the given file name stands for: GAM, GAF, JSON, TSV, SAM, BAM
-/// or CRAM, with the extension in any case. Returns an empty string if the
-/// extension is none of those.
-string alignment_format_for_extension(const string& filename);
-
 /**
  * Get sequence dictionary information suitable for use with
  * get_alignment_emitter_with_surjection(), by parsing a file or inferring from

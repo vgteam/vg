@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 97
+plan tests 99
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -85,7 +85,7 @@ rm -f x.longread.zipcodes
 
 rm -Rf grid-out
 mkdir grid-out
-vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-basename grid-out/file --hard-hit-cap 5:6
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-file grid-out/file.gam --hard-hit-cap 5:6
 is "$(ls grid-out/*.gam | wc -l)" "2" "Grid search works end-inclusive"
 rm -Rf grid-out
 
@@ -206,25 +206,30 @@ samtools view surject.bam | cut -f2 | sort | uniq -c > surject.flags
 diff direct.flags surject.flags
 is $? 0 "SAM flags are the same between giraffe and surject"
 
-# One mapping run can write files in several formats, each as a separate run
-# with that output format would write it to standard output. Every GAM record
-# holds the time it took to map, which differs from run to run, so that is
-# ignored.
+# Alignments written to output files match what goes to standard output, in
+# each format. Every GAM record holds the time it took to map, which differs
+# from run to run, so that is ignored.
 GIRAFFE_PAIRED="vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 -t 1"
-${GIRAFFE_PAIRED} -o SAM > alone.sam
-${GIRAFFE_PAIRED} -o GAM > alone.gam
-${GIRAFFE_PAIRED} -o GAF > alone.gaf
-${GIRAFFE_PAIRED} --output-file both.sam --output-file both.gam --output-file both.GAF > both.stdout
-is "$(md5sum < both.sam)" "$(md5sum < alone.sam)" "giraffe can write the SAM of a separate run beside other formats"
-is "$(vg view -aj both.gam | jq -c '.time_used = null' | md5sum)" "$(vg view -aj alone.gam | jq -c '.time_used = null' | md5sum)" "giraffe can write the GAM of a separate run beside other formats"
-is "$(vg view --extract-tag PARAMS_JSON both.gam)" "$(vg view --extract-tag PARAMS_JSON alone.gam)" "GAM written beside other formats embeds the same parameters"
-is "$(md5sum < both.GAF)" "$(md5sum < alone.gaf)" "giraffe can write the GAF of a separate run beside other formats"
-is "$(wc -c < both.stdout)" "0" "giraffe writes nothing to standard output when given output files"
-${GIRAFFE_PAIRED} -o GAM --output-file both.gam 2>/dev/null >/dev/null
+${GIRAFFE_PAIRED} -o SAM > stdout.sam
+${GIRAFFE_PAIRED} -o GAM > stdout.gam
+${GIRAFFE_PAIRED} -o GAF > stdout.gaf
+
+${GIRAFFE_PAIRED} --output-file one.gam > one.stdout
+is "$(vg view -aj one.gam | jq -c '.time_used = null' | md5sum)" "$(vg view -aj stdout.gam | jq -c '.time_used = null' | md5sum)" "giraffe writes the same GAM to an output file as to standard output"
+is "$(wc -c < one.stdout)" "0" "giraffe writes nothing to standard output when given an output file"
+
+${GIRAFFE_PAIRED} --output-file many.sam --output-file many.gam --output-file many.GAF > many.stdout
+is "$(md5sum < many.sam)" "$(md5sum < stdout.sam)" "giraffe writes the same SAM to one of several output files as to standard output"
+is "$(vg view -aj many.gam | jq -c '.time_used = null' | md5sum)" "$(vg view -aj stdout.gam | jq -c '.time_used = null' | md5sum)" "giraffe writes the same GAM to one of several output files as to standard output"
+is "$(vg view --extract-tag PARAMS_JSON many.gam)" "$(vg view --extract-tag PARAMS_JSON stdout.gam)" "GAM in one of several output files embeds the same parameters"
+is "$(md5sum < many.GAF)" "$(md5sum < stdout.gaf)" "giraffe writes the same GAF to one of several output files, named in upper case, as to standard output"
+is "$(wc -c < many.stdout)" "0" "giraffe writes nothing to standard output when given several output files"
+
+${GIRAFFE_PAIRED} -o GAM --output-file one.gam 2>/dev/null >/dev/null
 is "$?" "1" "giraffe refuses an output format with output files"
-${GIRAFFE_PAIRED} --output-file both.txt 2>/dev/null >/dev/null
+${GIRAFFE_PAIRED} --output-file one.txt 2>/dev/null >/dev/null
 is "$?" "1" "giraffe refuses an output file without an alignment format extension"
-rm -f alone.sam alone.gam alone.gaf both.sam both.gam both.GAF both.stdout both.txt
+rm -f stdout.sam stdout.gam stdout.gaf one.gam one.stdout one.txt many.sam many.gam many.GAF many.stdout
 
 # Test paired surjected mapping
 vg giraffe x.fa x.vcf.gz --show-work -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
