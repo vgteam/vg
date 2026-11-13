@@ -1526,7 +1526,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
     
     // Prepare the RNG for shuffling ties in decisions that involve both reads
-    LazyRNG rng([&]() {
+    LazyRNG pair_rng([&]() {
         return aln1.sequence() + aln2.sequence();
     });
     // Each read gets its own RNG, seeded like single-end mapping, so that the
@@ -1669,7 +1669,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     //Sort by the sum of the score and coverage of the best cluster for each end
     sort_shuffling_ties(fragment_cluster_indices_by_score.begin(), fragment_cluster_indices_by_score.end(), [&](size_t a, size_t b) {
         return total_coverage(a) + total_score(a) > total_coverage(b) + total_score(b);  
-    }, rng);
+    }, pair_rng);
 
     // How many fragment clusters are at least as good as the one at each index
     vector<size_t> better_cluster_count (max_fragment_num+1); 
@@ -2236,7 +2236,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             for (auto& index : unpaired_alignments ) {
                 const Alignment& alignment = index.lookup_in(alignments);
                 unpaired_scores[index.read].emplace_back(alignment.score());
-                if (deterministic_beats(alignment.score(), best_score[index.read], rng)) {
+                if (deterministic_beats(alignment.score(), best_score[index.read], pair_rng)) {
                     best_index[index.read] = index;
                     best_score[index.read] = alignment.score();
                 }
@@ -2346,7 +2346,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
             process_until_threshold_a(unpaired_alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double{
                 return (double) unpaired_alignments.at(i).lookup_in(alignments).score();
-            }, 0, 1, max_rescue_attempts, rng, [&](size_t i, size_t item_count) {
+            }, 0, 1, max_rescue_attempts, pair_rng, [&](size_t i, size_t item_count) {
                 attempted_rescue_from[i] = true;
                 auto& index = unpaired_alignments.at(i);
                 size_t j = index.lookup_in(alignment_indices);
@@ -2510,7 +2510,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     process_until_threshold_a(paired_alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         return paired_scores[i];
-    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num, size_t item_count) {
+    }, 0, 1, max_multimaps, pair_rng, [&](size_t alignment_num, size_t item_count) {
         // This alignment makes it
         // Called in score order
 
