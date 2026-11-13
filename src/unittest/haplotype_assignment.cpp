@@ -293,5 +293,21 @@ TEST_CASE("HaplotypeAssigner finds snarl boundaries in nested snarls",
     }
 }
 
+TEST_CASE("haplotype_name names a haplotype by sample, phase and contig, and a generic path by its contig",
+          "[giraffe][haplotype_assignment]") {
+
+    gbwt::Metadata metadata;
+    metadata.setSamples(std::vector<std::string>{gbwtgraph::GENERIC_PATH_SAMPLE_NAME, "HG002"});
+    metadata.setContigs(std::vector<std::string>{"chrM"});
+    // A generic path, then two fragments of one haplotype.
+    metadata.addPath(0, 0, 0, 0);
+    metadata.addPath(1, 0, 2, 0);
+    metadata.addPath(1, 0, 2, 1);
+
+    REQUIRE(haplotype_name(metadata, 0) == "chrM");
+    REQUIRE(haplotype_name(metadata, 1) == "HG002#2#chrM");
+    REQUIRE(haplotype_name(metadata, 2) == "HG002#2#chrM");
+}
+
 } // namespace unittest
 } // namespace vg

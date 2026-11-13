@@ -118,6 +118,7 @@ private:
 
 /// Return the name of a GBWT path's haplotype, as sample#phase#contig. A
 /// sample or contig that the metadata does not name appears as its number.
+/// A generic path gets its contig alone, which is the graph's name for it.
 ///
 /// This is not the graph's name for the path, which also has the fragment.
 /// The fragments of a haplotype share this name.

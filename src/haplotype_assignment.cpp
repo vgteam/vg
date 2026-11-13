@@ -209,6 +209,11 @@ string haplotype_name(const gbwt::Metadata& metadata, gbwt::size_type path_id) {
                     ? metadata.sample(path.sample) : std::to_string(path.sample);
     string contig = (metadata.contigs() > 0 && path.contig < metadata.contigs())
                     ? metadata.contig(path.contig) : std::to_string(path.contig);
+    if (sample == gbwtgraph::GENERIC_PATH_SAMPLE_NAME) {
+        // A generic path has no sample of its own. The graph names it by its
+        // contig alone, so a client can hand this name back as a target.
+        return contig;
+    }
     // Only a reference path's name has no fragment, so name it as one.
     return PathMetadata::create_path_name(PathSense::REFERENCE, sample, contig, path.phase,
                                           PathMetadata::NO_PHASE_BLOCK, PathMetadata::NO_SUBRANGE);
