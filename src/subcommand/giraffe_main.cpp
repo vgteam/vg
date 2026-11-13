@@ -751,7 +751,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "      --off-ref-position        annotate off-reference mappings in HTSLib output" << endl
              << "                                with the nearest reference position in NR tag" << endl
              << "  -n, --discard                 discard all output alignments (for profiling)" << endl
-             << "      --report-name FILE        write a TSV of output file and mapping speed" << endl
+             << "      --report-name FILE        write a TSV of output files and mapping speed" << endl
              << "      --show-work               log how the mapper comes to its conclusions" << endl
              << "                                about mapping locations (use one read at a time)" << endl
              << "Many settings take a range of values, as start[:end[:step]] with end" << endl
@@ -1370,7 +1370,7 @@ int main_giraffe(int argc, char** argv) {
                 break;
 
             case OPT_OUTPUT_FILE:
-                output_file_names.push_back(optarg);
+                output_file_names.push_back(ensure_writable(logger, optarg));
                 break;
                 
             case OPT_ADD_GRAPH_ALIGNMENT:
@@ -1564,32 +1564,34 @@ int main_giraffe(int argc, char** argv) {
                        << "to output files (--output-file)." << std::endl;
     }
 
-    // Decide where to write each output format. Output files take their
-    // formats from their extensions, and standard output gets alignments only
-    // when there are no output files.
-    std::map<std::string, std::string> output_file_by_format;
-    auto add_output = [&](const std::string& format, const std::string& file_name) {
+    // Map each output format to the file to write it to. This holds either
+    // standard output ("-") in the format -o names, or each output file in
+    // the format its extension names.
+    std::unordered_map<std::string, std::string> output_files;
+    if (output_file_names.empty()) {
+        std::string format = output_format.value_or("GAM");
         if (output_formats.find(format) == output_formats.end()) {
-            logger.error() << "Cannot write format " << format << " to "
-                           << (file_name == "-" ? "standard output" : file_name) << "; formats are "
+            logger.error() << "Invalid output format: " << format << std::endl;
+        }
+        output_files.emplace(format, "-");
+    }
+    for (const std::string& file_name : output_file_names) {
+        std::string format = vg::toUppercase(split_ext(file_name).second);
+        if (output_formats.find(format) == output_formats.end()) {
+            logger.error() << "Output file " << file_name << " must end in an alignment format: "
                            << join_delim(std::vector<std::string>(output_formats.begin(), output_formats.end()), ' ')
                            << std::endl;
         }
-        if (!output_file_by_format.emplace(format, file_name).second) {
-            logger.error() << "Cannot write " << format << " to both " << output_file_by_format.at(format)
+        auto found = output_files.find(format);
+        if (found != output_files.end()) {
+            logger.error() << "Cannot write " << format << " to both " << found->second
                            << " and " << file_name << std::endl;
         }
-    };
-    for (const std::string& file_name : output_file_names) {
-        add_output(vg::toUppercase(split_ext(file_name).second), file_name);
-    }
-    if (output_file_names.empty()) {
-        add_output(output_format.value_or("GAM"), "-");
+        output_files.emplace_hint(found, format, file_name);
     }
 
     // Decide if we are outputting to an htslib format, and so need to surject.
-    bool hts_output = output_file_by_format.count("SAM") || output_file_by_format.count("BAM") ||
-                      output_file_by_format.count("CRAM");
+    bool hts_output = output_files.count("SAM") || output_files.count("BAM") || output_files.count("CRAM");
     
     if (!ref_paths_name.empty() && !hts_output) {
         logger.warn() << "Reference path file (--ref-paths) is only used "
@@ -2016,7 +2018,11 @@ int main_giraffe(int argc, char** argv) {
         // Open the report
         report.open(report_name);
         // Add a header
-        report << "#file\treads/second/thread" << endl;
+        report << "#";
+        for (const auto& format_and_file : output_files) {
+            report << format_and_file.first << " file\t";
+        }
+        report << "reads/second/thread" << endl;
     }
 
     // We need to loop over all the ranges...
@@ -2027,21 +2033,21 @@ int main_giraffe(int argc, char** argv) {
         // settings vary and the names stay as given.
         std::stringstream settings_slug;
         parser->print_options(settings_slug, OptionFormat::SLUG);
-        std::map<std::string, std::string> output_file_by_format_for_settings;
-        for (const auto& format_and_file : output_file_by_format) {
+        std::unordered_map<std::string, std::string> tick_output_files;
+        for (const auto& format_and_file : output_files) {
             std::string file_name = format_and_file.second;
             if (file_name != "-") {
                 std::pair<std::string, std::string> stem_and_extension = split_ext(file_name);
                 file_name = stem_and_extension.first + settings_slug.str() + "." + stem_and_extension.second;
             }
-            output_file_by_format_for_settings.emplace(format_and_file.first, file_name);
+            tick_output_files.emplace(format_and_file.first, file_name);
         }
     
         if (show_progress) {
             if (discard_alignments) {
                 logger.info() << "Discarding output alignments" << endl;
             } else {
-                for (const auto& format_and_file : output_file_by_format_for_settings) {
+                for (const auto& format_and_file : tick_output_files) {
                     logger.info() << "Mapping reads to \"" << format_and_file.second
                                   << "\" (" << format_and_file.first << ")" << endl;
                 }
@@ -2261,7 +2267,7 @@ int main_giraffe(int argc, char** argv) {
                 // TODO: What if we need both a positional graph and a NamedNodeBackTranslation???
                 const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
                 std::vector<unique_ptr<AlignmentEmitter>> output_emitters;
-                for (const auto& format_and_file : output_file_by_format_for_settings) {
+                for (const auto& format_and_file : tick_output_files) {
                     output_emitters.push_back(get_alignment_emitter(
                         format_and_file.second, format_and_file.first,
                         paths, thread_count, emitter_graph, flags
@@ -2624,12 +2630,10 @@ int main_giraffe(int argc, char** argv) {
         
         if (report) {
             // Log output filenames and mapping speed in reads/second/thread to report TSV
-            std::vector<std::string> report_file_names;
-            for (const auto& format_and_file : output_file_by_format_for_settings) {
-                report_file_names.push_back(format_and_file.second);
+            for (const auto& format_and_file : output_files) {
+                report << tick_output_files.at(format_and_file.first) << "\t";
             }
-            report << (discard_alignments ? "-" : join_delim(report_file_names, ','))
-                   << "\t" << reads_per_second_per_thread << endl;
+            report << reads_per_second_per_thread << endl;
         }
     });
         

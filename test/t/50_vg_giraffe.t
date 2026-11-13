@@ -86,7 +86,8 @@ rm -f x.longread.zipcodes
 rm -Rf grid-out
 mkdir grid-out
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-file grid-out/file.gam --hard-hit-cap 5:6
-is "$(ls grid-out/*.gam | wc -l)" "2" "Grid search works end-inclusive"
+# The file with the name as given is left empty by the check that it can be written.
+is "$(ls grid-out/*.gam | grep -v '^grid-out/file.gam$' | wc -l)" "2" "Grid search works end-inclusive"
 rm -Rf grid-out
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
