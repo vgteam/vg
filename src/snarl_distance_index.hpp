@@ -35,6 +35,14 @@ size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, po
 void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, 
                             size_t size_limit = 50000, bool only_top_level_chain_distances = false, bool silence_warnings=true);
 
+/// Fill in the index using an IntegratedSnarlFinder with the given extra node
+/// weights. Each weakly connected component of the graph gets its own snarl
+/// finder and temporary index, and the components are processed in parallel.
+void fill_in_distance_index_by_component(SnarlDistanceIndex* distance_index, const HandleGraph* graph,
+                                         const std::unordered_map<nid_t, size_t>& extra_node_weight = {},
+                                         size_t size_limit = 50000, bool only_top_level_chain_distances = false,
+                                         bool silence_warnings = true);
+
 /// Fill in the temporary snarl record with distances
 void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 
     SnarlDistanceIndex::temp_record_ref_t snarl_index, size_t size_limit, bool only_top_level_chain_distances, const HandleGraph* graph) ;
