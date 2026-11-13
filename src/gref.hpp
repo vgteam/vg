@@ -22,14 +22,21 @@
  * a graph carries both references at once, "is this a gref path/sample" is a prefix
  * test, and the base path a gref path came from is recoverable by dropping the prefix.
  *
- * The data structures used in this class are always relative to the original paths in the
- * graph.  The REFERENCE-sense fragments the cover is written as are output only; nothing
- * reads them back.
+ * The data structures of GrefCover are always relative to the original paths in the
+ * graph. GrefCover only writes the REFERENCE-sense fragments of the cover. GrefIndex
+ * reads them back from a GBZ, to place walk intervals on the gref.
  */
 
 #include <bdsg/snarl_distance_index.hpp>
+#include <gbwtgraph/gbz.h>
+
+#include <cstdint>
+#include <limits>
+#include <optional>
+#include <unordered_map>
 
 #include "handle.hpp"
+#include "walk_interval.hpp"
 
 namespace vg {
 
@@ -257,6 +264,17 @@ public:
     // Must be called after compute(), and predicts the names apply() will create.
     void write_gref_segments(ostream& os);
 
+    /**
+     * Read the top-level snarl of each gref contig from a table that
+     * write_gref_segments() wrote, or from several such tables concatenated.
+     *
+     * @returns The top_level_snarl of each contig, by gref_contig name.
+     * Contigs in no snarl are left out.
+     * @throws std::runtime_error if the table names no gref_contig or
+     * top_level_snarl column, or if a row lacks one of them.
+     */
+    static unordered_map<string, string> read_top_level_snarls(istream& is);
+
 protected:
 
     // Record an interval and assign it every node it walks.  Nothing merges or extends:
@@ -369,6 +387,182 @@ protected:
                                  const unordered_set<path_handle_t>& reference_paths);
 
 };
+
+
+/// Where a walk interval lies on the gref. See GrefIndex::place().
+struct GrefPlacement {
+    /// Comma-separated PATH:START-END:STRAND:CIGAR segments (1-based,
+    /// inclusive, CIGAR in path order), or *:<length>I if no base is on the gref.
+    std::string text;
+    /// The path of the first segment, or GrefIndex::NO_PATH if no base is on the gref.
+    uint32_t path = std::numeric_limits<uint32_t>::max();
+    /// The lowest coordinate of the first segment. Placements sort along the
+    /// gref by path, then coord.
+    uint64_t coord = 0;
+    /// Number of bases on gref paths that the paths read forward.
+    size_t forward_bases = 0;
+    /// Number of bases on gref paths that the paths read in reverse.
+    size_t reverse_bases = 0;
+    /// True if the whole interval lies along one gref path, so that the gref
+    /// path visits it.
+    bool along_one_path = false;
+};
+
+/**
+ * An index of where the gref paths lie in the graph.
+ *
+ * For each node, it holds the gref path that visits it and the path coordinate
+ * of its first base. For each gref path, it holds the steps. With these, it
+ * places walk intervals on the gref.
+ */
+class GrefIndex {
+public:
+    /// Index the GBWT paths whose name starts with the given prefix.
+    GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix);
+
+    static constexpr uint32_t NO_PATH = std::numeric_limits<uint32_t>::max();
+
+    struct Position {
+        uint32_t path = NO_PATH;
+        /// The path reads the node in reverse.
+        bool is_reverse = false;
+        /// Path coordinate of the first base the path reads on the node.
+        uint64_t offset = 0;
+    };
+
+    /// A stretch of a walk interval that lies contiguously along one gref path.
+    struct Run {
+        /// Bases [begin, end) of the interval.
+        size_t begin;
+        size_t end;
+        uint32_t path;
+        /// True if path coordinates decrease along the interval.
+        bool is_reverse;
+        /// Path coordinate of the base at begin.
+        uint64_t coord;
+        /// The steps of the interval's walk that hold the bases at begin and at end - 1.
+        size_t first_step;
+        size_t last_step;
+
+        uint64_t coord_at(size_t position) const {
+            return is_reverse ? coord - (position - begin) : coord + (position - begin);
+        }
+        uint64_t last() const { return coord_at(end - 1); }
+    };
+
+    /// Where the node lies on the gref, or a Position with path == NO_PATH.
+    const Position& find(handlegraph::nid_t id) const;
+
+    size_t path_count() const { return paths.size(); }
+    /// Path name without any subrange.
+    const std::string& path_name(uint32_t path) const { return paths[path].name; }
+    /// Amount to add to a path coordinate to get a coordinate on the full path.
+    uint64_t path_shift(uint32_t path) const { return paths[path].shift; }
+    /// Return the length of the path.
+    uint64_t path_length(uint32_t path) const;
+    /// Return the path with the given name, or NO_PATH. The name may have a
+    /// subrange, as vg paths writes it. It may leave the subrange out if no
+    /// other gref path has the same name.
+    uint32_t find_path(const std::string& name) const;
+    /// Return bases [start, end) of the path, in path coordinates. Requires
+    /// start < end <= path_length(path).
+    WalkInterval interval(uint32_t path, uint64_t start, uint64_t end) const;
+    /// Base at the given path coordinate, as read by the path.
+    char base(uint32_t path, uint64_t coord) const;
+
+    /// Number of bases on gref paths.
+    uint64_t total_length() const;
+    /// Number of node visits that were ignored because the node was already on the gref.
+    size_t repeated_visits() const { return repeats; }
+
+    /// Return true if the gref path is an alt contig, not the copy of a
+    /// reference path.
+    bool is_alt_contig(uint32_t path) const { return paths[path].is_alt_contig; }
+    /**
+     * Return the step at which a walk that left an alt contig before its end
+     * rejoins the graph past that end, or nothing.
+     *
+     * The walk visits the contig at last_step, reading it in reverse if
+     * is_reverse, and the contig goes on past that node. A later step that
+     * follows the contig's last node in the graph, as the walk reads the
+     * contig, means that the steps between take the place of the rest of the
+     * contig. The search stops at the next visit to the contig. It also stops
+     * after a visit to the reference, which lies outside every contig. Only
+     * the step that ends the search can be on the reference, next to where
+     * the contig branches off.
+     */
+    std::optional<size_t> step_past_contig_end(const std::vector<handlegraph::handle_t>& walk, size_t last_step,
+                                               uint32_t contig, bool is_reverse) const;
+    /**
+     * Return the step from which a walk that joins an alt contig after its
+     * start comes past that start, or nothing.
+     *
+     * This mirrors step_past_contig_end(). The walk visits the contig at
+     * first_step. An earlier step that the contig's first node follows in the
+     * graph, as the walk reads the contig, means that the steps between take
+     * the place of the start of the contig.
+     */
+    std::optional<size_t> step_before_contig_start(const std::vector<handlegraph::handle_t>& walk,
+                                                   size_t first_step, uint32_t contig, bool is_reverse) const;
+
+    /// Return the runs of the interval, in order along it.
+    std::vector<Run> runs(const WalkInterval& interval) const;
+    /**
+     * Return where the interval lies on the gref.
+     *
+     * Bases between two runs on one path become edits. Bases between runs on
+     * different paths become an insertion at the end of the earlier segment.
+     * Where the interval leaves an alt contig before its end, the bases up to
+     * the step from step_past_contig_end() would be an insertion. They become
+     * edits against the rest of the contig instead, and the start of an alt
+     * contig works the same way. An interval that goes straight from the
+     * contig to that step has no bases there, and keeps its placement.
+     *
+     * @param before The node before the interval on the walk it comes from,
+     * if any, such as the reference node before a variant allele. The walk
+     * can come past the start of an alt contig from it.
+     * @param after The node after the interval, likewise. The walk can rejoin
+     * the graph past the end of an alt contig there.
+     */
+    GrefPlacement place(const WalkInterval& interval, std::optional<handlegraph::handle_t> before = std::nullopt,
+                        std::optional<handlegraph::handle_t> after = std::nullopt) const;
+
+private:
+    /// A gref path.
+    struct Path {
+        /// Name without any subrange.
+        std::string name;
+        /// Where the path starts on the full path.
+        uint64_t shift;
+        PathSteps steps;
+        bool is_alt_contig;
+    };
+
+    /// Return the last handle of the path as a walk reads it, reading the path
+    /// in reverse if is_reverse.
+    handlegraph::handle_t last_handle(uint32_t path, bool is_reverse) const;
+    /// Return true if the step visits the reference copy, outside every alt contig.
+    bool on_reference(handlegraph::handle_t step) const;
+
+    const gbwtgraph::GBWTGraph& graph;
+    handlegraph::nid_t min_id = 0;
+    std::vector<Position> positions;
+    std::vector<Path> paths;
+    /// Index in paths of each gref path, by name with and without its subrange.
+    std::unordered_map<std::string, uint32_t> path_ranks;
+    size_t repeats = 0;
+};
+
+/**
+ * Find the gref paths (named with the prefix) that no other path in the GBZ
+ * contains, as (name, length) pairs. Each gref path is cut from some other
+ * path, so this only happens when the GBZ has lost that source path, for
+ * example through haplotype sampling. The gref sequence then has k-mers that
+ * no remaining haplotype has, and the unitigs, which count every path in the
+ * GBWT as a haplotype, include them too.
+ */
+std::vector<std::pair<std::string, size_t>> unsupported_gref_paths(const gbwtgraph::GBZ& gbz,
+                                                                   const std::string& name_prefix);
 
 }
 
