@@ -25,10 +25,8 @@ code belongs.
    those who do not shave themselves."
 
    Then write the class's doc comment about that thing in plain sentences:
-   what it stands for, what it holds, and what it can be asked. Do not open
-   with a formula that repeats the name and the noun ("A `PriceIndex` is an
-   index that..."); the name already says that. "Each product's current price,
-   looked up by product ID" tells the reader more.
+   what it is, what it holds, and what it can be asked. A `PriceIndex` might
+   be "An index of product prices by name."
 2. **Name it as that thing.** The name is the noun you pictured, qualified
    as needed (`PriceIndex`, `PageCursor`). Name a collection as one object
    (`OrderQueue`, `RateTable`), not with a bare plural (`Orders`), which names
