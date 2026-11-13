@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 99
+plan tests 100
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -229,7 +229,9 @@ ${GIRAFFE_PAIRED} -o GAM --output-file one.gam 2>/dev/null >/dev/null
 is "$?" "1" "giraffe refuses an output format with output files"
 ${GIRAFFE_PAIRED} --output-file one.txt 2>/dev/null >/dev/null
 is "$?" "1" "giraffe refuses an output file without an alignment format extension"
-rm -f stdout.sam stdout.gam stdout.gaf one.gam one.stdout one.txt many.sam many.gam many.GAF many.stdout
+${GIRAFFE_PAIRED} --output-file one.gam --output-file two.gam 2>/dev/null >/dev/null
+is "$?" "1" "giraffe refuses two output files in the same format"
+rm -f stdout.sam stdout.gam stdout.gaf one.gam two.gam one.stdout one.txt many.sam many.gam many.GAF many.stdout
 
 # Test paired surjected mapping
 vg giraffe x.fa x.vcf.gz --show-work -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
