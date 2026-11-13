@@ -92,7 +92,7 @@ Alignment make_alignment(std::initializer_list<nid_t> nodes) {
 
 } // namespace
 
-TEST_CASE("HaplotypeAssigner returns expected haplotypes on a tiny bubble graph",
+TEST_CASE("HaplotypeAssigner finds segments and snarl boundaries on a tiny bubble graph",
           "[giraffe][haplotype_assignment]") {
 
     VG graph = make_tiny_bubble_graph();
@@ -115,60 +115,91 @@ TEST_CASE("HaplotypeAssigner returns expected haplotypes on a tiny bubble graph"
 
     HaplotypeAssigner assigner(gbz, dist_index);
 
-    SECTION("Exact branch path reports exact known haplotype multiplicity") {
+    SECTION("A path that two haplotypes follow is one segment with both") {
         Alignment aln = make_alignment({1, 2, 4, 5});
-        auto result = assigner.assign(aln, false);
+        auto segments = assigner.segments(aln);
 
-        REQUIRE(longest_segment(result)->candidate_count == 2);
-        REQUIRE(longest_segment(result)->seq_ids.size() == 2);
-        REQUIRE(longest_segment(result)->seq_ids.size() == longest_segment(result)->candidate_count);
-        REQUIRE(result.left_boundary_node == 0);
-        REQUIRE(result.right_boundary_node == 0);
-        REQUIRE(longest_segment(result)->seq_ids[0] != longest_segment(result)->seq_ids[1]);
+        REQUIRE(segments.size() == 1);
+        REQUIRE(segments[0].first_mapping == 0);
+        REQUIRE(segments[0].past_last_mapping == 4);
+        REQUIRE(segments[0].visit_count == 2);
+        REQUIRE(segments[0].seq_ids.size() == 2);
+        REQUIRE(segments[0].seq_ids[0] != segments[0].seq_ids[1]);
     }
 
-    SECTION("Other branch path reports its single haplotype") {
+    SECTION("The other branch has its single haplotype") {
         Alignment aln = make_alignment({1, 3, 4, 5});
-        auto result = assigner.assign(aln, false);
+        auto segments = assigner.segments(aln);
 
-        REQUIRE(longest_segment(result)->candidate_count == 1);
-        REQUIRE(longest_segment(result)->seq_ids.size() == 1);
-        REQUIRE(longest_segment(result)->seq_ids.size() == longest_segment(result)->candidate_count);
+        REQUIRE(segments.size() == 1);
+        REQUIRE(segments[0].visit_count == 1);
+        REQUIRE(segments[0].seq_ids.size() == 1);
     }
 
-    SECTION("Extension mode preserves or narrows haplotype set and reports boundaries") {
+    SECTION("A path inside a snarl gets the snarl's boundary nodes") {
         Alignment aln = make_alignment({2});
-        auto no_extend = assigner.assign(aln, false);
-        auto extended = assigner.assign(aln, true);
+        auto segments = assigner.segments(aln);
+        SnarlBoundaries boundaries = assigner.snarl_boundaries(aln);
 
-        REQUIRE(longest_segment(no_extend)->candidate_count == 2);
-        REQUIRE(longest_segment(extended)->candidate_count <= longest_segment(no_extend)->candidate_count);
-        REQUIRE(extended.left_boundary_node == 1);
-        REQUIRE(extended.right_boundary_node == 4);
+        REQUIRE(segments.size() == 1);
+        REQUIRE(segments[0].visit_count == 2);
+        REQUIRE(boundaries.left.value_or(0) == 1);
+        REQUIRE(boundaries.right.value_or(0) == 4);
     }
 
     SECTION("A path that no snarl contains gets no boundary nodes") {
         // 4 is the snarl's end boundary node, so it is outside the snarl.
         Alignment aln = make_alignment({2, 4});
-        auto result = assigner.assign(aln, true);
+        auto segments = assigner.segments(aln);
+        SnarlBoundaries boundaries = assigner.snarl_boundaries(aln);
 
-        REQUIRE(longest_segment(result)->candidate_count == 2);
-        REQUIRE(result.left_boundary_node == 0);
-        REQUIRE(result.right_boundary_node == 0);
+        REQUIRE(segments.size() == 1);
+        REQUIRE(segments[0].visit_count == 2);
+        REQUIRE_FALSE(boundaries.left.has_value());
+        REQUIRE_FALSE(boundaries.right.has_value());
     }
 
-    SECTION("The cap shortens seq_ids below candidate_count") {
+    SECTION("The cap shortens seq_ids below visit_count") {
         assigner.max_haplotypes_to_report = 1;
         Alignment aln = make_alignment({1, 2, 4, 5});
-        auto result = assigner.assign(aln, false);
+        auto segments = assigner.segments(aln);
 
-        REQUIRE(longest_segment(result)->candidate_count == 2);
-        REQUIRE(longest_segment(result)->seq_ids.size() == 1);
-        REQUIRE(longest_segment(result)->seq_ids.size() < longest_segment(result)->candidate_count);
+        REQUIRE(segments.size() == 1);
+        REQUIRE(segments[0].visit_count == 2);
+        REQUIRE(segments[0].seq_ids.size() == 1);
+    }
+
+    SECTION("A haplotype that ends inside the snarl is still in the segment") {
+        // h3 visits 1 and 2 and stops there, before the snarl's end.
+        std::vector<gbwt::vector_type> with_short = {
+            gbwt_path({1, 2, 4, 5}),
+            gbwt_path({1, 3, 4, 5}),
+            gbwt_path({1, 2, 4, 5}),
+            gbwt_path({1, 2})
+        };
+        gbwtgraph::GBZ gbz_with_short(get_gbwt(with_short), graph, nullptr);
+        HaplotypeAssigner assigner_with_short(gbz_with_short, dist_index);
+
+        Alignment aln = make_alignment({2});
+        SnarlBoundaries boundaries = assigner_with_short.snarl_boundaries(aln);
+
+        // The walk to the right goes on without h3. The segment has all three.
+        REQUIRE(assigner_with_short.segments(aln)[0].visit_count == 3);
+        REQUIRE(boundaries.left.value_or(0) == 1);
+        REQUIRE(boundaries.right.value_or(0) == 4);
+    }
+
+    SECTION("An alignment with no path has no segments and no boundary nodes") {
+        Alignment aln;
+        SnarlBoundaries boundaries = assigner.snarl_boundaries(aln);
+
+        REQUIRE(assigner.segments(aln).empty());
+        REQUIRE_FALSE(boundaries.left.has_value());
+        REQUIRE_FALSE(boundaries.right.has_value());
     }
 }
 
-TEST_CASE("HaplotypeAssigner handles nested snarls and extension edge cases",
+TEST_CASE("HaplotypeAssigner finds snarl boundaries in nested snarls",
           "[giraffe][haplotype_assignment][nested]") {
 
     VG graph = make_nested_bubble_graph();
@@ -190,46 +221,46 @@ TEST_CASE("HaplotypeAssigner handles nested snarls and extension edge cases",
 
     HaplotypeAssigner assigner(gbz, dist_index);
 
-    SECTION("Inner-allele path resolves to expected multiplicity") {
+    SECTION("A path through the inner snarl has the haplotypes of its allele") {
         Alignment aln = make_alignment({3, 4, 6, 8});
-        auto result = assigner.assign(aln, false);
+        auto segments = assigner.segments(aln);
 
-        REQUIRE(longest_segment(result)->candidate_count == 2);
-        REQUIRE(longest_segment(result)->seq_ids.size() == 2);
-        REQUIRE(longest_segment(result)->seq_ids.size() == longest_segment(result)->candidate_count);
+        REQUIRE(segments.size() == 1);
+        REQUIRE(segments[0].visit_count == 2);
+        REQUIRE(segments[0].seq_ids.size() == 2);
     }
 
-    SECTION("Nested snarl extension finds inner boundaries for inner node") {
+    SECTION("A node of the inner snarl gets the inner snarl's boundary nodes") {
         Alignment aln = make_alignment({4});
-        auto result = assigner.assign(aln, true);
+        SnarlBoundaries boundaries = assigner.snarl_boundaries(aln);
 
-        REQUIRE(longest_segment(result)->candidate_count == 2);
-        REQUIRE(result.left_boundary_node == 3);
-        REQUIRE(result.right_boundary_node == 6);
+        REQUIRE(assigner.segments(aln)[0].visit_count == 2);
+        REQUIRE(boundaries.left.value_or(0) == 3);
+        REQUIRE(boundaries.right.value_or(0) == 6);
     }
 
-    SECTION("Extension stops conservatively at branching predecessor set") {
+    SECTION("The walk stops where the haplotypes come from different nodes") {
         // Haplotypes reach 6 from both 4 and 5, so the left walk stops without
         // a boundary node.
         Alignment aln = make_alignment({6});
-        auto result = assigner.assign(aln, true);
+        SnarlBoundaries boundaries = assigner.snarl_boundaries(aln);
 
-        REQUIRE(longest_segment(result)->candidate_count == 3);
-        REQUIRE(result.left_boundary_node == 0);
-        REQUIRE(result.right_boundary_node == 9);
+        REQUIRE(assigner.segments(aln)[0].visit_count == 3);
+        REQUIRE_FALSE(boundaries.left.has_value());
+        REQUIRE(boundaries.right.value_or(0) == 9);
     }
 
-    SECTION("A path that leaves the inner snarl extends to the outer snarl's boundaries") {
+    SECTION("A path that leaves the inner snarl gets the outer snarl's boundary nodes") {
         // 4 is in both snarls, and 6 only in the outer one.
         Alignment aln = make_alignment({4, 6});
-        auto result = assigner.assign(aln, true);
+        SnarlBoundaries boundaries = assigner.snarl_boundaries(aln);
 
-        REQUIRE(longest_segment(result)->candidate_count == 2);
-        REQUIRE(result.left_boundary_node == 1);
-        REQUIRE(result.right_boundary_node == 9);
+        REQUIRE(assigner.segments(aln)[0].visit_count == 2);
+        REQUIRE(boundaries.left.value_or(0) == 1);
+        REQUIRE(boundaries.right.value_or(0) == 9);
     }
 
-    SECTION("Extension walks through a child snarl") {
+    SECTION("The walk goes through a child snarl") {
         // Without h2, every haplotype at 3 goes on through 4, inside the inner
         // snarl, and the walk goes on to the outer snarl's end.
         std::vector<gbwt::vector_type> through_4 = {
@@ -241,19 +272,24 @@ TEST_CASE("HaplotypeAssigner handles nested snarls and extension edge cases",
         HaplotypeAssigner assigner_through_4(gbz_through_4, dist_index);
 
         Alignment aln = make_alignment({3});
-        auto result = assigner_through_4.assign(aln, true);
+        SnarlBoundaries boundaries = assigner_through_4.snarl_boundaries(aln);
 
-        REQUIRE(longest_segment(result)->candidate_count == 2);
-        REQUIRE(result.left_boundary_node == 1);
-        REQUIRE(result.right_boundary_node == 9);
+        REQUIRE(assigner_through_4.segments(aln)[0].visit_count == 2);
+        REQUIRE(boundaries.left.value_or(0) == 1);
+        REQUIRE(boundaries.right.value_or(0) == 9);
     }
 
-    SECTION("Extension is monotonic on candidate count") {
+    SECTION("A path that no haplotype follows end to end has two segments and no boundary nodes") {
+        // No haplotype goes from 3 straight to 6.
         Alignment aln = make_alignment({3, 6});
-        auto no_extend = assigner.assign(aln, false);
-        auto extended = assigner.assign(aln, true);
+        auto segments = assigner.segments(aln);
+        SnarlBoundaries boundaries = assigner.snarl_boundaries(aln);
 
-        REQUIRE(longest_segment(extended)->candidate_count <= longest_segment(no_extend)->candidate_count);
+        REQUIRE(segments.size() == 2);
+        REQUIRE(segments[0].past_last_mapping == 1);
+        REQUIRE(segments[1].first_mapping == 1);
+        REQUIRE_FALSE(boundaries.left.has_value());
+        REQUIRE_FALSE(boundaries.right.has_value());
     }
 }
 

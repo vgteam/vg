@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -23,52 +24,43 @@ namespace vg {
 class Alignment;
 
 /**
- * The haplotypes that carry an alignment's path.
+ * A run of an alignment's path that at least one haplotype follows without a
+ * break.
  *
- * The path is split into segments, each one as long as some haplotype carries
- * it unbroken. A path that one haplotype carries end to end is one segment.
+ * The run ends where none of the haplotypes that follow it go on to the next
+ * node of the path.
  */
-struct HaplotypeAssignmentResult {
-    /**
-     * A run of the path's mappings that at least one haplotype carries.
-     *
-     * The run ends where none of the haplotypes that carry it go on to the
-     * next node of the path.
-     */
-    struct Segment {
-        size_t start_mapping   = 0;   ///< Index of the first mapping in the run.
-        size_t end_mapping     = 0;   ///< One past the index of the last mapping.
-        size_t covered_bp      = 0;   ///< Total length of the run's nodes.
-        /// Number of times GBWT sequences carry the run. A sequence that
-        /// carries it twice counts twice.
-        size_t candidate_count = 0;
-        /// The GBWT sequence IDs that carry the run, at most
-        /// max_haplotypes_to_report of them.
-        std::vector<gbwt::size_type> seq_ids;
-    };
-
-    /// The segments, in path order.
-    std::vector<Segment> segments;
-    /// The boundary node before the path, in the path's orientation, of the
-    /// smallest snarl that contains the whole path. 0 unless extension was
-    /// asked for, the whole path is one segment, some snarl contains it, and
-    /// the walk got that far.
-    nid_t left_boundary_node = 0;
-    /// The boundary node after the path, found the same way as
-    /// left_boundary_node.
-    nid_t right_boundary_node = 0;
+struct HaplotypeSegment {
+    size_t first_mapping     = 0;   ///< Index of the first mapping in the run.
+    size_t past_last_mapping = 0;   ///< One past the index of the last mapping.
+    size_t length_bp         = 0;   ///< Total length of the run's nodes.
+    /// Number of times GBWT sequences follow the run. A sequence that
+    /// follows it twice counts twice.
+    size_t visit_count = 0;
+    /// The GBWT sequence IDs that follow the run, at most
+    /// max_haplotypes_to_report of them.
+    std::vector<gbwt::size_type> seq_ids;
 };
 
 /// Return the segment that covers the most bases, the first one if several
 /// do, or nullptr if there are no segments. Its haplotypes carry the most of
 /// the path.
-const HaplotypeAssignmentResult::Segment* longest_segment(const HaplotypeAssignmentResult& result);
+const HaplotypeSegment* longest_segment(const std::vector<HaplotypeSegment>& segments);
 
 /**
- * Finds the haplotypes in a GBZ that carry an alignment's path.
- *
- * It can also walk out from the path while those haplotypes agree, to find
- * where they leave the smallest snarl that contains the path. Thread-safe.
+ * The nodes where the haplotypes that follow a whole path leave the smallest
+ * snarl that contains it. Left is before the path and right is after it, in
+ * the path's orientation. A side is unset if its node was not found.
+ */
+struct SnarlBoundaries {
+    std::optional<nid_t> left;
+    std::optional<nid_t> right;
+};
+
+/**
+ * Answers two questions about an alignment's path, from a GBZ: which
+ * haplotypes follow it, and where those haplotypes leave the snarl around it.
+ * Thread-safe.
  */
 class HaplotypeAssigner {
 public:
@@ -77,24 +69,43 @@ public:
                       const SnarlDistanceIndex& dist_index);
 
     /**
-     * Find the haplotypes that carry the alignment's path.
-     *
-     * If extend_to_snarls is true, one segment covers the whole path, and a
-     * snarl contains the whole path, also walk outward from each end while the
-     * haplotypes all take the same node, out to the smallest such snarl's
-     * boundary nodes. This sets the boundary nodes and keeps only the
-     * haplotypes that make the whole walk.
+     * Split the alignment's path into segments, in path order, each one as
+     * long as some haplotype follows it. A path that one haplotype follows
+     * end to end is one segment. A node that no haplotype visits is in no
+     * segment.
      */
-    HaplotypeAssignmentResult assign(const Alignment& aln, bool extend_to_snarls) const;
+    std::vector<HaplotypeSegment> segments(const Alignment& aln) const;
+
+    /**
+     * Find the boundary nodes of the smallest snarl that contains the
+     * alignment's whole path.
+     *
+     * Walk out from each end of the path while the haplotypes that follow the
+     * whole path all take the same node, through child snarls, to the first
+     * node outside that snarl. The walk to the right goes on with the
+     * haplotypes that made the walk to the left.
+     *
+     * A side is unset if no haplotype follows the whole path, no snarl
+     * contains it, the haplotypes part before they leave the snarl, or the
+     * walk takes more than max_extension_nodes steps.
+     */
+    SnarlBoundaries snarl_boundaries(const Alignment& aln) const;
 
     /// The most sequence IDs to list per segment.
     size_t max_haplotypes_to_report = 1000;
-    /// The most nodes to walk out from each end of the path when extending.
+    /// The most nodes to walk out from each end of the path.
     size_t max_extension_nodes = 1000;
 
 private:
     const gbwtgraph::GBZ* gbz_;
     const SnarlDistanceIndex* dist_index_;
+
+    /// Follow the nodes from nodes[start] with a GBWT search, as far as some
+    /// haplotype goes. Return the search state, and set end to one past the
+    /// last node reached. If no haplotype visits nodes[start], the state is
+    /// empty and end is start.
+    gbwt::BidirectionalState follow(const std::vector<gbwt::node_type>& nodes,
+                                    size_t start, size_t& end) const;
 
     /// Return the snarls that contain the node, innermost first, as canonical
     /// net handles. A snarl's boundary nodes are in the snarl around it, not in

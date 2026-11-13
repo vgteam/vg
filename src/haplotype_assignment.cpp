@@ -1,7 +1,6 @@
 #include "haplotype_assignment.hpp"
 
 #include <algorithm>
-#include <optional>
 #include <set>
 
 #include <gbwtgraph/utils.h>
@@ -12,6 +11,21 @@
 namespace vg {
 
 using namespace std;
+
+namespace {
+
+/// Return the nodes of an alignment's path as GBWT nodes.
+vector<gbwt::node_type> gbwt_nodes(const Alignment& aln) {
+    vector<gbwt::node_type> nodes;
+    nodes.reserve(aln.path().mapping_size());
+    for (const Mapping& mapping : aln.path().mapping()) {
+        nodes.push_back(gbwt::Node::encode(mapping.position().node_id(),
+                                           mapping.position().is_reverse()));
+    }
+    return nodes;
+}
+
+} // namespace
 
 HaplotypeAssigner::HaplotypeAssigner(const gbwtgraph::GBZ& gbz,
                                      const SnarlDistanceIndex& dist_index)
@@ -40,130 +54,48 @@ bool HaplotypeAssigner::in_snarl(nid_t node_id, const net_handle_t& snarl) const
     return false;
 }
 
-HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
-                                                    bool extend_to_snarls) const {
-    HaplotypeAssignmentResult result;
-
-    // Collect the path's nodes as GBWT nodes, with their lengths.
-    const auto& path = aln.path();
-    if (path.mapping_size() == 0) {
-        return result;
+gbwt::BidirectionalState HaplotypeAssigner::follow(const vector<gbwt::node_type>& nodes,
+                                                   size_t start, size_t& end) const {
+    end = start;
+    gbwt::BidirectionalState state = gbz_->index.bdFind(nodes[start]);
+    if (state.empty()) {
+        return state;
     }
-    vector<gbwt::node_type> path_nodes;
-    vector<size_t> node_bp;
-    path_nodes.reserve(path.mapping_size());
-    node_bp.reserve(path.mapping_size());
-    for (int i = 0; i < path.mapping_size(); ++i) {
-        const auto& pos = path.mapping(i).position();
-        path_nodes.push_back(gbwt::Node::encode(pos.node_id(), pos.is_reverse()));
-        node_bp.push_back(gbz_->graph.get_length(
-            gbz_->graph.get_handle(pos.node_id(), pos.is_reverse())));
+    for (end = start + 1; end < nodes.size(); ++end) {
+        gbwt::BidirectionalState next = gbz_->index.bdExtendForward(state, nodes[end]);
+        if (next.empty()) {
+            break;
+        }
+        state = next;
     }
-    const size_t n = path_nodes.size();
+    return state;
+}
 
-    // Split the path into segments. From each start we extend a GBWT search
-    // forward until no haplotype goes on to the next node. That node starts
-    // the next segment.
+vector<HaplotypeSegment> HaplotypeAssigner::segments(const Alignment& aln) const {
+    vector<HaplotypeSegment> result;
+    vector<gbwt::node_type> nodes = gbwt_nodes(aln);
+
+    // From each start we follow the path until no haplotype goes on to the
+    // next node. That node starts the next segment.
     size_t i = 0;
-    while (i < n) {
-        gbwt::BidirectionalState state = gbz_->index.bdFind(path_nodes[i]);
+    while (i < nodes.size()) {
+        size_t j = i;
+        gbwt::BidirectionalState state = follow(nodes, i, j);
         if (state.empty()) {
             // No haplotype visits this node in this orientation. Skip it, so it
             // is in no segment.
             ++i;
             continue;
         }
-        size_t j = i + 1;
-        while (j < n) {
-            gbwt::BidirectionalState next =
-                gbz_->index.bdExtendForward(state, path_nodes[j]);
-            if (next.empty()) {
-                break;
-            }
-            state = next;
-            ++j;
-        }
 
-        // When one segment is the whole path, walk out from each end while
-        // the haplotypes all take the same node. Each step drops the
-        // haplotypes that stop there. The walk goes through child snarls and
-        // ends at the first node outside the smallest snarl that contains the
-        // whole path. That node is one of the snarl's boundary nodes.
-        const bool whole_path = (i == 0 && j == n);
-        optional<net_handle_t> path_snarl;
-        if (extend_to_snarls && whole_path) {
-            // The snarls that contain every node, innermost first. Each node's
-            // enclosing snarls run from innermost to outermost, so the common
-            // ones are a tail of the first node's list.
-            vector<net_handle_t> common = enclosing_snarls(gbwt::Node::id(path_nodes.front()));
-            for (size_t k = 1; k < n && !common.empty(); ++k) {
-                vector<net_handle_t> mine = enclosing_snarls(gbwt::Node::id(path_nodes[k]));
-                auto inner = std::find_first_of(common.begin(), common.end(),
-                                                mine.begin(), mine.end());
-                common.erase(common.begin(), inner);
-            }
-            // A path in no snarl has no boundary nodes to find.
-            if (!common.empty()) {
-                path_snarl = common.front();
-            }
-        }
-        if (path_snarl) {
-            const net_handle_t& start_snarl = *path_snarl;
-
-            // Walk left.
-            for (size_t step = 0; step < max_extension_nodes; ++step) {
-                vector<gbwt::BidirectionalState> nexts;
-                gbz_->graph.follow_paths(state, /*backward=*/true,
-                    [&](const gbwt::BidirectionalState& next) -> bool {
-                        if (!next.empty()) {
-                            nexts.push_back(next);
-                        }
-                        return true;
-                    });
-                if (nexts.empty() || nexts.size() > 1) {
-                    break;
-                }
-                // The backward search holds the new node reversed.
-                gbwt::node_type pred = gbwt::Node::reverse(nexts[0].backward.node);
-                nid_t pred_id = gbwt::Node::id(pred);
-                if (!in_snarl(pred_id, start_snarl)) {
-                    result.left_boundary_node = pred_id;
-                    break;
-                }
-                state = nexts[0];
-            }
-
-            // Walk right.
-            for (size_t step = 0; step < max_extension_nodes; ++step) {
-                vector<gbwt::BidirectionalState> nexts;
-                gbz_->graph.follow_paths(state, /*backward=*/false,
-                    [&](const gbwt::BidirectionalState& next) -> bool {
-                        if (!next.empty()) {
-                            nexts.push_back(next);
-                        }
-                        return true;
-                    });
-                if (nexts.empty() || nexts.size() > 1) {
-                    break;
-                }
-                gbwt::node_type succ = nexts[0].forward.node;
-                nid_t succ_id = gbwt::Node::id(succ);
-                if (!in_snarl(succ_id, start_snarl)) {
-                    result.right_boundary_node = succ_id;
-                    break;
-                }
-                state = nexts[0];
-            }
-        }
-
-        // Record the segment and the sequences that carry it.
-        HaplotypeAssignmentResult::Segment seg;
-        seg.start_mapping = i;
-        seg.end_mapping   = j;
+        // Record the segment and the sequences that follow it.
+        HaplotypeSegment seg;
+        seg.first_mapping = i;
+        seg.past_last_mapping = j;
         for (size_t k = i; k < j; ++k) {
-            seg.covered_bp += node_bp[k];
+            seg.length_bp += gbz_->graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(nodes[k]));
         }
-        seg.candidate_count = state.size();
+        seg.visit_count = state.size();
         // gbwt::size_type is not size_t on macOS, so std::min needs the type named.
         const size_t cap = std::min<size_t>(state.size(), max_haplotypes_to_report);
         const gbwt::SearchState& fwd = state.forward;
@@ -171,7 +103,7 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
         for (size_t t = 0; t < cap; ++t) {
             seg.seq_ids.push_back(gbz_->index.locate(fwd.node, fwd.range.first + t));
         }
-        result.segments.push_back(std::move(seg));
+        result.push_back(std::move(seg));
 
         i = j;
     }
@@ -179,13 +111,96 @@ HaplotypeAssignmentResult HaplotypeAssigner::assign(const Alignment& aln,
     return result;
 }
 
-const HaplotypeAssignmentResult::Segment* longest_segment(const HaplotypeAssignmentResult& result) {
+SnarlBoundaries HaplotypeAssigner::snarl_boundaries(const Alignment& aln) const {
+    SnarlBoundaries boundaries;
+    vector<gbwt::node_type> nodes = gbwt_nodes(aln);
+    if (nodes.empty()) {
+        return boundaries;
+    }
+
+    // The walk starts from the haplotypes that follow the whole path.
+    size_t end = 0;
+    gbwt::BidirectionalState state = follow(nodes, 0, end);
+    if (state.empty() || end != nodes.size()) {
+        return boundaries;
+    }
+
+    // The snarls that contain every node, innermost first. Each node's
+    // enclosing snarls run from innermost to outermost, so the common ones
+    // are a tail of the first node's list.
+    vector<net_handle_t> common = enclosing_snarls(gbwt::Node::id(nodes.front()));
+    for (size_t k = 1; k < nodes.size() && !common.empty(); ++k) {
+        vector<net_handle_t> mine = enclosing_snarls(gbwt::Node::id(nodes[k]));
+        auto inner = std::find_first_of(common.begin(), common.end(),
+                                        mine.begin(), mine.end());
+        common.erase(common.begin(), inner);
+    }
+    if (common.empty()) {
+        // A path in no snarl has no boundary nodes to find.
+        return boundaries;
+    }
+    const net_handle_t& path_snarl = common.front();
+
+    // Walk out from each end while the haplotypes all take the same node.
+    // Each step drops the haplotypes that stop there. The walk goes through
+    // child snarls and ends at the first node outside the path's snarl. That
+    // node is one of the snarl's boundary nodes.
+
+    // Walk left.
+    for (size_t step = 0; step < max_extension_nodes; ++step) {
+        vector<gbwt::BidirectionalState> nexts;
+        gbz_->graph.follow_paths(state, /*backward=*/true,
+            [&](const gbwt::BidirectionalState& next) -> bool {
+                if (!next.empty()) {
+                    nexts.push_back(next);
+                }
+                return true;
+            });
+        if (nexts.empty() || nexts.size() > 1) {
+            break;
+        }
+        // The backward search holds the new node reversed.
+        gbwt::node_type pred = gbwt::Node::reverse(nexts[0].backward.node);
+        nid_t pred_id = gbwt::Node::id(pred);
+        if (!in_snarl(pred_id, path_snarl)) {
+            boundaries.left = pred_id;
+            break;
+        }
+        state = nexts[0];
+    }
+
+    // Walk right.
+    for (size_t step = 0; step < max_extension_nodes; ++step) {
+        vector<gbwt::BidirectionalState> nexts;
+        gbz_->graph.follow_paths(state, /*backward=*/false,
+            [&](const gbwt::BidirectionalState& next) -> bool {
+                if (!next.empty()) {
+                    nexts.push_back(next);
+                }
+                return true;
+            });
+        if (nexts.empty() || nexts.size() > 1) {
+            break;
+        }
+        gbwt::node_type succ = nexts[0].forward.node;
+        nid_t succ_id = gbwt::Node::id(succ);
+        if (!in_snarl(succ_id, path_snarl)) {
+            boundaries.right = succ_id;
+            break;
+        }
+        state = nexts[0];
+    }
+
+    return boundaries;
+}
+
+const HaplotypeSegment* longest_segment(const vector<HaplotypeSegment>& segments) {
     // max_element returns the first of equal segments.
-    auto longest = std::max_element(result.segments.begin(), result.segments.end(),
-        [](const HaplotypeAssignmentResult::Segment& a, const HaplotypeAssignmentResult::Segment& b) {
-            return a.covered_bp < b.covered_bp;
+    auto longest = std::max_element(segments.begin(), segments.end(),
+        [](const HaplotypeSegment& a, const HaplotypeSegment& b) {
+            return a.length_bp < b.length_bp;
         });
-    return longest == result.segments.end() ? nullptr : &*longest;
+    return longest == segments.end() ? nullptr : &*longest;
 }
 
 string haplotype_name(const gbwt::Metadata& metadata, gbwt::size_type path_id) {

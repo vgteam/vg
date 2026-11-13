@@ -180,20 +180,21 @@ optional<size_t> parse_request_number(const string& field) {
     return nullopt;
 }
 
-/// Append the GAF tags for a haplotype assignment.
+/// Append the GAF tags for the haplotypes that follow an alignment's path.
 void append_haplotype_tags(stringstream& ss, const gbwtgraph::GBZ& gbz, const Alignment& aln,
-                           const HaplotypeAssignmentResult& hap) {
+                           const vector<HaplotypeSegment>& segments,
+                           const SnarlBoundaries& boundaries) {
     // Name the haplotypes of each segment, and choose one to stand for them.
     vector<vector<string>> names;
     vector<pair<string, bool>> representatives;
-    for (const auto& seg : hap.segments) {
+    for (const auto& seg : segments) {
         names.push_back(haplotype_names(gbz, seg.seq_ids));
         representatives.push_back(choose_representative(gbz, seg.seq_ids));
     }
     // The tags for the whole alignment describe the longest segment, whose
     // haplotypes carry the most of the read.
-    const HaplotypeAssignmentResult::Segment* longest = longest_segment(hap);
-    const size_t l = longest ? longest - hap.segments.data() : 0;
+    const HaplotypeSegment* longest = longest_segment(segments);
+    const size_t l = longest ? longest - segments.data() : 0;
     const vector<string> no_names;
     const vector<string>& longest_names = longest ? names[l] : no_names;
     const pair<string, bool> representative = longest ? representatives[l] : make_pair(string(), false);
@@ -205,14 +206,14 @@ void append_haplotype_tags(stringstream& ss, const gbwtgraph::GBZ& gbz, const Al
        << "\thn:i:" << longest_names.size()
        << "\thb:Z:" << (representative.first.empty() ? string("*") : representative.first)
        << "\thf:i:" << (representative.second ? 1 : 0)
-       << "\thc:i:" << (longest ? longest->candidate_count : 0);
-    // hl:i and hr:i are the enclosing snarl's boundary nodes, if one was
-    // found.
-    if (hap.left_boundary_node != 0) {
-        ss << "\thl:i:" << hap.left_boundary_node;
+       << "\thc:i:" << (longest ? longest->visit_count : 0);
+    // hl:i and hr:i are the boundary nodes of the snarl around the path.
+    // Each is written only if it was found.
+    if (boundaries.left) {
+        ss << "\thl:i:" << *boundaries.left;
     }
-    if (hap.right_boundary_node != 0) {
-        ss << "\thr:i:" << hap.right_boundary_node;
+    if (boundaries.right) {
+        ss << "\thr:i:" << *boundaries.right;
     }
     // ht:i is 1 if the cap cut the list. hq:i is 1 if one haplotype carries
     // the whole read. hv:i is the percentage of the read's path that the
@@ -221,20 +222,20 @@ void append_haplotype_tags(stringstream& ss, const gbwtgraph::GBZ& gbz, const Al
     for (const Mapping& mapping : aln.path().mapping()) {
         path_length += gbz.graph.get_length(gbz.graph.get_handle(mapping.position().node_id()));
     }
-    const bool fully_covered = longest && longest->start_mapping == 0
-        && longest->end_mapping == static_cast<size_t>(aln.path().mapping_size());
-    ss << "\tht:i:" << (longest && longest->seq_ids.size() < longest->candidate_count ? 1 : 0)
+    const bool fully_covered = longest && longest->first_mapping == 0
+        && longest->past_last_mapping == static_cast<size_t>(aln.path().mapping_size());
+    ss << "\tht:i:" << (longest && longest->seq_ids.size() < longest->visit_count ? 1 : 0)
        << "\thq:i:" << (fully_covered ? 1 : 0)
-       << "\thv:i:" << (longest && path_length ? (100 * longest->covered_bp / path_length) : 0)
-       << "\ths:i:" << hap.segments.size();
+       << "\thv:i:" << (longest && path_length ? (100 * longest->length_bp / path_length) : 0)
+       << "\ths:i:" << segments.size();
     // hm:Z lists the segments in path order, if there are several. Each
-    // entry is covered_bp:haplotype_count:representative, and ';' separates
+    // entry is length_bp:haplotype_count:representative, and ';' separates
     // them.
-    if (hap.segments.size() > 1) {
+    if (segments.size() > 1) {
         ss << "\thm:Z:";
-        for (size_t s = 0; s < hap.segments.size(); ++s) {
+        for (size_t s = 0; s < segments.size(); ++s) {
             ss << (s ? ";" : "")
-               << hap.segments[s].covered_bp << ":"
+               << segments[s].length_bp << ":"
                << names[s].size() << ":"
                << (representatives[s].first.empty() ? string("*") : representatives[s].first);
         }
@@ -282,8 +283,9 @@ void append_surjection_tags(stringstream& ss, const HaplotypeSurjectionResult& r
 string mapped_alignment_to_gaf(const gbwtgraph::GBZ& gbz, const MappedAlignment& mapped) {
     stringstream ss;
     ss << io::alignment_to_gaf(gbz.graph, mapped.alignment);
-    if (mapped.haplotypes) {
-        append_haplotype_tags(ss, gbz, mapped.alignment, *mapped.haplotypes);
+    if (mapped.haplotype_segments) {
+        append_haplotype_tags(ss, gbz, mapped.alignment, *mapped.haplotype_segments,
+                              mapped.snarl_boundaries);
     }
     if (mapped.surjection) {
         append_surjection_tags(ss, *mapped.surjection);

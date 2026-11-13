@@ -82,9 +82,9 @@ struct GiraffeEngineConfig {
 
     /// Tag each alignment with the haplotypes that carry its path.
     bool assign_haplotypes = true;
-    /// When assigning haplotypes, extend the search out to the enclosing
-    /// snarl's boundaries, keeping only haplotypes that also agree there.
-    bool assign_haplotypes_extend_to_snarls = true;
+    /// When assigning haplotypes, also find the boundary nodes of the
+    /// smallest snarl around each alignment's path.
+    bool find_snarl_boundaries = true;
 };
 
 /// One read to map, and the path to surject its alignments onto.
@@ -99,9 +99,12 @@ struct GiraffeServerRequest {
 /// One alignment of a read, with what the engine found out about it. A read can have multiples.
 struct MappedAlignment {
     Alignment alignment;
-    /// The haplotypes that carry the alignment's path. Unset if haplotype
-    /// assignment is off.
-    std::optional<HaplotypeAssignmentResult> haplotypes;
+    /// The runs of the alignment's path that haplotypes follow, in path
+    /// order. Unset if haplotype assignment is off.
+    std::optional<std::vector<HaplotypeSegment>> haplotype_segments;
+    /// Where the haplotypes that follow the whole path leave the snarl around
+    /// it. Both sides are unset if finding the boundaries is off.
+    SnarlBoundaries snarl_boundaries;
     /// Where the alignment lands on the read's surjection target. Unset if
     /// the read names no target.
     std::optional<HaplotypeSurjectionResult> surjection;

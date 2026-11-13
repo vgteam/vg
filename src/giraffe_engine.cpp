@@ -326,12 +326,16 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
             toUppercaseInPlace(*aln.mutable_sequence());
 
             vector<Alignment> mapped = mapper_->map(aln);
-            vector<HaplotypeAssignmentResult> hap_results;
+            vector<vector<HaplotypeSegment>> segments;
+            vector<SnarlBoundaries> boundaries;
             if (config_.assign_haplotypes && this->haplotype_assigner_) {
-                hap_results.reserve(mapped.size());
-                for (auto& m : mapped) {
-                    hap_results.emplace_back(this->haplotype_assigner_->assign(
-                        m, config_.assign_haplotypes_extend_to_snarls));
+                segments.reserve(mapped.size());
+                boundaries.resize(mapped.size());
+                for (size_t j = 0; j < mapped.size(); ++j) {
+                    segments.push_back(this->haplotype_assigner_->segments(mapped[j]));
+                    if (config_.find_snarl_boundaries) {
+                        boundaries[j] = this->haplotype_assigner_->snarl_boundaries(mapped[j]);
+                    }
                 }
             }
 
@@ -351,11 +355,11 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
                         // path without a haplotype assignment.
                         size_t begin = 0;
                         size_t end = mapped[j].path().mapping_size();
-                        if (!hap_results.empty()) {
-                            const auto* longest = longest_segment(hap_results[j]);
+                        if (!segments.empty()) {
+                            const HaplotypeSegment* longest = longest_segment(segments[j]);
                             if (longest) {
-                                begin = longest->start_mapping;
-                                end = longest->end_mapping;
+                                begin = longest->first_mapping;
+                                end = longest->past_last_mapping;
                             } else {
                                 // No haplotype visits any node of the path.
                                 end = begin;
@@ -372,8 +376,9 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
             for (size_t j = 0; j < mapped.size(); ++j) {
                 MappedAlignment out;
                 out.alignment = std::move(mapped[j]);
-                if (!hap_results.empty()) {
-                    out.haplotypes = std::move(hap_results[j]);
+                if (!segments.empty()) {
+                    out.haplotype_segments = std::move(segments[j]);
+                    out.snarl_boundaries = boundaries[j];
                 }
                 if (j < surj_results.size()) {
                     out.surjection = std::move(surj_results[j]);
