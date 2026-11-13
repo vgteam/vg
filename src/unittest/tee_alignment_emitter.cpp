@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "../../src/unittest/catch.hpp"
+#include "catch.hpp"
 #include "../tee_alignment_emitter.hpp"
 
 namespace vg {
@@ -17,12 +17,12 @@ using namespace std;
 namespace {
 
 /// A log of what an emitter was given: one line per alignment, naming the
-/// method that received it, and one line per extra message.
+/// method that got it, and one line per extra message.
 using EmitterLog = vector<string>;
 
 /// An emitter that writes what it is given into a log it shares with the test,
-/// and then clears the alignments it was given, as an emitter that moves from
-/// its batches would leave them.
+/// and then clears the alignments and data it was given, as an emitter that
+/// moves from its batches would leave them.
 class LoggingEmitter : public vg::io::AlignmentEmitter {
 public:
     explicit LoggingEmitter(shared_ptr<EmitterLog> log) : log(std::move(log)) {}
@@ -49,6 +49,7 @@ public:
             aln1_batch[i].Clear();
             aln2_batch[i].Clear();
         }
+        tlen_limit_batch.clear();
     }
     void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch, vector<vector<Alignment>>&& alns2_batch,
                            vector<int64_t>&& tlen_limit_batch) override {
@@ -60,6 +61,7 @@ public:
                 alns2_batch[i][j].Clear();
             }
         }
+        tlen_limit_batch.clear();
     }
     void emit_extra_message(const string& tag, string&& data) override {
         log->push_back("extra " + tag + " " + data);
@@ -77,34 +79,69 @@ Alignment named(const string& name) {
     return aln;
 }
 
-}
+/// Make a TeeAlignmentEmitter with the given number of LoggingEmitters as
+/// destinations, and give it one batch of each kind. Return the log of each
+/// destination, in order.
+vector<EmitterLog> emit_through_tee(size_t destination_count) {
+    vector<shared_ptr<EmitterLog>> logs;
+    vector<unique_ptr<vg::io::AlignmentEmitter>> destinations;
+    for (size_t i = 0; i < destination_count; i++) {
+        logs.push_back(make_shared<EmitterLog>());
+        destinations.push_back(make_unique<LoggingEmitter>(logs.back()));
+    }
 
-TEST_CASE("TeeAlignmentEmitter gives both emitters the same alignments", "[alignment][emitter]") {
-    auto primary_log = make_shared<EmitterLog>();
-    auto copy_log = make_shared<EmitterLog>();
-    TeeAlignmentEmitter tee(make_unique<LoggingEmitter>(primary_log), make_unique<LoggingEmitter>(copy_log));
-
+    TeeAlignmentEmitter tee(std::move(destinations));
     tee.emit_extra_message("PARAMS_JSON", "{}");
     tee.emit_singles({named("a"), named("b")});
     tee.emit_mapped_singles({{named("c"), named("c2")}});
     tee.emit_pairs({named("d1")}, {named("d2")}, {500});
     tee.emit_mapped_pairs({{named("e1"), named("f1")}}, {{named("e2"), named("f2")}}, {600});
 
-    EmitterLog expected {
-        "extra PARAMS_JSON {}",
-        "single a", "single b",
-        "mapped single c", "mapped single c2",
-        "pair d1 d2 500",
-        "mapped pair e1 e2 600", "mapped pair f1 f2 600"
-    };
-    REQUIRE(*primary_log == expected);
-    REQUIRE(*copy_log == expected);
+    vector<EmitterLog> results;
+    for (auto& log : logs) {
+        results.push_back(*log);
+    }
+    return results;
 }
 
-TEST_CASE("TeeAlignmentEmitter needs two emitters", "[alignment][emitter]") {
+/// The log a LoggingEmitter makes of the batches that emit_through_tee() gives.
+const EmitterLog EXPECTED_LOG {
+    "extra PARAMS_JSON {}",
+    "single a", "single b",
+    "mapped single c", "mapped single c2",
+    "pair d1 d2 500",
+    "mapped pair e1 e2 600", "mapped pair f1 f2 600"
+};
+
+}
+
+TEST_CASE("TeeAlignmentEmitter gives every destination the same alignments", "[alignment][emitter]") {
+    SECTION("One destination gets everything") {
+        vector<EmitterLog> logs = emit_through_tee(1);
+        REQUIRE(logs.size() == 1);
+        REQUIRE(logs[0] == EXPECTED_LOG);
+    }
+
+    SECTION("Each of three destinations gets everything, though each clears what it gets") {
+        vector<EmitterLog> logs = emit_through_tee(3);
+        REQUIRE(logs.size() == 3);
+        for (auto& log : logs) {
+            REQUIRE(log == EXPECTED_LOG);
+        }
+    }
+
+    SECTION("With no destinations, emitting does nothing") {
+        vector<EmitterLog> logs = emit_through_tee(0);
+        REQUIRE(logs.empty());
+    }
+}
+
+TEST_CASE("TeeAlignmentEmitter refuses a null destination", "[alignment][emitter]") {
     auto log = make_shared<EmitterLog>();
-    REQUIRE_THROWS_AS(TeeAlignmentEmitter(make_unique<LoggingEmitter>(log), nullptr), std::invalid_argument);
-    REQUIRE_THROWS_AS(TeeAlignmentEmitter(nullptr, make_unique<LoggingEmitter>(log)), std::invalid_argument);
+    vector<unique_ptr<vg::io::AlignmentEmitter>> destinations;
+    destinations.push_back(make_unique<LoggingEmitter>(log));
+    destinations.push_back(nullptr);
+    REQUIRE_THROWS_AS(TeeAlignmentEmitter(std::move(destinations)), std::invalid_argument);
 }
 
 }

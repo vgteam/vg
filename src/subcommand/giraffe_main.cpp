@@ -26,7 +26,7 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include "../hts_alignment_emitter.hpp"
-#include "../../artifacts/tee_alignment_emitter.hpp"
+#include "../tee_alignment_emitter.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_registry.hpp"
 #include "../utility.hpp"
@@ -95,6 +95,19 @@ struct ScoringOptions {
     int8_t gap_extend = default_gap_extension;
     int8_t full_length_bonus = default_full_length_bonus;
 };
+
+/// Get the name of the file to write the alignments for one combination of
+/// settings to, given the name of the output file and the slug that the
+/// settings print as. The slug goes before the extension, so that each
+/// combination writes its own file. Standard output ("-") stays standard
+/// output.
+static std::string file_name_for_settings(const std::string& file_name, const std::string& settings_slug) {
+    if (file_name == "-") {
+        return file_name;
+    }
+    std::pair<std::string, std::string> stem_and_extension = split_ext(file_name);
+    return stem_and_extension.first + settings_slug + "." + stem_and_extension.second;
+}
 
 static std::unique_ptr<GroupedOptionGroup> get_options() {
     std::unique_ptr<GroupedOptionGroup> parser(new GroupedOptionGroup());
@@ -734,15 +747,15 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
     cerr << "output options:" << endl
          << "  -N, --sample NAME             add this sample name" << endl
          << "  -R, --read-group NAME         add this read group" << endl
-         << "  -o, --output-format NAME      output the alignments in NAME format [gam]" << endl
+         << "  -o, --output-format NAME      write the alignments to standard output in" << endl
+         << "                                NAME format [gam]" << endl
          << "                                {gam / gaf / json / tsv / SAM / BAM / CRAM} " << endl
+         << "      --output-file FILE        write the alignments to FILE instead, in the" << endl
+         << "                                format its extension names (may repeat)" << endl
          << "      --ref-paths FILE          ordered list of paths in the graph, one per line" << endl
          << "                                or HTSlib .dict, for HTSLib @SQ headers" << endl
          << "      --ref-name NAME           name of reference in the graph for HTSlib output" << endl
-         << "      --named-coordinates       make GAM/GAF output in named-segment (GFA) space" << endl
-         << "      --graph-output FILE       also write the graph alignments to FILE, as" << endl
-         << "                                -o GAM/GAF would, before any surjection" << endl
-         << "      --graph-output-fmt NAME   format for --graph-output {gam / gaf} [gam]" << endl;
+         << "      --named-coordinates       make GAM/GAF output in named-segment (GFA) space" << endl;
     if (full_help) {
         cerr << "      --add-graph-aln           annotate linear formats with graph alignment" << endl
              << "      --left-align              attempt to left-align indels in linear formats" << endl
@@ -754,7 +767,9 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
              << "                                for each setting combination. Setting values for" << endl
              << "                                many other options can be provided as ranges" << endl
              << "                                in the format start[:end[:step]], with end" << endl
-             << "                                being inclusive." << endl
+             << "                                being inclusive. With ranges, each" << endl
+             << "                                --output-file name also gets the settings" << endl
+             << "                                before its extension." << endl
              << "      --report-name FILE        write a TSV of output file and mapping speed" << endl
              << "      --show-work               log how the mapper comes to its conclusions" << endl
              << "                                about mapping locations (use one read at a time)" << endl;
@@ -814,8 +829,7 @@ int main_giraffe(int argc, char** argv) {
     constexpr int OPT_OFF_REF_POSITION = 1014;
     constexpr int OPT_LEFT_ALIGN = 1015;
     constexpr int OPT_NO_REC_MODE = 1016;
-    constexpr int OPT_GRAPH_OUTPUT = 1017;
-    constexpr int OPT_GRAPH_OUTPUT_FORMAT = 1018;
+    constexpr int OPT_OUTPUT_FILE = 1017;
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
 
     constexpr int OPT_KFF_NAME = 1101;
@@ -853,9 +867,6 @@ int main_giraffe(int argc, char** argv) {
 
     string output_basename;
     string report_name;
-    // File for a second copy of the graph alignments, and its format.
-    string graph_output_name;
-    string graph_output_format = "GAM";
     bool show_progress = false;
     
     // Main Giraffe program options struct
@@ -916,6 +927,11 @@ int main_giraffe(int argc, char** argv) {
 
     // Formats for alignment output.
     std::string output_format = "GAM";
+    bool output_format_given = false;
+    // Files to write alignments to, in the formats their extensions name, or
+    // "-" for standard output in the format -o names. Empty if discarding
+    // alignments.
+    std::vector<std::string> output_file_names;
     std::set<std::string> output_formats = { "GAM", "GAF", "JSON", "TSV", "SAM", "BAM", "CRAM" };
 
     // For HTSlib formats, where do we get sequence header info?
@@ -1194,8 +1210,7 @@ int main_giraffe(int argc, char** argv) {
         {"off-ref-position", no_argument, 0, OPT_OFF_REF_POSITION},
         {"left-align", no_argument, 0, OPT_LEFT_ALIGN},
         {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
-        {"graph-output", required_argument, 0, OPT_GRAPH_OUTPUT},
-        {"graph-output-fmt", required_argument, 0, OPT_GRAPH_OUTPUT_FORMAT},
+        {"output-file", required_argument, 0, OPT_OUTPUT_FILE},
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
         {"report-name", required_argument, 0, OPT_REPORT_NAME},
@@ -1361,6 +1376,7 @@ int main_giraffe(int argc, char** argv) {
             case 'o':
                 {
                     output_format = optarg;
+                    output_format_given = true;
                     for (char& c : output_format) {
                         c = std::toupper(c);
                     }
@@ -1382,18 +1398,12 @@ int main_giraffe(int argc, char** argv) {
                 named_coordinates = true;
                 break;
 
-            case OPT_GRAPH_OUTPUT:
-                graph_output_name = ensure_writable(logger, optarg);
-                break;
-
-            case OPT_GRAPH_OUTPUT_FORMAT:
-                graph_output_format = optarg;
-                for (char& c : graph_output_format) {
-                    c = std::toupper(c);
+            case OPT_OUTPUT_FILE:
+                if (alignment_format_for_extension(optarg).empty()) {
+                    logger.error() << "Output file " << optarg << " must end in .gam, .gaf, .json, "
+                                   << ".tsv, .sam, .bam or .cram, to say its format." << std::endl;
                 }
-                if (graph_output_format != "GAM" && graph_output_format != "GAF") {
-                    logger.error() << "Invalid graph output format: " << graph_output_format << std::endl;
-                }
+                output_file_names.push_back(ensure_writable(logger, optarg));
                 break;
                 
             case OPT_ADD_GRAPH_ALIGNMENT:
@@ -1580,30 +1590,48 @@ int main_giraffe(int argc, char** argv) {
         require_exists(logger, type_and_filename.second);
     }
     
-    // Decide if we are outputting to an htslib format
-    bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
-    
-    if (!ref_paths_name.empty() && !hts_output) {
-        logger.warn() << "Reference path file (--ref-paths) is only used "
-                      << "when output format (-o) is SAM, BAM, or CRAM." << std::endl;
-    }
-    if (!reference_assembly_names.empty() && !hts_output) {
-        logger.warn() << "Reference assembly names (--ref-name) are only used "
-                      << "when output format (-o) is SAM, BAM, or CRAM." << std::endl;
-    }
-    
     if (output_format != "GAM" && !output_basename.empty()) {
         logger.error() << "Using an output basename (--output-basename) "
                        << "only makes sense for GAM format (-o GAM)." << std::endl;
     }
-
-    if (!graph_output_name.empty() && !output_basename.empty()) {
-        logger.error() << "A graph output file (--graph-output) cannot be used "
-                       << "with an output basename (--output-basename)." << std::endl;
+    // Only --output-file has added files so far.
+    if (output_format_given && !output_file_names.empty()) {
+        logger.error() << "Output files (--output-file) take their formats from their extensions, "
+                       << "and nothing goes to standard output, so an output format (-o) "
+                       << "cannot be used with them." << std::endl;
     }
-    if (!graph_output_name.empty() && discard_alignments) {
-        logger.error() << "A graph output file (--graph-output) cannot be used "
-                       << "when discarding alignments (-n)." << std::endl;
+    if (discard_alignments && !output_file_names.empty()) {
+        logger.error() << "Cannot discard alignments (-n) and also write them "
+                       << "to output files (--output-file)." << std::endl;
+    }
+
+    // Decide where alignments go. If discarding them, they go nowhere.
+    if (!discard_alignments) {
+        if (!output_basename.empty()) {
+            output_file_names.push_back(output_basename + (interleaved ? "-i" : "") + ".gam");
+        }
+        if (output_file_names.empty()) {
+            output_file_names.push_back("-");
+        }
+    }
+    auto format_of_file = [&](const std::string& file_name) {
+        return file_name == "-" ? output_format : alignment_format_for_extension(file_name);
+    };
+
+    // Decide if we are outputting to an htslib format, and so need to surject.
+    bool hts_output = false;
+    for (const std::string& file_name : output_file_names) {
+        std::string format = format_of_file(file_name);
+        hts_output |= (format == "SAM" || format == "BAM" || format == "CRAM");
+    }
+    
+    if (!ref_paths_name.empty() && !hts_output) {
+        logger.warn() << "Reference path file (--ref-paths) is only used "
+                      << "when writing SAM, BAM, or CRAM." << std::endl;
+    }
+    if (!reference_assembly_names.empty() && !hts_output) {
+        logger.warn() << "Reference assembly names (--ref-name) are only used "
+                      << "when writing SAM, BAM, or CRAM." << std::endl;
     }
     
     if (interleaved && !fastq_filename_2.empty()) {
@@ -2028,30 +2056,22 @@ int main_giraffe(int argc, char** argv) {
     // We need to loop over all the ranges...
     for_each_combo([&]() {
     
-        // Work out where to send the output. Default to stdout.
-        string output_filename = "-";
-        if (!output_basename.empty()) {
-            // Compose a name using all the parameters.
-            stringstream s;
-            
-            s << output_basename;
-            
-            if (interleaved) {
-                s << "-i";
-            }
-            // Make a slug of the other options
-            parser->print_options(s, OptionFormat::SLUG);
-            s << ".gam";
-            
-            output_filename = s.str();
+        // Name the output files for this combination of settings. The slug
+        // is empty when no setting takes a range of values.
+        std::stringstream settings_slug;
+        parser->print_options(settings_slug, OptionFormat::SLUG);
+        std::vector<std::string> output_file_names_for_settings;
+        for (const std::string& file_name : output_file_names) {
+            output_file_names_for_settings.push_back(file_name_for_settings(file_name, settings_slug.str()));
         }
     
         if (show_progress) {
             if (discard_alignments) {
                 logger.info() << "Discarding output alignments" << endl;
-            } else {
-                logger.info() << "Mapping reads to \"" << output_filename
-                              << "\" (" << output_format << ")" << endl;
+            }
+            for (size_t i = 0; i < output_file_names.size(); i++) {
+                logger.info() << "Mapping reads to \"" << output_file_names_for_settings[i]
+                              << "\" (" << format_of_file(output_file_names[i]) << ")" << endl;
             }
         }
 
@@ -2267,37 +2287,30 @@ int main_giraffe(int argc, char** argv) {
                 // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
                 // TODO: What if we need both a positional graph and a NamedNodeBackTranslation???
                 const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
-                alignment_emitter = get_alignment_emitter(
-                    output_filename, output_format,
-                    paths, thread_count, emitter_graph, flags
-                );
+                std::vector<unique_ptr<AlignmentEmitter>> output_emitters;
+                for (size_t i = 0; i < output_file_names.size(); i++) {
+                    output_emitters.push_back(get_alignment_emitter(
+                        output_file_names_for_settings[i], format_of_file(output_file_names[i]),
+                        paths, thread_count, emitter_graph, flags
+                    ));
+                }
 
                 // Emit GAF header lines now, if applicable.
                 // TODO: We should have a function that can take any graph and any alignment emitter
                 // and determine if there is any header information it can emit.
-                auto emit_gaf_header = [&](vg::io::AlignmentEmitter* emitter) {
-                    io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(emitter);
+                for (auto& emitter : output_emitters) {
+                    io::GafAlignmentEmitter* gaf_emitter = dynamic_cast<io::GafAlignmentEmitter*>(emitter.get());
                     if (gaf_emitter != nullptr) {
                         gbwtgraph::GraphName graph_name = gbz->graph_name();
                         std::vector<std::string> header_lines = graph_name.gaf_header_lines();
                         gaf_emitter->emit_header_lines(header_lines);
                     }
-                };
-                emit_gaf_header(alignment_emitter.get());
+                }
 
-                if (!graph_output_name.empty()) {
-                    // Write a second copy of every alignment, before any
-                    // surjection, to the file the user named. This emitter is
-                    // the one `-o GAM` or `-o GAF` would make, so the file
-                    // holds the same records a separate run with that output
-                    // format would write.
-                    unique_ptr<AlignmentEmitter> graph_emitter = get_alignment_emitter(
-                        graph_output_name, graph_output_format,
-                        SequenceDictionary(), thread_count, emitter_graph, flags
-                    );
-                    emit_gaf_header(graph_emitter.get());
-                    alignment_emitter = make_unique<TeeAlignmentEmitter>(std::move(alignment_emitter),
-                                                                         std::move(graph_emitter));
+                if (output_emitters.size() == 1) {
+                    alignment_emitter = std::move(output_emitters.front());
+                } else {
+                    alignment_emitter = make_unique<TeeAlignmentEmitter>(std::move(output_emitters));
                 }
             }
 
@@ -2637,8 +2650,9 @@ int main_giraffe(int argc, char** argv) {
         
         
         if (report) {
-            // Log output filename and mapping speed in reads/second/thread to report TSV
-            report << output_filename << "\t" << reads_per_second_per_thread << endl;
+            // Log output filenames and mapping speed in reads/second/thread to report TSV
+            report << (output_file_names_for_settings.empty() ? "-" : join_delim(output_file_names_for_settings, ','))
+                   << "\t" << reads_per_second_per_thread << endl;
         }
     });
         
