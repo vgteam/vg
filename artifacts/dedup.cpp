@@ -21,13 +21,13 @@ using handlegraph::nid_t;
 
 void ContentChopParameters::validate() const {
     if (max_node_length == 0) {
-        throw std::invalid_argument("ContentChopParameters: the maximum node length must be positive");
+        throw std::invalid_argument("ContentChopParameters: maximum node length must be positive");
     }
     if (!std::isfinite(piece_weight) || piece_weight < 0.0) {
-        throw std::invalid_argument("ContentChopParameters: the piece weight must be finite and non-negative");
+        throw std::invalid_argument("ContentChopParameters: piece weight must be finite and non-negative");
     }
     if (kmer_length == 0 || kmer_length > 32) {
-        throw std::invalid_argument("ContentChopParameters: the k-mer length must be between 1 and 32");
+        throw std::invalid_argument("ContentChopParameters: k-mer length must be between 1 and 32");
     }
 }
 
@@ -35,8 +35,7 @@ void ContentChopParameters::validate() const {
 
 namespace {
 
-/// Return the 2-bit code of a base, or 4 for a character that is not a base.
-uint64_t base_code(char c) {
+std::uint64_t base_code(char c) {
     switch (c) {
     case 'A': case 'a': return 0;
     case 'C': case 'c': return 1;
@@ -46,9 +45,8 @@ uint64_t base_code(char c) {
     }
 }
 
-/// Return the hash of a packed k-mer. The MurmurHash3 finalizer is a bijection, so distinct
-/// k-mers have distinct hashes.
-uint64_t kmer_hash(uint64_t kmer) {
+// MurmurHash3 finalizer is a bijection, so distinct k-mers have distinct hashes.
+std::uint64_t kmer_hash(std::uint64_t kmer) {
     kmer ^= kmer >> 33;
     kmer *= 0xFF51AFD7ED558CCDULL;
     kmer ^= kmer >> 33;
@@ -60,18 +58,18 @@ uint64_t kmer_hash(uint64_t kmer) {
 }
 
 std::vector<KmerAnchor> find_anchors(std::string_view sequence, size_t kmer_length, size_t radius) {
-    // Collect the k-mers made of bases, with their hashes.
+    // Collect valid forward strand k-mers.
     struct HashedKmer {
         size_t offset;
-        uint64_t kmer;
-        uint64_t hash;
+        std::uint64_t kmer;
+        std::uint64_t hash;
     };
     std::vector<HashedKmer> kmers;
-    const uint64_t mask = (kmer_length >= 32 ? ~uint64_t(0) : (uint64_t(1) << (2 * kmer_length)) - 1);
-    uint64_t packed = 0;
+    const std::uint64_t mask = (kmer_length >= 32 ? ~std::uint64_t(0) : (std::uint64_t(1) << (2 * kmer_length)) - 1);
+    std::uint64_t packed = 0;
     size_t bases_in_a_row = 0;
     for (size_t i = 0; i < sequence.size(); i++) {
-        uint64_t code = base_code(sequence[i]);
+        std::uint64_t code = base_code(sequence[i]);
         if (code > 3) {
             bases_in_a_row = 0;
             continue;
@@ -83,33 +81,31 @@ std::vector<KmerAnchor> find_anchors(std::string_view sequence, size_t kmer_leng
         }
     }
 
-    // A k-mer is an anchor when the nearest k-mer with a hash at most its own is more than
-    // `radius` bases away on both sides. We find the nearest such k-mer on each side with a stack
-    // of k-mers whose hashes increase from the bottom. Before a k-mer goes on the stack, the
-    // k-mers above it with larger hashes come off, and the k-mer left on top is the nearest one
-    // with a hash at most its own.
-    std::vector<bool> clear_on_left(kmers.size(), false);
+    // Maintain a stack of k-mers with increasing hash values, up to the current k-mer.
+    // Use it to select left-minimal k-mers (within the radius).
+    std::vector<bool> minimal(kmers.size(), false);
     std::vector<size_t> stack;
     for (size_t i = 0; i < kmers.size(); i++) {
         while (!stack.empty() && kmers[stack.back()].hash > kmers[i].hash) {
             stack.pop_back();
         }
-        clear_on_left[i] = (stack.empty() || kmers[i].offset - kmers[stack.back()].offset > radius);
+        minimal[i] = (stack.empty() || kmers[i].offset - kmers[stack.back()].offset > radius);
         stack.push_back(i);
     }
-    std::vector<bool> clear_on_right(kmers.size(), false);
+
+    // And now select right-minimal k-mers (within the radius).
     stack.clear();
     for (size_t i = kmers.size(); i-- > 0;) {
         while (!stack.empty() && kmers[stack.back()].hash > kmers[i].hash) {
             stack.pop_back();
         }
-        clear_on_right[i] = (stack.empty() || kmers[stack.back()].offset - kmers[i].offset > radius);
+        minimal[i] = minimal[i] && (stack.empty() || kmers[stack.back()].offset - kmers[i].offset > radius);
         stack.push_back(i);
     }
 
     std::vector<KmerAnchor> anchors;
     for (size_t i = 0; i < kmers.size(); i++) {
-        if (clear_on_left[i] && clear_on_right[i]) {
+        if (minimal[i]) {
             anchors.push_back({ kmers[i].offset, kmers[i].kmer });
         }
     }
@@ -121,35 +117,35 @@ std::vector<KmerAnchor> find_anchors(std::string_view sequence, size_t kmer_leng
 namespace {
 
 /// The prime modulus of the fingerprints, 2^61 - 1.
-constexpr uint64_t FINGERPRINT_PRIME = (uint64_t(1) << 61) - 1;
+constexpr std::uint64_t FINGERPRINT_PRIME = (std::uint64_t(1) << 61) - 1;
 
 /// The base of the fingerprint polynomial.
-constexpr uint64_t FINGERPRINT_BASE = 0x0123456789ABCDEFULL;
+constexpr std::uint64_t FINGERPRINT_BASE = 0x0123456789ABCDEFULL;
 
 /// Return `x` modulo the prime, for `x < 2^64`. Since `2^61` is 1 modulo the prime, the bits
 /// above the lowest 61 can be added to them.
-uint64_t reduce_fingerprint(uint64_t x) {
+std::uint64_t reduce_fingerprint(std::uint64_t x) {
     x = (x & FINGERPRINT_PRIME) + (x >> 61);
     return (x >= FINGERPRINT_PRIME ? x - FINGERPRINT_PRIME : x);
 }
 
 /// Return `a * b` modulo the prime, for `a` and `b` less than the prime.
-uint64_t multiply_fingerprints(uint64_t a, uint64_t b) {
+std::uint64_t multiply_fingerprints(std::uint64_t a, std::uint64_t b) {
     __uint128_t product = static_cast<__uint128_t>(a) * b;
-    uint64_t low = static_cast<uint64_t>(product) & FINGERPRINT_PRIME;
-    uint64_t high = static_cast<uint64_t>(product >> 61);
+    std::uint64_t low = static_cast<std::uint64_t>(product) & FINGERPRINT_PRIME;
+    std::uint64_t high = static_cast<std::uint64_t>(product >> 61);
     return reduce_fingerprint(low + high);
 }
 
 /// Return the fingerprint of the string `s + c`, given the fingerprint of `s`.
-uint64_t extend_fingerprint(uint64_t fingerprint, char c) {
+std::uint64_t extend_fingerprint(std::uint64_t fingerprint, char c) {
     return reduce_fingerprint(multiply_fingerprints(fingerprint, FINGERPRINT_BASE) + static_cast<unsigned char>(c));
 }
 
 }
 
-uint64_t sequence_fingerprint(std::string_view sequence) {
-    uint64_t result = 0;
+std::uint64_t sequence_fingerprint(std::string_view sequence) {
+    std::uint64_t result = 0;
     for (char c : sequence) {
         result = extend_fingerprint(result, c);
     }
@@ -159,39 +155,36 @@ uint64_t sequence_fingerprint(std::string_view sequence) {
 SubstringFingerprinter::SubstringFingerprinter(std::string_view sequence, size_t max_length) :
     prefix_fingerprints(sequence.size() + 1, 0), base_powers(std::min(max_length, sequence.size()) + 1, 1) {
     for (size_t i = 0; i < sequence.size(); i++) {
-        prefix_fingerprints[i + 1] = extend_fingerprint(prefix_fingerprints[i], sequence[i]);
+        this->prefix_fingerprints[i + 1] = extend_fingerprint(this->prefix_fingerprints[i], sequence[i]);
     }
-    for (size_t i = 1; i < base_powers.size(); i++) {
-        base_powers[i] = multiply_fingerprints(base_powers[i - 1], FINGERPRINT_BASE);
+    for (size_t i = 1; i < this->base_powers.size(); i++) {
+        this->base_powers[i] = multiply_fingerprints(this->base_powers[i - 1], FINGERPRINT_BASE);
     }
 }
 
-uint64_t SubstringFingerprinter::fingerprint(size_t begin, size_t end) const {
+std::uint64_t SubstringFingerprinter::fingerprint(size_t begin, size_t end) const {
     // The prefix of length `end` is the prefix of length `begin` times `B^(end - begin)`, plus
     // the substring.
-    uint64_t shifted = multiply_fingerprints(prefix_fingerprints[begin], base_powers[end - begin]);
-    return reduce_fingerprint(prefix_fingerprints[end] + FINGERPRINT_PRIME - shifted);
+    std::uint64_t shifted = multiply_fingerprints(this->prefix_fingerprints[begin], this->base_powers[end - begin]);
+    return reduce_fingerprint(this->prefix_fingerprints[end] + FINGERPRINT_PRIME - shifted);
 }
 
 //------------------------------------------------------------------------------
 
 CutCandidateSet::CutCandidateSet(std::string_view sequence, const ContentChopParameters& parameters) :
     max_length(parameters.max_node_length), fingerprinter(sequence, parameters.max_node_length) {
-    // Add a candidate after the last one, with fillers before it where the gap would be longer
-    // than a piece.
+    // Add the candidate and any necessary filler positions.
     auto add_candidate = [&](size_t offset) {
-        if (offset == cut_offsets.back()) {
-            // The candidate is already there: an anchor at offset 0, or the end of an empty
-            // sequence.
+        if (offset == this->cut_offsets.back()) {
             return;
         }
-        while (offset - cut_offsets.back() > max_length) {
-            cut_offsets.push_back(cut_offsets.back() + max_length);
+        while (offset - this->cut_offsets.back() > this->max_length) {
+            this->cut_offsets.push_back(this->cut_offsets.back() + this->max_length);
         }
-        cut_offsets.push_back(offset);
+        this->cut_offsets.push_back(offset);
     };
 
-    cut_offsets.push_back(0);
+    this->cut_offsets.push_back(0);
     for (const KmerAnchor& anchor : find_anchors(sequence, parameters.kmer_length, parameters.anchor_radius)) {
         add_candidate(anchor.offset);
     }
@@ -200,43 +193,43 @@ CutCandidateSet::CutCandidateSet(std::string_view sequence, const ContentChopPar
 
 //------------------------------------------------------------------------------
 
-SegmentCountTable::SegmentCountTable(std::vector<uint64_t> fingerprints) {
-    parallel_sort(fingerprints.begin(), fingerprints.end(), std::less<uint64_t>());
-    for (uint64_t fingerprint : fingerprints) {
-        if (entries.empty() || entries.back().fingerprint != fingerprint) {
+SegmentCountTable::SegmentCountTable(std::vector<std::uint64_t> fingerprints) {
+    parallel_sort(fingerprints.begin(), fingerprints.end(), std::less<std::uint64_t>());
+    for (std::uint64_t fingerprint : fingerprints) {
+        if (this->entries.empty() || this->entries.back().fingerprint != fingerprint) {
             entries.push_back({ fingerprint, 0 });
         }
-        entries.back().count++;
+        this->entries.back().count++;
     }
 }
 
-size_t SegmentCountTable::count(uint64_t fingerprint) const {
-    auto iter = std::lower_bound(entries.begin(), entries.end(), fingerprint, [](const Entry& entry, uint64_t value) {
+size_t SegmentCountTable::count(std::uint64_t fingerprint) const {
+    auto iter = std::lower_bound(this->entries.begin(), this->entries.end(), fingerprint, [](const Entry& entry, std::uint64_t value) {
         return entry.fingerprint < value;
     });
-    return (iter != entries.end() && iter->fingerprint == fingerprint ? iter->count : 0);
+    return (iter != this->entries.end() && iter->fingerprint == fingerprint ? iter->count : 0);
 }
 
 //------------------------------------------------------------------------------
 
-std::vector<size_t> choose_cuts(const CutCandidateSet& candidates, const SegmentCountTable& counts,
-                                double piece_weight) {
+std::vector<size_t> choose_cuts(
+    const CutCandidateSet& candidates,
+    const SegmentCountTable& counts,
+    double piece_weight
+) {
     const std::vector<size_t>& offsets = candidates.offsets();
     size_t max_length = candidates.max_segment_length();
 
-    // The least cost of chopping the sequence up to each candidate, and the candidate where the
-    // last piece of that chopping starts. Consecutive candidates are at most a segment apart, so
-    // each candidate after the first can be reached.
+    // Dynamic programming over the offsets to find the least-cost chopping of the sequence.
     std::vector<double> best_cost(offsets.size(), std::numeric_limits<double>::infinity());
-    std::vector<size_t> piece_start(offsets.size(), 0);
+    std::vector<size_t> piece_start(offsets.size(), 0); // Previous offset in the best path to this offset.
     best_cost[0] = 0.0;
     size_t first_in_reach = 0;
     for (size_t to = 1; to < offsets.size(); to++) {
         while (offsets[to] - offsets[first_in_reach] > max_length) {
+            // We are guaranteed to have a candidate within max_length.
             first_in_reach++;
         }
-        // Trying the starts from the left, and replacing the best only with a strictly better
-        // cost, prefers the longest last piece among equal costs.
         for (size_t from = first_in_reach; from < to; from++) {
             size_t occurrences = std::max<size_t>(counts.count(candidates.segment_fingerprint(from, to)), 1);
             double length = static_cast<double>(offsets[to] - offsets[from]);
@@ -259,23 +252,25 @@ std::vector<size_t> choose_cuts(const CutCandidateSet& candidates, const Segment
 //------------------------------------------------------------------------------
 
 const PieceLocation* ChoppingPlan::find_piece(nid_t node, size_t node_offset) const {
-    auto iter = std::lower_bound(pieces.begin(), pieces.end(), std::make_pair(node, node_offset),
-                                 [](const PieceLocation& piece, const std::pair<nid_t, size_t>& key) {
+    auto iter = std::lower_bound(
+        this->pieces.begin(), this->pieces.end(), std::make_pair(node, node_offset),
+        [](const PieceLocation& piece, const std::pair<nid_t, size_t>& key
+    ) {
         return std::make_pair(piece.node, piece.node_offset) < key;
     });
-    if (iter == pieces.end() || iter->node != node || iter->node_offset != node_offset) {
+    if (iter == this->pieces.end() || iter->node != node || iter->node_offset != node_offset) {
         return nullptr;
     }
     return &*iter;
 }
 
 std::string_view ChoppingPlan::piece_sequence(const PieceLocation& piece) const {
-    return std::string_view(strings[piece.string_id]).substr(piece.string_offset, piece.length);
+    return std::string_view(this->strings[piece.string_id]).substr(piece.string_offset, piece.length);
 }
 
 size_t ChoppingPlan::stored_length() const {
     size_t total = 0;
-    for (const std::string& s : strings) {
+    for (const std::string& s : this->strings) {
         total += s.size();
     }
     return total;
@@ -291,24 +286,20 @@ struct ForwardPosition {
     size_t offset;
 };
 
-/**
- * A PiecePacker is a packer that puts the sequences of the pieces of a graph into as little
- * stored text as it can. It decides, for each piece, whether its sequence is already stored, and
- * stores it otherwise.
- *
- * The stored text is the set of stored pieces. Stored pieces that are consecutive in a node form
- * one run of text, so a piece can be found across the boundary between two of them. The source
- * of each placed piece is a position where the stored text holds its sequence. A piece that is
- * stored is its own source.
- */
+/// A structure for finding common superstrings of the sequences corresponding
+/// to chopped pieces.
 class PiecePacker {
 public:
-    /// Prepare to pack the pieces, given in order of node and offset. They must be non-empty, and
-    /// they must cover each of their nodes with no gaps or overlaps.
+// FIXME: continue review from here
+    /// Initializes the packer with the given graph, pieces, and parameters.
+    /// The pieces must be non-empty, in sorted order, and cover the selected
+    /// nodes without gaps or overlaps.
     PiecePacker(const HandleGraph& graph, std::vector<PieceLocation> pieces, const ContentChopParameters& parameters);
 
-    /// Place every piece, longest first, and fill the strings and the piece locations of the
-    /// plan.
+    /// Packs the sequences corresponding to the pieces stored in this object.
+    /// Stores the strings in the plan and updates the positions of the pieces
+    /// accordingly.
+
     void pack(ChoppingPlan& plan);
 
 private:
@@ -327,7 +318,7 @@ private:
     void place(size_t piece_id);
 
     /// Return true and set the source of the piece if an earlier piece has the same sequence.
-    bool find_equal_piece(PackedPiece& piece, const std::string& sequence, uint64_t fingerprint) const;
+    bool find_equal_piece(PackedPiece& piece, const std::string& sequence, std::uint64_t fingerprint) const;
 
     /// Return true and set the source of the piece if the stored text contains its sequence.
     bool find_in_stored_text(PackedPiece& piece, const std::string& sequence) const;
@@ -358,18 +349,21 @@ private:
     std::vector<PackedPiece> pieces;
 
     /// The placed pieces with each fingerprint.
-    std::unordered_map<uint64_t, std::vector<size_t>> pieces_by_fingerprint;
+    std::unordered_map<std::uint64_t, std::vector<size_t>> pieces_by_fingerprint;
 
     /// The positions of the anchors in the stored text with each k-mer.
-    std::unordered_map<uint64_t, std::vector<ForwardPosition>> stored_anchors;
+    std::unordered_map<std::uint64_t, std::vector<ForwardPosition>> stored_anchors;
 };
 
-PiecePacker::PiecePacker(const HandleGraph& graph, std::vector<PieceLocation> locations,
-                         const ContentChopParameters& parameters) :
+PiecePacker::PiecePacker(
+    const HandleGraph& graph,
+    std::vector<PieceLocation> pieces,
+    const ContentChopParameters& parameters
+) :
     graph(graph), kmer_length(parameters.kmer_length), anchor_radius(parameters.anchor_radius) {
-    pieces.reserve(locations.size());
-    for (const PieceLocation& location : locations) {
-        pieces.push_back({ location.node, location.node_offset, location.length });
+    this->pieces.reserve(pieces.size());
+    for (const PieceLocation& location : pieces) {
+        this->pieces.push_back({ location.node, location.node_offset, location.length });
     }
 }
 
@@ -427,14 +421,14 @@ void PiecePacker::pack(ChoppingPlan& plan) {
 void PiecePacker::place(size_t piece_id) {
     PackedPiece& piece = pieces[piece_id];
     std::string sequence = node_sequence(piece.node, piece.offset, piece.length);
-    uint64_t fingerprint = sequence_fingerprint(sequence);
+    std::uint64_t fingerprint = sequence_fingerprint(sequence);
     if (!find_equal_piece(piece, sequence, fingerprint) && !find_in_stored_text(piece, sequence)) {
         store(piece);
     }
     pieces_by_fingerprint[fingerprint].push_back(piece_id);
 }
 
-bool PiecePacker::find_equal_piece(PackedPiece& piece, const std::string& sequence, uint64_t fingerprint) const {
+bool PiecePacker::find_equal_piece(PackedPiece& piece, const std::string& sequence, std::uint64_t fingerprint) const {
     auto iter = pieces_by_fingerprint.find(fingerprint);
     if (iter == pieces_by_fingerprint.end()) {
         return false;
@@ -551,7 +545,7 @@ std::string PiecePacker::node_sequence(nid_t node, size_t offset, size_t length)
 ChoppingPlan plan_content_chopping(const HandleGraph& graph, const ContentChopParameters& parameters) {
     parameters.validate();
 
-    // The nodes to consider for chopping, in order of ID.
+    // Ignore nodes that are already short enough.
     std::vector<nid_t> long_nodes;
     graph.for_each_handle([&](const handle_t& handle) {
         if (graph.get_length(handle) > parameters.max_node_length) {
@@ -561,10 +555,10 @@ ChoppingPlan plan_content_chopping(const HandleGraph& graph, const ContentChopPa
     std::sort(long_nodes.begin(), long_nodes.end());
 
     // Count the segments of the long nodes.
-    std::vector<uint64_t> fingerprints;
+    std::vector<std::uint64_t> fingerprints;
     #pragma omp parallel
     {
-        std::vector<uint64_t> thread_fingerprints;
+        std::vector<std::uint64_t> thread_fingerprints;
         #pragma omp for schedule(dynamic, 1)
         for (size_t i = 0; i < long_nodes.size(); i++) {
             std::string sequence = graph.get_sequence(graph.get_handle(long_nodes[i]));
@@ -580,12 +574,13 @@ ChoppingPlan plan_content_chopping(const HandleGraph& graph, const ContentChopPa
     }
     SegmentCountTable counts(std::move(fingerprints));
 
-    // Choose the cuts in the long nodes. Keeping the candidate sets from counting would take
-    // memory proportional to the total length of the long nodes, so we find them again.
+    // Choose the chopping points.
     std::vector<std::vector<size_t>> cuts(long_nodes.size());
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t i = 0; i < long_nodes.size(); i++) {
         std::string sequence = graph.get_sequence(graph.get_handle(long_nodes[i]));
+        // We could in principle reuse the candidate sets from the counting step,
+        // but recomputing them is cheap enough.
         CutCandidateSet candidates(sequence, parameters);
         cuts[i] = choose_cuts(candidates, counts, parameters.piece_weight);
     }
@@ -597,13 +592,13 @@ ChoppingPlan plan_content_chopping(const HandleGraph& graph, const ContentChopPa
         }
     }
 
-    // List the pieces of the chopped nodes, and pack their sequences. The cuts are strictly
-    // inside each node, so the pieces are non-empty.
+    // Collect the pieces and build the stored strings.
     std::vector<PieceLocation> pieces;
     for (const auto& [node, node_cuts] : plan.chop_points) {
         size_t length = graph.get_length(graph.get_handle(node));
         size_t start = 0;
         for (size_t cut : node_cuts) {
+            // We don't know string id and offset yet.
             pieces.push_back({ node, start, 0, 0, cut - start });
             start = cut;
         }

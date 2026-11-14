@@ -284,13 +284,17 @@ TEST_CASE("Cut candidates cover the sequence with gaps of at most the maximum no
 }
 
 TEST_CASE("A segment count table counts each fingerprint", "[dedup]") {
-    SegmentCountTable counts({ 7, 3, 7, 1000, 7, 3 });
+    std::vector<std::uint64_t> fingerprints{ 7, 3, 7, 1000, 7, 3 };
+    SegmentCountTable counts(fingerprints);
     REQUIRE(counts.size() == 3);
     REQUIRE(counts.count(3) == 2);
     REQUIRE(counts.count(7) == 3);
     REQUIRE(counts.count(1000) == 1);
     REQUIRE(counts.count(5) == 0);
-    REQUIRE(SegmentCountTable({}).count(5) == 0);
+
+    std::vector<std::uint64_t> empty_fingerprints;
+    SegmentCountTable empty(empty_fingerprints);
+    REQUIRE(empty.count(5) == 0);
 }
 
 TEST_CASE("Chosen cuts minimize the number of pieces in unique sequence", "[dedup]") {
@@ -302,7 +306,7 @@ TEST_CASE("Chosen cuts minimize the number of pieces in unique sequence", "[dedu
     candidates.for_each_segment([&](size_t from, size_t to) {
         fingerprints.push_back(candidates.segment_fingerprint(from, to));
     });
-    SegmentCountTable counts(std::move(fingerprints));
+    SegmentCountTable counts(fingerprints);
 
     vector<size_t> cuts = choose_cuts(candidates, counts, parameters.piece_weight);
     REQUIRE(cuts.size() == 2);
