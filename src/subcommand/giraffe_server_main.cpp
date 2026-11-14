@@ -564,6 +564,15 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
             continue;
         }
 
+        // A read needs a name, since the mapper asserts that it has one.
+        if (fields.size() > 1 && fields[0].empty()) {
+            string reason = "empty NAME";
+            cerr << "warning [vg giraffe-server]: line " + to_string(line_no)
+                    + ": ignored (" + reason + ")\n";
+            frames.write_error("*", "line " + to_string(line_no) + ": " + reason);
+            continue;
+        }
+
         const string name = fields.size() == 1 ? "read_" + to_string(auto_id++) : fields[0];
         const string& sequence = fields.size() == 1 ? fields[0] : fields[1];
         const string quality = fields.size() >= 3 ? fields[2] : "";

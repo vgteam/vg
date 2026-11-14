@@ -184,9 +184,9 @@ public:
      * region to map on all its threads. Outside of one, the reads are mapped
      * one at a time.
      *
-     * If mapping a read throws, or its qualities and sequence differ in
-     * length, the read gets the message as its error. The other reads are
-     * still mapped.
+     * If mapping a read throws, the read has no name, or its qualities and
+     * sequence differ in length, the read gets the message as its error. The
+     * other reads are still mapped.
      *
      * @throws std::runtime_error if the engine is not loaded.
      */

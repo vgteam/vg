@@ -319,6 +319,10 @@ vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& 
         const auto& req = reads[i];
         try {
             Alignment aln = req.read;
+            // The mapper asserts that a read has a name.
+            if (aln.name().empty()) {
+                throw runtime_error("read has no name");
+            }
             // check_quality_length() would exit the process.
             if (!aln.quality().empty() && aln.quality().size() != aln.sequence().size()) {
                 throw runtime_error("qualities and sequence differ in length");
