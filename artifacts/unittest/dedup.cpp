@@ -1,6 +1,6 @@
 /// \file dedup.cpp
 ///
-/// Unit tests for content-aware chopping and the packing of piece sequences.
+/// Unit tests for content-aware chopping and packing of piece sequences.
 
 #include <map>
 #include <random>
@@ -86,6 +86,7 @@ vector<size_t> anchor_offsets(const vector<KmerAnchor>& anchors) {
 /// Check that the plan is a valid chopping of the graph, that the location of each piece holds
 /// its sequence, and that the plan has no pieces of nodes that are not chopped.
 void check_plan(const bdsg::HashGraph& graph, const ChoppingPlan& plan, const ContentChopParameters& parameters) {
+    // No duplicate nodes.
     map<nid_t, vector<size_t>> cuts_by_node(plan.chop_points.begin(), plan.chop_points.end());
     REQUIRE(cuts_by_node.size() == plan.chop_points.size());
 
@@ -95,6 +96,7 @@ void check_plan(const bdsg::HashGraph& graph, const ChoppingPlan& plan, const Co
         size_t length = graph.get_length(handle);
         auto iter = cuts_by_node.find(node);
         if (iter == cuts_by_node.end()) {
+            // Cut points and pieces are consistent for short nodes.
             REQUIRE(plan.find_piece(node, 0) == nullptr);
             REQUIRE(length <= parameters.max_node_length);
             return;
@@ -105,6 +107,7 @@ void check_plan(const bdsg::HashGraph& graph, const ChoppingPlan& plan, const Co
         starts.insert(starts.end(), iter->second.begin(), iter->second.end());
         for (size_t i = 0; i < starts.size(); i++) {
             size_t end = (i + 1 < starts.size() ? starts[i + 1] : length);
+            // Each piece exists and the information is correct and consistent.
             REQUIRE(starts[i] < end);
             const PieceLocation* piece = plan.find_piece(node, starts[i]);
             REQUIRE(piece != nullptr);
@@ -517,20 +520,29 @@ TEST_CASE("Content-aware chopping rejects unusable settings", "[dedup]") {
     bdsg::HashGraph graph;
     graph.create_handle("ACGT", 1);
 
-    ContentChopParameters parameters;
     SECTION("a maximum node length of 0") {
+        ContentChopParameters parameters;
         parameters.max_node_length = 0;
+        REQUIRE_THROWS_AS(plan_content_chopping(graph, parameters), std::invalid_argument);
     }
+
     SECTION("a negative piece weight") {
+        ContentChopParameters parameters;
         parameters.piece_weight = -1.0;
+        REQUIRE_THROWS_AS(plan_content_chopping(graph, parameters), std::invalid_argument);
     }
+
     SECTION("k-mers that do not fit in 64 bits") {
+        ContentChopParameters parameters;
         parameters.kmer_length = 33;
+        REQUIRE_THROWS_AS(plan_content_chopping(graph, parameters), std::invalid_argument);
     }
+
     SECTION("k-mers of length 0") {
+        ContentChopParameters parameters;
         parameters.kmer_length = 0;
+        REQUIRE_THROWS_AS(plan_content_chopping(graph, parameters), std::invalid_argument);
     }
-    REQUIRE_THROWS_AS(plan_content_chopping(graph, parameters), std::invalid_argument);
 }
 
 }

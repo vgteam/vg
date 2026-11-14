@@ -290,111 +290,111 @@ struct ForwardPosition {
 /// to chopped pieces.
 class PiecePacker {
 public:
-// FIXME: continue review from here
-    /// Initializes the packer with the given graph, pieces, and parameters.
-    /// The pieces must be non-empty, in sorted order, and cover the selected
-    /// nodes without gaps or overlaps.
-    PiecePacker(const HandleGraph& graph, std::vector<PieceLocation> pieces, const ContentChopParameters& parameters);
+    /// Create a packer that reads node sequences from the graph.
+    PiecePacker(const HandleGraph& graph, const ContentChopParameters& parameters);
 
-    /// Packs the sequences corresponding to the pieces stored in this object.
-    /// Stores the strings in the plan and updates the positions of the pieces
-    /// accordingly.
-
+    /// Packs the sequences for the pieces corresponding to the chop points in
+    /// the plan. Stores the strings and the piece locations in the plan.
+    ///
+    /// @pre Chop points are sorted by node ID and offset in strictly
+    /// increasing order. All chop points are strictly inside their nodes.
     void pack(ChoppingPlan& plan);
 
 private:
-    /// A piece and the progress of placing it.
+    /// A piece with information on how the sequence is stored.
     struct PackedPiece {
         nid_t node;
         size_t offset;
         size_t length;
-        /// True if the sequence of the piece is part of the stored text.
+        /// True if we have chosen to store this piece directly.
         bool stored = false;
-        /// The source of the piece, once it is placed.
+        /// Start position of a stored piece with matching sequence.
         ForwardPosition source = { 0, 0 };
     };
 
-    /// Find a source for the piece, and store the piece if its sequence is not stored yet.
+    /// Collects the pieces that the chop points in the plan cut the nodes into.
+    /// Drops the results of any earlier packing.
+    void collect_pieces(const ChoppingPlan& plan);
+
+    /// Places a piece by:
+    /// 1. Finding an already placed piece with identical sequence.
+    /// 2. Finding the sequence as a substring of a run of stored pieces.
+    /// 3. Storing the piece explicitly.
     void place(size_t piece_id);
 
-    /// Return true and set the source of the piece if an earlier piece has the same sequence.
+    /// Returns true and sets the source of the piece if we have already placed
+    /// a piece with identical sequence.
     bool find_equal_piece(PackedPiece& piece, const std::string& sequence, std::uint64_t fingerprint) const;
 
-    /// Return true and set the source of the piece if the stored text contains its sequence.
-    bool find_in_stored_text(PackedPiece& piece, const std::string& sequence) const;
+    // TODO: We currently cannot find occurrences in a run of stored pieces.
+    /// Returns true and sets the source of the piece if we can find a run of
+    /// stored pieces with this piece as a substring.
+    bool find_in_stored_pieces(PackedPiece& piece, const std::string& sequence) const;
 
-    /// Return true if stored pieces cover the interval [begin, end) of the node.
+    /// Returns true if stored pieces cover interval [begin, end) of the node.
     bool is_stored(nid_t node, size_t begin, size_t end) const;
 
-    /// Make the piece part of the stored text, and index the anchors in it.
+    /// Stores the piece explicitly.
     void store(PackedPiece& piece);
 
-    /// Return the index of the piece of the node that contains the offset, or the number of
-    /// pieces if there is none.
+    /// Returns the index of the piece of the node that contains the offset,
+    /// or the number of pieces if there is none.
     size_t piece_containing(nid_t node, size_t offset) const;
 
-    /// Return the sequence of the interval of a node.
+    /// Returns the sequence of an interval of a node.
     std::string node_sequence(nid_t node, size_t offset, size_t length) const;
 
-    /// The most places with a matching anchor that we try for a piece. A k-mer of a satellite
-    /// repeat can occur at very many places, and comparing the piece with all of them would take
-    /// too long.
+    /// Maximum number of seed occurrences to extend.
     static constexpr size_t MAX_TRIED_PLACES = 32;
 
     const HandleGraph& graph;
     size_t kmer_length;
     size_t anchor_radius;
 
-    /// The pieces, in order of node and offset.
+    /// The pieces, ordered by node and offset.
     std::vector<PackedPiece> pieces;
 
-    /// The placed pieces with each fingerprint.
+    /// Placed pieces with each fingerprint.
     std::unordered_map<std::uint64_t, std::vector<size_t>> pieces_by_fingerprint;
 
-    /// The positions of the anchors in the stored text with each k-mer.
+    /// Stored pieces indexed by anchors in them.
     std::unordered_map<std::uint64_t, std::vector<ForwardPosition>> stored_anchors;
 };
 
-PiecePacker::PiecePacker(
-    const HandleGraph& graph,
-    std::vector<PieceLocation> pieces,
-    const ContentChopParameters& parameters
-) :
+PiecePacker::PiecePacker(const HandleGraph& graph, const ContentChopParameters& parameters) :
     graph(graph), kmer_length(parameters.kmer_length), anchor_radius(parameters.anchor_radius) {
-    this->pieces.reserve(pieces.size());
-    for (const PieceLocation& location : pieces) {
-        this->pieces.push_back({ location.node, location.node_offset, location.length });
-    }
 }
 
 void PiecePacker::pack(ChoppingPlan& plan) {
-    // Long pieces go first. A short piece placed later can then be found inside them.
-    std::vector<size_t> order(pieces.size());
+    collect_pieces(plan);
+
+    // Place long pieces first and hope that we can find short pieces as their substrings.
+    std::vector<size_t> order(this->pieces.size());
     for (size_t i = 0; i < order.size(); i++) {
         order[i] = i;
     }
     std::sort(order.begin(), order.end(), [&](size_t a, size_t b) {
-        return std::make_tuple(pieces[b].length, pieces[a].node, pieces[a].offset)
-            < std::make_tuple(pieces[a].length, pieces[b].node, pieces[b].offset);
+        return std::make_tuple(this->pieces[b].length, this->pieces[a].node, this->pieces[a].offset)
+            < std::make_tuple(this->pieces[a].length, this->pieces[b].node, this->pieces[b].offset);
     });
     for (size_t piece_id : order) {
-        place(piece_id);
+        this->place(piece_id);
     }
 
-    // Each run of consecutive stored pieces in a node becomes a string. The runs are in order of
-    // node and offset.
+    // Create a string for each run of consecutive pieces that we have chosen to store.
+    // We process the pieces in sorted order by node and offset.
     struct StoredRun {
         nid_t node;
-        size_t begin;
-        size_t end;
+        size_t start_offset;
+        size_t end_offset;
     };
     std::vector<StoredRun> runs;
-    for (const PackedPiece& piece : pieces) {
+    for (const PackedPiece& piece : this->pieces) {
         if (!piece.stored) {
             continue;
         }
-        if (!runs.empty() && runs.back().node == piece.node && runs.back().end == piece.offset) {
-            runs.back().end += piece.length;
+        if (!runs.empty() && runs.back().node == piece.node && runs.back().end_offset == piece.offset) {
+            runs.back().end_offset += piece.length;
         } else {
             runs.push_back({ piece.node, piece.offset, piece.offset + piece.length });
         }
@@ -402,41 +402,56 @@ void PiecePacker::pack(ChoppingPlan& plan) {
     plan.strings.clear();
     plan.strings.reserve(runs.size());
     for (const StoredRun& run : runs) {
-        plan.strings.push_back(node_sequence(run.node, run.begin, run.end - run.begin));
+        plan.strings.push_back(node_sequence(run.node, run.start_offset, run.end_offset - run.start_offset));
     }
 
     plan.pieces.clear();
-    plan.pieces.reserve(pieces.size());
-    for (const PackedPiece& piece : pieces) {
+    plan.pieces.reserve(this->pieces.size());
+    for (const PackedPiece& piece : this->pieces) {
         // The run that contains the source is the last one starting at or before it.
         auto iter = std::upper_bound(runs.begin(), runs.end(), piece.source, [](const ForwardPosition& pos, const StoredRun& run) {
-            return std::make_pair(pos.node, pos.offset) < std::make_pair(run.node, run.begin);
+            return std::make_pair(pos.node, pos.offset) < std::make_pair(run.node, run.start_offset);
         });
         --iter;
         size_t string_id = iter - runs.begin();
-        plan.pieces.push_back({ piece.node, piece.offset, string_id, piece.source.offset - iter->begin, piece.length });
+        plan.pieces.push_back({ piece.node, piece.offset, string_id, piece.source.offset - iter->start_offset, piece.length });
+    }
+}
+
+void PiecePacker::collect_pieces(const ChoppingPlan& plan) {
+    this->pieces.clear();
+    this->pieces_by_fingerprint.clear();
+    this->stored_anchors.clear();
+    for (const auto& [node, node_cuts] : plan.chop_points) {
+        size_t length = this->graph.get_length(this->graph.get_handle(node));
+        size_t start = 0;
+        for (size_t cut : node_cuts) {
+            this->pieces.push_back({ node, start, cut - start });
+            start = cut;
+        }
+        this->pieces.push_back({ node, start, length - start });
     }
 }
 
 void PiecePacker::place(size_t piece_id) {
-    PackedPiece& piece = pieces[piece_id];
-    std::string sequence = node_sequence(piece.node, piece.offset, piece.length);
+    PackedPiece& piece = this->pieces[piece_id];
+    std::string sequence = this->node_sequence(piece.node, piece.offset, piece.length);
     std::uint64_t fingerprint = sequence_fingerprint(sequence);
-    if (!find_equal_piece(piece, sequence, fingerprint) && !find_in_stored_text(piece, sequence)) {
-        store(piece);
+    if (!this->find_equal_piece(piece, sequence, fingerprint) && !this->find_in_stored_pieces(piece, sequence)) {
+        this->store(piece);
     }
-    pieces_by_fingerprint[fingerprint].push_back(piece_id);
+    this->pieces_by_fingerprint[fingerprint].push_back(piece_id);
 }
 
 bool PiecePacker::find_equal_piece(PackedPiece& piece, const std::string& sequence, std::uint64_t fingerprint) const {
-    auto iter = pieces_by_fingerprint.find(fingerprint);
-    if (iter == pieces_by_fingerprint.end()) {
+    auto iter = this->pieces_by_fingerprint.find(fingerprint);
+    if (iter == this->pieces_by_fingerprint.end()) {
         return false;
     }
     for (size_t other_id : iter->second) {
-        const PackedPiece& other = pieces[other_id];
+        const PackedPiece& other = this->pieces[other_id];
         // Equal fingerprints almost always mean equal sequences, but we make sure.
-        if (other.length == piece.length && node_sequence(other.node, other.offset, other.length) == sequence) {
+        if (other.length == piece.length && this->node_sequence(other.node, other.offset, other.length) == sequence) {
             piece.source = other.source;
             return true;
         }
@@ -444,19 +459,19 @@ bool PiecePacker::find_equal_piece(PackedPiece& piece, const std::string& sequen
     return false;
 }
 
-bool PiecePacker::find_in_stored_text(PackedPiece& piece, const std::string& sequence) const {
-    // An anchor of the piece at least `anchor_radius` bases from both ends of the piece is an
-    // anchor wherever the piece occurs. Any occurrence of the piece in the stored text then has
-    // that anchor at the same offset, and the anchor is indexed. If some such anchor of the piece
-    // is not in the stored text, neither is the piece.
+bool PiecePacker::find_in_stored_pieces(PackedPiece& piece, const std::string& sequence) const {
+    // Find stored pieces by anchors in this piece and select the rarest anchor as a seed.
     const std::vector<ForwardPosition>* rarest_places = nullptr;
     size_t rarest_offset = 0;
     for (const KmerAnchor& anchor : find_anchors(sequence, kmer_length, anchor_radius)) {
         if (anchor.offset < anchor_radius || anchor.offset + anchor_radius + kmer_length > sequence.size()) {
+            // If the entire window is not in the sequence, we could end up with a
+            // different anchor in a full window.
             continue;
         }
-        auto iter = stored_anchors.find(anchor.kmer);
-        if (iter == stored_anchors.end()) {
+        auto iter = this->stored_anchors.find(anchor.kmer);
+        if (iter == this->stored_anchors.end()) {
+            // All anchors must be present if this is a substring of a stored piece.
             return false;
         }
         if (rarest_places == nullptr || iter->second.size() < rarest_places->size()) {
@@ -469,17 +484,20 @@ bool PiecePacker::find_in_stored_text(PackedPiece& piece, const std::string& seq
         return false;
     }
 
+    // Try to extend the seed to a full match.
     size_t places_to_try = std::min(rarest_places->size(), MAX_TRIED_PLACES);
     for (size_t i = 0; i < places_to_try; i++) {
         const ForwardPosition& place = (*rarest_places)[i];
         if (place.offset < rarest_offset) {
+            // The seed is too close to the start of other node.
             continue;
         }
         size_t begin = place.offset - rarest_offset;
         if (!is_stored(place.node, begin, begin + sequence.size())) {
+            // Stored pieces do not cover the entire interval.
             continue;
         }
-        if (node_sequence(place.node, begin, sequence.size()) == sequence) {
+        if (this->node_sequence(place.node, begin, sequence.size()) == sequence) {
             piece.source = { place.node, begin };
             return true;
         }
@@ -488,12 +506,12 @@ bool PiecePacker::find_in_stored_text(PackedPiece& piece, const std::string& seq
 }
 
 bool PiecePacker::is_stored(nid_t node, size_t begin, size_t end) const {
-    size_t i = piece_containing(node, begin);
+    size_t i = this->piece_containing(node, begin);
     while (begin < end) {
-        if (i >= pieces.size() || pieces[i].node != node || !pieces[i].stored) {
+        if (i >= this->pieces.size() || this->pieces[i].node != node || !this->pieces[i].stored) {
             return false;
         }
-        begin = pieces[i].offset + pieces[i].length;
+        begin = this->pieces[i].offset + this->pieces[i].length;
         i++;
     }
     return true;
@@ -503,13 +521,12 @@ void PiecePacker::store(PackedPiece& piece) {
     piece.stored = true;
     piece.source = { piece.node, piece.offset };
 
-    // Whether a k-mer is an anchor of the node depends on the bases up to `anchor_radius` bases
-    // before it and after it. We find the anchors in the piece and that much of the node on each
-    // side.
-    size_t node_length = graph.get_length(graph.get_handle(piece.node));
+    // Index the piece by anchors of the underlying node such that the anchor starts
+    // within the piece.
+    size_t node_length = this->graph.get_length(this->graph.get_handle(piece.node));
     size_t window_begin = (piece.offset > anchor_radius ? piece.offset - anchor_radius : 0);
     size_t window_end = std::min(piece.offset + piece.length + anchor_radius + kmer_length - 1, node_length);
-    std::string window = node_sequence(piece.node, window_begin, window_end - window_begin);
+    std::string window = this->node_sequence(piece.node, window_begin, window_end - window_begin);
     for (const KmerAnchor& anchor : find_anchors(window, kmer_length, anchor_radius)) {
         size_t offset = window_begin + anchor.offset;
         if (offset >= piece.offset && offset < piece.offset + piece.length) {
@@ -520,22 +537,24 @@ void PiecePacker::store(PackedPiece& piece) {
 
 size_t PiecePacker::piece_containing(nid_t node, size_t offset) const {
     // The piece containing the offset is the last one starting at or before it.
-    auto iter = std::upper_bound(pieces.begin(), pieces.end(), std::make_pair(node, offset),
-                                 [](const std::pair<nid_t, size_t>& key, const PackedPiece& piece) {
-        return key < std::make_pair(piece.node, piece.offset);
-    });
-    if (iter == pieces.begin()) {
-        return pieces.size();
+    auto iter = std::upper_bound(
+        this->pieces.begin(), this->pieces.end(), std::make_pair(node, offset),
+        [](const std::pair<nid_t, size_t>& key, const PackedPiece& piece) {
+            return key < std::make_pair(piece.node, piece.offset);
+        }
+    );
+    if (iter == this->pieces.begin()) {
+        return this->pieces.size();
     }
     --iter;
     if (iter->node != node || offset >= iter->offset + iter->length) {
-        return pieces.size();
+        return this->pieces.size();
     }
-    return iter - pieces.begin();
+    return iter - this->pieces.begin();
 }
 
 std::string PiecePacker::node_sequence(nid_t node, size_t offset, size_t length) const {
-    return graph.get_subsequence(graph.get_handle(node), offset, length);
+    return this->graph.get_subsequence(this->graph.get_handle(node), offset, length);
 }
 
 }
@@ -592,19 +611,8 @@ ChoppingPlan plan_content_chopping(const HandleGraph& graph, const ContentChopPa
         }
     }
 
-    // Collect the pieces and build the stored strings.
-    std::vector<PieceLocation> pieces;
-    for (const auto& [node, node_cuts] : plan.chop_points) {
-        size_t length = graph.get_length(graph.get_handle(node));
-        size_t start = 0;
-        for (size_t cut : node_cuts) {
-            // We don't know string id and offset yet.
-            pieces.push_back({ node, start, 0, 0, cut - start });
-            start = cut;
-        }
-        pieces.push_back({ node, start, 0, 0, length - start });
-    }
-    PiecePacker packer(graph, std::move(pieces), parameters);
+    // Build the stored strings and the piece locations.
+    PiecePacker packer(graph, parameters);
     packer.pack(plan);
 
     return plan;
