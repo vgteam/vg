@@ -22,8 +22,9 @@
 
 namespace vg {
 
-/// Where one alignment lands on one haplotype path, or why it could not be
-/// placed. Fields other than status are set only when status is OK.
+/// The result of surjecting an alignment onto a haplotype path: where it
+/// lands, or why it could not be placed. Fields other than status are set
+/// only when status is OK.
 struct HaplotypeSurjectionResult {
     enum class Status {
         OK,                  ///< The alignment was surjected onto the target path.
@@ -80,14 +81,14 @@ struct GiraffeEngineConfig {
     /// on with --prune-low-cplx.
     bool prune_suspicious_anchors = false;
 
-    /// Tag each alignment with the haplotypes that carry its path.
+    /// Find the haplotypes that follow each alignment's path.
     bool assign_haplotypes = true;
     /// When assigning haplotypes, also find the boundary nodes of the
     /// smallest snarl around each alignment's path.
     bool find_snarl_boundaries = true;
 };
 
-/// One read to map, and the path to surject its alignments onto.
+/// A read to map, and the path to surject its alignments onto.
 struct GiraffeServerRequest {
     /// The read's name, sequence and base qualities. The qualities are raw
     /// Phred scores. If they are empty, base quality does not cap MAPQ.
@@ -96,7 +97,8 @@ struct GiraffeServerRequest {
     std::string surjection_target;
 };
 
-/// One alignment of a read, with what the engine found out about it. A read can have multiples.
+/// An alignment of a read, with the haplotypes that follow its path and its
+/// surjection. A read can have several.
 struct MappedAlignment {
     Alignment alignment;
     /// The runs of the alignment's path that haplotypes follow, in path
@@ -110,7 +112,7 @@ struct MappedAlignment {
     std::optional<HaplotypeSurjectionResult> surjection;
 };
 
-/// The alignments of one read, best first. An unmapped read has one unmapped
+/// The alignments of a read, best first. An unmapped read has one unmapped
 /// alignment.
 struct MappedRead {
     std::vector<MappedAlignment> alignments;
@@ -134,7 +136,7 @@ struct PathAnchor {
 };
 
 /**
- * Giraffe with its indexes loaded once, for a mapping server.
+ * Holds Giraffe's indexes and a mapper, and maps and surjects reads with them.
  *
  * The engine maps batches of reads. It can find the haplotypes that carry each
  * alignment's path, and can surject the alignment onto one haplotype path. A

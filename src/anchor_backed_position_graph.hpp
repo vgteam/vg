@@ -2,9 +2,12 @@
 #define VG_ANCHOR_BACKED_POSITION_GRAPH_HPP_INCLUDED
 
 /** \file
- * A path position graph that knows positions on one path from a few anchors,
+ * A path position graph that knows positions on one path from given anchors,
  * so a Surjector can surject onto a haplotype path without a position index
  * over it.
+ * It was written for the anchors that TagAlong makes
+ * (https://github.com/parsaeskandar/TagAlong), but anchors from any source
+ * work.
  */
 
 #include "handle.hpp"
@@ -28,13 +31,12 @@ struct PrecomputedAnchor {
     step_handle_t step_end;
     /// The 0-based offset on the target path of the first base of step_begin.
     size_t path_offset_step_begin = 0;
-    /// The 0-based offset on the target path of the first base of step_end.
     size_t path_offset_step_end = 0;
 };
 
 /**
- * A PathPositionHandleGraph over a PathHandleGraph that knows positions on one
- * target path only
+ * Gives a PathHandleGraph path positions on one target path, without a
+ * position index.
  *
  * The positions come from anchors: steps whose positions the caller already
  * knows. A position query walks the path from the nearest step with a known
@@ -109,8 +111,8 @@ public:
     virtual step_handle_t path_front_end(const path_handle_t& path_handle) const override;
     virtual bool has_next_step(const step_handle_t& step_handle) const override;
     virtual bool has_previous_step(const step_handle_t& step_handle) const override;
-    /// @throws std::runtime_error for path_end, so that a walk towards a
-    /// step that is not ahead on the path stops at the end of the path.
+    /// @throws std::runtime_error for path_end. A walk that misses its
+    /// goal then fails at the end of the path and does not go on forever.
     virtual step_handle_t get_next_step(const step_handle_t& step_handle) const override;
     virtual step_handle_t get_previous_step(const step_handle_t& step_handle) const override;
 

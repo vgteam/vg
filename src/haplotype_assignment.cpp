@@ -34,7 +34,8 @@ HaplotypeAssigner::HaplotypeAssigner(const gbwtgraph::GBZ& gbz,
 
 vector<net_handle_t> HaplotypeAssigner::enclosing_snarls(nid_t node_id) const {
     vector<net_handle_t> snarls;
-    // A root snarl is a root handle, so the walk stops before it.
+    // Walk up from the node and keep the snarls on the way. The walk stops at
+    // the root, and a root snarl counts as the root, so it is left out.
     net_handle_t net = dist_index_->get_parent(dist_index_->get_node_net_handle(node_id));
     while (!dist_index_->is_root(net)) {
         if (dist_index_->is_snarl(net)) {

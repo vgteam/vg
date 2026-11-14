@@ -43,11 +43,13 @@ struct GiraffeParameters {
 
 
 /// make vg giraffe's option parser and fill it. This helps when we cannot use the argv for all the parameters
-/// like what vg giraffe does right now.
+/// like what vg giraffe does.
 /// Exits with an error for unknown preset or option or bad value
 std::unique_ptr<GroupedOptionGroup> make_giraffe_parser(const GiraffeParameters& params);
 
-/// Return true if the preset maps long reads.
+/// Return true if the preset is meant for long reads (hifi, r10 and blat).
+/// vg giraffe then uses the long-read minimizer and zipcode indexes. It does
+/// not say whether chaining is on: chaining-sr is a short-read preset.
 bool giraffe_preset_maps_long_reads(const std::string& preset);
 
 /**

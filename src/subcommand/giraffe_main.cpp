@@ -921,7 +921,8 @@ std::unique_ptr<GroupedOptionGroup> make_giraffe_parser(const GiraffeParameters&
 
     // Parse each option as if it came from the command line. The option's
     // own type parses the value, and it replaces the preset's value.
-    // A flag a preset turned on cannot be turned off, same as on the command line.
+    // A flag that a preset turned on is turned off with its no- form, as on
+    // the command line.
     for (const auto& kv : params.options) {
         auto it = by_name.find(kv.first);
         if (it == by_name.end()) {

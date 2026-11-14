@@ -54,10 +54,6 @@ AnchorBackedPositionGraph::AnchorBackedPositionGraph(
     // Index the steps in each anchor's run by node, for
     // for_each_step_on_handle_impl. Runs can overlap, as when adjacent anchors
     // share an end step, so list each step once.
-    //
-    // The walk also checks the anchor: it must reach step_end exactly at
-    // step_end's offset. Anchors made for another graph or another path do
-    // not, and a position query on them would never end.
     std::unordered_set<step_handle_t> indexed;
     for (const auto& a : anchors) {
         step_handle_t step = a.step_begin;
@@ -357,7 +353,6 @@ bool AnchorBackedPositionGraph::for_each_step_on_handle_impl(
     // Report only the target path's steps inside the anchors' runs. A
     // Surjector onto the target path keeps only target path steps, and the
     // runs cover every step the alignment visits, so it sees the same steps.
-    // Listing every haplotype's steps on a node costs far more.
     auto it = node_target_steps_.find(base_->get_id(handle));
     if (it == node_target_steps_.end()) {
         return true;

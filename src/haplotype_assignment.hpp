@@ -31,9 +31,12 @@ class Alignment;
  * node of the path.
  */
 struct HaplotypeSegment {
-    size_t first_mapping     = 0;   ///< Index of the first mapping in the run.
-    size_t past_last_mapping = 0;   ///< One past the index of the last mapping.
-    size_t length_bp         = 0;   ///< Total length of the run's nodes.
+    /// Index of the first mapping in the run.
+    size_t first_mapping = 0;
+    /// One past the index of the last mapping.
+    size_t past_last_mapping = 0;
+    /// Total length of the run's nodes.
+    size_t length_bp = 0;
     /// Number of times GBWT sequences follow the run. A sequence that
     /// follows it twice counts twice.
     size_t visit_count = 0;
@@ -82,8 +85,8 @@ public:
      *
      * Walk out from each end of the path while the haplotypes that follow the
      * whole path all take the same node, through child snarls, to the first
-     * node outside that snarl. The walk to the right goes on with the
-     * haplotypes that made the walk to the left.
+     * node outside that snarl. The walk to the right uses only the haplotypes
+     * that were left at the end of the walk to the left.
      *
      * A side is unset if no haplotype follows the whole path, no snarl
      * contains it, the haplotypes part before they leave the snarl, or the
@@ -118,10 +121,10 @@ private:
 
 /// Return the name of a GBWT path's haplotype, as sample#phase#contig. A
 /// sample or contig that the metadata does not name appears as its number.
-/// A generic path gets its contig alone, which is the graph's name for it.
+/// The fragments of a haplotype share this name, so it is shorter than the
+/// graph's name for the path, which also has the fragment.
 ///
-/// This is not the graph's name for the path, which also has the fragment.
-/// The fragments of a haplotype share this name.
+/// A generic path gets its contig alone, which is the graph's name for it.
 std::string haplotype_name(const gbwt::Metadata& metadata, gbwt::size_type path_id);
 
 /// Return the distinct names, sorted, of the haplotypes with these GBWT
