@@ -123,10 +123,9 @@ void help_giraffe_server(char** argv) {
          << "  PROCESS_BATCH, before a SURJECT_WITH_ANCHORS request, or at end of input." << endl
          << endl
          << "  SURJECT_WITH_ANCHORS<TAB>NAME<TAB>TARGET<TAB>PATH_LEN<TAB>N_ANCHORS" << endl
-         << "    followed by N_ANCHORS tab-separated anchor lines (10 fields each):" << endl
+         << "    followed by N_ANCHORS tab-separated anchor lines (6 fields each):" << endl
          << "      step_begin_node, step_begin_offset, step_end_node, step_end_offset," << endl
-         << "      path_off_begin, path_off_end, read_begin, read_end," << endl
-         << "      src_mapping_begin, src_mapping_end" << endl
+         << "      path_off_begin, path_off_end" << endl
          << "    followed by ONE graph-alignment GAF line." << endl
          << "    Response: READ<TAB>NAME<TAB>1 then one GAF line" << endl
          << "    carrying the surjection tags (sj:Z:..., sn:Z:..., etc.)." << endl
@@ -479,13 +478,11 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
                     }
                     nums.push_back(*num);
                 }
-                if (af.size() != 10 || nums.size() != 10) {
+                if (af.size() != 6 || nums.size() != 6) {
                     sa_error = "malformed anchor line " + to_string(line_no)
-                               + " (need 10 tab-separated numbers)";
+                               + " (need 6 tab-separated numbers)";
                     continue;
                 }
-                // The last four numbers are the anchor's read and source
-                // mapping ranges, which the surjection does not use.
                 PathAnchor anchor;
                 anchor.step_begin_node        = nums[0];
                 anchor.step_begin_offset      = nums[1];
