@@ -59,6 +59,9 @@ public:
     /// min_mapq : ignore alignments with mapping_quality below this value
     /// min_baseq : ignore bases in the alignment if their read quality is below this value
     /// trim_ends : ignore first and last <trim_ends> bases
+    /// Only the path, mapping quality and base qualities of aln are read. Its
+    /// sequence may be empty or incomplete, as from the GAF reader when it
+    /// skips looking up matched bases in the graph.
     void add(const Alignment& aln, int min_mapq = 0, int min_baseq = 0, int trim_ends = 0);
 
     void merge_from_files(const vector<string>& file_names);

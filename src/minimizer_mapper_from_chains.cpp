@@ -869,52 +869,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     alignments_to_source.reserve(chain_score_estimates.size());
 
     if (alignments.size() == 0) {
-        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
+        do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains, chain_rec_counts,
+                               chain_source_tree, multiplicity_by_chain, chain_score_estimates, 
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
                                alignments_to_source, minimizer_explored, stats, rng, funnel);
     }
-    
-    for (size_t alignment_index = 0; alignment_index < alignments.size(); ++alignment_index) {
-        // Rescore each alignment under its own minimap2 logged-gap scheme.
-
-        Alignment& aln = alignments[alignment_index];
-        if (aln.path().mapping_size() == 0 || aln.sequence().size() == 0) {
-            // This alignment is unmapped or somehow empty.
-            continue;
-        }
-        // Otherwise it must have at least one edit
-
-        // Make a scoring scheme based on it, and count its operations.
-        LoggedGapAlignmentScorer scheme(aln);
-        // Score the alignment
-        int32_t logged_gaps_score = scheme.score_alignment(aln);
-        aln.set_score(logged_gaps_score);
-
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Matches: " << scheme.matches << " Mismatches: " << scheme.mismatches
-                     << " Gap opens: " << scheme.gap_lengths.size() << " New score: " << logged_gaps_score << endl;
-            }
-        }
-    }
-    if (!chain_rec_counts.empty() && !alignments_to_source.empty()) {
-        for (size_t alignment_index = 0; alignment_index < alignments_to_source.size(); ++alignment_index) {
-            size_t chain_index = alignments_to_source[alignment_index];
-            if (chain_index != std::numeric_limits<size_t>::max() && chain_index < chain_rec_counts.size()) {
-                set_annotation(alignments[alignment_index], "chain.rec_count", (double) chain_rec_counts[chain_index]);
-                if (rec_penalty != 0) {
-                    // Penalize the score of alignment candidates according to the number of recombinations their chains required.
-                    // This allows alignments that required fewer recombinations in their chains to win.
-                    // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
-                    int64_t penalty = static_cast<int64_t>(rec_penalty_aln == -1 ? rec_penalty : rec_penalty_aln) * static_cast<int64_t>(chain_rec_counts[chain_index]);
-                    int64_t penalized_score = static_cast<int64_t>(alignments[alignment_index].score()) - penalty;
-                    alignments[alignment_index].set_score(static_cast<int>(penalized_score));
-                }
-            }
-        }
-    }
-    
     
     if (track_provenance) {
         // Now say we are finding the winner(s)
@@ -1932,6 +1891,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                                             const VectorView<MinimizerMapper::Minimizer>& minimizers,
                                             const vector<algorithms::Anchor>& seed_anchors,
                                             const std::vector<std::vector<size_t>>& chains, 
+                                            const std::vector<size_t>& chain_rec_counts,
                                             const std::vector<size_t>& chain_source_tree,
                                             const std::vector<double>& multiplicity_by_chain,
                                             const std::vector<int>& chain_score_estimates, 
@@ -1947,6 +1907,9 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     //For finding the multiplicity of each alignment, first get the count
     // of equal scoring chains
     vector<size_t> chain_count_by_alignment (alignments.size(), 0);
+    // Also track how many alignments we tried to make
+    // even if we didn't save them because their scores were terrible
+    size_t alignment_attempts = 0;
 
 #ifdef print_minimizer_table
     //How many of each minimizer ends up in a chain that actually gets turned into an alignment?
@@ -2095,6 +2058,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
             // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
             vector<Alignment> best_alignments(1, aln);
+            alignment_attempts++;
 
             // Align from the chained-up seeds
             if (do_dp) {
@@ -2112,7 +2076,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 
                     // Collect stats into here
                     aligner_stats_t alignment_stats;
-                    best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain, &alignment_stats);
+                    best_alignments[0] = find_chain_alignment(
+                        aln, seed_anchors, chain, chain_rec_counts[processed_num], &alignment_stats);
                     alignment_stats.add_annotations(best_alignments[0], "alignment");
 
                     // Remember the stats' usages
@@ -2189,12 +2154,10 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 }
             };
             
-            for(auto aln_it = best_alignments.begin() ; 
-                aln_it != best_alignments.end() && aln_it->score() != 0 
-                    && (aln_it->score() >= best_alignments[0].score() * 0.8 || aln_it->score() == best_alignments[0].score()) ;
+            for(auto aln_it = best_alignments.begin(); aln_it != best_alignments.end() && aln_it->score() != 0 
+                && aln_it->score() >= best_alignments[0].score() * 0.8;
                 ++aln_it) {
-                //For each additional alignment with score at least 0.8 of the best score
-                //Guarantee that all alignments with top score (even if negative) are used
+                // For each additional alignment with score at least 0.8 of the best score
                 observe_alignment(*aln_it);
             }
            
@@ -2261,8 +2224,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
         }
     }
     for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; ++i) {
-        multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
-                                      ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
+        multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignment_attempts
+                                      ? ((double)chain_count_by_alignment[i] - (double) alignment_attempts)
                                       : 0.0);
     }
 }
@@ -2538,6 +2501,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
     const std::vector<size_t>& chain,
+    size_t rec_count,
     aligner_stats_t* stats
 ) const {
     
@@ -3324,7 +3288,30 @@ Alignment MinimizerMapper::find_chain_alignment(
     // read deleted relative to some graph, and avoid jumps along nonexistent
     // edges.
     *result.mutable_path() = std::move(simplify(composed_path, false));
-    result.set_score(composed_score);
+    // Rescore with log-gap penalties
+    LoggedGapAlignmentScorer scheme(result);
+    // Score the alignment
+    int32_t logged_gaps_score = scheme.score_alignment(result);
+
+    // Penalize score according to the number of recombinations their chains required.
+    // This allows alignments that required fewer recombinations in their chains to win.
+    // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
+    if (rec_penalty != 0) {
+        logged_gaps_score -= (rec_penalty_aln == -1 ? rec_penalty : rec_penalty_aln) * rec_count;
+    }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Original score: " << composed_score
+                               << " Matches: " << scheme.matches
+                               << " Mismatches: " << scheme.mismatches
+                               << " Gap opens: " << scheme.gap_lengths.size()
+                               << " Recombinations: " << rec_count
+                               << " New score: " << logged_gaps_score << endl;
+        }
+    }
+    result.set_score(logged_gaps_score);
     if (!result.sequence().empty()) {
         result.set_identity(identity(result.path()));
     }
@@ -3332,6 +3319,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     set_annotation(result, "left_tail_length", (double) left_tail_length);
     set_annotation(result, "longest_attempted_connection", (double) longest_attempted_connection); 
     set_annotation(result, "right_tail_length", (double) right_tail_length);
+    set_annotation(result, "chain.rec_count", rec_count);
     
     return result;
 }

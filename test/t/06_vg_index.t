@@ -215,8 +215,8 @@ vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
 vg index -j graph.dist graph.gbz
 is $? 0 "distance index construction from GBZ"
 
-is $(vg index -j graph.dist --snarl-limit 1 graph.gbz 2>&1 | grep 'distance index uses oversized snarls' | wc -l) 1 "Warn when creating graph with oversized snarls"
-is $(vg index -j graph.dist --snarl-limit 2 graph.gbz 2>&1 | grep 'distance index uses oversized snarls' | wc -l) 0 "Don't warn for exactly equal --size-limit"
+is $(vg index -j graph.dist --snarl-limit 1 graph.gbz 2>&1 | grep 'hub labeling for oversized snarls' | wc -l) 1 "Note hub labeling when creating graph with oversized snarls"
+is $(vg index -j graph.dist --snarl-limit 2 graph.gbz 2>&1 | grep 'hub labeling for oversized snarls' | wc -l) 0 "Don't note it for exactly equal --size-limit"
 
 cat graph.gbz | vg index -j graph.dist -
 is $? 0 "distance index construction from piped GBZ"

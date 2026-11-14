@@ -918,7 +918,8 @@ protected:
     void do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
                                const VectorView<MinimizerMapper::Minimizer>& minimizers, 
                                const vector<algorithms::Anchor>& seed_anchors,
-                               const std::vector<std::vector<size_t>>& chains, 
+                               const std::vector<std::vector<size_t>>& chains,
+                               const std::vector<size_t>& chain_rec_counts,
                                const std::vector<size_t>& chain_source_tree,
                                const std::vector<double>& multiplicity_by_chain,
                                const std::vector<int>& chain_score_estimates,
@@ -952,7 +953,7 @@ protected:
      *
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
+    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, size_t rec_count, aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
