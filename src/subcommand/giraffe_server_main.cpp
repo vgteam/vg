@@ -43,8 +43,7 @@ using namespace vg::subcommand;
 
 namespace {
 
-// Codes for the long options with no short form. They start above 255, so
-// they cannot clash with a short option character.
+// Codes for the long options with no short form.
 constexpr int OPT_EMIT_HEADER   = 1000;
 constexpr int OPT_PARAMETER_PRESET = 1001;
 constexpr int OPT_SET = 1002;
@@ -56,7 +55,7 @@ class FrameWriter {
 public:
     explicit FrameWriter(ostream& out) : out(out) {}
 
-    /// Write READ<TAB>NAME<TAB>N and then the read's N GAF lines.
+    /// Write READ<TAB>NAME<TAB>N and then the read's GAF lines.
     void write_result(const string& name, const vector<string>& gaf_lines) {
         lock_guard<mutex> lock(mu);
         out << "READ\t" << name << '\t' << gaf_lines.size() << '\n';
@@ -66,8 +65,8 @@ public:
         out.flush();
     }
 
-    /// Write ERROR<TAB>NAME<TAB>MESSAGE. A frame is one line, so tabs and
-    /// newlines in the message become spaces.
+    /// Write ERROR<TAB>NAME<TAB>MESSAGE on one line. Tabs and newlines in the
+    /// message become spaces, so the frame stays one line of three fields.
     void write_error(const string& name, string message) {
         for (char& c : message) {
             if (c == '\t' || c == '\n' || c == '\r') {
@@ -111,7 +110,7 @@ void help_giraffe_server(char** argv) {
          << "                               (may be repeated; required for per-read targets)" << endl
          << "  -h, --help                   show help" << endl
          << endl
-         << "stdin protocol (one read per line):" << endl
+         << "stdin protocol:" << endl
          << "  SEQUENCE" << endl
          << "  NAME<TAB>SEQUENCE" << endl
          << "  NAME<TAB>SEQUENCE<TAB>QUALITY" << endl
@@ -119,13 +118,15 @@ void help_giraffe_server(char** argv) {
          << "                               (QUALITY may be empty when SURJ_TARGET is set)" << endl
          << "  QUALITY is FASTQ phred+33 ASCII; if non-empty, must match SEQUENCE length." << endl
          << "  Without QUALITY, MAPQ is not capped by base quality (as for FASTA input)." << endl
-         << "  PROCESS_BATCH   (map any buffered reads now; alias: FLUSH_NOW)" << endl
+         << "  PROCESS_BATCH   (map any buffered reads now)" << endl
+         << "  Reads are buffered, and mapped when --batch-size of them have come, at" << endl
+         << "  PROCESS_BATCH, before a SURJECT_WITH_ANCHORS request, or at end of input." << endl
          << endl
          << "  SURJECT_WITH_ANCHORS<TAB>NAME<TAB>TARGET<TAB>PATH_LEN<TAB>N_ANCHORS" << endl
          << "    followed by N_ANCHORS tab-separated anchor lines (10 fields each):" << endl
          << "      step_begin_node, step_begin_offset, step_end_node, step_end_offset," << endl
          << "      path_off_begin, path_off_end, read_begin, read_end," << endl
-         << "      src_mapping_begin, src_mapping_end (all tab-separated)" << endl
+         << "      src_mapping_begin, src_mapping_end" << endl
          << "    followed by ONE graph-alignment GAF line." << endl
          << "    Response: READ<TAB>NAME<TAB>1 then one GAF line" << endl
          << "    carrying the surjection tags (sj:Z:..., sn:Z:..., etc.)." << endl
@@ -138,13 +139,14 @@ void help_giraffe_server(char** argv) {
          << "      line that is not a request." << endl
          << "  Reads are answered in input order. The answer to a SURJECT_WITH_ANCHORS" << endl
          << "  request can come after the answers to later requests." << endl
-         << "  Each line has extra tags:" << endl
-         << "    hp:Z haplotypes carrying the path (comma-separated)  hn:i their count" << endl
+         << "  Each GAF line of a read has extra tags. They describe the longest segment of" << endl
+         << "  the path that some haplotype follows without a break:" << endl
+         << "    hp:Z haplotypes that follow it (comma-separated)  hn:i their count" << endl
          << "    hb:Z representative haplotype  hf:i 1 if it is a reference" << endl
-         << "    hc:i carrying GBWT sequences  ht:i 1 if hp was capped" << endl
+         << "    hc:i GBWT sequences that follow it  ht:i 1 if hp was capped" << endl
          << "    hl:i, hr:i enclosing snarl's boundary nodes (only when found)" << endl
-         << "    hq:i 1 if one haplotype carries the whole path  hv:i % of the path it covers" << endl
-         << "    hs:i haplotype-consistent segments  hm:Z bp:count:name per segment" << endl
+         << "    hq:i 1 if the segment is the whole path  hv:i % of the path it covers" << endl
+         << "    hs:i number of segments  hm:Z bp:count:name per segment (if several)" << endl
          << "  With a SURJ_TARGET: sj:Z status (ok, empty, unknown_path, not_indexed," << endl
          << "    incompatible or failed), and if ok sn:Z path, sp:i position, sr:i reverse," << endl
          << "    ss:i score, sm:i MAPQ, sc:Z CIGAR, sM/sX/sI/sD:i matched, mismatched," << endl
@@ -297,8 +299,7 @@ string mapped_alignment_to_gaf(const gbwtgraph::GBZ& gbz, const MappedAlignment&
     return ss.str();
 }
 
-/// Throw if a GAF record's path is not a walk in the graph. gaf_to_alignment()
-/// asserts on such a path, which would end the server.
+/// Throw if a GAF record's path is not a walk in the graph.
 void check_gaf_path(const HandleGraph& graph, const gafkluge::GafRecord& gaf_record) {
     if (gaf_record.path.empty()) {
         // An unmapped read.
@@ -364,9 +365,7 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
 
     string line;
     size_t auto_id = 0;
-    // Report a bad read on stderr, and answer it with an error frame. Tasks
-    // write to stderr too, so every message here is one string. Written in
-    // pieces, it could get a task's message in the middle.
+    // Report a bad read on stderr, and answer it with an error frame.
     auto emit_read_error = [&](const string& name, const string& reason) {
         cerr << "warning [vg giraffe-server]: skipping read"
                 + (name.empty() ? "" : " '" + name + "'") + ": " + reason + "\n";
@@ -378,10 +377,12 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
             return;
         }
         vector<MappedRead> mapped_reads = engine.map_reads(batch);
-        // Write each read's GAF lines in a task. Naming the haplotypes for
-        // the tags is most of that work. The tasks reach the graph through a
-        // pointer, since a task would copy what a reference refers to.
+        // Build each read's GAF lines in its own task, since looking up the
+        // haplotype names for the tags takes time.
         vector<vector<string>> gaf_lines(mapped_reads.size());
+        // A task copies every variable not listed as shared. For a reference
+        // it would copy the whole object, so the tasks get the graph through a
+        // pointer.
         const gbwtgraph::GBZ* gbz = &engine.gbz();
 #pragma omp taskloop grainsize(1) shared(mapped_reads, gaf_lines)
         for (size_t i = 0; i < mapped_reads.size(); ++i) {
@@ -414,12 +415,12 @@ void answer_requests(GiraffeEngine& engine, FrameWriter& frames, size_t batch_si
         if (line.empty()) {
             continue;
         }
-        // PROCESS_BATCH maps the reads buffered so far. FLUSH_NOW is its old name.
-        if (line == "PROCESS_BATCH" || line == "FLUSH_NOW") {
+        // PROCESS_BATCH maps the reads buffered so far.
+        if (line == "PROCESS_BATCH") {
             flush_batch();
             continue;
         }
-        // A SURJECT_WITH_ANCHORS request is a header line, N anchor lines and
+        // A SURJECT_WITH_ANCHORS request needs a header line, N anchor lines and
         // one GAF line. Map the buffered reads first, so their frames come out
         // before this one.
         if (line.compare(0, sizeof("SURJECT_WITH_ANCHORS\t") - 1,
