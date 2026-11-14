@@ -1,6 +1,6 @@
 #include "dedup_internal.hpp"
 
-#include "parallel_sort.hpp"
+#include "../artifacts/parallel_sort.hpp"
 
 #include <algorithm>
 #include <cmath>
