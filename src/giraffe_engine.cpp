@@ -1,6 +1,7 @@
 #include "giraffe_engine.hpp"
 
 #include <algorithm>
+#include <exception>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -215,6 +216,12 @@ void GiraffeEngine::load(const GiraffeEngineConfig& config) {
     if (config.threads == 0) {
         throw runtime_error("Thread count must be >= 1");
     }
+
+    // The caller's OpenMP threads run map_reads(). Their count is global to
+    // the process. It is set before the mapper and the surjector are built,
+    // because their aligners make one dozeu aligner per thread.
+    omp_set_num_threads(static_cast<int>(config.threads));
+
     if (!file_exists(config.gbz_path) || !file_exists(config.minimizer_path)
         || !file_exists(config.distance_path) || !file_exists(config.zipcode_path)) {
         throw runtime_error("One or more required index files do not exist");
@@ -266,10 +273,6 @@ void GiraffeEngine::load(const GiraffeEngineConfig& config) {
         surjector = make_unique<Surjector>(position_overlay.get());
         set_up_surjector(*surjector, config);
     }
-
-    // The caller's OpenMP threads run map_reads(). Their count is global to
-    // the process.
-    omp_set_num_threads(static_cast<int>(config.threads));
 
     config_ = config;
     gbz_ = move(gbz);
@@ -506,15 +509,33 @@ HaplotypeSurjectionResult GiraffeEngine::surject_with_anchors(
     // the surjector's position queries.
     AnchorBackedPositionGraph anchor_graph(&gbz_->graph, vg_anchors,
                                            target_path, path_length);
-    Surjector anchor_surjector(&anchor_graph);
-    set_up_surjector(anchor_surjector, config_);
 
     unordered_set<path_handle_t> paths;
     paths.insert(target_path);
     vector<tuple<string, int64_t, bool>> positions_out;
-    vector<Alignment> surjected = anchor_surjector.surject(aln, paths, positions_out,
-                                                           /*allow_negative_scores=*/true,
-                                                           /*preserve_deletions=*/false);
+    vector<Alignment> surjected;
+
+    // A surjector's aligners make one dozeu aligner per OpenMP thread, counted
+    // when they are built, and pick one by thread number. In a task of the
+    // caller's parallel region the count is 1 but the thread number is not 0.
+    // In a parallel region of one thread the count is 1 and the number is 0.
+    exception_ptr failure;
+#pragma omp parallel num_threads(1)
+    {
+        try {
+            Surjector anchor_surjector(&anchor_graph);
+            set_up_surjector(anchor_surjector, config_);
+            surjected = anchor_surjector.surject(aln, paths, positions_out,
+                                                 /*allow_negative_scores=*/true,
+                                                 /*preserve_deletions=*/false);
+        } catch (...) {
+            // An exception must not leave the parallel region.
+            failure = current_exception();
+        }
+    }
+    if (failure) {
+        rethrow_exception(failure);
+    }
 
     take_best_surjection(surjected, positions_out, anchor_graph, target_path, surj_result);
     return surj_result;
