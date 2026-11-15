@@ -51,6 +51,7 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
     - [`vg circularize`](#circularize): connect head and tail nodes to circularize paths.
     - [`vg clip`](#clip): remove variation from a graph.
     - [`vg combine`](#combine): merge graphs into a combined graph. Useful for per-chromosome graphs.
+    - [`vg dedup`](#dedup): chop long nodes so that repeated sequence can be stored once.
     - [`vg mask`](#mask): N-mask regions of a graph.
     - [`vg mod`](#mod): filter, transform, and edit the graph.
     - [`vg gbwt`](#gbwt): manipulate GBWTs and associated indexes. [wiki page](https://github.com/vgteam/vg/wiki/VG-GBWT-Subcommand)
