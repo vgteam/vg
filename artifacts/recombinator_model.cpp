@@ -1,8 +1,12 @@
 #include "recombinator_model.hpp"
 
+#include "../src/statistics.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
+#include <numeric>
 #include <optional>
 #include <stdexcept>
 #include <unordered_map>
@@ -20,8 +24,6 @@ constexpr size_t CountModel::FIT_COPIES;
 //------------------------------------------------------------------------------
 
 namespace {
-
-constexpr size_t TABLE_WIDTH = PAIR_COPIES + 1;
 
 // Return log(exp(a) + exp(b)). Both may be -inf, which `add_log()` does not allow.
 double log_add(double a, double b) {
@@ -69,11 +71,7 @@ double nb_log_tail(size_t from, double r, double m) {
 // of the box [lo, hi] by the logistic function x = lo + (hi - lo) / (1 + exp(-z)).
 
 double dot(const std::vector<double>& a, const std::vector<double>& b) {
-    double result = 0.0;
-    for (size_t i = 0; i < a.size(); i++) {
-        result += a[i] * b[i];
-    }
-    return result;
+    return std::inner_product(a.begin(), a.end(), b.begin(), 0.0);
 }
 
 // Return a - b.
@@ -155,26 +153,24 @@ std::optional<LinePoint> line_search(
 // each step and the change of the gradient over it.
 class InverseHessian {
 public:
-    explicit InverseHessian(size_t d) : d(d), H(d * d, 0.0) {
+    explicit InverseHessian(size_t d) : d(d) {
         this->reset();
     }
 
     // Forget the curvature and become the identity.
     void reset() {
-        std::ranges::fill(this->H, 0.0);
+        this->H.assign(this->d, std::vector<double>(this->d, 0.0));
         for (size_t i = 0; i < this->d; i++) {
-            this->H[i * this->d + i] = 1.0;
+            this->H[i][i] = 1.0;
         }
         this->scaled = false;
     }
 
     // Return the search direction for gradient g: -H g.
     std::vector<double> direction(const std::vector<double>& g) const {
-        std::vector<double> step(this->d, 0.0);
-        for (size_t i = 0; i < this->d; i++) {
-            for (size_t j = 0; j < this->d; j++) {
-                step[i] -= this->H[i * this->d + j] * g[j];
-            }
+        std::vector<double> step = matrix_multiply(this->H, g);
+        for (double& x : step) {
+            x = -x;
         }
         return step;
     }
@@ -189,28 +185,23 @@ public:
         if (!this->scaled) {
             double c = sy / dot(y, y);
             for (size_t i = 0; i < this->d; i++) {
-                this->H[i * this->d + i] = c;
+                this->H[i][i] = c;
             }
             this->scaled = true;
         }
         double rho = 1.0 / sy;
-        std::vector<double> Hy(this->d, 0.0);
-        for (size_t i = 0; i < this->d; i++) {
-            for (size_t j = 0; j < this->d; j++) {
-                Hy[i] += this->H[i * this->d + j] * y[j];
-            }
-        }
+        std::vector<double> Hy = matrix_multiply(this->H, y);
         double yHy = dot(y, Hy);
         for (size_t i = 0; i < this->d; i++) {
             for (size_t j = 0; j < this->d; j++) {
-                this->H[i * this->d + j] += -rho * (s[i] * Hy[j] + Hy[i] * s[j]) + (rho * rho * yHy + rho) * s[i] * s[j];
+                this->H[i][j] += -rho * (s[i] * Hy[j] + Hy[i] * s[j]) + (rho * rho * yHy + rho) * s[i] * s[j];
             }
         }
     }
 
 private:
     size_t d;
-    std::vector<double> H; // Row-major.
+    std::vector<std::vector<double>> H;
     bool scaled = false;
 };
 
@@ -306,12 +297,7 @@ constexpr size_t LOG_WEIGHTS = 4;
 
 // Return the count model with the parameters in x, without the mixture weights.
 CountModel model_without_weights(const std::vector<double>& x) {
-    CountModel model;
-    model.mu = std::exp(x[0]);
-    model.eps = std::exp(x[1]);
-    model.r1 = std::exp(x[2]);
-    model.r0 = std::exp(x[3]);
-    return model;
+    return CountModel { .mu = std::exp(x[0]), .eps = std::exp(x[1]), .r1 = std::exp(x[2]), .r0 = std::exp(x[3]) };
 }
 
 // The largest log-weight in x, and the sum of the weights divided by its weight.
@@ -423,17 +409,14 @@ CountModel CountModel::fit(const std::vector<double>& histogram, double coverage
 
 //------------------------------------------------------------------------------
 
-std::vector<double> count_table(const CountModel& model, const std::vector<double>& histogram) {
-    double total = 0.0;
-    for (double h : histogram) {
-        total += h;
-    }
-    std::vector<double> table((CountModel::MAX_COUNT + 1) * TABLE_WIDTH);
+CountTable count_table(const CountModel& model, const std::vector<double>& histogram) {
+    double total = std::accumulate(histogram.begin(), histogram.end(), 0.0);
+    CountTable table(CountModel::MAX_COUNT + 1);
     for (size_t y = 0; y <= CountModel::MAX_COUNT; y++) {
         double background = std::log(std::max(histogram[y] / total, 1e-300));
-        for (size_t m = 0; m < TABLE_WIDTH; m++) {
+        for (size_t m = 0; m <= PAIR_COPIES; m++) {
             double t = model.log_probability(y, m);
-            table[y * TABLE_WIDTH + m] = log_add(std::log1p(-CONTAMINATION) + t, std::log(CONTAMINATION) + background);
+            table[y][m] = log_add(std::log1p(-CONTAMINATION) + t, std::log(CONTAMINATION) + background);
         }
     }
     return table;
@@ -443,56 +426,23 @@ std::vector<double> count_table(const CountModel& model, const std::vector<doubl
 
 namespace {
 
-std::uint64_t mix64(std::uint64_t x) {
-    x += 0x9E3779B97F4A7C15ULL;
-    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ULL;
-    x = (x ^ (x >> 27)) * 0x94D049BB133111EBULL;
-    return x ^ (x >> 31);
-}
-
-// Sequences with identical kmer presence and copies, numbered in the order of their
-// first sequence.
-struct SequenceGroups {
-    // For each group, its first sequence.
-    std::vector<size_t> representative;
-
-    // For each group, its sequences.
-    std::vector<std::vector<size_t>> members;
-
-    size_t size() const { return this->representative.size(); }
-};
-
-// Group the usable sequences by kmer presence and copies.
-SequenceGroups group_sequences(
-    const std::vector<std::vector<std::uint64_t>>& rows,
-    const std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& copies,
-    const std::vector<bool>& usable
+// Group the usable sequences by kmer presence and copies. Each group lists its sequences
+// in increasing order, and the groups are numbered in the order of their first
+// sequences. The first sequence of a group stands for it.
+std::vector<std::vector<size_t>> group_sequences(
+    const std::vector<std::vector<std::uint64_t>>& rows, const std::vector<KmerCopies>& copies, const std::vector<bool>& usable
 ) {
-    SequenceGroups groups;
-    std::unordered_map<std::uint64_t, std::vector<size_t>> by_hash;
+    std::vector<std::vector<size_t>> groups;
+    std::map<std::pair<std::vector<std::uint64_t>, KmerCopies>, size_t> group_of;
     for (size_t i = 0; i < rows.size(); i++) {
         if (!usable[i]) {
             continue;
         }
-        std::uint64_t h = 0;
-        for (std::uint64_t word : rows[i]) {
-            h = mix64(h ^ word);
+        auto [iter, inserted] = group_of.try_emplace(std::make_pair(rows[i], copies[i]), groups.size());
+        if (inserted) {
+            groups.emplace_back();
         }
-        for (const auto& [kmer, value] : copies[i]) {
-            h = mix64(h ^ ((std::uint64_t(kmer) << 8) | value));
-        }
-        std::vector<size_t>& bucket = by_hash[h];
-        auto same = std::ranges::find_if(bucket, [&](size_t group) {
-            size_t rep = groups.representative[group];
-            return (rows[rep] == rows[i] && copies[rep] == copies[i]);
-        });
-        size_t group = (same == bucket.end() ? groups.size() : *same);
-        if (group == groups.size()) {
-            groups.representative.push_back(i);
-            groups.members.emplace_back();
-            bucket.push_back(group);
-        }
-        groups.members[group].push_back(i);
+        groups[iter->second].push_back(i);
     }
     return groups;
 }
@@ -509,8 +459,8 @@ SequenceGroups group_sequences(
 class ClippedScores {
 public:
     ClippedScores(
-        const std::vector<std::vector<std::uint64_t>>& rows, const SequenceGroups& groups,
-        const std::vector<size_t>& counts, const std::vector<double>& table
+        const std::vector<std::vector<std::uint64_t>>& rows, const std::vector<std::vector<size_t>>& groups,
+        const std::vector<size_t>& counts, const CountTable& table
     ) : num_groups(groups.size()), single(groups.size(), 0.0), shared(groups.size() * groups.size(), 0.0), missing(groups.size(), 0.0) {
         // The first and second differences of the log-likelihood in copies for each
         // kmer. Ignored kmers contribute nothing.
@@ -521,7 +471,7 @@ public:
             if (counts[j] == IGNORED_COUNT) {
                 continue;
             }
-            const double* t = table.data() + counts[j] * TABLE_WIDTH;
+            const auto& t = table[counts[j]];
             this->base += t[0];
             first[j] = t[1] - t[0];
             second[j] = t[2] - 2.0 * t[1] + t[0];
@@ -534,7 +484,7 @@ public:
             carriers.clear();
             others.clear();
             for (size_t g = 0; g < this->num_groups; g++) {
-                std::vector<size_t>& side = ((rows[groups.representative[g]][j / 64] & bit) ? carriers : others);
+                std::vector<size_t>& side = ((rows[groups[g].front()][j / 64] & bit) ? carriers : others);
                 side.push_back(g);
             }
             this->add_kmer(carriers, others, first[j], second[j]);
@@ -610,26 +560,24 @@ std::vector<size_t> choose_candidates(const ClippedScores& clipped, size_t num_g
     return candidates;
 }
 
-// Correct the K x K candidate pair scores for the kmers that some candidate has more
+// Correct the pair scores of the candidates for the kmers that some candidate has more
 // than once: replace the term for the clipped copies with the term for the copies.
 void add_copy_corrections(
-    std::vector<double>& scores, const std::vector<size_t>& representatives,
-    const std::vector<std::vector<std::uint64_t>>& rows,
-    const std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& copies,
-    const std::vector<size_t>& counts, const std::vector<double>& table
+    Candidates& candidates, const std::vector<std::vector<std::uint64_t>>& rows, const std::vector<KmerCopies>& copies,
+    const std::vector<size_t>& counts, const CountTable& table
 ) {
-    size_t K = representatives.size();
+    size_t K = candidates.size();
+    // The kmers, other than ignored ones, that some candidate has more than once, sorted
+    // and distinct.
     std::vector<std::uint32_t> multi;
-    for (size_t rep : representatives) {
-        for (const auto& [kmer, value] : copies[rep]) {
+    for (const std::vector<size_t>& members : candidates.members) {
+        for (const auto& [kmer, value] : copies[members.front()]) {
             if (counts[kmer] != IGNORED_COUNT) {
                 multi.push_back(kmer);
             }
         }
     }
-    std::ranges::sort(multi);
-    auto duplicates = std::ranges::unique(multi);
-    multi.erase(duplicates.begin(), duplicates.end());
+    gbwt::removeDuplicates(multi, false);
     if (multi.empty()) {
         return;
     }
@@ -637,7 +585,7 @@ void add_copy_corrections(
     // The copies of those kmers in each candidate.
     std::vector<std::vector<std::uint32_t>> X(K, std::vector<std::uint32_t>(multi.size(), 0));
     for (size_t i = 0; i < K; i++) {
-        size_t rep = representatives[i];
+        size_t rep = candidates.members[i].front();
         for (size_t c = 0; c < multi.size(); c++) {
             X[i][c] = (rows[rep][multi[c] / 64] >> (multi[c] % 64)) & 1;
         }
@@ -653,12 +601,12 @@ void add_copy_corrections(
         for (size_t k = 0; k < K; k++) {
             double correction = 0.0;
             for (size_t c = 0; c < multi.size(); c++) {
-                const double* t = table.data() + counts[multi[c]] * TABLE_WIDTH;
+                const auto& t = table[counts[multi[c]]];
                 size_t m = std::min(size_t(X[i][c] + X[k][c]), PAIR_COPIES);
                 size_t clipped_m = std::min(X[i][c], std::uint32_t(1)) + std::min(X[k][c], std::uint32_t(1));
                 correction += t[m] - t[clipped_m];
             }
-            scores[i * K + k] += correction;
+            candidates.scores[i * K + k] += correction;
         }
     }
 }
@@ -667,14 +615,14 @@ void add_copy_corrections(
 
 Candidates score_pairs(
     const std::vector<std::vector<std::uint64_t>>& rows,
-    const std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& copies,
+    const std::vector<KmerCopies>& copies,
     const std::vector<std::uint64_t>& haplotype_ids,
     const std::vector<bool>& usable,
     const std::vector<size_t>& counts,
-    const std::vector<double>& table,
+    const CountTable& table,
     double length
 ) {
-    SequenceGroups groups = group_sequences(rows, copies, usable);
+    std::vector<std::vector<size_t>> groups = group_sequences(rows, copies, usable);
     ClippedScores clipped(rows, groups, counts, table);
     std::vector<size_t> candidates = choose_candidates(clipped, groups.size());
 
@@ -682,23 +630,18 @@ Candidates score_pairs(
     Candidates result;
     size_t K = candidates.size();
     result.scores.resize(K * K);
-    std::vector<size_t> representatives;
     for (size_t i = 0; i < K; i++) {
-        representatives.push_back(groups.representative[candidates[i]]);
         for (size_t k = 0; k < K; k++) {
             result.scores[i * K + k] = clipped(candidates[i], candidates[k]);
         }
-    }
-    add_copy_corrections(result.scores, representatives, rows, copies, counts, table);
-
-    for (size_t g : candidates) {
-        result.members.push_back(groups.members[g]);
+        result.members.push_back(groups[candidates[i]]);
         std::vector<std::uint64_t>& haplotypes = result.haplotypes.emplace_back();
-        for (size_t i : groups.members[g]) {
-            haplotypes.push_back(haplotype_ids[i]);
+        for (size_t sequence : result.members.back()) {
+            haplotypes.push_back(haplotype_ids[sequence]);
         }
     }
     result.length = length;
+    add_copy_corrections(result, rows, copies, counts, table);
     return result;
 }
 
@@ -726,10 +669,7 @@ std::vector<double> log_transitions(const Candidates& a, const Candidates& b, do
                 A[ga * Kb + iter->second] += share;
             }
         }
-        double kept = 0.0;
-        for (size_t gb = 0; gb < Kb; gb++) {
-            kept += A[ga * Kb + gb];
-        }
+        double kept = std::accumulate(A.begin() + ga * Kb, A.begin() + (ga + 1) * Kb, 0.0);
         double leak = 1.0 - kept;
         for (size_t gb = 0; gb < Kb; gb++) {
             A[ga * Kb + gb] = (1.0 - r) * (A[ga * Kb + gb] + leak / double(Kb)) + r / double(Kb);
@@ -760,39 +700,25 @@ std::pair<double, size_t> best_of(size_t K, const Value& value) {
 // from the Kp groups of the previous subchain to the Kn groups of the next one. The
 // log transitions A are as in `log_transitions()`.
 
-// Move the first member: return M[a', b] = max_a delta[a, b] + A[a, a'] for the scores
-// delta of pairs (a, b) in the previous subchain, and store the best a at from[a' * Kp + b].
-std::vector<double> move_first_member(
-    const std::vector<double>& delta, const std::vector<double>& A, size_t Kp, size_t Kn, std::vector<std::uint16_t>& from
+// Move one member of each pair to the next subchain. `scores` has Kp rows of
+// X = scores.size() / Kp: row p is the group of the member that moves, and column x is the
+// group of the member that stays. Return result[x * Kn + n] = max_p scores[p * X + x] +
+// A[p * Kn + n], where n is the new group of the moving member, and store the best p at
+// from[x * Kn + n]. The member that stays comes first in the result, so a call on
+// delta[a, b] moves a and gives M[b, a'], and a call on M moves b and gives delta[a', b'].
+std::vector<double> move_member(
+    const std::vector<double>& scores, const std::vector<double>& A, size_t Kp, size_t Kn, std::vector<std::uint16_t>& from
 ) {
-    std::vector<double> M(Kn * Kp);
-    from.resize(Kn * Kp);
-    for (size_t an = 0; an < Kn; an++) {
-        for (size_t b = 0; b < Kp; b++) {
-            auto [best, best_a] = best_of(Kp, [&delta, &A, Kp, Kn, an, b](size_t a) {
-                return delta[a * Kp + b] + A[a * Kn + an];
+    size_t X = scores.size() / Kp;
+    std::vector<double> result(X * Kn);
+    from.resize(X * Kn);
+    for (size_t x = 0; x < X; x++) {
+        for (size_t n = 0; n < Kn; n++) {
+            auto [best, best_p] = best_of(Kp, [&scores, &A, X, Kn, x, n](size_t p) {
+                return scores[p * X + x] + A[p * Kn + n];
             });
-            M[an * Kp + b] = best;
-            from[an * Kp + b] = static_cast<std::uint16_t>(best_a);
-        }
-    }
-    return M;
-}
-
-// Move the second member: return max_b M[a', b] + A[b, b'] for each pair (a', b') in
-// the next subchain, and store the best b at from[a' * Kn + b'].
-std::vector<double> move_second_member(
-    const std::vector<double>& M, const std::vector<double>& A, size_t Kp, size_t Kn, std::vector<std::uint16_t>& from
-) {
-    std::vector<double> result(Kn * Kn);
-    from.resize(Kn * Kn);
-    for (size_t an = 0; an < Kn; an++) {
-        for (size_t bn = 0; bn < Kn; bn++) {
-            auto [best, best_b] = best_of(Kp, [&M, &A, Kp, Kn, an, bn](size_t b) {
-                return M[an * Kp + b] + A[b * Kn + bn];
-            });
-            result[an * Kn + bn] = best;
-            from[an * Kn + bn] = static_cast<std::uint16_t>(best_b);
+            result[x * Kn + n] = best;
+            from[x * Kn + n] = static_cast<std::uint16_t>(best_p);
         }
     }
     return result;
@@ -800,7 +726,7 @@ std::vector<double> move_second_member(
 
 // The best previous pair of each pair in a subchain: for the pair (a', b'), the best
 // previous b is `second[a' * Kn + b']`, and the best previous a given that b is
-// `first[a' * Kp + b]`.
+// `first[b * Kn + a']`.
 struct Backpointers {
     std::vector<std::uint16_t> first;
     std::vector<std::uint16_t> second;
@@ -827,8 +753,8 @@ std::vector<std::pair<size_t, size_t>> viterbi(const std::vector<Candidates>& su
         const Candidates& next = subchains[i];
         double d = 0.5 * (prev.length + next.length);
         std::vector<double> A = log_transitions(prev, next, -std::expm1(-rho * d));
-        std::vector<double> M = move_first_member(delta, A, prev.size(), next.size(), back[i].first);
-        delta = move_second_member(M, A, prev.size(), next.size(), back[i].second);
+        std::vector<double> M = move_member(delta, A, prev.size(), next.size(), back[i].first);
+        delta = move_member(M, A, prev.size(), next.size(), back[i].second);
         for (size_t j = 0; j < delta.size(); j++) {
             delta[j] += next.scores[j] * scale;
         }
@@ -842,10 +768,9 @@ std::vector<std::pair<size_t, size_t>> viterbi(const std::vector<Candidates>& su
     std::vector<std::pair<size_t, size_t>> path(subchains.size());
     path.back() = { a, b };
     for (size_t i = subchains.size() - 1; i > 0; i--) {
-        size_t Kp = subchains[i - 1].size();
         size_t Kn = subchains[i].size();
         b = back[i].second[a * Kn + b];
-        a = back[i].first[a * Kp + b];
+        a = back[i].first[b * Kn + a];
         path[i - 1] = { a, b };
     }
     return path;

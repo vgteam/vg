@@ -10,6 +10,7 @@
 
 #include "../src/recombinator_haplotypes.hpp"
 
+#include <array>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -79,12 +80,14 @@ constexpr size_t PAIR_COPIES = 2 * Haplotypes::Subchain::MAX_COPIES;
 /// draw from the count model. This limits the effect of any single kmer on a score.
 constexpr double CONTAMINATION = 0.001;
 
-/**
- * Return a table of the log-probabilities of reported counts given the copies
- * in a pair of haplotypes, with `CONTAMINATION` from the histogram.
- * The value for count `y` and `m` copies is at `y * (PAIR_COPIES + 1) + m`.
- */
-std::vector<double> count_table(const CountModel& model, const std::vector<double>& histogram);
+/// Log-probabilities of reported counts given the copies in a pair of haplotypes:
+/// `table[y][m]` for count `y` (0 to `CountModel::MAX_COUNT`) and `m` copies (0 to
+/// `PAIR_COPIES`).
+typedef std::vector<std::array<double, PAIR_COPIES + 1>> CountTable;
+
+/// Return the table of log-probabilities of the count model, with `CONTAMINATION`
+/// from the histogram.
+CountTable count_table(const CountModel& model, const std::vector<double>& histogram);
 
 /// A kmer count that marks a kmer the pair scores ignore.
 constexpr size_t IGNORED_COUNT = static_cast<size_t>(-1);
@@ -119,13 +122,15 @@ struct Candidates {
     size_t size() const { return this->members.size(); }
 };
 
+/// The kmers with more than one copy in a sequence.
+typedef Haplotypes::Subchain::kmer_copies_type KmerCopies;
+
 /**
  * Score the pairs of haplotypes in a subchain of the given length. Each sequence is
  * given as a row of kmer presence bits (as in `Haplotypes::Subchain::presence_row()`),
- * a list of (kmer id, copies) for the kmers with more than one copy, and the
- * identifier of the haplotype it belongs to. The counts are the sample's counts of the
- * kmers, at most `CountModel::MAX_COUNT`, or `IGNORED_COUNT`. Only the usable
- * sequences become candidates.
+ * its `KmerCopies`, and the identifier of the haplotype it belongs to. The counts are
+ * the sample's counts of the kmers, at most `CountModel::MAX_COUNT`, or
+ * `IGNORED_COUNT`. Only the usable sequences become candidates.
  *
  * Sequences with identical kmer presence and copies form a group. The candidates are
  * the first `CANDIDATES` groups to appear in the best `CANDIDATE_PAIRS` pairs, ranked
@@ -135,11 +140,11 @@ struct Candidates {
  */
 Candidates score_pairs(
     const std::vector<std::vector<std::uint64_t>>& rows,
-    const std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& copies,
+    const std::vector<KmerCopies>& copies,
     const std::vector<std::uint64_t>& haplotype_ids,
     const std::vector<bool>& usable,
     const std::vector<size_t>& counts,
-    const std::vector<double>& table,
+    const CountTable& table,
     double length
 );
 

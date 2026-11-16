@@ -170,8 +170,8 @@ int main_haplotypes(int argc, char** argv) {
         haplotypes.load_from(config.haplotype_input);
         require_compatible_graphs(gbz, "GBZ", haplotypes, "Haplotype Information");
     }
-    if (bool sampling = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes);
-        sampling && config.model_preset && !haplotypes.has_copies()) {
+    bool sampling = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes);
+    if (sampling && config.model_preset && !haplotypes.has_copies()) {
         config.logger.error() << "the model preset needs haplotype information built with --subchain-kmers" << std::endl;
     }
 
@@ -184,7 +184,7 @@ int main_haplotypes(int argc, char** argv) {
     }
 
     // Sample the haplotypes.
-    if (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes) {
+    if (sampling) {
         // Update reference samples if necessary.
         if (!config.reference_samples.empty()) {
             set_reference_samples(gbz, config);

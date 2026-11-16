@@ -556,12 +556,10 @@ std::vector<HaplotypePartitioner::sequence_type> HaplotypePartitioner::get_seque
 // Returns an empty haplotype if there is only one node.
 // Set `pos.first = gbwt::ENDMARKER` to start from the beginning.
 // Set `end = empty_gbwtgraph_handle()` to continue until the end without a final node.
-// If `nodes` is not null, inserts the ids of the visited nodes into it.
 std::vector<std::string> generate_haplotype(
     gbwt::size_type sequence_id,
     gbwt::edge_type pos, handle_t end, size_t start_max, size_t end_max,
-    const HaplotypePartitioner& partitioner, gbwt::CachedGBWT& cached_gbwt,
-    hash_set<nid_t>* nodes = nullptr
+    const HaplotypePartitioner& partitioner, gbwt::CachedGBWT& cached_gbwt
 ) {
     // Determine the start for a prefix.
     bool single_fragment = (pos.first == gbwt::ENDMARKER || end == empty_gbwtgraph_handle());
@@ -577,9 +575,6 @@ std::vector<std::string> generate_haplotype(
 
     // Handle the initial node.
     handle_t curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
-    if (nodes != nullptr) {
-        nodes->insert(gbwt::Node::id(pos.first));
-    }
     if (curr == end) {
         return haplotype;
     }
@@ -608,9 +603,6 @@ std::vector<std::string> generate_haplotype(
             haplotype.emplace_back();
         }
         curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
-        if (nodes != nullptr) {
-            nodes->insert(gbwt::Node::id(pos.first));
-        }
         view = partitioner.gbz.graph.get_sequence_view(curr);
         if (curr == end) {
             haplotype.back().append(view.data(), std::min(view.size(), end_max));
@@ -622,6 +614,57 @@ std::vector<std::string> generate_haplotype(
 
     return haplotype;
 }
+
+// Return the ids of the nodes the sequence visits from node `start`, at the sequence's
+// offset there, to node `end`, sorted and without duplicates. Without a start
+// (`gbwt::ENDMARKER`), the walk begins at the start of the sequence, and without an end,
+// it continues to the end of the sequence. With both, the walk continues with the next
+// fragment of the haplotype when a fragment ends, because the generated haplotypes do
+// the same.
+std::vector<nid_t> subchain_walk_nodes(
+    const gbwt::CachedGBWT& index, gbwt::node_type start, gbwt::node_type end,
+    Haplotypes::sequence_type sequence, const gbwt::FragmentMap& fragment_map
+) {
+    gbwt::edge_type pos = (start != gbwt::ENDMARKER ? gbwt::edge_type(start, sequence.second) : index.start(sequence.first));
+    std::vector<nid_t> nodes;
+    bool normal = (start != gbwt::ENDMARKER && end != gbwt::ENDMARKER);
+    gbwt::size_type sequence_id = sequence.first;
+    while (pos.first != gbwt::ENDMARKER) {
+        nodes.push_back(gbwt::Node::id(pos.first));
+        if (pos.first == end) {
+            break;
+        }
+        pos = index.LF(pos);
+        while (normal && pos.first == gbwt::ENDMARKER) {
+            sequence_id = fragment_map.oriented_next(sequence_id);
+            if (sequence_id == gbwt::invalid_sequence()) {
+                break;
+            }
+            pos = index.start(sequence_id);
+        }
+    }
+    gbwt::removeDuplicates(nodes, false);
+    return nodes;
+}
+
+// Generate the haplotype of the sequence over the subchain. Keep only the last k - 1 bases
+// of the start node and the first k - 1 bases of the end node, where k is the kmer length
+// of the minimizer index, so that every kmer in the haplotype has a base past a boundary
+// node.
+std::vector<std::string> subchain_haplotype(
+    HaplotypePartitioner::sequence_type sequence, const HaplotypePartitioner::Subchain& subchain,
+    const HaplotypePartitioner& partitioner, gbwt::CachedGBWT& cached_gbwt
+) {
+    size_t k = partitioner.minimizer_index.k();
+    gbwt::edge_type pos(gbwt::ENDMARKER, 0);
+    size_t start_max = std::numeric_limits<size_t>::max();
+    if (subchain.has_start()) {
+        pos = gbwt::edge_type(gbwtgraph::GBWTGraph::handle_to_node(subchain.start), sequence.second);
+        start_max = k - 1;
+    }
+    return generate_haplotype(sequence.first, pos, subchain.end, start_max, k - 1, partitioner, cached_gbwt);
+}
+
 
 // Return the sorted set of kmers that are minimizers in the sequences and have a single
 // occurrence in the graph.
@@ -672,17 +715,7 @@ std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimi
     gbwt::CachedGBWT& cached_gbwt,
     vg::hash_map<HaplotypePartitioner::kmer_type, size_t>& kmer_cache
 ) const {
-    gbwt::edge_type pos(gbwt::ENDMARKER, 0);
-    size_t start_max = std::numeric_limits<size_t>::max(), end_max = this->minimizer_index.k() - 1;
-    if (subchain.has_start()) {
-        pos = gbwt::edge_type(gbwtgraph::GBWTGraph::handle_to_node(subchain.start), sequence.second);
-        start_max = this->minimizer_index.k() - 1;
-    }
-    std::vector<std::string> haplotype = generate_haplotype(
-        sequence.first,
-        pos, subchain.end, start_max, end_max,
-        *this, cached_gbwt
-    );
+    std::vector<std::string> haplotype = subchain_haplotype(sequence, subchain, *this, cached_gbwt);
     fragments = haplotype.size();
     return take_unique_minimizers(haplotype, this->minimizer_index, kmer_cache);
 }
@@ -1014,31 +1047,19 @@ private:
         for (size_t i = 0; i < this->n; i++) {
             original[{ static_cast<std::uint32_t>(sequences[i].first), static_cast<std::uint32_t>(sequences[i].second) }] = i;
         }
-        size_t total = 0;
-        for (const auto& sequence_copies : this->multi) {
-            total += static_cast<size_t>(std::ranges::count_if(sequence_copies, [this](const std::pair<std::uint32_t, std::uint8_t>& entry) {
-                return this->final_id[entry.first] < this->informative;
-            }));
-        }
-        output.copy_offsets = sdsl::int_vector<0>(this->n + 1, 0, static_cast<std::uint8_t>(sdsl::bits::length(total)));
-        output.copy_kmers = sdsl::int_vector<0>(total, 0, static_cast<std::uint8_t>(sdsl::bits::length(this->informative)));
-        output.copy_values = sdsl::int_vector<0>(total, 0, static_cast<std::uint8_t>(sdsl::bits::length(MAX_COPIES)));
-        size_t offset = 0;
+        std::vector<Haplotypes::Subchain::kmer_copies_type> lists(this->n);
         for (size_t r = 0; r < this->n; r++) {
             auto iter = original.find({ output.sequences[r].first, output.sequences[r].second });
             if (iter == original.end()) {
                 throw std::runtime_error("HaplotypePartitioner::build_subchain_kmers(): cannot find a reordered sequence");
             }
-            output.copy_offsets[r] = offset;
             for (const auto& [kmer, copies] : this->multi[iter->second]) {
                 if (this->final_id[kmer] < this->informative) {
-                    output.copy_kmers[offset] = this->final_id[kmer];
-                    output.copy_values[offset] = copies;
-                    offset++;
+                    lists[r].emplace_back(this->final_id[kmer], copies);
                 }
             }
         }
-        output.copy_offsets[this->n] = offset;
+        output.set_copies(lists);
     }
 };
 
@@ -1089,21 +1110,17 @@ void HaplotypePartitioner::build_subchain_kmers(
 ) const {
     gbwt::CachedGBWT cached_gbwt(this->gbz.index);
     size_t k = this->minimizer_index.k();
-    size_t start_max = (subchain.has_start() ? k - 1 : std::numeric_limits<size_t>::max());
-    size_t end_max = k - 1;
-    auto haplotype = [&](sequence_type sequence, hash_set<nid_t>* nodes) {
-        gbwt::edge_type pos(gbwt::ENDMARKER, 0);
-        if (subchain.has_start()) {
-            pos = gbwt::edge_type(gbwtgraph::GBWTGraph::handle_to_node(subchain.start), sequence.second);
-        }
-        return generate_haplotype(sequence.first, pos, subchain.end, start_max, end_max, *this, cached_gbwt, nodes);
-    };
+    gbwt::node_type start = gbwtgraph::GBWTGraph::handle_to_node(subchain.start);
+    gbwt::node_type end = gbwtgraph::GBWTGraph::handle_to_node(subchain.end);
 
     // The nodes the sequences visit and the distinct minimizers in the sequences.
     hash_set<nid_t> nodes;
     hash_map<kmer_type, minimizer_index_type::minimizer_type> distinct;
     for (const sequence_type& sequence : sequences) {
-        for (const std::string& piece : haplotype(sequence, &nodes)) {
+        for (nid_t node : subchain_walk_nodes(cached_gbwt, start, end, sequence, this->fragment_map)) {
+            nodes.insert(node);
+        }
+        for (const std::string& piece : subchain_haplotype(sequence, subchain, *this, cached_gbwt)) {
             for (const auto& minimizer : this->minimizer_index.minimizers(piece)) {
                 distinct.emplace(minimizer.key.get_key(), minimizer);
             }
@@ -1116,7 +1133,7 @@ void HaplotypePartitioner::build_subchain_kmers(
     hash_map<kmer_type, std::uint32_t> positions = oriented_kmer_positions(kept, k);
     KmerCopyTally tally(sequences.size(), kept.size());
     for (size_t i = 0; i < sequences.size(); i++) {
-        tally.add(i, count_oriented_kmers(haplotype(sequences[i], nullptr), positions, k));
+        tally.add(i, count_oriented_kmers(subchain_haplotype(sequences[i], subchain, *this, cached_gbwt), positions, k));
     }
     tally.write(kept, sequences, output);
 }
@@ -1607,14 +1624,14 @@ void Recombinator::Parameters::print(std::ostream& out) const {
     if (this->continuity_bonus > 0.0) {
         out << "- continuity bonus " << this->continuity_bonus << std::endl;
     }
-    if (this->max_new_bp != std::numeric_limits<size_t>::max()) {
+    if (this->has_new_bp_limit()) {
         out << "- at most " << this->max_new_bp << " bp of new node sequence";
         if (this->bp_escape > 0.0) {
             out << ", unless a new sample kmer per " << this->bp_escape << " bp";
         }
         out << std::endl;
     }
-    if (this->max_n_bp != std::numeric_limits<size_t>::max()) {
+    if (this->has_n_base_limit()) {
         out << "- at most " << this->max_n_bp << " N bases" << std::endl;
     }
     if (this->similar_threading) {
@@ -1734,7 +1751,7 @@ void validate_recombinator_parameters(const Recombinator::Parameters& parameters
         std::string msg = "validate_recombinator_parameters(): bp escape must be non-negative";
         throw std::runtime_error(msg);
     }
-    if (parameters.bp_escape > 0.0 && parameters.max_new_bp == std::numeric_limits<size_t>::max()) {
+    if (parameters.bp_escape > 0.0 && !parameters.has_new_bp_limit()) {
         std::string msg = "validate_recombinator_parameters(): bp escape needs a new-bp limit";
         throw std::runtime_error(msg);
     }
@@ -2190,39 +2207,6 @@ std::vector<std::pair<size_t, double>> select_diploid(
 
 //------------------------------------------------------------------------------
 
-// Return the ids of the nodes the sequence visits in the subchain, sorted and without
-// duplicates. In a normal subchain, the walk continues with the next fragment of the
-// haplotype when a fragment ends, because the generated haplotypes do the same.
-std::vector<nid_t> subchain_walk_nodes(
-    const gbwt::CachedGBWT& index, const Haplotypes::Subchain& subchain,
-    size_t seq_offset, const gbwt::FragmentMap& fragment_map
-) {
-    gbwt::edge_type pos = (subchain.has_start() ?
-        gbwt::edge_type(subchain.start, subchain.sequences[seq_offset].second) :
-        index.start(subchain.sequences[seq_offset].first));
-    std::vector<nid_t> nodes;
-    bool normal = (subchain.has_start() && subchain.has_end());
-    gbwt::size_type sequence_id = subchain.sequences[seq_offset].first;
-    while (pos.first != gbwt::ENDMARKER) {
-        nodes.push_back(gbwt::Node::id(pos.first));
-        if (subchain.has_end() && pos.first == subchain.end) {
-            break;
-        }
-        pos = index.LF(pos);
-        while (normal && pos.first == gbwt::ENDMARKER) {
-            sequence_id = fragment_map.oriented_next(sequence_id);
-            if (sequence_id == gbwt::invalid_sequence()) {
-                break;
-            }
-            pos = index.start(sequence_id);
-        }
-    }
-    std::ranges::sort(nodes);
-    auto duplicates = std::ranges::unique(nodes);
-    nodes.erase(duplicates.begin(), duplicates.end());
-    return nodes;
-}
-
 namespace {
 
 // A memo of the length and the number of N bases of each node it is asked about, which
@@ -2240,6 +2224,17 @@ public:
             iter->second.second = static_cast<size_t>(std::ranges::count(view, 'N') + std::ranges::count(view, 'n'));
         }
         return iter->second;
+    }
+
+    // Return the total length and the total number of N bases of the nodes.
+    std::pair<size_t, size_t> totals(const std::vector<nid_t>& nodes) {
+        std::pair<size_t, size_t> result(0, 0);
+        for (nid_t node : nodes) {
+            auto [length, n_bases] = (*this)(node);
+            result.first += length;
+            result.second += n_bases;
+        }
+        return result;
     }
 
 private:
@@ -2277,10 +2272,9 @@ size_t model_count(
 
 namespace {
 
-// Return which sequences the model pair may use: those that can be selected and have at
-// most `max_n_bp` N bases, unless every one that can be selected has more. If no
-// sequence can be selected, the N-base rule applies to all sequences. The N bases of
-// each sequence are needed only with an N-base limit.
+// Return which sequences the model uses: those that can be selected, or every sequence if
+// none can, minus those with more than `max_n_bp` N bases unless that would remove them
+// all. The N bases of each sequence are used only with an N-base limit.
 std::vector<bool> usable_sequences(
     const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain, const std::vector<size_t>& n_bases,
     const Recombinator::Parameters& parameters
@@ -2295,7 +2289,7 @@ std::vector<bool> usable_sequences(
         usable.assign(n, true);
         num_usable = n;
     }
-    if (parameters.max_n_bp == std::numeric_limits<size_t>::max()) {
+    if (!parameters.has_n_base_limit()) {
         return usable;
     }
     size_t over_limit = 0;
@@ -2331,7 +2325,7 @@ void add_to_histogram(
 
 pair_model::Candidates model_candidates(
     const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain,
-    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, const std::vector<double>& table,
+    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, const pair_model::CountTable& table,
     const gbwt::FragmentMap& fragment_map, size_t k, const Recombinator::Parameters& parameters
 ) {
     size_t n = subchain.num_sequences();
@@ -2344,27 +2338,23 @@ pair_model::Candidates model_candidates(
     NodeBaseCounts node_bases(gbz);
     const gbwt::Metadata& metadata = gbz.index.metadata;
     std::vector<std::vector<std::uint64_t>> rows(n);
-    std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> copies(n);
+    std::vector<pair_model::KmerCopies> copies(n);
     std::vector<size_t> n_bases(n, 0);
     std::vector<size_t> length(n, 0);
     std::vector<std::uint64_t> haplotype_ids(n);
     for (size_t i = 0; i < n; i++) {
         subchain.presence_row(i, rows[i]);
-        std::vector<std::pair<std::uint32_t, std::uint32_t>>& sequence_copies = copies[i];
+        pair_model::KmerCopies& sequence_copies = copies[i];
         subchain.for_each_copy(i, [&sequence_copies](size_t kmer_id, size_t value) {
             sequence_copies.emplace_back(kmer_id, value);
         });
-        for (nid_t node : subchain_walk_nodes(cache, subchain, i, fragment_map)) {
-            auto [bases, n_count] = node_bases(node);
-            length[i] += bases;
-            n_bases[i] += n_count;
-        }
+        std::tie(length[i], n_bases[i]) = node_bases.totals(
+            subchain_walk_nodes(cache, subchain.start, subchain.end, subchain.sequences[i], fragment_map)
+        );
         gbwt::PathName name = metadata.path(gbwt::Path::id(subchain.sequences[i].first));
         haplotype_ids[i] = (std::uint64_t(name.sample) << 32) | std::uint64_t(static_cast<std::uint32_t>(name.phase));
     }
 
-    // If no sequence can be selected, every sequence is usable, because the hidden
-    // Markov model needs candidates in every subchain.
     std::vector<bool> usable = usable_sequences(gbz, subchain, n_bases, parameters);
 
     std::vector<size_t> counts(J);
@@ -2406,7 +2396,7 @@ std::vector<std::vector<std::pair<size_t, size_t>>> Recombinator::model_pairs(
         }
     }
     pair_model::CountModel count_model = pair_model::CountModel::fit(histogram, coverage);
-    std::vector<double> table = pair_model::count_table(count_model, histogram);
+    pair_model::CountTable table = pair_model::count_table(count_model, histogram);
     if (this->verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Count model: mu " << count_model.mu << ", eps " << count_model.eps << ", r1 " << count_model.r1
             << ", r0 " << count_model.r0 << ", pi";
@@ -2508,29 +2498,21 @@ void adjust_kmer_scores(
     });
 }
 
-// A judge of whether a candidate in a subchain stays within the limits on what it adds
-// to the haplotypes already selected there. The new nodes of a candidate are the nodes
-// on its path through the subchain that no selected haplotype visits. A candidate is
-// within the new-bp limit if its new nodes have at most `max_new_bp` bp, or if it has
-// at least one sample kmer (present or heterozygous) that no selected haplotype has per
-// `bp_escape` bp of new nodes. It is within the N-base limit if its nodes have at most
-// `max_n_bp` N bases. The judge is told each selected haplotype, and it finds the nodes
-// of a candidate when first asked about it.
+// A judge of whether a candidate in a subchain stays within the new-bp and N-base limits
+// (`max_new_bp`, `bp_escape` and `max_n_bp` in `Recombinator::Parameters`), given the
+// haplotypes already selected there. It is told each selected haplotype, and it finds
+// the nodes of a candidate when first asked about it.
 class SelectionLimits {
 public:
     SelectionLimits(
         const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain, const gbwt::FragmentMap* fragment_map,
         const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmer_types,
         const std::vector<std::pair<size_t, double>>& candidates, const Recombinator::Parameters& parameters
-    ) : subchain(subchain), fragment_map(fragment_map), node_bases(gbz),
-        max_new_bp(parameters.max_new_bp), bp_escape(parameters.bp_escape), max_n_bp(parameters.max_n_bp),
-        bp_limit(parameters.max_new_bp != std::numeric_limits<size_t>::max()),
-        escape(bp_limit && parameters.bp_escape > 0.0),
-        n_limit(parameters.max_n_bp != std::numeric_limits<size_t>::max()),
-        candidate_nodes((bp_limit || n_limit) ? subchain.num_sequences() : 0),
-        candidate_n_bases(n_limit ? subchain.num_sequences() : 0),
+    ) : subchain(subchain), fragment_map(fragment_map), node_bases(gbz), parameters(parameters),
+        escape(parameters.has_new_bp_limit() && parameters.bp_escape > 0.0),
+        candidate_nodes((parameters.has_new_bp_limit() || parameters.has_n_base_limit()) ? subchain.num_sequences() : 0),
         words((subchain.num_kmers() + 63) / 64) {
-        if (this->bp_limit || this->n_limit) {
+        if (parameters.has_new_bp_limit() || parameters.has_n_base_limit()) {
             if (fragment_map == nullptr) {
                 throw std::invalid_argument("select_haplotypes(): the new-bp and N-base limits need a fragment map");
             }
@@ -2556,8 +2538,8 @@ public:
     // Return true if the candidate is within the limits. The new-bp limit does not
     // apply to the first haplotype.
     bool allows(size_t seq_offset, bool first) {
-        bool within_bp = (!this->bp_limit || first || this->within_bp_limit(seq_offset));
-        return within_bp && (!this->n_limit || this->within_n_limit(seq_offset));
+        bool within_bp = (!this->parameters.has_new_bp_limit() || first || this->within_bp_limit(seq_offset));
+        return within_bp && (!this->parameters.has_n_base_limit() || this->within_n_limit(seq_offset));
     }
 
     // Count a selected haplotype among those that candidates are compared with.
@@ -2567,7 +2549,7 @@ public:
                 this->selected_bits[w] |= this->candidate_bits[seq_offset][w];
             }
         }
-        if (this->bp_limit) {
+        if (this->parameters.has_new_bp_limit()) {
             for (nid_t node : this->nodes_of(seq_offset)) {
                 this->selected_nodes.insert(node);
             }
@@ -2584,16 +2566,13 @@ private:
     // Finds the lengths and the N bases of the nodes.
     NodeBaseCounts node_bases;
 
-    size_t max_new_bp;
-    double bp_escape;
-    size_t max_n_bp;
-    bool bp_limit;
-    bool escape;
-    bool n_limit;
+    const Recombinator::Parameters& parameters;
 
-    // The nodes and the N bases of each candidate, once found.
+    // The escape from the new-bp limit applies.
+    bool escape;
+
+    // The nodes of each candidate, once found.
     std::vector<std::optional<std::vector<nid_t>>> candidate_nodes;
-    std::vector<std::optional<size_t>> candidate_n_bases;
 
     // The nodes the selected haplotypes visit.
     hash_set<nid_t> selected_nodes;
@@ -2608,7 +2587,9 @@ private:
     const std::vector<nid_t>& nodes_of(size_t seq_offset) {
         std::optional<std::vector<nid_t>>& nodes = this->candidate_nodes[seq_offset];
         if (!nodes) {
-            nodes = subchain_walk_nodes(*this->cache, this->subchain, seq_offset, *this->fragment_map);
+            nodes = subchain_walk_nodes(
+                *this->cache, this->subchain.start, this->subchain.end, this->subchain.sequences[seq_offset], *this->fragment_map
+            );
         }
         return *nodes;
     }
@@ -2620,7 +2601,7 @@ private:
                 new_bp += this->node_bases(node).first;
             }
         }
-        if (new_bp <= this->max_new_bp) {
+        if (new_bp <= this->parameters.max_new_bp) {
             return true;
         }
         if (!this->escape) {
@@ -2630,18 +2611,11 @@ private:
         for (size_t w = 0; w < this->words; w++) {
             new_sample += __builtin_popcountll(this->candidate_bits[seq_offset][w] & ~this->selected_bits[w] & this->sample_bits[w]);
         }
-        return (double(new_sample) * this->bp_escape >= double(new_bp));
+        return (double(new_sample) * this->parameters.bp_escape >= double(new_bp));
     }
 
     bool within_n_limit(size_t seq_offset) {
-        std::optional<size_t>& n_bases = this->candidate_n_bases[seq_offset];
-        if (!n_bases.has_value()) {
-            n_bases = 0;
-            for (nid_t node : this->nodes_of(seq_offset)) {
-                *n_bases += this->node_bases(node).second;
-            }
-        }
-        return (*n_bases <= this->max_n_bp);
+        return (this->node_bases.totals(this->nodes_of(seq_offset)).second <= this->parameters.max_n_bp);
     }
 };
 

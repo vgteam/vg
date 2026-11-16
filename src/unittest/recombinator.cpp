@@ -102,6 +102,25 @@ TEST_CASE("Paths are clipped to the nodes and edges of a GBWT index", "[gref][re
 
 namespace {
 
+// Sets the kmers of the subchain. Kmer `j` is the key `j + 1`, and it is in sequence `i`
+// if `rows[i][j]` is `1`. Every kmer gets a placeholder count of 2 sequences. The
+// sequences are not changed.
+void set_kmer_rows(Haplotypes::Subchain& subchain, const std::vector<std::string>& rows) {
+    size_t num_kmers = rows.front().size();
+    sdsl::bit_vector matrix(rows.size() * num_kmers, 0);
+    for (size_t i = 0; i < rows.size(); i++) {
+        for (size_t j = 0; j < num_kmers; j++) {
+            matrix[i * num_kmers + j] = (rows[i][j] == '1');
+        }
+    }
+    subchain.kmers.clear();
+    for (size_t j = 0; j < num_kmers; j++) {
+        subchain.kmers.push_back(j + 1);
+    }
+    subchain.kmer_counts = sdsl::int_vector<0>(num_kmers, 2, 64);
+    subchain.kmers_present = KmerPresenceMatrix(rows.size(), num_kmers, std::move(matrix));
+}
+
 // A GBZ graph with one subchain from node 1 to node 6 and four haplotypes:
 // sequence 0: 1 2 4 6
 // sequence 1: 1 3 4 6 (node 3 is 2000 bp)
@@ -115,25 +134,18 @@ struct SelectionFixture {
     double coverage = 30.0;
 
     SelectionFixture() {
-        std::vector<std::vector<nid_t>> paths { { 1, 2, 4, 6 }, { 1, 3, 4, 6 }, { 1, 2, 5, 6 }, { 1, 2, 4, 6 } };
-        gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
-        gbwt::GBWTBuilder builder(gbwt::bit_length(gbwt::Node::encode(6, true)), 100);
-        for (const auto& path : paths) {
-            gbwt::vector_type encoded;
-            for (nid_t id : path) {
-                encoded.push_back(static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(id, false)));
-            }
-            builder.insert(encoded, true);
-        }
-        builder.finish();
-        builder.index.addMetadata();
-        builder.index.metadata.setSamples({ "s0", "s1", "s2", "s3" });
-        builder.index.metadata.setHaplotypes(paths.size());
-        builder.index.metadata.setContigs({ "chr" });
+        std::vector<gbwt::vector_type> paths {
+            { fwd(1), fwd(2), fwd(4), fwd(6) }, { fwd(1), fwd(3), fwd(4), fwd(6) },
+            { fwd(1), fwd(2), fwd(5), fwd(6) }, { fwd(1), fwd(2), fwd(4), fwd(6) }
+        };
+        gbwt::GBWT index = get_gbwt(paths);
+        index.addMetadata();
+        index.metadata.setSamples({ "s0", "s1", "s2", "s3" });
+        index.metadata.setHaplotypes(paths.size());
+        index.metadata.setContigs({ "chr" });
         for (size_t i = 0; i < paths.size(); i++) {
-            builder.index.metadata.addPath(i, 0, 0, 0);
+            index.metadata.addPath(i, 0, 0, 0);
         }
-        gbwt::GBWT index(builder.index);
 
         gbwtgraph::NaiveGraph source;
         source.create_node(1, "GATTACAGATTACA");
@@ -153,34 +165,17 @@ struct SelectionFixture {
         // kmer 6 in sequence 2. All of them are present in the sample, so without
         // limits the selection order is 0, 3, 1, 2.
         this->subchain.type = Haplotypes::Subchain::normal;
-        this->subchain.start = gbwt::Node::encode(1, false);
-        this->subchain.end = gbwt::Node::encode(6, false);
+        this->subchain.start = fwd(1);
+        this->subchain.end = fwd(6);
         this->subchain.placeholder = 0;
         for (size_t i = 0; i < paths.size(); i++) {
             // Sequence `i` starts at offset `i` of node 1.
             this->subchain.sequences.push_back({ gbwt::Path::encode(i, false), i });
         }
-        this->set_rows({ "1111000", "0000110", "0000001", "1111000" });
+        set_kmer_rows(this->subchain, { "1111000", "0000110", "0000001", "1111000" });
         for (size_t j = 0; j < this->subchain.num_kmers(); j++) {
             this->kmer_counts[j + 1] = 30;
         }
-    }
-
-    // Sets the kmers of the subchain: kmer `j` is in sequence `i` if `rows[i][j]` is `1`.
-    void set_rows(const std::vector<std::string>& rows) {
-        size_t num_kmers = rows.front().size();
-        sdsl::bit_vector matrix(rows.size() * num_kmers, 0);
-        for (size_t i = 0; i < rows.size(); i++) {
-            for (size_t j = 0; j < num_kmers; j++) {
-                matrix[i * num_kmers + j] = (rows[i][j] == '1');
-            }
-        }
-        this->subchain.kmers.clear();
-        for (size_t j = 0; j < num_kmers; j++) {
-            this->subchain.kmers.push_back(j + 1);
-        }
-        this->subchain.kmer_counts = sdsl::int_vector<0>(num_kmers, 2, 64);
-        this->subchain.kmers_present = KmerPresenceMatrix(rows.size(), num_kmers, std::move(matrix));
     }
 
     // Returns the sequence offsets of the selected haplotypes.
@@ -243,7 +238,7 @@ TEST_CASE("Haplotype selection in a subchain", "[haplotypes][recombinator]") {
 
     SECTION("the escape counts only kmers that the selected haplotypes lack") {
         // Sequence 3 also has kmer 4, and it becomes the first haplotype.
-        fixture.set_rows({ "1111000", "0000110", "0000001", "1111100" });
+        set_kmer_rows(fixture.subchain, { "1111000", "0000110", "0000001", "1111100" });
         parameters.max_new_bp = 1000;
         parameters.bp_escape = 1000.0;
         REQUIRE(fixture.select(parameters, context) == std::vector<size_t>({ 3, 0, 2, 3 }));
@@ -308,14 +303,10 @@ TEST_CASE("Threading by similarity", "[haplotypes][recombinator]") {
     std::vector<std::string> rows { "1100", "1110", "0011", "0001" };
     Haplotypes::Subchain subchain;
     subchain.type = Haplotypes::Subchain::normal;
-    sdsl::bit_vector matrix(rows.size() * 4, 0);
     for (size_t i = 0; i < rows.size(); i++) {
         subchain.sequences.push_back({ 2 * i, 0 });
-        for (size_t j = 0; j < 4; j++) {
-            matrix[i * 4 + j] = (rows[i][j] == '1');
-        }
     }
-    subchain.kmers_present = KmerPresenceMatrix(rows.size(), 4, std::move(matrix));
+    set_kmer_rows(subchain, rows);
     std::vector<std::pair<size_t, double>> selected { { 1, 0.0 }, { 3, 0.0 } };
 
     SECTION("an unmatched haplotype takes the closest unused selection") {
@@ -360,9 +351,8 @@ TEST_CASE("Threading by similarity", "[haplotypes][recombinator]") {
 TEST_CASE("Model pair candidates in a subchain", "[haplotypes][recombinator]") {
     SelectionFixture fixture;
     Recombinator::Parameters parameters;
-    pair_model::CountModel model;
-    model.mu = 15.0; model.eps = 0.5; model.r1 = 20.0; model.r0 = 0.5;
-    std::vector<double> table = pair_model::count_table(model, std::vector<double>(pair_model::CountModel::MAX_COUNT + 1, 1.0));
+    pair_model::CountModel model { .mu = 15.0, .eps = 0.5, .r1 = 20.0, .r0 = 0.5 };
+    pair_model::CountTable table = pair_model::count_table(model, std::vector<double>(pair_model::CountModel::MAX_COUNT + 1, 1.0));
     auto candidates = [&]() {
         return model_candidates(fixture.gbz, fixture.subchain, fixture.kmer_counts, table, fixture.fragment_map, 29, parameters);
     };

@@ -104,11 +104,8 @@ public:
         /// cross them multiple times.
         bool linear_structure = false;
 
-        /// Represent the haplotypes with subchain kmers instead of minimizers with a
-        /// single occurrence in the graph. A subchain kmer is a minimizer whose every
-        /// occurrence in the graph is on a node that the haplotypes crossing the
-        /// subchain visit. The subchain also stores the number of copies of each kmer
-        /// in each sequence.
+        /// Represent the haplotypes with subchain kmers (see `Haplotypes`) instead of
+        /// minimizers with a single occurrence in the graph.
         bool subchain_kmers = false;
 
         /// Print a description of the parameters.
@@ -394,6 +391,12 @@ public:
         /// selected haplotypes are repeated.
         size_t max_n_bp = std::numeric_limits<size_t>::max();
 
+        /// Returns true if there is a new-bp limit (`max_new_bp` is not the largest value).
+        bool has_new_bp_limit() const { return this->max_new_bp != std::numeric_limits<size_t>::max(); }
+
+        /// Returns true if there is an N-base limit (`max_n_bp` is not the largest value).
+        bool has_n_base_limit() const { return this->max_n_bp != std::numeric_limits<size_t>::max(); }
+
         /// Match generated haplotypes with the haplotypes selected in a subchain by
         /// similarity. A generated haplotype first continues with the GBWT sequence it
         /// took in the previous subchain, if that sequence was selected. With this
@@ -613,10 +616,10 @@ void validate_recombinator_parameters(const Recombinator::Parameters& parameters
  *
  * If the context has a pair, it becomes the first two haplotypes, and the function
  * throws `std::runtime_error` if a member of the pair cannot be selected. The rest are
- * selected greedily by kmer scores within the limits in the parameters, which need
- * the fragment map of the context. Throws `std::invalid_argument` if a new-bp or N-base
- * limit is set and the context has no fragment map. With diploid
- * sampling, the result is the best pair of the selected haplotypes, possibly followed
+ * selected greedily by kmer scores within the limits in the parameters. Throws
+ * `std::invalid_argument` if a new-bp or N-base limit is set and the context has no
+ * fragment map. With diploid sampling, the result is the best pair of the selected
+ * haplotypes, possibly followed
  * by extra fragments. Otherwise the selected haplotypes are repeated until there are
  * `parameters.num_haplotypes` of them.
  *
@@ -672,8 +675,9 @@ hash_map<std::uint32_t, std::uint32_t> count_oriented_kmers(
  * (`Recombinator::Parameters::model_pair`), with pair scores from the table made
  * by `pair_model::count_table()`. The model uses the sequences that can be selected,
  * except those with more than `parameters.max_n_bp` N bases, unless every sequence
- * that can be selected has that many. If no sequence can be selected, the N-base rule
- * applies to all sequences. The candidates are the groups that
+ * that can be selected has that many. If no sequence can be selected, the model uses
+ * every sequence, because the hidden Markov model needs candidates in every subchain;
+ * the N-base rule then applies to all of them. The candidates are the groups that
  * `pair_model::score_pairs()` keeps among the sequences the model uses. The haplotype
  * of a sequence is the sample and the phase of its path. The length of the subchain is
  * the median, over the sequences, of the total length of the distinct nodes each one
@@ -681,7 +685,7 @@ hash_map<std::uint32_t, std::uint32_t> count_oriented_kmers(
  */
 pair_model::Candidates model_candidates(
     const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain,
-    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, const std::vector<double>& table,
+    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, const pair_model::CountTable& table,
     const gbwt::FragmentMap& fragment_map, size_t k, const Recombinator::Parameters& parameters
 );
 

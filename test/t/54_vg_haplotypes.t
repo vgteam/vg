@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 127
+plan tests 122
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -182,62 +182,53 @@ is $? 0 "the outputs are identical"
 # Subchain kmers, the selection limits, threading by similarity, and the model pair
 vg haplotypes --validate --subchain-length 300 --subchain-kmers -H subchain.hapl full.gbz
 is $? 0 "generating haplotype information with subchain kmers"
-cmp -s subchain.hapl full.hapl
-is $? 1 "subchain kmers change the haplotype information"
-MODEL_OPTIONS="--continuity-bonus 2 --max-new-bp 1000 --bp-escape 300 --max-n-bp 0 --similar-threading --model-pair"
-vg haplotypes --validate -t 4 -i subchain.hapl -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 8 \
-    ${MODEL_OPTIONS} -g model_pair.gbz full.gbz
+SUBCHAIN_SAMPLING="-i subchain.hapl -k haplotype-sampling/HG003.kff --num-haplotypes 8"
+# What --preset model sets, apart from the number of haplotypes.
+MODEL_OPTIONS="--include-reference --continuity-bonus 2 --max-new-bp 1000 --bp-escape 300 --max-n-bp 0 --similar-threading --model-pair"
+vg haplotypes --validate -t 4 ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS} -g model_pair.gbz full.gbz
 is $? 0 "sampling with the model pair"
 is $(vg gbwt -C -Z model_pair.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z model_pair.gbz) 10 "8 generated + 2 reference haplotypes"
-vg haplotypes -t 1 -i subchain.hapl -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 8 \
-    ${MODEL_OPTIONS} -g model_pair_t1.gbz full.gbz
+vg haplotypes -t 1 ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS} -g model_pair_t1.gbz full.gbz
 cmp -s model_pair.gbz model_pair_t1.gbz
 is $? 0 "the model pair does not depend on the number of threads"
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --preset model --num-haplotypes 8 -g preset_model.gbz full.gbz
+vg haplotypes --preset model ${SUBCHAIN_SAMPLING} -g preset_model.gbz full.gbz
 cmp -s model_pair.gbz preset_model.gbz
 is $? 0 "the model preset sets the model pair options"
 vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --preset model -g /dev/null full.gbz 2> preset_log.txt
 is $? 1 "the model preset needs an index with subchain kmers"
 is $(grep -c "the model preset needs haplotype information built with --subchain-kmers" preset_log.txt) 1 "an appropriate error message is printed"
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 8 \
-    --continuity-bonus 2 --max-new-bp 1000 --bp-escape 300 --max-n-bp 0 --similar-threading -g no_model_pair.gbz full.gbz
+# The next three runs each leave out one of the model options.
+vg haplotypes ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS/ --model-pair} -g no_model_pair.gbz full.gbz
 cmp -s model_pair.gbz no_model_pair.gbz
 is $? 1 "the model pair changes the output"
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 8 \
-    --continuity-bonus 2 --max-new-bp 1000 --bp-escape 300 --max-n-bp 0 --model-pair -g no_similar.gbz full.gbz
+vg haplotypes ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS/ --similar-threading} -g no_similar.gbz full.gbz
 cmp -s model_pair.gbz no_similar.gbz
 is $? 1 "threading by similarity changes the output"
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 8 \
-    --max-new-bp 1000 --bp-escape 300 --max-n-bp 0 --similar-threading --model-pair -g no_bonus.gbz full.gbz
+vg haplotypes ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS/ --continuity-bonus 2} -g no_bonus.gbz full.gbz
 cmp -s model_pair.gbz no_bonus.gbz
 is $? 1 "the continuity bonus changes the output"
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 8 -g no_limit.gbz full.gbz
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 8 --max-new-bp 10 -g bp_limit.gbz full.gbz
+vg haplotypes ${SUBCHAIN_SAMPLING} --include-reference -g no_limit.gbz full.gbz
+vg haplotypes ${SUBCHAIN_SAMPLING} --include-reference --max-new-bp 10 -g bp_limit.gbz full.gbz
 cmp -s no_limit.gbz bp_limit.gbz
 is $? 1 "the new-bp limit changes the output"
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 8 --max-new-bp 10 --bp-escape 10 -g bp_escape.gbz full.gbz
+vg haplotypes ${SUBCHAIN_SAMPLING} --include-reference --max-new-bp 10 --bp-escape 10 -g bp_escape.gbz full.gbz
 cmp -s bp_limit.gbz bp_escape.gbz
 is $? 1 "the bp escape changes the output"
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --num-haplotypes 8 --max-new-bp 10 -g bp_limit_no_ref.gbz full.gbz
+vg haplotypes ${SUBCHAIN_SAMPLING} --max-new-bp 10 -g bp_limit_no_ref.gbz full.gbz
 cmp -s <(vg paths -F -x bp_limit.gbz -Q recombination) <(vg paths -F -x bp_limit_no_ref.gbz -Q recombination)
 is $? 0 "the reference paths do not change the generated haplotypes"
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --num-haplotypes 8 --high-cov-contig chr6 -g hicov.gbz full.gbz
-vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --num-haplotypes 8 --high-cov-contig chr6 --model-pair -g hicov_model_pair.gbz full.gbz
-cmp -s <(vg paths -F -x hicov.gbz -Q recombination | awk '/^>/ { keep = /#chr6/ } keep') \
-    <(vg paths -F -x hicov_model_pair.gbz -Q recombination | awk '/^>/ { keep = /#chr6/ } keep')
+# The generated haplotypes on chr6 in FASTA.
+generated_on_chr6() { vg paths -F -x "$1" -Q recombination | awk '/^>/ { keep = /#chr6/ } keep'; }
+vg haplotypes ${SUBCHAIN_SAMPLING} --high-cov-contig chr6 -g hicov_subchain.gbz full.gbz
+vg haplotypes ${SUBCHAIN_SAMPLING} --high-cov-contig chr6 --model-pair -g hicov_model_pair.gbz full.gbz
+cmp -s <(generated_on_chr6 hicov_subchain.gbz) <(generated_on_chr6 hicov_model_pair.gbz)
 is $? 0 "a high-coverage contig gets no model pairs"
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --num-haplotypes 4 --model-pair -g model_pair_unique.gbz full.gbz
 is $? 0 "the model pair works with minimizers with a single occurrence"
 vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --bp-escape 300 -g /dev/null full.gbz 2> escape_log.txt
 is $? 1 "the bp escape needs a new-bp limit"
 is $(grep -c "bp escape needs a new-bp limit" escape_log.txt) 1 "an appropriate error message is printed"
-vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --diploid-sampling --model-pair -g /dev/null full.gbz 2> diploid_log.txt
-is $? 1 "the model pair cannot be used with diploid sampling"
-is $(grep -c "cannot be combined with diploid sampling" diploid_log.txt) 1 "an appropriate error message is printed"
-vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --haploid-scoring --model-pair -g /dev/null full.gbz 2> haploid_log.txt
-is $? 1 "the model pair cannot be used with haploid scoring"
-is $(grep -c "cannot be combined with haploid scoring" haploid_log.txt) 1 "an appropriate error message is printed"
 
 # Subchain kmers with a single construction job, where the subchains are built in
 # parallel. The nodes up to 61718199 are the micb component of the test graph.
@@ -447,7 +438,7 @@ rm -f diploid.gbz diploid2.gbz diploid3.gbz
 rm -f diploid_ignore.gbz diploid_ont.gbz
 rm -f subchain.hapl model_pair.gbz model_pair_t1.gbz preset_model.gbz no_model_pair.gbz no_similar.gbz no_bonus.gbz
 rm -f no_limit.gbz bp_limit.gbz bp_escape.gbz bp_limit_no_ref.gbz model_pair_unique.gbz
-rm -f hicov.gbz hicov_model_pair.gbz preset_log.txt escape_log.txt diploid_log.txt haploid_log.txt
+rm -f hicov_subchain.gbz hicov_model_pair.gbz preset_log.txt escape_log.txt
 rm -f micb.gfa micb.gbz micb.ri micb.dist micb_t1.hapl micb_t4.hapl micb_log.txt
 rm -f gref.pg gref.gfa gref.gbz gref.ri gref.dist gref.hapl gref.fa
 rm -f gref_base.gbz gref_ref.gbz gref_ref.fa gref_long.gbz

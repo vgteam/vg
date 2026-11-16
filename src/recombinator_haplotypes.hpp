@@ -376,6 +376,10 @@ public:
         /// A matrix indicating which kmers are present in which sequences.
         KmerPresenceMatrix kmers_present;
 
+        /// The kmers with more than one copy in a sequence, as (kmer id, copies) ordered
+        /// by kmer id. A present kmer that is not listed has one copy.
+        typedef std::vector<std::pair<std::uint32_t, std::uint32_t>> kmer_copies_type;
+
         /// The number of copies of the kmers that occur more than once in a sequence,
         /// in an index built with subchain kmers; empty otherwise. For sequence `i`,
         /// entries `copy_offsets[i]` to `copy_offsets[i + 1] - 1` of `copy_kmers`
@@ -395,6 +399,11 @@ public:
         /// the offsets do not decrease, each sequence lists kmer ids of the subchain in
         /// increasing order, and each number of copies is from 2 to `MAX_COPIES`.
         void check_copies() const;
+
+        /// Set the copies of the kmers in each sequence. The values are stored as given,
+        /// in fields wide enough for them and for the kmers of the subchain, and they
+        /// are not checked (see `check_copies()`).
+        void set_copies(const std::vector<kmer_copies_type>& copies);
 
         /// Call `callback(kmer_id, copies)` for each kmer with more than one copy in
         /// the given sequence, ordered by kmer id.

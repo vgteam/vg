@@ -678,6 +678,32 @@ void Haplotypes::Subchain::check_copies() const {
     }
 }
 
+void Haplotypes::Subchain::set_copies(const std::vector<kmer_copies_type>& copies) {
+    size_t total = 0;
+    size_t kmer_bound = this->kmers.size();
+    size_t value_bound = MAX_COPIES;
+    for (const kmer_copies_type& list : copies) {
+        total += list.size();
+        for (const auto& [kmer, value] : list) {
+            kmer_bound = std::max(kmer_bound, size_t(kmer));
+            value_bound = std::max(value_bound, size_t(value));
+        }
+    }
+    this->copy_offsets = sdsl::int_vector<0>(copies.size() + 1, 0, static_cast<std::uint8_t>(sdsl::bits::length(total)));
+    this->copy_kmers = sdsl::int_vector<0>(total, 0, static_cast<std::uint8_t>(sdsl::bits::length(kmer_bound)));
+    this->copy_values = sdsl::int_vector<0>(total, 0, static_cast<std::uint8_t>(sdsl::bits::length(value_bound)));
+    size_t offset = 0;
+    for (size_t i = 0; i < copies.size(); i++) {
+        this->copy_offsets[i] = offset;
+        for (const auto& [kmer, value] : copies[i]) {
+            this->copy_kmers[offset] = kmer;
+            this->copy_values[offset] = value;
+            offset++;
+        }
+    }
+    this->copy_offsets[copies.size()] = offset;
+}
+
 void Haplotypes::Subchain::simple_sds_load(std::istream& in, std::uint32_t version) {
     load_subchain_header(*this, in, version);
 
@@ -773,9 +799,6 @@ bool Haplotypes::has_copies() const {
 }
 
 std::uint32_t Haplotypes::file_version() const {
-    // An index without copies is written in the version before the copies, so that
-    // earlier versions of vg can read it. A later version must decide which version
-    // such an index gets.
     static_assert(Header::VERSION == Header::COPIES_VERSION, "choose the file version of an index without copies");
     return (this->has_copies() ? Header::VERSION : Header::COPIES_VERSION - 1);
 }

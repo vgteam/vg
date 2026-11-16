@@ -179,6 +179,21 @@ void check_queries(
         }
     }
 
+    // The presence of the kmers in a single sequence as 64-bit words.
+    for (size_t i = 0; i < rows.size(); i++) {
+        std::vector<std::uint64_t> row;
+        matrix.presence_row(i, row);
+        REQUIRE(row.size() == (num_kmers + 63) / 64);
+        for (size_t j = 0; j < num_kmers; j++) {
+            bool bit = (row[j / 64] >> (j % 64)) & 1;
+            bool expected = (rows[i][j] == '1');
+            if (bit != expected) {
+                std::cerr << name << ": wrong presence row bit for kmer " << j << " in sequence " << i << std::endl;
+            }
+            REQUIRE(bit == expected);
+        }
+    }
+
     // Out-of-range sequences do not produce any calls.
     {
         size_t calls = 0;
@@ -540,55 +555,10 @@ TEST_CASE("Scoring the haplotypes in a subchain", "[haplotypes]") {
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("Kmer presence rows", "[haplotypes]") {
-    // Clustered rows make a compressed matrix with children.
-    for (size_t num_kmers : { size_t(0), size_t(1), size_t(63), size_t(64), size_t(130) }) {
-        std::vector<std::string> rows(12, "");
-        if (num_kmers > 0) {
-            rows = clustered_rows(3, 4, num_kmers, 2, 0x1234 + num_kmers);
-        }
-        Haplotypes::Subchain subchain = build_subchain(rows, num_kmers);
-        if (num_kmers >= 63) {
-            REQUIRE(subchain.kmers_present.get_num_parents() < subchain.num_sequences());
-        }
-        for (size_t i = 0; i < subchain.num_sequences(); i++) {
-            std::vector<std::uint64_t> row;
-            subchain.presence_row(i, row);
-            REQUIRE(row.size() == (num_kmers + 63) / 64);
-            const std::string& source = rows[subchain.sequences[i].first];
-            for (size_t kmer_id = 0; kmer_id < num_kmers; kmer_id++) {
-                bool bit = (row[kmer_id / 64] >> (kmer_id % 64)) & 1;
-                REQUIRE(bit == (source[kmer_id] == '1'));
-            }
-        }
-    }
-}
-
 namespace {
 
-// Adds kmer copies to a subchain. `copies[i]` lists (kmer id, copies) for sequence `i`.
-void add_copies(Haplotypes::Subchain& subchain, const std::vector<std::vector<std::pair<size_t, size_t>>>& copies) {
-    size_t total = 0;
-    for (const auto& list : copies) {
-        total += list.size();
-    }
-    subchain.copy_offsets = sdsl::int_vector<0>(copies.size() + 1, 0, 64);
-    subchain.copy_kmers = sdsl::int_vector<0>(total, 0, 64);
-    subchain.copy_values = sdsl::int_vector<0>(total, 0, 64);
-    size_t offset = 0;
-    for (size_t i = 0; i < copies.size(); i++) {
-        subchain.copy_offsets[i] = offset;
-        for (const auto& [kmer, value] : copies[i]) {
-            subchain.copy_kmers[offset] = kmer;
-            subchain.copy_values[offset] = value;
-            offset++;
-        }
-    }
-    subchain.copy_offsets[copies.size()] = offset;
-}
-
-std::vector<std::pair<size_t, size_t>> get_copies(const Haplotypes::Subchain& subchain, size_t sequence) {
-    std::vector<std::pair<size_t, size_t>> result;
+Haplotypes::Subchain::kmer_copies_type get_copies(const Haplotypes::Subchain& subchain, size_t sequence) {
+    Haplotypes::Subchain::kmer_copies_type result;
     subchain.for_each_copy(sequence, [&result](size_t kmer_id, size_t copies) {
         result.emplace_back(kmer_id, copies);
     });
@@ -601,13 +571,19 @@ void check_same_kmers(const Haplotypes::Subchain& subchain, const Haplotypes::Su
     REQUIRE(loaded.end == subchain.end);
     REQUIRE(loaded.kmers == subchain.kmers);
     REQUIRE(loaded.sequences == subchain.sequences);
-    for (size_t i = 0; i < subchain.num_sequences(); i++) {
-        std::vector<std::uint64_t> expected;
-        std::vector<std::uint64_t> found;
-        subchain.presence_row(i, expected);
-        loaded.presence_row(i, found);
-        REQUIRE(found == expected);
-    }
+    REQUIRE(loaded.kmers_present == subchain.kmers_present);
+}
+
+// Serializes the subchain in the version, loads it into `loaded`, and checks the size,
+// the end of the stream and the kmers.
+void check_round_trip(const Haplotypes::Subchain& subchain, Haplotypes::Subchain& loaded, std::uint32_t version) {
+    std::stringstream buffer;
+    buffer.exceptions(std::ios::failbit | std::ios::badbit);
+    subchain.simple_sds_serialize(buffer, version);
+    REQUIRE(buffer.str().size() == subchain.simple_sds_size(version) * sizeof(sdsl::simple_sds::element_type));
+    loaded.simple_sds_load(buffer, version);
+    REQUIRE(buffer.peek() == EOF);
+    check_same_kmers(subchain, loaded);
 }
 
 } // anonymous namespace
@@ -619,7 +595,7 @@ TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
         "1100"
     };
     Haplotypes::Subchain subchain = build_subchain(matrix, 4);
-    std::vector<std::vector<std::pair<size_t, size_t>>> copies {
+    std::vector<Haplotypes::Subchain::kmer_copies_type> copies {
         { { 0, 2 }, { 3, 5 } },
         {},
         { { 1, 3 } }
@@ -633,7 +609,7 @@ TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
     }
 
     SECTION("copies are listed by sequence") {
-        add_copies(subchain, copies);
+        subchain.set_copies(copies);
         REQUIRE(subchain.has_copies());
         for (size_t i = 0; i < subchain.num_sequences(); i++) {
             REQUIRE(get_copies(subchain, i) == copies[i]);
@@ -641,15 +617,9 @@ TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
     }
 
     SECTION("serialization") {
-        add_copies(subchain, copies);
-        std::stringstream buffer;
-        buffer.exceptions(std::ios::failbit | std::ios::badbit);
-        subchain.simple_sds_serialize(buffer);
-        REQUIRE(buffer.str().size() == subchain.simple_sds_size() * sizeof(sdsl::simple_sds::element_type));
+        subchain.set_copies(copies);
         Haplotypes::Subchain loaded;
-        loaded.simple_sds_load(buffer, Haplotypes::Header::VERSION);
-        REQUIRE(buffer.peek() == EOF);
-        check_same_kmers(subchain, loaded);
+        check_round_trip(subchain, loaded, Haplotypes::Header::VERSION);
         REQUIRE(loaded.has_copies());
         for (size_t i = 0; i < subchain.num_sequences(); i++) {
             REQUIRE(get_copies(loaded, i) == copies[i]);
@@ -657,17 +627,10 @@ TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
     }
 
     SECTION("an earlier version has no copies") {
-        std::uint32_t version = Haplotypes::Header::COPIES_VERSION - 1;
-        std::stringstream buffer;
-        buffer.exceptions(std::ios::failbit | std::ios::badbit);
-        subchain.simple_sds_serialize(buffer, version);
-        REQUIRE(buffer.str().size() == subchain.simple_sds_size(version) * sizeof(sdsl::simple_sds::element_type));
         // Loading replaces the copies the subchain had.
         Haplotypes::Subchain loaded = subchain;
-        add_copies(loaded, copies);
-        loaded.simple_sds_load(buffer, version);
-        REQUIRE(buffer.peek() == EOF);
-        check_same_kmers(subchain, loaded);
+        loaded.set_copies(copies);
+        check_round_trip(subchain, loaded, Haplotypes::Header::COPIES_VERSION - 1);
         REQUIRE(!loaded.has_copies());
     }
 
@@ -676,17 +639,17 @@ TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
         // values as kmers, the last offset, offsets that do not decrease, kmer ids of
         // the subchain, kmer ids in increasing order, and the range of the values.
         std::vector<Haplotypes::Subchain> invalid(8, subchain);
-        add_copies(invalid[0], { { { 0, 2 } }, {} });
-        add_copies(invalid[1], copies);
+        invalid[0].set_copies({ { { 0, 2 } }, {} });
+        invalid[1].set_copies(copies);
         invalid[1].copy_values.resize(invalid[1].copy_kmers.size() - 1);
-        add_copies(invalid[2], copies);
-        invalid[2].copy_offsets[subchain.num_sequences()] = invalid[2].copy_kmers.size() + 1;
-        add_copies(invalid[3], copies);
+        invalid[2].set_copies(copies);
+        invalid[2].copy_offsets[subchain.num_sequences()] = invalid[2].copy_kmers.size() - 1;
+        invalid[3].set_copies(copies);
         invalid[3].copy_offsets[1] = 3;
-        add_copies(invalid[4], { { { 4, 2 } }, {}, {} });
-        add_copies(invalid[5], { { { 3, 2 }, { 0, 2 } }, {}, {} });
-        add_copies(invalid[6], { { { 0, 1 } }, {}, {} });
-        add_copies(invalid[7], { { { 0, Haplotypes::Subchain::MAX_COPIES + 1 } }, {}, {} });
+        invalid[4].set_copies({ { { 4, 2 } }, {}, {} });
+        invalid[5].set_copies({ { { 3, 2 }, { 0, 2 } }, {}, {} });
+        invalid[6].set_copies({ { { 0, 1 } }, {}, {} });
+        invalid[7].set_copies({ { { 0, Haplotypes::Subchain::MAX_COPIES + 1 } }, {}, {} });
         for (const Haplotypes::Subchain& broken : invalid) {
             std::stringstream buffer;
             broken.simple_sds_serialize(buffer);
@@ -741,7 +704,7 @@ TEST_CASE("Haplotype index file version", "[haplotypes]") {
     }
 
     SECTION("an index with copies uses the current version") {
-        add_copies(haplotypes.chains[0].subchains[0], { { { 0, 2 } }, {}, { { 1, 3 } } });
+        haplotypes.chains[0].subchains[0].set_copies({ { { 0, 2 } }, {}, { { 1, 3 } } });
         REQUIRE(haplotypes.file_version() == Haplotypes::Header::VERSION);
         REQUIRE(round_trip() == Haplotypes::Header::VERSION);
     }
