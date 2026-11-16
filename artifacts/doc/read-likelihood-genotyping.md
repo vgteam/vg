@@ -645,11 +645,57 @@ INFO tags:
 - `INFO/RC`, `INFO/RS` and `INFO/RD` give a contig, start and end at which to look the record up,
   normally those of its outermost enclosing site; the VCF header gives the details.
 
+### Mapping without the reference
+
+The anchor file ties reads to the sample's strands, and the mosaic names the panel haplotypes those
+strands copy, so both depend on where the mapper placed each read. `vg haplotypes` makes a graph for
+the sample whose haplotypes are pieced together from panel haplotypes chosen to resemble the
+sample's. With `--include-reference`, which its presets turn on, the graph also keeps the reference
+paths, which were not chosen that way. The mapper can place a read that the sampled haplotypes fit
+imperfectly on a reference path instead, including on sequence that only the reference visits, and
+so away from the sample's alleles.
+
+To prevent this, map the reads to a copy of the graph without the reference paths, and call on the
+graph that has them, since `vg call` reports positions on the reference paths. Removing the
+reference paths leaves out the nodes that no other path visits, and keeps the rest with their IDs,
+so a placement in the copy is also a placement in the graph. For a `graph.gbz` whose reference
+sample is `CHM13`:
+
+```
+vg gbwt -Z graph.gbz -o graph.gbwt
+vg gbwt -x graph.gbz -R CHM13 -g graph.noref.gbz graph.gbwt
+```
+
+The first command copies out the GBZ file's GBWT, the index that holds its paths, because `vg gbwt`
+cannot remove paths from a GBWT inside a GBZ file. The second reads the paths from `graph.gbwt` and
+the node sequences from `graph.gbz`, removes the paths of sample `CHM13`, and writes the rest as
+`graph.noref.gbz`. `vg paths -M -x graph.gbz` lists each path's sample and sense; give `-R` once for
+each sample whose paths are marked `REFERENCE`, and when there are several, name the one to report
+positions on with `--ref-sample` when calling. Then index the copy, map the reads to it, and call
+on the graph. For nanopore reads:
+
+```
+vg autoindex -w lr-giraffe -G graph.noref.gbz -p map
+vg giraffe -b r10 -Z graph.noref.gbz -d map.dist -m map.longread.withzip.min \
+    -z map.longread.zipcodes -f reads.fq.gz -o gaf > reads.gaf
+vg call graph.gbz --read-likelihood --preset ont --gaf-reads reads.gaf \
+    --mosaic-out mosaic.tsv --anchors-out anchors.tsv > calls.vcf
+```
+
+`--gaf-reads` alone loads every read into memory; for a whole genome, sort and index the GAF and
+give the index with `--gaf-index` (see [Read input](read-likelihood-direct-genotyping.md#read-input)).
+
+`vg giraffe` can also sample haplotypes itself, with `--haplotype-name` and `--kff-name`. With its
+default sampling preset, and with the presets that `-b hifi` and `-b r10` select, the graph it
+samples and maps to keeps the reference paths.
+
 ### Mosaic (`--mosaic-out`)
 
 The mosaic file describes each of the sample's strands as a walk through the graph, and says which
 panel haplotype the strand copies along each part of the walk. The file is the phasing in another
-form, so `--mosaic-out` is rejected without the linkage model or with `--no-phased`.
+form, so `--mosaic-out` is rejected without the linkage model or with `--no-phased`. For a graph
+sampled with its reference paths kept, map the reads as described under [Mapping without the
+reference](#mapping-without-the-reference).
 
 The file is tab-separated. Header lines start with `#` and are identified by their first field:
 
@@ -735,7 +781,9 @@ Three options change how the rows are formed, and the header records each choice
 The anchor file records, for each genotyped site, which reads support which of the sample's
 strands, for use in pangenome-guided assembly. `--anchors-out` also turns on the genotyping of
 [off-reference chains](#which-child-chains-are-genotyped), which can change the VCF's phases
-and, under `--regenotype`, its genotypes; `--no-off-ref-nesting` turns that off.
+and, under `--regenotype`, its genotypes; `--no-off-ref-nesting` turns that off. For a graph
+sampled with its reference paths kept, map the reads as described under [Mapping without the
+reference](#mapping-without-the-reference).
 
 A **pin** is a point between two adjacent bases of the graph, with no sequence of its own. Each site
 has two. The **start pin** lies just after the site's start boundary node, where an allele's walk
