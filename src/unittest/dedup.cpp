@@ -2,15 +2,16 @@
 ///
 /// Unit tests for content-aware chopping and packing of piece sequences.
 
+#include <algorithm>
 #include <map>
 #include <random>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <bdsg/hash_graph.hpp>
-#include <handlegraph/algorithms/chop.hpp>
 
 #include "../../src/handle.hpp"
 #include "../../src/unittest/catch.hpp"
@@ -455,7 +456,7 @@ TEST_CASE("Content-aware chopping finds short pieces inside stored long pieces",
     REQUIRE(plan.stored_length() == long_sequence.size() + stored_again);
 }
 
-TEST_CASE("A chopping plan describes the graph that chop() makes", "[dedup]") {
+TEST_CASE("Chopping by a plan makes each piece a node and finds its location", "[dedup]") {
     mt19937_64 rng(10);
     string repeat = random_bases(rng, 2500);
     bdsg::HashGraph graph;
@@ -475,38 +476,48 @@ TEST_CASE("A chopping plan describes the graph that chop() makes", "[dedup]") {
     for (handle_t handle : { a, b, d }) {
         path_sequence += graph.get_sequence(handle);
     }
+    // Nodes 1 and 4 are short, so they stay whole.
+    vector<string> unchopped_sequences { graph.get_sequence(a), graph.get_sequence(d) };
 
     ContentChopParameters parameters;
     ChoppingPlan plan = plan_content_chopping(graph, parameters);
     check_plan(graph, plan, parameters);
     REQUIRE(!plan.chop_points.empty());
 
-    // The node and offset, before chopping, of each new node that chop() reports.
-    map<nid_t, pair<nid_t, size_t>> origin;
-    handlegraph::algorithms::chop(graph, plan.chop_points, [&](nid_t old_id, size_t offset, size_t, handle_t new_node) {
-        origin[graph.get_id(new_node)] = make_pair(old_id, offset);
-    });
+    PieceDirectory directory = chop_by_plan(graph, plan);
+    REQUIRE(directory.size() == plan.pieces.size());
 
-    map<nid_t, vector<size_t>> cuts_by_node(plan.chop_points.begin(), plan.chop_points.end());
-    size_t piece_count = 0;
+    // Each node of the chopped graph is an unchopped node or a piece of the plan. The directory
+    // finds each piece by its new node ID.
+    set<pair<nid_t, size_t>> pieces_found;
+    vector<string> sequences_not_found;
     graph.for_each_handle([&](const handle_t& handle) {
         nid_t id = graph.get_id(handle);
-        auto iter = origin.find(id);
-        pair<nid_t, size_t> place = (iter != origin.end() ? iter->second : make_pair(id, size_t(0)));
-        const PieceLocation* piece = plan.find_piece(place.first, place.second);
-        if (!cuts_by_node.count(place.first)) {
-            // A node that was not chopped.
-            REQUIRE(piece == nullptr);
-            REQUIRE(place.second == 0);
+        const PieceLocation* piece = directory.find(id);
+        if (piece == nullptr) {
+            sequences_not_found.push_back(graph.get_sequence(handle));
             return;
         }
-        REQUIRE(piece != nullptr);
+        // The directory holds the location from the plan.
+        const PieceLocation* planned = plan.find_piece(piece->node, piece->node_offset);
+        REQUIRE(planned != nullptr);
+        REQUIRE(piece->string_id == planned->string_id);
+        REQUIRE(piece->string_offset == planned->string_offset);
+        REQUIRE(piece->length == planned->length);
+        // The location describes the node.
         REQUIRE(piece->length == graph.get_length(handle));
         REQUIRE(string(plan.piece_sequence(*piece)) == graph.get_sequence(handle));
         REQUIRE(graph.get_length(handle) <= parameters.max_node_length);
-        piece_count++;
+        // Each piece is a single node.
+        REQUIRE(pieces_found.emplace(piece->node, piece->node_offset).second);
     });
-    REQUIRE(piece_count == plan.pieces.size());
+    REQUIRE(pieces_found.size() == plan.pieces.size());
+    sort(sequences_not_found.begin(), sequences_not_found.end());
+    sort(unchopped_sequences.begin(), unchopped_sequences.end());
+    REQUIRE(sequences_not_found == unchopped_sequences);
+
+    // The directory has nothing for an ID beyond the largest in the graph.
+    REQUIRE(directory.find(graph.max_node_id() + 1) == nullptr);
 
     // Chopping keeps the path.
     string chopped_path_sequence;
@@ -514,6 +525,17 @@ TEST_CASE("A chopping plan describes the graph that chop() makes", "[dedup]") {
         chopped_path_sequence += graph.get_sequence(graph.get_handle_of_step(step));
     });
     REQUIRE(chopped_path_sequence == path_sequence);
+
+    SECTION("but leaves the graph as it is with an empty plan") {
+        bdsg::HashGraph short_graph;
+        short_graph.create_handle(random_bases(rng, 100), 1);
+        ChoppingPlan empty_plan = plan_content_chopping(short_graph, parameters);
+        REQUIRE(empty_plan.chop_points.empty());
+        PieceDirectory empty_directory = chop_by_plan(short_graph, empty_plan);
+        REQUIRE(empty_directory.size() == 0);
+        REQUIRE(short_graph.get_node_count() == 1);
+        REQUIRE(short_graph.get_length(short_graph.get_handle(1)) == 100);
+    }
 }
 
 TEST_CASE("Content-aware chopping rejects unusable settings", "[dedup]") {
