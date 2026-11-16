@@ -40,7 +40,8 @@ const std::vector<std::pair<Recombinator::Parameters::preset_t, std::string>> Re
     { Recombinator::Parameters::preset_haploid, "haploid" },
     { Recombinator::Parameters::preset_diploid, "diploid" },
     { Recombinator::Parameters::preset_hifi, "hifi" },
-    { Recombinator::Parameters::preset_ont, "ont" }
+    { Recombinator::Parameters::preset_ont, "ont" },
+    { Recombinator::Parameters::preset_model, "model" }
 };
 
 //------------------------------------------------------------------------------
@@ -1486,6 +1487,15 @@ Recombinator::Parameters::Parameters(preset_t preset) {
         this->diploid_sampling = true;
         this->include_reference = true;
         this->ignore_homopolymers = LONG_READ_HOMOPOLYMERS;
+    } else if (preset == preset_model) {
+        this->num_haplotypes = MODEL_NUM_HAPLOTYPES;
+        this->include_reference = true;
+        this->continuity_bonus = MODEL_CONTINUITY_BONUS;
+        this->max_new_bp = MODEL_MAX_NEW_BP;
+        this->bp_escape = MODEL_BP_ESCAPE;
+        this->max_n_bp = MODEL_MAX_N_BP;
+        this->similar_threading = true;
+        this->model_pair = true;
     }
 }
 

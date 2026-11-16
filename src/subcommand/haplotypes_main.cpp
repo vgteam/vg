@@ -128,6 +128,7 @@ struct HaplotypesConfig {
     // Other parameters.
     size_t threads = haplotypes_defaults::threads();
     bool validate = false;
+    bool model_preset = false; // The model preset needs an index with subchain kmers.
 
     HaplotypesConfig(int argc, char** argv, size_t max_threads);
 };
@@ -168,6 +169,10 @@ int main_haplotypes(int argc, char** argv) {
         }
         haplotypes.load_from(config.haplotype_input);
         require_compatible_graphs(gbz, "GBZ", haplotypes, "Haplotype Information");
+    }
+    bool sampling = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes);
+    if (sampling && config.model_preset && !haplotypes.has_copies()) {
+        config.logger.error() << "the model preset needs haplotype information built with --subchain-kmers" << std::endl;
     }
 
     // Save haplotype information if necessary.
@@ -471,6 +476,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 auto preset = Recombinator::Parameters::parse_preset(optarg);
                 if (preset) {
                     this->recombinator_parameters = Recombinator::Parameters(*preset);
+                    this->model_preset = (*preset == Recombinator::Parameters::preset_model);
                     num_haplotypes_set = true;
                 } else {
                     this->logger.error() << "unknown preset: " << optarg << std::endl;

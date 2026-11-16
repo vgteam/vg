@@ -259,6 +259,21 @@ public:
     /// another haplotype.
     constexpr static double MODEL_RHO = 3e-6;
 
+    /// Number of haplotypes generated with the model preset.
+    constexpr static size_t MODEL_NUM_HAPLOTYPES = 32;
+
+    /// Continuity bonus with the model preset.
+    constexpr static double MODEL_CONTINUITY_BONUS = 2.0;
+
+    /// New-bp limit with the model preset.
+    constexpr static size_t MODEL_MAX_NEW_BP = 1000;
+
+    /// Escape from the new-bp limit with the model preset.
+    constexpr static double MODEL_BP_ESCAPE = 300.0;
+
+    /// N-base limit with the model preset.
+    constexpr static size_t MODEL_MAX_N_BP = 0;
+
     /// The amount of progress information that should be printed to stderr.
     typedef Haplotypes::Verbosity Verbosity;
 
@@ -472,7 +487,10 @@ public:
             /// Best practices for diploid sampling with HiFi reads.
             preset_hifi,
             /// Best practices for diploid sampling with ONT reads.
-            preset_ont
+            preset_ont,
+            /// The model pair and the selection limits, for an index built with
+            /// subchain kmers.
+            preset_model
         };
 
         /// A list of presets and their names.

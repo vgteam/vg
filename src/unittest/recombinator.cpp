@@ -447,6 +447,24 @@ TEST_CASE("Validating the sampling parameters", "[haplotypes][recombinator]") {
         haploid.haploid_scoring = true;
         REQUIRE_THROWS_AS(validate_recombinator_parameters(haploid), std::runtime_error);
     }
+
+    SECTION("the model preset") {
+        auto preset = Recombinator::Parameters::parse_preset("model");
+        REQUIRE(preset);
+        REQUIRE(*preset == Recombinator::Parameters::preset_model);
+        Recombinator::Parameters model(*preset);
+        REQUIRE(model.num_haplotypes == Recombinator::MODEL_NUM_HAPLOTYPES);
+        REQUIRE(model.include_reference);
+        REQUIRE(model.continuity_bonus == Recombinator::MODEL_CONTINUITY_BONUS);
+        REQUIRE(model.max_new_bp == Recombinator::MODEL_MAX_NEW_BP);
+        REQUIRE(model.bp_escape == Recombinator::MODEL_BP_ESCAPE);
+        REQUIRE(model.max_n_bp == Recombinator::MODEL_MAX_N_BP);
+        REQUIRE(model.similar_threading);
+        REQUIRE(model.model_pair);
+        REQUIRE_FALSE(model.diploid_sampling);
+        REQUIRE_FALSE(model.haploid_scoring);
+        REQUIRE_NOTHROW(validate_recombinator_parameters(model));
+    }
 }
 
 //------------------------------------------------------------------------------

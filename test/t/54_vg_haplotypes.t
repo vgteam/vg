@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 121
+plan tests 123
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -194,6 +194,11 @@ vg haplotypes -t 1 -i subchain.hapl -k haplotype-sampling/HG003.kff --include-re
     ${MODEL_OPTIONS} -g model_pair_t1.gbz full.gbz
 cmp -s model_pair.gbz model_pair_t1.gbz
 is $? 0 "the model pair does not depend on the number of threads"
+vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --preset model --num-haplotypes 8 -g preset_model.gbz full.gbz
+cmp -s model_pair.gbz preset_model.gbz
+is $? 0 "the model preset sets the model pair options"
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --preset model -g /dev/null full.gbz 2> /dev/null
+is $? 1 "the model preset needs an index with subchain kmers"
 vg haplotypes -i subchain.hapl -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 8 \
     --continuity-bonus 2 --max-new-bp 1000 --bp-escape 300 --max-n-bp 0 --similar-threading -g no_model_pair.gbz full.gbz
 cmp -s model_pair.gbz no_model_pair.gbz
@@ -436,7 +441,7 @@ rm -f exclude.gbz exclude_pansn.gbz exclude_log.txt
 rm -f wrap.gbz wrap_base.gbz wrap_pansn.gbz wrap_log.txt wrap_exclude_log.txt
 rm -f diploid.gbz diploid2.gbz diploid3.gbz
 rm -f diploid_ignore.gbz diploid_ont.gbz
-rm -f subchain.hapl model_pair.gbz model_pair_t1.gbz no_model_pair.gbz no_similar.gbz no_bonus.gbz
+rm -f subchain.hapl model_pair.gbz model_pair_t1.gbz preset_model.gbz no_model_pair.gbz no_similar.gbz no_bonus.gbz
 rm -f no_limit.gbz bp_limit.gbz bp_escape.gbz bp_limit_no_ref.gbz model_pair_unique.gbz
 rm -f model_pair_log.gbz model_pair_log.txt model_pair_hicov_log.txt
 rm -f micb.gfa micb.gbz micb.ri micb.dist micb_t1.hapl micb_t4.hapl micb_log.txt

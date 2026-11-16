@@ -737,15 +737,19 @@ size_t Haplotypes::TopLevelChain::simple_sds_size(std::uint32_t version) const {
     return result;
 }
 
-std::uint32_t Haplotypes::file_version() const {
+bool Haplotypes::has_copies() const {
     for (const TopLevelChain& chain : this->chains) {
         for (const Subchain& subchain : chain.subchains) {
             if (subchain.has_copies()) {
-                return Header::VERSION;
+                return true;
             }
         }
     }
-    return Header::COPIES_VERSION - 1;
+    return false;
+}
+
+std::uint32_t Haplotypes::file_version() const {
+    return (this->has_copies() ? Header::VERSION : Header::COPIES_VERSION - 1);
 }
 
 void Haplotypes::simple_sds_serialize(std::ostream& out) const {

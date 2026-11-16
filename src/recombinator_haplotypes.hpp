@@ -558,6 +558,10 @@ public:
      */
     hash_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file, Verbosity verbosity) const;
 
+    /// Returns `true` if a subchain stores kmer copies, which an index built with
+    /// subchain kmers does.
+    bool has_copies() const;
+
     /// Returns the version that serialization writes: `Header::VERSION` if a
     /// subchain stores kmer copies, and otherwise the last version without them,
     /// which earlier versions of vg can read.
