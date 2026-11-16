@@ -5,9 +5,11 @@
 #include "algorithms/component.hpp"
 #include "algorithms/extract_subchain.hpp"
 #include "hash_map.hpp"
+#include "utility.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 //#define debug_selected_haplotypes
 
@@ -72,6 +74,9 @@ void HaplotypePartitioner::Parameters::print(std::ostream& out) const {
     out << "- target length " << this->subchain_length << " bp" << std::endl;
     if (this->linear_structure) {
         out << "- strictly linear structure" << std::endl;
+    }
+    if (this->subchain_kmers) {
+        out << "- subchain kmers with copies" << std::endl;
     }
     out << "- " << this->approximate_jobs << " jobs" << std::endl;
 }
@@ -183,7 +188,8 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
         std::cerr << "Running " << omp_get_max_threads() << " jobs in parallel" << std::endl;
     }
     start = gbwt::readTimer();
-    #pragma omp parallel for schedule(dynamic, 1)
+    // With a single job, building subchain kmers can use the threads within the chains.
+    #pragma omp parallel for schedule(dynamic, 1) if(chains_by_job.size() > 1)
     for (size_t job = 0; job < chains_by_job.size(); job++) {
         const std::vector<gbwtgraph::TopLevelChain>& chains = chains_by_job[job];
         size_t total_subchains = 0, total_kmers = 0;
@@ -542,10 +548,12 @@ std::vector<HaplotypePartitioner::sequence_type> HaplotypePartitioner::get_seque
 // Returns an empty haplotype if there is only one node.
 // Set `pos.first = gbwt::ENDMARKER` to start from the beginning.
 // Set `end = empty_gbwtgraph_handle()` to continue until the end without a final node.
+// If `nodes` is not null, inserts the ids of the visited nodes into it.
 std::vector<std::string> generate_haplotype(
     gbwt::size_type sequence_id,
     gbwt::edge_type pos, handle_t end, size_t start_max, size_t end_max,
-    const HaplotypePartitioner& partitioner, gbwt::CachedGBWT& cached_gbwt
+    const HaplotypePartitioner& partitioner, gbwt::CachedGBWT& cached_gbwt,
+    hash_set<nid_t>* nodes = nullptr
 ) {
     // Determine the start for a prefix.
     bool single_fragment = (pos.first == gbwt::ENDMARKER || end == empty_gbwtgraph_handle());
@@ -561,6 +569,9 @@ std::vector<std::string> generate_haplotype(
 
     // Handle the initial node.
     handle_t curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
+    if (nodes != nullptr) {
+        nodes->insert(gbwt::Node::id(pos.first));
+    }
     if (curr == end) {
         return haplotype;
     }
@@ -589,6 +600,9 @@ std::vector<std::string> generate_haplotype(
             haplotype.emplace_back();
         }
         curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
+        if (nodes != nullptr) {
+            nodes->insert(gbwt::Node::id(pos.first));
+        }
         view = partitioner.gbz.graph.get_sequence_view(curr);
         if (curr == end) {
             haplotype.back().append(view.data(), std::min(view.size(), end_max));
@@ -766,10 +780,9 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         }
     }
 
-    // Convert the subchains to actual subchains.
-    size_t fragmented_subchains = 0, fragmented_sequences = 0, additional_fragments = 0;
+    // Determine the sequences crossing each subchain.
+    std::vector<std::pair<Subchain, std::vector<sequence_type>>> to_process;
     for (const Subchain& subchain : subchains) {
-        std::vector<std::pair<Subchain, std::vector<sequence_type>>> to_process;
         auto sequences = this->get_sequences(subchain);
         if (sequences.empty()) {
             // There are no haplotypes crossing the subchain, so we break it into
@@ -786,6 +799,29 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         } else {
             to_process.push_back({ subchain, std::move(sequences) });
         }
+    }
+
+    // Convert the subchains to actual subchains.
+    size_t fragmented_subchains = 0, fragmented_sequences = 0, additional_fragments = 0;
+    if (parameters.subchain_kmers) {
+        // Subchains are processed in parallel, unless the chains already are.
+        size_t first = output.subchains.size();
+        output.subchains.resize(first + to_process.size());
+        #pragma omp parallel for schedule(dynamic, 1) if(!omp_in_parallel())
+        for (size_t i = 0; i < to_process.size(); i++) {
+            Haplotypes::Subchain& subchain = output.subchains[first + i];
+            subchain.type = to_process[i].first.type;
+            subchain.start = gbwtgraph::GBWTGraph::handle_to_node(to_process[i].first.start);
+            subchain.end = gbwtgraph::GBWTGraph::handle_to_node(to_process[i].first.end);
+            subchain.placeholder = 0;
+            try {
+                this->build_subchain_kmers(to_process[i].first, to_process[i].second, subchain);
+            } catch (const std::runtime_error& e) {
+                std::cerr << "error: [subchain " << (first + i) << "]: " << e.what() << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+        }
+    } else {
         for (auto iter = to_process.begin(); iter != to_process.end(); ++iter) {
             // We cache GBWT records and kmer counts at subchain level.
             gbwt::CachedGBWT cached_gbwt(this->gbz.index);
@@ -852,6 +888,153 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         }
         present_kmers(kmers_by_sequence, sequences, subchain);
     }
+}
+
+void HaplotypePartitioner::build_subchain_kmers(
+    const Subchain& subchain, const std::vector<sequence_type>& sequences, Haplotypes::Subchain& output
+) const {
+    gbwt::CachedGBWT cached_gbwt(this->gbz.index);
+    size_t k = this->minimizer_index.k();
+    size_t start_max = (subchain.has_start() ? k - 1 : std::numeric_limits<size_t>::max());
+    size_t end_max = k - 1;
+    auto haplotype = [&](sequence_type sequence, hash_set<nid_t>* nodes) -> std::vector<std::string> {
+        gbwt::edge_type pos(gbwt::ENDMARKER, 0);
+        if (subchain.has_start()) {
+            pos = gbwt::edge_type(gbwtgraph::GBWTGraph::handle_to_node(subchain.start), sequence.second);
+        }
+        return generate_haplotype(sequence.first, pos, subchain.end, start_max, end_max, *this, cached_gbwt, nodes);
+    };
+
+    // The nodes the sequences visit and the distinct minimizers in the sequences.
+    hash_set<nid_t> nodes;
+    hash_map<kmer_type, minimizer_index_type::minimizer_type> distinct;
+    for (const sequence_type& sequence : sequences) {
+        for (const std::string& piece : haplotype(sequence, &nodes)) {
+            for (const auto& minimizer : this->minimizer_index.minimizers(piece)) {
+                distinct.emplace(minimizer.key.get_key(), minimizer);
+            }
+        }
+    }
+
+    // Keep the minimizers whose every occurrence in the graph is on those nodes.
+    std::vector<kmer_type> kept;
+    for (const auto& entry : distinct) {
+        auto occurrences = this->minimizer_index.find(entry.second);
+        bool own = (occurrences.second > 0);
+        for (size_t i = 0; own && i < occurrences.second; i++) {
+            own = (nodes.find(this->minimizer_index.get_value(occurrences, i).first.id()) != nodes.end());
+        }
+        if (own) {
+            kept.push_back(entry.first);
+        }
+    }
+    distinct = hash_map<kmer_type, minimizer_index_type::minimizer_type>();
+    std::sort(kept.begin(), kept.end());
+
+    // We look up kmers in both orientations.
+    hash_map<kmer_type, std::uint32_t> slot_of;
+    slot_of.reserve(2 * kept.size());
+    for (size_t i = 0; i < kept.size(); i++) {
+        slot_of[kept[i]] = i;
+        std::string forward = gbwtgraph::Key64(kept[i]).decode(k);
+        slot_of[gbwtgraph::Key64::encode(reverse_complement(forward)).get_key()] = i;
+    }
+
+    // Count the occurrences of the kept kmers in each sequence.
+    size_t n = sequences.size(), m = kept.size();
+    constexpr size_t max_copies = Haplotypes::Subchain::MAX_COPIES;
+    sdsl::bit_vector buffer(n * m, 0);
+    std::vector<std::vector<std::pair<std::uint32_t, std::uint8_t>>> multi(n);
+    std::vector<std::uint32_t> present_in(m, 0);
+    std::vector<std::uint8_t> min_copies(m, max_copies), max_copies_seen(m, 0);
+    for (size_t i = 0; i < n; i++) {
+        hash_map<std::uint32_t, std::uint32_t> counts;
+        for (const std::string& piece : haplotype(sequences[i], nullptr)) {
+            gbwtgraph::Key64 key;
+            size_t valid_chars = 0;
+            for (char c : piece) {
+                key.forward(k, static_cast<unsigned char>(c), valid_chars);
+                if (valid_chars >= k) {
+                    auto iter = slot_of.find(key.get_key());
+                    if (iter != slot_of.end()) {
+                        counts[iter->second]++;
+                    }
+                }
+            }
+        }
+        for (const auto& entry : counts) {
+            std::uint8_t copies = std::min(size_t(entry.second), max_copies);
+            buffer[i * m + entry.first] = 1;
+            present_in[entry.first]++;
+            min_copies[entry.first] = std::min(min_copies[entry.first], copies);
+            max_copies_seen[entry.first] = std::max(max_copies_seen[entry.first], copies);
+            if (copies > 1) {
+                multi[i].push_back({ entry.first, copies });
+            }
+        }
+        std::sort(multi[i].begin(), multi[i].end());
+    }
+
+    // A kmer is informative unless every sequence has the same number of copies of it.
+    std::vector<std::uint32_t> final_id(m, std::numeric_limits<std::uint32_t>::max());
+    size_t informative = 0, max_count = 0;
+    for (size_t j = 0; j < m; j++) {
+        if (present_in[j] < n || min_copies[j] != max_copies_seen[j]) {
+            final_id[j] = informative++;
+            max_count = std::max(max_count, size_t(present_in[j]));
+        }
+    }
+    output.kmers.clear();
+    output.kmers.reserve(informative);
+    output.kmer_counts = sdsl::int_vector<0>(informative, 0, sdsl::bits::length(max_count));
+    for (size_t j = 0; j < m; j++) {
+        if (final_id[j] < informative) {
+            output.kmer_counts[output.kmers.size()] = present_in[j];
+            output.kmers.push_back(kept[j]);
+        }
+    }
+    sdsl::bit_vector matrix(n * informative, 0);
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < m; j++) {
+            if (buffer[i * m + j] && final_id[j] < informative) {
+                matrix[i * informative + final_id[j]] = 1;
+            }
+        }
+    }
+    buffer = sdsl::bit_vector();
+    output.sequences.clear();
+    output.kmers_present = KmerPresenceMatrix(sequences, output.sequences, informative, matrix);
+
+    // Store the copies in the order of the reordered sequences.
+    std::map<std::pair<std::uint32_t, std::uint32_t>, size_t> original;
+    for (size_t i = 0; i < n; i++) {
+        original[{ static_cast<std::uint32_t>(sequences[i].first), static_cast<std::uint32_t>(sequences[i].second) }] = i;
+    }
+    size_t total = 0;
+    for (size_t i = 0; i < n; i++) {
+        for (const auto& entry : multi[i]) {
+            total += (final_id[entry.first] < informative);
+        }
+    }
+    output.copy_offsets = sdsl::int_vector<0>(n + 1, 0, sdsl::bits::length(total));
+    output.copy_kmers = sdsl::int_vector<0>(total, 0, sdsl::bits::length(informative));
+    output.copy_values = sdsl::int_vector<0>(total, 0, sdsl::bits::length(max_copies));
+    size_t offset = 0;
+    for (size_t r = 0; r < n; r++) {
+        auto iter = original.find({ output.sequences[r].first, output.sequences[r].second });
+        if (iter == original.end()) {
+            throw std::runtime_error("HaplotypePartitioner::build_subchain_kmers(): cannot find a reordered sequence");
+        }
+        output.copy_offsets[r] = offset;
+        for (const auto& entry : multi[iter->second]) {
+            if (final_id[entry.first] < informative) {
+                output.copy_kmers[offset] = final_id[entry.first];
+                output.copy_values[offset] = entry.second;
+                offset++;
+            }
+        }
+    }
+    output.copy_offsets[n] = offset;
 }
 
 //------------------------------------------------------------------------------

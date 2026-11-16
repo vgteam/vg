@@ -18,10 +18,12 @@ constexpr size_t Haplotypes::KFF_BLOCK_SIZE;
 
 constexpr std::uint32_t Haplotypes::Header::MAGIC_NUMBER;
 constexpr std::uint32_t Haplotypes::Header::VERSION;
+constexpr std::uint32_t Haplotypes::Header::COPIES_VERSION;
 constexpr std::uint32_t Haplotypes::Header::COMPRESSED_VERSION;
 constexpr std::uint32_t Haplotypes::Header::VERSION_WITH_TAGS;
 constexpr std::uint32_t Haplotypes::Header::MIN_VERSION;
 constexpr std::uint64_t Haplotypes::Header::DEFAULT_K;
+constexpr size_t Haplotypes::Subchain::MAX_COPIES;
 
 //------------------------------------------------------------------------------
 
@@ -294,6 +296,23 @@ void KmerPresenceMatrix::for_each_kmer(size_t sequence, const std::function<void
     while (!iter.end()) {
         callback(iter.kmer_id, iter.is_present);
         ++iter;
+    }
+}
+
+void KmerPresenceMatrix::presence_row(size_t sequence, std::vector<std::uint64_t>& row) const {
+    size_t words = (this->num_kmers + 63) / 64;
+    row.assign(words, 0);
+    size_t parent_start = this->parent(sequence) * this->num_kmers;
+    for (size_t word = 0; word < words; word++) {
+        size_t width = std::min(size_t(64), this->num_kmers - 64 * word);
+        row[word] = this->parents.get_int(parent_start + 64 * word, width);
+    }
+    // A child differs from its parent at the kmers listed for it.
+    if (!this->is_parent(sequence)) {
+        for (ChildIterator iter(*this, sequence); !iter.end(); ++iter) {
+            size_t kmer_id = iter.kmer_id();
+            row[kmer_id / 64] ^= std::uint64_t(1) << (kmer_id % 64);
+        }
     }
 }
 
@@ -591,7 +610,7 @@ double Haplotypes::Subchain::badness(const gbwtgraph::GBZ& gbz) const {
     return result;
 }
 
-void Haplotypes::Subchain::simple_sds_serialize(std::ostream& out) const {
+void Haplotypes::Subchain::simple_sds_serialize(std::ostream& out, std::uint32_t version) const {
     sdsl::simple_sds::serialize_value<std::uint64_t>(this->type, out);
     sdsl::simple_sds::serialize_value<gbwt::node_type>(this->start, out);
     sdsl::simple_sds::serialize_value<gbwt::node_type>(this->end, out);
@@ -600,6 +619,11 @@ void Haplotypes::Subchain::simple_sds_serialize(std::ostream& out) const {
     this->kmer_counts.simple_sds_serialize(out);
     sdsl::simple_sds::serialize_vector(this->sequences, out);
     this->kmers_present.simple_sds_serialize(out);
+    if (version >= Header::COPIES_VERSION) {
+        this->copy_offsets.simple_sds_serialize(out);
+        this->copy_kmers.simple_sds_serialize(out);
+        this->copy_values.simple_sds_serialize(out);
+    }
 }
 
 void load_subchain_header(Haplotypes::Subchain& subchain, std::istream& in, std::uint32_t version) {
@@ -648,26 +672,43 @@ void Haplotypes::Subchain::simple_sds_load(std::istream& in, std::uint32_t versi
         matrix.simple_sds_load(in);
         this->kmers_present = KmerPresenceMatrix(this->sequences.size(), this->kmers.size(), std::move(matrix));
     }
+
+    if (version >= Header::COPIES_VERSION) {
+        this->copy_offsets.simple_sds_load(in);
+        this->copy_kmers.simple_sds_load(in);
+        this->copy_values.simple_sds_load(in);
+        if (this->has_copies() && (this->copy_offsets.size() != this->sequences.size() + 1 ||
+            this->copy_kmers.size() != this->copy_values.size() || this->copy_offsets[this->sequences.size()] != this->copy_kmers.size())) {
+            throw sdsl::simple_sds::InvalidData("Subchain kmer copies do not match the sequences");
+        }
+    } else {
+        this->copy_offsets = sdsl::int_vector<0>();
+        this->copy_kmers = sdsl::int_vector<0>();
+        this->copy_values = sdsl::int_vector<0>();
+    }
 }
 
-size_t Haplotypes::Subchain::simple_sds_size() const {
+size_t Haplotypes::Subchain::simple_sds_size(std::uint32_t version) const {
     size_t result = sdsl::simple_sds::value_size<std::uint64_t>() + 2 * sdsl::simple_sds::value_size<gbwt::node_type>();
     result += sdsl::simple_sds::value_size<size_t>(); // placeholder
     result += sdsl::simple_sds::vector_size(this->kmers);
     result += this->kmer_counts.simple_sds_size();
     result += sdsl::simple_sds::vector_size(this->sequences);
     result += this->kmers_present.simple_sds_size();
+    if (version >= Header::COPIES_VERSION) {
+        result += this->copy_offsets.simple_sds_size() + this->copy_kmers.simple_sds_size() + this->copy_values.simple_sds_size();
+    }
     return result;
 }
 
-void Haplotypes::TopLevelChain::simple_sds_serialize(std::ostream& out) const {
+void Haplotypes::TopLevelChain::simple_sds_serialize(std::ostream& out, std::uint32_t version) const {
     sdsl::simple_sds::serialize_value<size_t>(this->offset, out);
     sdsl::simple_sds::serialize_value<size_t>(this->job_id, out);
     sdsl::simple_sds::serialize_value<size_t>(this->placeholder, out);
     sdsl::simple_sds::serialize_string(this->contig_name, out);
     sdsl::simple_sds::serialize_value<size_t>(this->subchains.size(), out);
     for (auto& subchain : this->subchains) {
-        subchain.simple_sds_serialize(out);
+        subchain.simple_sds_serialize(out, version);
     }
 }
 
@@ -687,21 +728,34 @@ void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in, std::uint32_t 
     }
 }
 
-size_t Haplotypes::TopLevelChain::simple_sds_size() const {
+size_t Haplotypes::TopLevelChain::simple_sds_size(std::uint32_t version) const {
     size_t result = 4 * sdsl::simple_sds::value_size<size_t>();
     result += sdsl::simple_sds::string_size(this->contig_name);
     for (auto& subchain : this->subchains) {
-        result += subchain.simple_sds_size();
+        result += subchain.simple_sds_size(version);
     }
     return result;
 }
 
+std::uint32_t Haplotypes::file_version() const {
+    for (const TopLevelChain& chain : this->chains) {
+        for (const Subchain& subchain : chain.subchains) {
+            if (subchain.has_copies()) {
+                return Header::VERSION;
+            }
+        }
+    }
+    return Header::COPIES_VERSION - 1;
+}
+
 void Haplotypes::simple_sds_serialize(std::ostream& out) const {
-    sdsl::simple_sds::serialize_value<Header>(this->header, out);
+    Header header = this->header;
+    header.version = this->file_version();
+    sdsl::simple_sds::serialize_value<Header>(header, out);
     this->tags.simple_sds_serialize(out);
     sdsl::simple_sds::serialize_vector(this->jobs_for_paths, out);
     for (auto& chain : this->chains) {
-        chain.simple_sds_serialize(out);
+        chain.simple_sds_serialize(out, header.version);
     }
 }
 
@@ -752,10 +806,11 @@ void Haplotypes::load_from(const std::string& filename) {
 }
 
 size_t Haplotypes::simple_sds_size() const {
+    std::uint32_t version = this->file_version();
     size_t result = sdsl::simple_sds::value_size<Header>();
     result += sdsl::simple_sds::vector_size(this->jobs_for_paths);
     for (auto& chain : this->chains) {
-        result += chain.simple_sds_size();
+        result += chain.simple_sds_size(version);
     }
     return result;
 }

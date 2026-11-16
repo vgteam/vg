@@ -105,6 +105,10 @@ public:
     /// ordered by their indices.
     void for_each_kmer(size_t sequence, const std::function<void(size_t, bool)>& callback) const;
 
+    /// Set `row` to the kmer presence bits of the given sequence: kmer `i` is bit
+    /// `i % 64` of word `i / 64`, and there are `ceil(get_num_kmers() / 64)` words.
+    void presence_row(size_t sequence, std::vector<std::uint64_t>& row) const;
+
     /// Scores every sequence in the subchain. The score of a sequence is the sum of
     /// `(present : 1 : -1) * kmer.second` over `kmers`. It is reported by calling
     /// `sequence_score(sequence, score)` in an arbitrary order.
@@ -222,15 +226,24 @@ private:
  * sequences. Each sequence is defined by a bitvector marking the kmers that are
  * present.
  *
- * At the moment, the kmers are minimizers with a single occurrence in the graph.
+ * By default, the kmers are minimizers with a single occurrence in the graph.
  * The requirement is that each kmer is specific to a single subchain and does
  * not occur anywhere else in either orientation. (If no haplotype crosses a
  * snarl, that snarl is broken into a suffix and a prefix, and those subchains
  * may share kmers.)
  *
+ * An index built with subchain kmers instead uses the minimizers whose every
+ * occurrence in the graph is on a node that the haplotypes crossing the subchain
+ * visit. Such a kmer may occur more than once in a haplotype, and the subchain
+ * stores the number of copies of each kmer in each sequence.
+ *
  * NOTE: This assumes that the top-level chains are linear, not cyclical.
  *
  * Versions:
+ *
+ * * Version 8: Subchains store the number of copies of each kmer in each
+ *   sequence. Only an index with subchain kmers is written as version 8, and
+ *   other indexes are written as version 7. Versions 5 to 7 can still be read.
  *
  * * Version 7: Work in progress.
  *   Compressed kmer presence matrices, with faster haplotype scoring by
@@ -285,7 +298,8 @@ public:
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 7;
+        constexpr static std::uint32_t VERSION = 8;
+        constexpr static std::uint32_t COPIES_VERSION = 8;
         constexpr static std::uint32_t COMPRESSED_VERSION = 7;
         constexpr static std::uint32_t VERSION_WITH_TAGS = 6;
         constexpr static std::uint32_t MIN_VERSION = 5;
@@ -362,10 +376,42 @@ public:
         /// A matrix indicating which kmers are present in which sequences.
         KmerPresenceMatrix kmers_present;
 
+        /// The number of copies of the kmers that occur more than once in a sequence,
+        /// in an index built with subchain kmers; empty otherwise. For sequence `i`,
+        /// entries `copy_offsets[i]` to `copy_offsets[i + 1] - 1` of `copy_kmers`
+        /// (kmer ids in increasing order) and `copy_values` (numbers of copies, at most
+        /// `MAX_COPIES`) list those kmers. A present kmer that is not listed has one copy.
+        sdsl::int_vector<0> copy_offsets = sdsl::int_vector<0>();
+        sdsl::int_vector<0> copy_kmers = sdsl::int_vector<0>();
+        sdsl::int_vector<0> copy_values = sdsl::int_vector<0>();
+
+        /// The largest number of copies of a kmer that is stored.
+        constexpr static size_t MAX_COPIES = 5;
+
+        /// Return `true` if the subchain stores the number of copies of its kmers.
+        bool has_copies() const { return (this->copy_offsets.size() > 0); }
+
+        /// Call `callback(kmer_id, copies)` for each kmer with more than one copy in
+        /// the given sequence, ordered by kmer id.
+        void for_each_copy(size_t sequence, const std::function<void(size_t, size_t)>& callback) const {
+            if (!this->has_copies()) {
+                return;
+            }
+            for (size_t i = this->copy_offsets[sequence]; i < this->copy_offsets[sequence + 1]; i++) {
+                callback(this->copy_kmers[i], this->copy_values[i]);
+            }
+        }
+
         /// Calls `callback(kmer_id, is_present)` for each kmer in the given sequence,
         /// ordered by their indices.
         void for_each_kmer(size_t sequence, const std::function<void(size_t, bool)>& callback) const {
             this->kmers_present.for_each_kmer(sequence, callback);
+        }
+
+        /// Set `row` to the kmer presence bits of the given sequence: kmer `i` is
+        /// bit `i % 64` of word `i / 64`.
+        void presence_row(size_t sequence, std::vector<std::uint64_t>& row) const {
+            this->kmers_present.presence_row(sequence, row);
         }
 
         /// Scores every sequence in the subchain. The score of a sequence is the sum of
@@ -439,15 +485,16 @@ public:
         /// * Information content of the kmers (disabled).
         double badness(const gbwtgraph::GBZ& gbz) const;
 
-        /// Serializes the object to a stream in the Simple-SDS format.
-        void simple_sds_serialize(std::ostream& out) const;
+        /// Serializes the object to a stream in the Simple-SDS format. The copies
+        /// are written only if the version has them.
+        void simple_sds_serialize(std::ostream& out, std::uint32_t version = Header::VERSION) const;
 
         /// Loads the object from a stream in the Simple-SDS format.
         /// As there is no header, the expected version must be provided.
         void simple_sds_load(std::istream& in, std::uint32_t version = Header::VERSION);
 
-        /// Returns the size of the object in elements.
-        size_t simple_sds_size() const;
+        /// Returns the size of the object in elements in the given version.
+        size_t simple_sds_size(std::uint32_t version = Header::VERSION) const;
     };
 
     /// Representation of a top-level chain.
@@ -467,15 +514,16 @@ public:
         /// Subchains in the order they appear in.
         std::vector<Subchain> subchains;
 
-        /// Serializes the object to a stream in the Simple-SDS format.
-        void simple_sds_serialize(std::ostream& out) const;
+        /// Serializes the object to a stream in the Simple-SDS format in the given
+        /// version.
+        void simple_sds_serialize(std::ostream& out, std::uint32_t version = Header::VERSION) const;
 
         /// Loads the object from a stream in the Simple-SDS format.
         /// As there is no header, the expected version must be provided.
         void simple_sds_load(std::istream& in, std::uint32_t version = Header::VERSION);
 
-        /// Returns the size of the object in elements.
-        size_t simple_sds_size() const;
+        /// Returns the size of the object in elements in the given version.
+        size_t simple_sds_size(std::uint32_t version = Header::VERSION) const;
     };
 
     /// Returns the number of weakly connected components.
@@ -509,6 +557,11 @@ public:
       * counts cannot be used.
      */
     hash_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file, Verbosity verbosity) const;
+
+    /// Returns the version that serialization writes: `Header::VERSION` if a
+    /// subchain stores kmer copies, and otherwise the last version without them,
+    /// which earlier versions of vg can read.
+    std::uint32_t file_version() const;
 
     /// Serializes the object to a stream in the Simple-SDS format.
     /// I/O errors can be detected by checking the stream state.

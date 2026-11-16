@@ -103,6 +103,13 @@ public:
         /// cross them multiple times.
         bool linear_structure = false;
 
+        /// Represent the haplotypes with subchain kmers instead of minimizers with a
+        /// single occurrence in the graph. A subchain kmer is a minimizer whose every
+        /// occurrence in the graph is on a node that the haplotypes crossing the
+        /// subchain visit. The subchain also stores the number of copies of each kmer
+        /// in each sequence.
+        bool subchain_kmers = false;
+
         /// Print a description of the parameters.
         void print(std::ostream& out) const;
     };
@@ -128,7 +135,7 @@ public:
      * subchain without boundary nodes.
      *
      * Haplotypes crossing each subchain are represented using minimizers with a
-     * single occurrence in the graph.
+     * single occurrence in the graph, or with subchain kmers (see `Parameters`).
      *
      * Throws `std::runtime_error` on error in single-threaded parts and exits
      * with `std::exit(EXIT_FAILURE)` in multi-threaded parts.
@@ -195,6 +202,10 @@ private:
 
     // Build subchains for a specific top-level chain.
     void build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const;
+
+    // Set the subchain kmers, their presence in the sequences, and their copies in the
+    // output subchain (`Parameters::subchain_kmers`). The sequences cross the subchain.
+    void build_subchain_kmers(const Subchain& subchain, const std::vector<sequence_type>& sequences, Haplotypes::Subchain& output) const;
 };
 
 //------------------------------------------------------------------------------
