@@ -4,7 +4,6 @@
 #include <exception>
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <stdexcept>
 #include <unordered_set>
 
@@ -28,44 +27,6 @@ namespace vg {
 using namespace std;
 
 namespace {
-
-/// Count the matched, mismatched, inserted and deleted bases in an alignment's
-/// edits.
-void count_edits(const Alignment& aln, uint64_t& matches, uint64_t& mismatches,
-                 uint64_t& inserted, uint64_t& deleted) {
-    matches = mismatches = inserted = deleted = 0;
-    for (const auto& mapping : aln.path().mapping()) {
-        for (const auto& edit : mapping.edit()) {
-            if (edit.from_length() == edit.to_length()) {
-                if (edit.sequence().empty()) matches += edit.from_length();
-                else                         mismatches += edit.from_length();
-            } else if (edit.from_length() == 0) {
-                inserted += edit.to_length();
-            } else if (edit.to_length() == 0) {
-                deleted += edit.from_length();
-            } else {
-                // The edit changes both lengths. Count the shorter length as
-                // mismatches and the rest as an insertion or deletion.
-                const uint64_t common = std::min(edit.from_length(), edit.to_length());
-                mismatches += common;
-                if (edit.to_length() > common) inserted += edit.to_length() - common;
-                else                           deleted  += edit.from_length() - common;
-            }
-        }
-    }
-}
-
-/// Return a CIGAR as a string such as "55M", or "*" if it is empty.
-string cigar_to_string(const vector<pair<int, char>>& cigar) {
-    if (cigar.empty()) {
-        return "*";
-    }
-    stringstream ss;
-    for (const auto& op : cigar) {
-        ss << op.first << op.second;
-    }
-    return ss.str();
-}
 
 /// Apply the engine's surjector settings. vg giraffe has four more, set by
 /// flags the server does not have.
@@ -110,10 +71,12 @@ void take_best_surjection(const vector<Alignment>& surjected,
     // and we ask it to suppress none.
     int64_t pos_adj = result.path_position;
     size_t path_len = position_graph.get_path_length(path);
-    result.cigar = cigar_to_string(cigar_against_path(chosen, result.path_reverse, pos_adj,
-                                                      path_len, /*softclip_suppress=*/0));
-    count_edits(chosen, result.matches, result.mismatches,
-                result.inserted, result.deleted);
+    vector<pair<int, char>> cigar = cigar_against_path(chosen, result.path_reverse, pos_adj,
+                                                       path_len, /*softclip_suppress=*/0);
+    // An empty CIGAR is written as "*", as in SAM.
+    result.cigar = cigar.empty() ? "*" : cigar_string(cigar);
+    count_edit_bases(chosen, result.matches, result.mismatches,
+                     result.inserted, result.deleted);
 }
 
 /// Return true if path visits the nodes of the mappings [begin, end) of
