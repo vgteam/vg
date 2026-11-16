@@ -20,6 +20,12 @@ if [[ -e deps ]]; then
 fi
 mkdir -p deps_cached
 
+# Gitlab can fail tests with weird  complaints like:
+# fatal: could not get a repository handle for submodule 'doc/wiki'
+# So we shake the submodules vigorously
+rm -Rf docs/wiki
+rm -Rf .git/modules
+
 # Get the correct code
 git submodule update --init --recursive
 
