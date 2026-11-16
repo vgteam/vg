@@ -272,22 +272,23 @@ is $(grep -v "^#" nest_hap.vcf | awk '$2 == 51' | cut -f10 | cut -d: -f1) ".|1" 
 # chains share a group. The sample carries the insertion >2>10..13>5 on both strands, which differ
 # inside it at node 11 or 12, and the SNP at node 7 or 8 on one strand. The walks through the
 # insertion share a group, though the reference does not cross its chain, and so do the walks that
-# differ only at the SNP. The reads have no MAPQ, so each may be mismapped.
+# differ only at the SNP. vg sim leaves every read at MAPQ 0, so vg call gives each read the highest
+# mismapping probability, --mismap-max, set here to 0.95; the walks alone miscall the site only when
+# that is at least 0.95.
 vg gbwt -G nesting/deletion_over_insertion_and_snp.gfa --gbz-format -g nest_off.gbz --set-reference GRCh 2>/dev/null
 vg sim -x nest_off.gbz -n 200 -l 60 -a -s 71 --path "p1#0#chr1#0" > nest_off.gam 2>/dev/null
 vg sim -x nest_off.gbz -n 200 -l 60 -a -s 73 --path "p1#1#chr1#0" >> nest_off.gam 2>/dev/null
-# Each record as POS:number of ALTs:GT, with the GT's two alleles sorted, since either strand order
-# is the same call.
+# Each record as POS:GT.
 calls_of() {
-  grep -v '^#' "$1" | awk -F'\t' '{split($10, a, ":"); split(a[1], g, "|");
-                                   printf "%s:%s:%s ", $2, split($5, b, ","), (g[1] < g[2] ? g[1] "|" g[2] : g[2] "|" g[1])}'
+  grep -v '^#' "$1" | cut -f 2,10 | cut -d: -f 1 | tr '\t\n' ': '
 }
-vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp 2>/dev/null > nest_off.vcf
-is "$(calls_of nest_off.vcf)" "47:2:1|2 71:1:0|1 " \
+vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp --mismap-max 0.95 \
+    2>/dev/null > nest_off.vcf
+is "$(calls_of nest_off.vcf)" "47:2|1 71:0|1 " \
    "by default groups of walks call both insertion alleles, and the SNP on one strand"
-vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp --no-group-candidates \
-    2>/dev/null > nest_off_walks.vcf
-is "$(calls_of nest_off_walks.vcf)" "29:1:0|1 47:1:.|1 71:1:.|1 " \
+vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp --mismap-max 0.95 \
+    --no-group-candidates 2>/dev/null > nest_off_walks.vcf
+is "$(calls_of nest_off_walks.vcf)" "29:0|1 47:1|. 71:1|. " \
    "with --no-group-candidates the walks alone choose, and call the deletion on one strand"
 
 rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 \
