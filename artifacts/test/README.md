@@ -21,3 +21,11 @@ those that were easy to move were moved there.
 In the future, we should explore ways to manage command-line tests at least an order of magnitude
 more numerous and complex than the flat files of counted TAP tests in `test/t/` allow, which can
 only be run all together. Then tests like these could run in CI again.
+
+`vg_safari.t` holds the command-line tests of `vg rymer` and `vg safari`, the SAFARI ancient DNA
+mapper. It builds its own indexes from `test/small/` and uses `bin/vg`:
+
+```bash
+cd test
+prove -v ../artifacts/test/vg_safari.t
+```

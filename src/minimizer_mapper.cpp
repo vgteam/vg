@@ -623,6 +623,8 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
 
     // Minimizers sorted by position
     std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
+    // Add any minimizers from sequences standing in for the read
+    this->add_stand_in_minimizers(aln, minimizers_in_read, funnel);
     // Indexes of minimizers, sorted into score order, best score first
     std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read, rng);
     // Minimizers sorted by best score first
@@ -3972,6 +3974,47 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     }
 
     return result;
+}
+
+void MinimizerMapper::add_stand_in_minimizers(const Alignment& aln, std::vector<Minimizer>& minimizers_in_read, Funnel& funnel) const {
+    if (!this->stand_in_sequences) {
+        return;
+    }
+    std::vector<std::string> sequences = this->stand_in_sequences(aln);
+    if (sequences.empty()) {
+        return;
+    }
+
+    // Find the minimizers of the stand-in sequences with a funnel of their
+    // own, so that the read's funnel keeps one minimizer stage.
+    Funnel stand_in_funnel;
+    stand_in_funnel.start(aln.name().empty() ? std::string("stand-in") : aln.name());
+    size_t original_count = minimizers_in_read.size();
+    for (const std::string& sequence : sequences) {
+        crash_unless(sequence.size() == aln.sequence().size());
+        for (const Minimizer& minimizer : this->find_minimizers(sequence, stand_in_funnel)) {
+            // A stand-in can hold a k-mer the read already has, and the same seed twice would
+            // count twice when clustering and scoring.
+            auto is_same_seed = [&minimizer](const Minimizer& other) {
+                return other.value.key == minimizer.value.key &&
+                       other.value.offset == minimizer.value.offset &&
+                       other.value.is_reverse == minimizer.value.is_reverse;
+            };
+            if (std::ranges::none_of(minimizers_in_read, is_same_seed)) {
+                minimizers_in_read.push_back(minimizer);
+            }
+        }
+    }
+
+    size_t added_count = minimizers_in_read.size() - original_count;
+    if (added_count == 0) {
+        return;
+    }
+    std::ranges::stable_sort(minimizers_in_read, {}, &Minimizer::forward_offset);
+    if (this->track_provenance) {
+        // The minimizer stage is still running, so these are new lines in it.
+        funnel.introduce(added_count);
+    }
 }
 
 void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimizers_in_read_order) const {

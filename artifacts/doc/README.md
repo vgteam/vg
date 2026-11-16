@@ -26,6 +26,9 @@ matters to someone editing the code stays in the headers.
   re-decides the phases from reads that span several sites, and re-genotyping, which uses the phase
   to correct each site's likelihoods.
 
+- [safari.md](safari.md) — `vg safari` and `vg rymer`, the SAFARI ancient DNA mapper: RYmers, the
+  damage posterior, deamination profiles, usage, and how it differs from the original SAFARI fork.
+
 The [wiki](https://github.com/vgteam/vg/wiki) remains the home for tutorials and worked examples.
 It is a separate repository (mounted here as the `wiki` submodule), so anything published there
 cannot be reviewed alongside a code change; a page there should link to the write-up rather than
