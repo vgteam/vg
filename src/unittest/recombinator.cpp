@@ -121,7 +121,7 @@ struct SelectionFixture {
         for (const auto& path : paths) {
             gbwt::vector_type encoded;
             for (nid_t id : path) {
-                encoded.push_back(gbwt::Node::encode(id, false));
+                encoded.push_back(static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(id, false)));
             }
             builder.insert(encoded, true);
         }
@@ -150,7 +150,8 @@ struct SelectionFixture {
         this->fragment_map = gbwt::FragmentMap(this->gbz.index.metadata, false);
 
         // Kmers 0 to 3 are in sequences 0 and 3, kmers 4 and 5 in sequence 1, and
-        // kmer 6 in sequence 2. All of them are present in the sample.
+        // kmer 6 in sequence 2. All of them are present in the sample, so without
+        // limits the selection order is 0, 3, 1, 2.
         this->subchain.type = Haplotypes::Subchain::normal;
         this->subchain.start = gbwt::Node::encode(1, false);
         this->subchain.end = gbwt::Node::encode(6, false);
@@ -189,8 +190,8 @@ struct SelectionFixture {
             this->gbz, this->subchain, this->kmer_counts, this->coverage, 29, &statistics, nullptr, parameters, context
         );
         std::vector<size_t> result;
-        for (auto& haplotype : selected) {
-            result.push_back(haplotype.first);
+        for (const auto& [seq_offset, score] : selected) {
+            result.push_back(seq_offset);
         }
         return result;
     }
@@ -208,8 +209,8 @@ TEST_CASE("Haplotype selection in a subchain", "[haplotypes][recombinator]") {
     SECTION("the fixture is what the test expects") {
         for (size_t i = 0; i < 4; i++) {
             gbwt::edge_type pos(fixture.subchain.start, fixture.subchain.sequences[i].second);
-            gbwt::edge_type next = fixture.gbz.index.LF(pos);
-            REQUIRE(gbwt::Node::id(next.first) == (i == 1 ? 3 : 2));
+            auto [node, offset] = fixture.gbz.index.LF(pos);
+            REQUIRE(gbwt::Node::id(node) == (i == 1 ? 3 : 2));
         }
     }
 
@@ -231,7 +232,8 @@ TEST_CASE("Haplotype selection in a subchain", "[haplotypes][recombinator]") {
     }
 
     SECTION("the escape counts only sample kmers") {
-        fixture.kmer_counts[5] = 0; // Kmer 4 is absent from the sample.
+        // Kmer 4 is absent from the sample, so sequence 1 now scores below sequence 2.
+        fixture.kmer_counts[5] = 0;
         parameters.max_new_bp = 1000;
         parameters.bp_escape = 1000.0;
         REQUIRE(fixture.select(parameters, context) == std::vector<size_t>({ 0, 3, 2, 0 }));
@@ -250,6 +252,8 @@ TEST_CASE("Haplotype selection in a subchain", "[haplotypes][recombinator]") {
     }
 
     SECTION("the first haplotype is exempt from the new-bp limit") {
+        // The bonus makes sequence 1 the best, and its 2000 bp node does not count
+        // against it as the first haplotype.
         std::vector<gbwt::size_type> sources { fixture.subchain.sequences[1].first };
         context.sources = &sources;
         parameters.continuity_bonus = 10.0;
@@ -292,7 +296,7 @@ TEST_CASE("Haplotype selection in a subchain", "[haplotypes][recombinator]") {
     }
 
     SECTION("the model pair must be selectable") {
-        parameters.banned_samples.insert("s1");
+        parameters.banned_samples.emplace("s1");
         std::pair<size_t, size_t> pair(0, 1);
         context.pair = &pair;
         REQUIRE_THROWS_AS(fixture.select(parameters, context), std::runtime_error);
@@ -329,7 +333,7 @@ TEST_CASE("Threading by similarity", "[haplotypes][recombinator]") {
         std::vector<gbwt::size_type> sources { 0, 4 };
         std::vector<size_t> haplotype_to_selected { 2, 0 };
         sdsl::bit_vector selected_in_use(2, 0);
-        selected_in_use[0] = 1;
+        selected_in_use[0] = true;
         thread_by_similarity(subchain, selected, sources, haplotype_to_selected, selected_in_use);
         REQUIRE(haplotype_to_selected == std::vector<size_t>({ 1, 0 }));
     }
@@ -359,13 +363,13 @@ TEST_CASE("Model pair candidates in a subchain", "[haplotypes][recombinator]") {
     pair_model::CountModel model;
     model.mu = 15.0; model.eps = 0.5; model.r1 = 20.0; model.r0 = 0.5;
     std::vector<double> table = pair_model::count_table(model, std::vector<double>(pair_model::CountModel::MAX_COUNT + 1, 1.0));
-    auto candidates = [&]() -> pair_model::Candidates {
+    auto candidates = [&]() {
         return model_candidates(fixture.gbz, fixture.subchain, fixture.kmer_counts, table, fixture.fragment_map, 29, parameters);
     };
     // Returns the group that contains the sequence, or the number of groups.
-    auto group_of = [](const pair_model::Candidates& result, size_t sequence) -> size_t {
+    auto group_of = [](const pair_model::Candidates& result, size_t sequence) {
         for (size_t g = 0; g < result.size(); g++) {
-            if (std::find(result.members[g].begin(), result.members[g].end(), sequence) != result.members[g].end()) {
+            if (std::ranges::find(result.members[g], sequence) != result.members[g].end()) {
                 return g;
             }
         }
@@ -402,7 +406,7 @@ TEST_CASE("Model pair candidates in a subchain", "[haplotypes][recombinator]") {
         REQUIRE(result.members[0] == std::vector<size_t>({ 2 }));
     }
 
-    SECTION("if no sequence can be selected, every sequence is a candidate") {
+    SECTION("if no sequence can be selected, every sequence is usable") {
         parameters.banned_samples = { "s0", "s1", "s2", "s3" };
         pair_model::Candidates result = candidates();
         REQUIRE(result.size() == 3);

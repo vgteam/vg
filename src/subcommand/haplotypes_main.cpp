@@ -170,8 +170,8 @@ int main_haplotypes(int argc, char** argv) {
         haplotypes.load_from(config.haplotype_input);
         require_compatible_graphs(gbz, "GBZ", haplotypes, "Haplotype Information");
     }
-    bool sampling = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes);
-    if (sampling && config.model_preset && !haplotypes.has_copies()) {
+    if (bool sampling = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes);
+        sampling && config.model_preset && !haplotypes.has_copies()) {
         config.logger.error() << "the model preset needs haplotype information built with --subchain-kmers" << std::endl;
     }
 
@@ -1317,6 +1317,18 @@ std::vector<std::string> get_haplotype(
     return haplotype;
 }
 
+// Return the copies of each kmer of the subchain that the subchain stores for the sequence.
+std::vector<size_t> stored_copies(const Haplotypes::Subchain& subchain, size_t seq_offset) {
+    std::vector<size_t> copies(subchain.num_kmers(), 0);
+    subchain.for_each_kmer(seq_offset, [&copies](size_t j, bool is_present) {
+        copies[j] = (is_present ? 1 : 0);
+    });
+    subchain.for_each_copy(seq_offset, [&copies](size_t j, size_t value) {
+        copies[j] = value;
+    });
+    return copies;
+}
+
 // Validate the kmers of a subchain in an index built with subchain kmers. A kmer is
 // present in a sequence if it occurs in the sequence in either orientation, and the
 // stored copies are the number of occurrences, up to the maximum. Some sequences must
@@ -1326,47 +1338,27 @@ void validate_subchain_kmers(const Logger& logger,
                              const gbwtgraph::GBWTGraph& graph,
                              const gbwt::FragmentMap& fragment_map,
                              size_t k, size_t chain_id, size_t subchain_id) {
-    vg::hash_map<Haplotypes::Subchain::kmer_type, size_t> kmer_ids;
-    for (size_t j = 0; j < subchain.num_kmers(); j++) {
-        kmer_ids[subchain.kmers[j]] = j;
-        std::string forward = gbwtgraph::Key64(subchain.kmers[j]).decode(k);
-        kmer_ids[gbwtgraph::Key64::encode(vg::reverse_complement(forward)).get_key()] = j;
-    }
+    vg::hash_map<Haplotypes::Subchain::kmer_type, std::uint32_t> positions = vg::oriented_kmer_positions(subchain.kmers, k);
     std::vector<size_t> sequences_with_kmer(subchain.num_kmers(), 0);
     std::vector<size_t> first_copies;
     std::vector<bool> informative(subchain.num_kmers(), false);
     for (size_t i = 0; i < subchain.num_sequences(); i++) {
-        std::vector<size_t> occurrences(subchain.num_kmers(), 0);
         std::vector<std::string> haplotype = get_haplotype(
             graph, fragment_map, subchain.sequences[i], subchain.start, subchain.end, k
         );
-        for (const std::string& sequence : haplotype) {
-            gbwtgraph::Key64 key;
-            size_t valid_chars = 0;
-            for (char c : sequence) {
-                key.forward(k, static_cast<unsigned char>(c), valid_chars);
-                if (valid_chars >= k) {
-                    auto iter = kmer_ids.find(key.get_key());
-                    if (iter != kmer_ids.end()) {
-                        occurrences[iter->second]++;
-                    }
-                }
-            }
+        std::vector<size_t> occurrences(subchain.num_kmers(), 0);
+        for (const auto& [kmer_id, count] : vg::count_oriented_kmers(haplotype, positions, k)) {
+            occurrences[kmer_id] = count;
         }
-        std::vector<size_t> copies(subchain.num_kmers(), 0);
-        subchain.for_each_kmer(i, [&](size_t j, bool is_present) {
-            copies[j] = (is_present ? 1 : 0);
-        });
-        subchain.for_each_copy(i, [&](size_t j, size_t value) {
-            copies[j] = value;
-        });
+        std::vector<size_t> copies = stored_copies(subchain, i);
         for (size_t j = 0; j < subchain.num_kmers(); j++) {
-            size_t expected = std::min(occurrences[j], Haplotypes::Subchain::MAX_COPIES);
-            if (copies[j] != expected) {
+            if (size_t expected = std::min(occurrences[j], Haplotypes::Subchain::MAX_COPIES); copies[j] != expected) {
                 std::string message = "kmer " + std::to_string(j) + ": " + expected_got(expected, copies[j]) + " copies";
                 validate_error_sequence(logger, chain_id, subchain_id, i, message);
             }
-            sequences_with_kmer[j] += (occurrences[j] > 0);
+            if (occurrences[j] > 0) {
+                sequences_with_kmer[j]++;
+            }
             if (i > 0 && copies[j] != first_copies[j]) {
                 informative[j] = true;
             }

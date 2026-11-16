@@ -389,7 +389,12 @@ public:
         constexpr static size_t MAX_COPIES = 5;
 
         /// Return `true` if the subchain stores the number of copies of its kmers.
-        bool has_copies() const { return (this->copy_offsets.size() > 0); }
+        bool has_copies() const { return !this->copy_offsets.empty(); }
+
+        /// Throw `sdsl::simple_sds::InvalidData` unless the copies match the subchain:
+        /// the offsets do not decrease, each sequence lists kmer ids of the subchain in
+        /// increasing order, and each number of copies is from 2 to `MAX_COPIES`.
+        void check_copies() const;
 
         /// Call `callback(kmer_id, copies)` for each kmer with more than one copy in
         /// the given sequence, ordered by kmer id.

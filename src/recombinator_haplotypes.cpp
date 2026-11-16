@@ -305,7 +305,7 @@ void KmerPresenceMatrix::presence_row(size_t sequence, std::vector<std::uint64_t
     size_t parent_start = this->parent(sequence) * this->num_kmers;
     for (size_t word = 0; word < words; word++) {
         size_t width = std::min(size_t(64), this->num_kmers - 64 * word);
-        row[word] = this->parents.get_int(parent_start + 64 * word, width);
+        row[word] = this->parents.get_int(parent_start + 64 * word, static_cast<std::uint8_t>(width));
     }
     // A child differs from its parent at the kmers listed for it.
     if (!this->is_parent(sequence)) {
@@ -657,6 +657,27 @@ void load_subchain_header(Haplotypes::Subchain& subchain, std::istream& in, std:
     }
 }
 
+void Haplotypes::Subchain::check_copies() const {
+    if (this->copy_offsets.size() != this->sequences.size() + 1 || this->copy_kmers.size() != this->copy_values.size() ||
+        this->copy_offsets[this->sequences.size()] != this->copy_kmers.size()) {
+        throw sdsl::simple_sds::InvalidData("Subchain kmer copies do not match the sequences");
+    }
+    for (size_t i = 0; i < this->sequences.size(); i++) {
+        if (this->copy_offsets[i] > this->copy_offsets[i + 1]) {
+            throw sdsl::simple_sds::InvalidData("Subchain kmer copy offsets decrease");
+        }
+        for (size_t j = this->copy_offsets[i]; j < this->copy_offsets[i + 1]; j++) {
+            if (bool increasing = (j == this->copy_offsets[i] || this->copy_kmers[j] > this->copy_kmers[j - 1]);
+                this->copy_kmers[j] >= this->kmers.size() || !increasing) {
+                throw sdsl::simple_sds::InvalidData("Subchain kmer copies list invalid kmers");
+            }
+            if (this->copy_values[j] < 2 || this->copy_values[j] > MAX_COPIES) {
+                throw sdsl::simple_sds::InvalidData("Subchain kmer copies are out of range");
+            }
+        }
+    }
+}
+
 void Haplotypes::Subchain::simple_sds_load(std::istream& in, std::uint32_t version) {
     load_subchain_header(*this, in, version);
 
@@ -672,14 +693,17 @@ void Haplotypes::Subchain::simple_sds_load(std::istream& in, std::uint32_t versi
         matrix.simple_sds_load(in);
         this->kmers_present = KmerPresenceMatrix(this->sequences.size(), this->kmers.size(), std::move(matrix));
     }
+    if (this->kmer_counts.size() != this->kmers.size() || this->kmers_present.get_num_sequences() != this->sequences.size() ||
+        (!this->sequences.empty() && this->kmers_present.get_num_kmers() != this->kmers.size())) {
+        throw sdsl::simple_sds::InvalidData("Subchain kmer presence does not match the kmers and the sequences");
+    }
 
     if (version >= Header::COPIES_VERSION) {
         this->copy_offsets.simple_sds_load(in);
         this->copy_kmers.simple_sds_load(in);
         this->copy_values.simple_sds_load(in);
-        if (this->has_copies() && (this->copy_offsets.size() != this->sequences.size() + 1 ||
-            this->copy_kmers.size() != this->copy_values.size() || this->copy_offsets[this->sequences.size()] != this->copy_kmers.size())) {
-            throw sdsl::simple_sds::InvalidData("Subchain kmer copies do not match the sequences");
+        if (this->has_copies()) {
+            this->check_copies();
         }
     } else {
         this->copy_offsets = sdsl::int_vector<0>();
@@ -749,17 +773,21 @@ bool Haplotypes::has_copies() const {
 }
 
 std::uint32_t Haplotypes::file_version() const {
+    // An index without copies is written in the version before the copies, so that
+    // earlier versions of vg can read it. A later version must decide which version
+    // such an index gets.
+    static_assert(Header::VERSION == Header::COPIES_VERSION, "choose the file version of an index without copies");
     return (this->has_copies() ? Header::VERSION : Header::COPIES_VERSION - 1);
 }
 
 void Haplotypes::simple_sds_serialize(std::ostream& out) const {
-    Header header = this->header;
-    header.version = this->file_version();
-    sdsl::simple_sds::serialize_value<Header>(header, out);
+    Header written = this->header;
+    written.version = this->file_version();
+    sdsl::simple_sds::serialize_value<Header>(written, out);
     this->tags.simple_sds_serialize(out);
     sdsl::simple_sds::serialize_vector(this->jobs_for_paths, out);
     for (auto& chain : this->chains) {
-        chain.simple_sds_serialize(out, header.version);
+        chain.simple_sds_serialize(out, written.version);
     }
 }
 

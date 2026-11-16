@@ -10,13 +10,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
-namespace vg {
-
-namespace unittest {
+namespace vg::unittest {
 
 //------------------------------------------------------------------------------
 
@@ -42,6 +42,48 @@ std::vector<double> expected_histogram(const pair_model::CountModel& model, cons
         }
     }
     return histogram;
+}
+
+// The copies of kmer j in a sequence given as a row of `0` and `1` and a list of
+// (kmer, copies) for the kmers with more than one copy.
+size_t copies_in(const std::string& row, const std::vector<std::pair<std::uint32_t, std::uint32_t>>& copies, size_t j) {
+    for (const auto& [kmer, value] : copies) {
+        if (kmer == j) {
+            return value;
+        }
+    }
+    return (row[j] == '1' ? 1 : 0);
+}
+
+// The score of the pair of sequences a and b as a direct sum of the table over the
+// kmers that are not ignored.
+double direct_score(
+    const std::vector<double>& table, const std::vector<std::string>& rows,
+    const std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& copies,
+    const std::vector<size_t>& counts, size_t a, size_t b
+) {
+    double result = 0.0;
+    for (size_t j = 0; j < counts.size(); j++) {
+        if (counts[j] != pair_model::IGNORED_COUNT) {
+            size_t m = std::min(copies_in(rows[a], copies[a], j) + copies_in(rows[b], copies[b], j), pair_model::PAIR_COPIES);
+            result += table[counts[j] * (pair_model::PAIR_COPIES + 1) + m];
+        }
+    }
+    return result;
+}
+
+// Kmer presence rows for sequences given as strings of `0` and `1`.
+std::vector<std::vector<std::uint64_t>> presence_rows(const std::vector<std::string>& rows);
+
+// Score the pairs of sequences given as rows of `0` and `1`, with each sequence a
+// haplotype of its own.
+pair_model::Candidates score_rows(
+    const std::vector<std::string>& rows, const std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& copies,
+    const std::vector<bool>& usable, const std::vector<size_t>& counts, const std::vector<double>& table
+) {
+    std::vector<std::uint64_t> haplotype_ids(rows.size());
+    std::iota(haplotype_ids.begin(), haplotype_ids.end(), std::uint64_t(0));
+    return pair_model::score_pairs(presence_rows(rows), copies, haplotype_ids, usable, counts, table, 0.0);
 }
 
 // Kmer presence rows for sequences given as strings of `0` and `1`.
@@ -127,18 +169,12 @@ TEST_CASE("Pair scores from the count model", "[haplotypes][recombinator]") {
     std::vector<double> table = pair_model::count_table(model, flat);
 
     // The sample's counts for the pair of sequences with the given rows and copies.
-    auto counts_for = [&](const std::vector<std::string>& rows, const std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& copies,
-                          size_t first, size_t second) -> std::vector<size_t> {
+    auto counts_for = [](const std::vector<std::string>& rows, const std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& copies,
+                         size_t first, size_t second) {
         std::vector<size_t> counts(rows.front().size(), 0);
         for (size_t sequence : { first, second }) {
             for (size_t j = 0; j < counts.size(); j++) {
-                size_t c = (rows[sequence][j] == '1' ? 1 : 0);
-                for (auto entry : copies[sequence]) {
-                    if (entry.first == j) {
-                        c = entry.second;
-                    }
-                }
-                counts[j] += 15 * c;
+                counts[j] += 15 * copies_in(rows[sequence], copies[sequence], j);
             }
         }
         return counts;
@@ -155,14 +191,15 @@ TEST_CASE("Pair scores from the count model", "[haplotypes][recombinator]") {
         std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> copies(rows.size());
         std::vector<bool> usable(rows.size(), true);
         std::vector<size_t> counts = counts_for(rows, copies, 1, 2);
-        pair_model::Candidates candidates = pair_model::score_pairs(presence_rows(rows), copies, usable, counts, table);
+        pair_model::Candidates candidates = score_rows(rows, copies, usable, counts, table);
         REQUIRE(candidates.size() == 4);
         REQUIRE(candidates.members[group_of(candidates, 1)] == std::vector<size_t>({ 1, 3 }));
-        size_t best = std::max_element(candidates.scores.begin(), candidates.scores.end()) - candidates.scores.begin();
-        size_t a = best / candidates.size(), b = best % candidates.size();
+        auto best = static_cast<size_t>(std::ranges::max_element(candidates.scores) - candidates.scores.begin());
+        size_t a = best / candidates.size();
+        size_t b = best % candidates.size();
         std::vector<size_t> pair { std::min(a, b), std::max(a, b) };
         std::vector<size_t> expected { group_of(candidates, 1), group_of(candidates, 2) };
-        std::sort(expected.begin(), expected.end());
+        std::ranges::sort(expected);
         REQUIRE(pair == expected);
         REQUIRE(candidates.scores[a * candidates.size() + b] == Approx(candidates.scores[b * candidates.size() + a]));
     }
@@ -177,17 +214,20 @@ TEST_CASE("Pair scores from the count model", "[haplotypes][recombinator]") {
         std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> copies { {}, { { 0, 2 } }, {} };
         std::vector<bool> usable(rows.size(), true);
         std::vector<size_t> counts = counts_for(rows, copies, 1, 2);
-        pair_model::Candidates candidates = pair_model::score_pairs(presence_rows(rows), copies, usable, counts, table);
+        pair_model::Candidates candidates = score_rows(rows, copies, usable, counts, table);
         REQUIRE(candidates.size() == 3);
-        size_t g0 = group_of(candidates, 0), g1 = group_of(candidates, 1), g2 = group_of(candidates, 2);
+        size_t g0 = group_of(candidates, 0);
+        size_t g1 = group_of(candidates, 1);
+        size_t g2 = group_of(candidates, 2);
         REQUIRE(g0 != g1);
         size_t K = candidates.size();
         REQUIRE(candidates.scores[g1 * K + g2] > candidates.scores[g0 * K + g2]);
     }
 
     SECTION("each pair score is the sum of the table over the kmers") {
-        // Kmers 0, 2, and 3 are carried by most sequences, and sequences 1 and 3
-        // have multiple copies of a kmer. Kmers 2 and 4 are ignored.
+        // Kmer 3 is carried by one sequence and the other kmers by most sequences.
+        // Sequence 1 has three copies of kmer 0 and sequence 3 two copies of kmer 5.
+        // Kmers 2 and 4 are ignored.
         std::vector<std::string> rows {
             "1100111",
             "1010110",
@@ -195,31 +235,17 @@ TEST_CASE("Pair scores from the count model", "[haplotypes][recombinator]") {
             "1111011",
             "0000111"
         };
-        std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> copies { {}, { { 0, 3 } }, {}, { { 4, 2 } }, {} };
+        std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> copies { {}, { { 0, 3 } }, {}, { { 5, 2 } }, {} };
         std::vector<bool> usable(rows.size(), true);
         std::vector<size_t> counts = counts_for(rows, copies, 1, 3);
-        counts[2] = counts[4] = pair_model::IGNORED_COUNT;
-        pair_model::Candidates candidates = pair_model::score_pairs(presence_rows(rows), copies, usable, counts, table);
+        counts[2] = pair_model::IGNORED_COUNT;
+        counts[4] = pair_model::IGNORED_COUNT;
+        pair_model::Candidates candidates = score_rows(rows, copies, usable, counts, table);
         REQUIRE(candidates.size() == rows.size());
-        auto copies_of = [&](size_t sequence, size_t kmer) -> size_t {
-            size_t result = (rows[sequence][kmer] == '1' ? 1 : 0);
-            for (auto entry : copies[sequence]) {
-                if (entry.first == kmer) {
-                    result = entry.second;
-                }
-            }
-            return result;
-        };
-        size_t K = candidates.size(), W = pair_model::PAIR_COPIES + 1;
+        size_t K = candidates.size();
         for (size_t i = 0; i < K; i++) {
             for (size_t k = 0; k < K; k++) {
-                size_t a = candidates.members[i].front(), b = candidates.members[k].front();
-                double expected = 0.0;
-                for (size_t j = 0; j < counts.size(); j++) {
-                    if (counts[j] != pair_model::IGNORED_COUNT) {
-                        expected += table[counts[j] * W + std::min(copies_of(a, j) + copies_of(b, j), pair_model::PAIR_COPIES)];
-                    }
-                }
+                double expected = direct_score(table, rows, copies, counts, candidates.members[i].front(), candidates.members[k].front());
                 REQUIRE(candidates.scores[i * K + k] == Approx(expected));
             }
         }
@@ -234,11 +260,11 @@ TEST_CASE("Pair scores from the count model", "[haplotypes][recombinator]") {
         }
         std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> copies(n);
         std::vector<bool> usable(n, true);
-        pair_model::Candidates candidates = pair_model::score_pairs(presence_rows(rows), copies, usable, counts_for(rows, copies, 37, 38), table);
+        pair_model::Candidates candidates = score_rows(rows, copies, usable, counts_for(rows, copies, 37, 38), table);
         REQUIRE(candidates.size() == pair_model::CANDIDATES);
         REQUIRE(group_of(candidates, 37) < candidates.size());
         REQUIRE(group_of(candidates, 38) < candidates.size());
-        size_t best = std::max_element(candidates.scores.begin(), candidates.scores.end()) - candidates.scores.begin();
+        auto best = static_cast<size_t>(std::ranges::max_element(candidates.scores) - candidates.scores.begin());
         std::set<size_t> found { best / candidates.size(), best % candidates.size() };
         std::set<size_t> expected { group_of(candidates, 37), group_of(candidates, 38) };
         REQUIRE(found == expected);
@@ -253,13 +279,13 @@ TEST_CASE("Pair scores from the count model", "[haplotypes][recombinator]") {
         std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> copies(rows.size());
         std::vector<size_t> counts = counts_for(rows, copies, 0, 0);
         std::vector<bool> usable { true, false, true };
-        pair_model::Candidates candidates = pair_model::score_pairs(presence_rows(rows), copies, usable, counts, table);
+        pair_model::Candidates candidates = score_rows(rows, copies, usable, counts, table);
         REQUIRE(group_of(candidates, 1) == candidates.size());
 
         // With every kmer ignored, all pairs have the same score.
         std::vector<size_t> ignored(counts.size(), pair_model::IGNORED_COUNT);
         usable.assign(rows.size(), true);
-        candidates = pair_model::score_pairs(presence_rows(rows), copies, usable, ignored, table);
+        candidates = score_rows(rows, copies, usable, ignored, table);
         for (double score : candidates.scores) {
             REQUIRE(score == 0.0);
         }
@@ -269,7 +295,8 @@ TEST_CASE("Pair scores from the count model", "[haplotypes][recombinator]") {
 TEST_CASE("Viterbi path over pairs of haplotypes", "[haplotypes][recombinator]") {
     // Haplotypes 10, 11, 12 in both subchains. The first subchain prefers (10, 11), and
     // the second prefers (12, 11) slightly over (10, 11).
-    std::vector<double> first(9, -100.0), second(9, -100.0);
+    std::vector<double> first(9, -100.0);
+    std::vector<double> second(9, -100.0);
     first[0 * 3 + 1] = 0.0;
     second[0 * 3 + 1] = 0.0;
     second[2 * 3 + 1] = 0.1;
@@ -318,6 +345,11 @@ TEST_CASE("Viterbi path over pairs of haplotypes", "[haplotypes][recombinator]")
         REQUIRE(pair_model::viterbi(subchains, 1.0, 1.0)[1] == std::make_pair(size_t(1), size_t(2)));
     }
 
+    SECTION("a subchain without candidates is an error") {
+        subchains[1] = pair_model::Candidates();
+        REQUIRE_THROWS_AS(pair_model::viterbi(subchains, 1.0, 3e-6), std::invalid_argument);
+    }
+
     SECTION("tau divides the pair scores") {
         // Switching the first member to haplotype 12 costs about 6.9.
         std::vector<double> scores(9, -100.0);
@@ -330,7 +362,8 @@ TEST_CASE("Viterbi path over pairs of haplotypes", "[haplotypes][recombinator]")
 }
 
 TEST_CASE("Sequences for the model pair", "[haplotypes][recombinator]") {
-    pair_model::Candidates a, b;
+    pair_model::Candidates a;
+    pair_model::Candidates b;
     a.members = { { 4, 5 } };
     a.haplotypes = { { 100, 101 } };
     b.members = { { 7, 8, 9 } };
@@ -356,6 +389,4 @@ TEST_CASE("Sequences for the model pair", "[haplotypes][recombinator]") {
 
 //------------------------------------------------------------------------------
 
-} // namespace unittest
-
-} // namespace vg
+} // namespace vg::unittest

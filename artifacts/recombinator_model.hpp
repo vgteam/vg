@@ -14,9 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace vg {
-
-namespace pair_model {
+namespace vg::pair_model {
 
 //------------------------------------------------------------------------------
 
@@ -63,11 +61,11 @@ struct CountModel {
     /**
      * Fit the model by maximum likelihood to a histogram of reported counts, where
      * `histogram[y]` is the number of kmers with count `y` for `y <= MAX_COUNT`. The
-     * mixture weights are fitted with the other parameters. Counts above the mean
-     * for `FIT_COPIES` copies are only known to be above it, so that repeats are
-     * explained by copy numbers and not by the tail of the distribution for no
-     * copies. The coverage is the expected count of a kmer with two copies, and the
-     * mean per copy is fitted between 1/8 and 1 times the coverage.
+     * mixture weights are fitted with the other parameters. The coverage is the
+     * expected count of a kmer with two copies. Counts above `FIT_COPIES / 2` times
+     * the coverage (at most `MAX_COUNT - 1`) are only known to be above it, so that
+     * repeats are explained by copy numbers and not by the tail of the distribution
+     * for no copies. The mean per copy is fitted between 1/8 and 1 times the coverage.
      */
     static CountModel fit(const std::vector<double>& histogram, double coverage);
 };
@@ -91,14 +89,16 @@ std::vector<double> count_table(const CountModel& model, const std::vector<doubl
 /// A kmer count that marks a kmer the pair scores ignore.
 constexpr size_t IGNORED_COUNT = static_cast<size_t>(-1);
 
-/// The candidates in a subchain are the first `CANDIDATES` groups of haplotypes to
-/// appear in the best `CANDIDATE_PAIRS` pairs.
+/// The number of best pairs in a subchain that the candidates are taken from.
 constexpr size_t CANDIDATE_PAIRS = 400;
+
+/// The largest number of candidate groups in a subchain.
 constexpr size_t CANDIDATES = 32;
 
 /**
  * The candidate groups of haplotypes in one subchain and the scores of their pairs.
- * The sequences in a group have identical kmer presence and copies.
+ * The sequences in a group have identical kmer presence and copies. For each group,
+ * `members` and `haplotypes` have one entry per sequence of the group.
  */
 struct Candidates {
     /// Sequence offsets in the subchain for each group.
@@ -120,24 +120,27 @@ struct Candidates {
 };
 
 /**
- * Score the pairs of haplotypes in a subchain. Each sequence is given as a row of
- * kmer presence bits (as in `Haplotypes::Subchain::presence_row()`) and a list of
- * (kmer id, copies) for the kmers with more than one copy. The counts are the
- * sample's counts of the kmers, at most `CountModel::MAX_COUNT`, or `IGNORED_COUNT`.
- * Only the usable sequences become candidates.
+ * Score the pairs of haplotypes in a subchain of the given length. Each sequence is
+ * given as a row of kmer presence bits (as in `Haplotypes::Subchain::presence_row()`),
+ * a list of (kmer id, copies) for the kmers with more than one copy, and the
+ * identifier of the haplotype it belongs to. The counts are the sample's counts of the
+ * kmers, at most `CountModel::MAX_COUNT`, or `IGNORED_COUNT`. Only the usable
+ * sequences become candidates.
  *
- * Sequences with identical kmer presence and copies form a group, and groups are
- * numbered in the order of their first sequence. The candidates are the first
- * `CANDIDATES` groups to appear in the best `CANDIDATE_PAIRS` pairs, ranked with
- * the copies clipped to one. The scores of the candidate pairs use the copies.
- * This does not set `haplotypes` or `length`.
+ * Sequences with identical kmer presence and copies form a group. The candidates are
+ * the first `CANDIDATES` groups to appear in the best `CANDIDATE_PAIRS` pairs, ranked
+ * with the copies clipped to one, and they are returned in that order. Pairs with
+ * equal scores are ranked by the first sequences of their groups. The scores of the
+ * candidate pairs use the copies.
  */
 Candidates score_pairs(
     const std::vector<std::vector<std::uint64_t>>& rows,
     const std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& copies,
+    const std::vector<std::uint64_t>& haplotype_ids,
     const std::vector<bool>& usable,
     const std::vector<size_t>& counts,
-    const std::vector<double>& table
+    const std::vector<double>& table,
+    double length
 );
 
 /**
@@ -147,7 +150,8 @@ Candidates score_pairs(
  * otherwise moves to a candidate group chosen uniformly at random, where
  * r = 1 - exp(-rho * d) for the mean length d of the two subchains. A member whose
  * haplotype is not among the candidates in the next subchain also moves uniformly.
- * Pair scores are divided by `tau`. Every subchain must have candidates.
+ * Pair scores are divided by `tau`. Throws `std::invalid_argument` if a subchain has
+ * no candidates.
  */
 std::vector<std::pair<size_t, size_t>> viterbi(const std::vector<Candidates>& subchains, double tau, double rho);
 
@@ -157,8 +161,8 @@ std::vector<std::pair<size_t, size_t>> viterbi(const std::vector<Candidates>& su
  * subchain when its group has a sequence of it. Otherwise it takes the first
  * sequence in the group, except that when both members are in the same group, the
  * second one then avoids the sequence of the first if the group has another
- * sequence. Two members that keep their haplotypes may therefore take the same
- * sequence.
+ * sequence. The second member avoids the sequence of the first only when it does not
+ * keep its own haplotype, so both members can take the same sequence.
  */
 std::vector<std::pair<size_t, size_t>> choose_sequences(
     const std::vector<Candidates>& subchains, const std::vector<std::pair<size_t, size_t>>& path
@@ -166,8 +170,6 @@ std::vector<std::pair<size_t, size_t>> choose_sequences(
 
 //------------------------------------------------------------------------------
 
-} // namespace pair_model
-
-} // namespace vg
+} // namespace vg::pair_model
 
 #endif // VG_RECOMBINATOR_MODEL_HPP_INCLUDED

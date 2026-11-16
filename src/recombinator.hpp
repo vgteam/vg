@@ -204,9 +204,21 @@ private:
     // Build subchains for a specific top-level chain.
     void build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const;
 
+    // Build the subchains from subchain kmers (`Parameters::subchain_kmers`) and append
+    // them to the chain, given the sequences crossing each subchain.
+    void build_kmer_subchains(
+        const std::vector<std::pair<Subchain, std::vector<sequence_type>>>& to_process, Haplotypes::TopLevelChain& output
+    ) const;
+
     // Set the subchain kmers, their presence in the sequences, and their copies in the
     // output subchain (`Parameters::subchain_kmers`). The sequences cross the subchain.
     void build_subchain_kmers(const Subchain& subchain, const std::vector<sequence_type>& sequences, Haplotypes::Subchain& output) const;
+
+    // Return the kmers among the minimizers that occur in the graph only on the nodes,
+    // sorted. A minimizer that the minimizer index does not contain is not returned.
+    std::vector<kmer_type> kmers_on_nodes(
+        const hash_map<kmer_type, minimizer_index_type::minimizer_type>& minimizers, const hash_set<nid_t>& nodes
+    ) const;
 };
 
 //------------------------------------------------------------------------------
@@ -542,7 +554,8 @@ public:
 
     /// What the haplotype selection in a subchain uses beyond the kmers.
     struct SelectionContext {
-        /// For following a haplotype past the end of a fragment. It must be set.
+        /// For following a haplotype past the end of a fragment. Needed with a new-bp
+        /// or N-base limit.
         const gbwt::FragmentMap* fragment_map = nullptr;
 
         /// For each generated haplotype, the GBWT sequence it took in the previous
@@ -565,13 +578,22 @@ public:
     std::vector<size_t> jobs_for_cached_paths;
 
 private:
+    // Return the pairs chosen by the count model (`Parameters::model_pair`) for each
+    // chain, indexed by chain offset. The count model is fitted to the sample's counts
+    // of the kmers in the chains sampled with the standard scoring model. Each of those
+    // chains gets a pair of sequence offsets for each subchain, and the other chains get
+    // no pairs. Throws `std::runtime_error` if the coverage is not positive.
+    std::vector<std::vector<std::pair<size_t, size_t>>> model_pairs(
+        const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, double coverage, const Parameters& parameters
+    ) const;
+
     // Generate haplotypes for the given chain. The model pairs are for the subchains
     // of the chain, or empty.
     Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain,
         const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
         gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
         const Parameters& parameters, double coverage,
-        const std::vector<std::pair<size_t, size_t>>& model_pairs) const;
+        const std::vector<std::pair<size_t, size_t>>& pairs) const;
 
     // Copy the given chain through verbatim, preserving the reference/generic
     // path and all haplotypes without personalization.
@@ -589,8 +611,11 @@ void validate_recombinator_parameters(const Recombinator::Parameters& parameters
  * for each selected haplotype. Haplotypes of banned samples and gref covers are never
  * selected.
  *
- * If the context has a pair, it becomes the first two haplotypes. The rest are
- * selected greedily by kmer scores within the limits in the parameters. With diploid
+ * If the context has a pair, it becomes the first two haplotypes, and the function
+ * throws `std::runtime_error` if a member of the pair cannot be selected. The rest are
+ * selected greedily by kmer scores within the limits in the parameters, which need
+ * the fragment map of the context. Throws `std::invalid_argument` if a new-bp or N-base
+ * limit is set and the context has no fragment map. With diploid
  * sampling, the result is the best pair of the selected haplotypes, possibly followed
  * by extra fragments. Otherwise the selected haplotypes are repeated until there are
  * `parameters.num_haplotypes` of them.
@@ -629,16 +654,30 @@ void thread_by_similarity(
     std::vector<size_t>& haplotype_to_selected, sdsl::bit_vector& selected_in_use
 );
 
+/// Return a table from the kmers, in both orientations, to their positions in the list.
+hash_map<Haplotypes::Subchain::kmer_type, std::uint32_t> oriented_kmer_positions(
+    const std::vector<Haplotypes::Subchain::kmer_type>& kmers, size_t k
+);
+
+/// Return the number of occurrences of the kmers of the table from
+/// `oriented_kmer_positions()`, in either orientation, in the pieces of a sequence, by
+/// position of the kmer in the table. A kmer is counted where the piece has `k` valid
+/// characters ending at it.
+hash_map<std::uint32_t, std::uint32_t> count_oriented_kmers(
+    const std::vector<std::string>& pieces, const hash_map<Haplotypes::Subchain::kmer_type, std::uint32_t>& positions, size_t k
+);
+
 /**
  * Return the candidates for the model pair in a subchain
  * (`Recombinator::Parameters::model_pair`), with pair scores from the table made
- * by `pair_model::count_table()`. Sequences that cannot be selected are not
- * candidates, and neither are sequences with more than `parameters.max_n_bp` N
- * bases, unless every sequence that can be selected has that many. If no sequence
- * can be selected, every sequence is a candidate. The haplotype of a sequence is
- * the sample and the phase of its path. The length of the subchain is the median,
- * over the sequences, of the total length of the distinct nodes each one visits in
- * the subchain.
+ * by `pair_model::count_table()`. The model uses the sequences that can be selected,
+ * except those with more than `parameters.max_n_bp` N bases, unless every sequence
+ * that can be selected has that many. If no sequence can be selected, the N-base rule
+ * applies to all sequences. The candidates are the groups that
+ * `pair_model::score_pairs()` keeps among the sequences the model uses. The haplotype
+ * of a sequence is the sample and the phase of its path. The length of the subchain is
+ * the median, over the sequences, of the total length of the distinct nodes each one
+ * visits in the subchain.
  */
 pair_model::Candidates model_candidates(
     const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain,
@@ -646,18 +685,6 @@ pair_model::Candidates model_candidates(
     const gbwt::FragmentMap& fragment_map, size_t k, const Recombinator::Parameters& parameters
 );
 
-/**
- * Return the pairs chosen by the count model (`Recombinator::Parameters::model_pair`)
- * for each chain, indexed by chain offset. The count model is fitted to the sample's
- * counts of the kmers in the chains sampled with the standard scoring model. Each of
- * those chains gets a pair of sequence offsets for each subchain, and the other
- * chains get no pairs. Throws `std::runtime_error` if the coverage is not positive.
- */
-std::vector<std::vector<std::pair<size_t, size_t>>> model_pairs(
-    const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const gbwt::FragmentMap& fragment_map,
-    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, double coverage,
-    const Recombinator::Parameters& parameters, Haplotypes::Verbosity verbosity
-);
 
 //------------------------------------------------------------------------------
 
