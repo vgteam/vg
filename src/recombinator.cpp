@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <tuple>
 
 //#define debug_selected_haplotypes
 
@@ -1524,6 +1525,9 @@ void Recombinator::Parameters::print(std::ostream& out) const {
     if (this->max_n_bp != std::numeric_limits<size_t>::max()) {
         out << "- at most " << this->max_n_bp << " N bases" << std::endl;
     }
+    if (this->similar_threading) {
+        out << "- similar threading" << std::endl;
+    }
     if (!this->high_coverage_chains.empty()) {
         out << "- " << this->high_coverage_chains.size() << " high-coverage chains ("
             << this->high_coverage_num_haplotypes << " haplotypes each)" << std::endl;
@@ -2332,6 +2336,70 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     }
 }
 
+void thread_by_similarity(
+    const Haplotypes::Subchain& subchain,
+    const std::vector<std::pair<size_t, double>>& selected_haplotypes,
+    const std::vector<gbwt::size_type>& sources,
+    std::vector<size_t>& haplotype_to_selected, sdsl::bit_vector& selected_in_use
+) {
+    size_t num_haplotypes = sources.size();
+    std::map<size_t, std::vector<std::uint64_t>> rows;
+    auto row_of = [&](size_t offset) -> const std::vector<std::uint64_t>& {
+        auto iter = rows.find(offset);
+        if (iter == rows.end()) {
+            iter = rows.emplace(offset, std::vector<std::uint64_t>()).first;
+            subchain.presence_row(offset, iter->second);
+        }
+        return iter->second;
+    };
+
+    // Unused selections by sequence offset, with the lowest index last.
+    std::map<size_t, std::vector<size_t>> free_entries;
+    for (size_t selected = num_haplotypes; selected > 0; selected--) {
+        if (!selected_in_use[selected - 1]) {
+            free_entries[selected_haplotypes[selected - 1].first].push_back(selected - 1);
+        }
+    }
+
+    // (distance, generated haplotype, sequence offset) for each candidate match.
+    std::vector<std::tuple<std::uint64_t, size_t, size_t>> pairs;
+    for (size_t haplotype = 0; haplotype < num_haplotypes; haplotype++) {
+        if (haplotype_to_selected[haplotype] < num_haplotypes || sources[haplotype] == gbwt::invalid_sequence()) {
+            continue;
+        }
+        size_t source = subchain.sequences.size();
+        for (size_t i = 0; i < subchain.sequences.size(); i++) {
+            if (subchain.sequences[i].first == sources[haplotype]) {
+                source = i;
+                break;
+            }
+        }
+        if (source == subchain.sequences.size()) {
+            continue;
+        }
+        const std::vector<std::uint64_t>& a = row_of(source);
+        for (const auto& entry : free_entries) {
+            const std::vector<std::uint64_t>& b = row_of(entry.first);
+            std::uint64_t distance = 0;
+            for (size_t w = 0; w < a.size(); w++) {
+                distance += __builtin_popcountll(a[w] ^ b[w]);
+            }
+            pairs.emplace_back(distance, haplotype, entry.first);
+        }
+    }
+    std::sort(pairs.begin(), pairs.end());
+    for (const auto& pair : pairs) {
+        size_t haplotype = std::get<1>(pair);
+        std::vector<size_t>& entries = free_entries[std::get<2>(pair)];
+        if (haplotype_to_selected[haplotype] < num_haplotypes || entries.empty()) {
+            continue;
+        }
+        haplotype_to_selected[haplotype] = entries.back();
+        selected_in_use[entries.back()] = 1;
+        entries.pop_back();
+    }
+}
+
 Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::TopLevelChain& chain,
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
     gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
@@ -2421,6 +2489,9 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                         break;
                     }
                 }
+            }
+            if (parameters.similar_threading) {
+                thread_by_similarity(subchain, selected_haplotypes, sources, haplotype_to_selected, selected_in_use);
             }
             for (size_t haplotype = 0, selected = 0; haplotype < haplotypes.size(); haplotype++) {
                 if (haplotype_to_selected[haplotype] < haplotypes.size()) {

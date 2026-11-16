@@ -358,6 +358,15 @@ public:
         /// selected haplotypes are repeated.
         size_t max_n_bp = std::numeric_limits<size_t>::max();
 
+        /// Match generated haplotypes with the haplotypes selected in a subchain by
+        /// similarity. A generated haplotype first continues with the GBWT sequence it
+        /// took in the previous subchain, if that sequence was selected. With this
+        /// set, a generated haplotype whose GBWT sequence in the previous subchain
+        /// also crosses this subchain then takes the remaining selection whose kmer
+        /// presence in this subchain differs least from that sequence. The other
+        /// generated haplotypes take the remaining selections in order.
+        bool similar_threading = false;
+
         /// Use the haploid scoring model. The most common kmer count is used as
         /// the coverage estimate. Kmers that would be classified as heterozygous
         /// are treated as homozygous.
@@ -556,6 +565,26 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     std::vector<Recombinator::LocalHaplotype>* local_haplotypes,
     const Recombinator::Parameters& parameters,
     const Recombinator::SelectionContext& context
+);
+
+/**
+ * Match the unmatched generated haplotypes with the unused selections by similarity
+ * (`Recombinator::Parameters::similar_threading`). A generated haplotype is
+ * unmatched if `haplotype_to_selected` maps it to `sources.size()`, and selection
+ * `i` is unused if `selected_in_use[i]` is 0.
+ * A generated haplotype whose source (its GBWT sequence in the previous subchain) is
+ * a sequence of the subchain can take an unused selection. Over all such pairs, the
+ * pairs are taken in order of the number of kmers whose presence differs between the
+ * source and the selected sequence, then by generated haplotype, and then by
+ * sequence offset. A pair is taken if the generated haplotype is still unmatched and
+ * an unused selection of that sequence remains; the selection with the lowest index
+ * is used.
+ */
+void thread_by_similarity(
+    const Haplotypes::Subchain& subchain,
+    const std::vector<std::pair<size_t, double>>& selected_haplotypes,
+    const std::vector<gbwt::size_type>& sources,
+    std::vector<size_t>& haplotype_to_selected, sdsl::bit_vector& selected_in_use
 );
 
 //------------------------------------------------------------------------------

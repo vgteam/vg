@@ -272,6 +272,9 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "      --max-n-bp N             take a haplotype only if its nodes in the" << std::endl;
     std::cerr << "                               subchain have at most N unknown (N) bases" << std::endl;
     std::cerr << "                               [no limit]" << std::endl;
+    std::cerr << "      --similar-threading      when a generated haplotype cannot continue with" << std::endl;
+    std::cerr << "                               its panel haplotype, give it the unused" << std::endl;
+    std::cerr << "                               selection with the most similar kmers" << std::endl;
     std::cerr << "      --haploid-scoring        use a scoring model without heterozygous kmers" << std::endl;
     std::cerr << "      --diploid-sampling       choose the best pair from the sampled haplotypes" << std::endl;
     std::cerr << "      --extra-fragments        select all candidates in bad subchains" << std::endl;
@@ -348,6 +351,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_MAX_NEW_BP = 1322;
     constexpr int OPT_BP_ESCAPE = 1323;
     constexpr int OPT_MAX_N_BP = 1324;
+    constexpr int OPT_SIMILAR_THREADING = 1325;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
     constexpr int OPT_DENSITY = 1600;
@@ -376,6 +380,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "max-new-bp", required_argument, 0, OPT_MAX_NEW_BP },
         { "bp-escape", required_argument, 0, OPT_BP_ESCAPE },
         { "max-n-bp", required_argument, 0, OPT_MAX_N_BP },
+        { "similar-threading", no_argument, 0, OPT_SIMILAR_THREADING },
         { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "extra-fragments", no_argument, 0, OPT_EXTRA_FRAGMENTS },
@@ -518,6 +523,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             break;
         case OPT_MAX_N_BP:
             this->recombinator_parameters.max_n_bp = parse<size_t>(optarg);
+            break;
+        case OPT_SIMILAR_THREADING:
+            this->recombinator_parameters.similar_threading = true;
             break;
         case OPT_HAPLOID_SCORING:
             this->recombinator_parameters.haploid_scoring = true;
