@@ -19,10 +19,12 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include <handlegraph/handle_graph.hpp>
+#include <handlegraph/mutable_path_deletable_handle_graph.hpp>
 
 namespace vg {
 
@@ -112,6 +114,44 @@ struct ChoppingPlan {
  *    partial overlaps.
  */
 ChoppingPlan plan_content_chopping(const handlegraph::HandleGraph& graph, const ContentChopParameters& parameters);
+
+//------------------------------------------------------------------------------
+
+/**
+ * A map from node IDs in the chopped graph to the locations of the
+ * corresponding pieces in the original graph and the stored strings.
+ * The map does not include unchopped nodes.
+ */
+class PieceDirectory {
+public:
+    /// Adds a new node to the map, replacing any earlier location information.
+    void add(handlegraph::nid_t node, const PieceLocation& piece);
+
+    /// Returns the original location of the node, or `nullptr` if the node is
+    /// not in the map.
+    const PieceLocation* find(handlegraph::nid_t node) const;
+
+    /// Returns the number of nodes in the directory.
+    size_t size() const;
+
+private:
+    std::unordered_map<handlegraph::nid_t, PieceLocation> pieces;
+};
+
+/**
+ * Chops the graph according to the given plan.
+ *
+ * Chopping may give new IDs to all nodes, and it invalidates handles into the
+ * graph.
+ *
+ * @pre The plan was made for this graph.
+ *
+ * @return A directory of original locations of chopped nodes.
+ *
+ * @throws `std::runtime_error` if the chopped graph does not have each piece of
+ * the plan as a node of the right length. The graph is left chopped.
+ */
+PieceDirectory chop_by_plan(handlegraph::MutablePathDeletableHandleGraph& graph, const ChoppingPlan& plan);
 
 //------------------------------------------------------------------------------
 

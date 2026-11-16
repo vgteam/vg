@@ -2,6 +2,8 @@
 
 #include "../artifacts/parallel_sort.hpp"
 
+#include <handlegraph/algorithms/chop.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -616,6 +618,51 @@ ChoppingPlan plan_content_chopping(const HandleGraph& graph, const ContentChopPa
     packer.pack(plan);
 
     return plan;
+}
+
+//------------------------------------------------------------------------------
+
+void PieceDirectory::add(nid_t node, const PieceLocation& piece) {
+    this->pieces.insert_or_assign(node, piece);
+}
+
+const PieceLocation* PieceDirectory::find(nid_t node) const {
+    auto iter = this->pieces.find(node);
+    return (iter == this->pieces.end() ? nullptr : &iter->second);
+}
+
+size_t PieceDirectory::size() const {
+    return this->pieces.size();
+}
+
+//------------------------------------------------------------------------------
+
+PieceDirectory chop_by_plan(handlegraph::MutablePathDeletableHandleGraph& graph, const ChoppingPlan& plan) {
+    PieceDirectory directory;
+    // chop() reports each new node with the ID of its original node and the
+    // forward offset where it starts in that node. It also reports unchopped
+    // nodes that got a new ID, and the plan has no pieces for those.
+    handlegraph::algorithms::chop(graph, plan.chop_points, [&](nid_t old_id, size_t offset, size_t, handle_t new_handle) {
+        const PieceLocation* piece = plan.find_piece(old_id, offset);
+        if (piece == nullptr) {
+            return;
+        }
+        if (graph.get_length(new_handle) != piece->length) {
+            throw std::runtime_error(
+                "chop_by_plan(): piece at offset " + std::to_string(offset) + " of node " + std::to_string(old_id)
+                + " has length " + std::to_string(graph.get_length(new_handle))
+                + " in the chopped graph and length " + std::to_string(piece->length) + " in the plan"
+            );
+        }
+        directory.add(graph.get_id(new_handle), *piece);
+    });
+    if (directory.size() != plan.pieces.size()) {
+        throw std::runtime_error(
+            "chop_by_plan(): the chopped graph has " + std::to_string(directory.size())
+            + " of the " + std::to_string(plan.pieces.size()) + " pieces in the plan"
+        );
+    }
+    return directory;
 }
 
 //------------------------------------------------------------------------------
