@@ -259,6 +259,19 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "      --absent-score F         score absent kmers -F/+F "
                                              << "[" << haplotypes_defaults::absent()  << "]" << std::endl;
     std::cerr << "      --ignore-homopolymers N  ignore homopolymers of length N or more " << std::endl;
+    std::cerr << "      --continuity-bonus F     add F to the score of a panel haplotype that a" << std::endl;
+    std::cerr << "                               generated haplotype took in the previous" << std::endl;
+    std::cerr << "                               subchain [0]" << std::endl;
+    std::cerr << "      --max-new-bp N           after the first haplotype in a subchain, take a" << std::endl;
+    std::cerr << "                               haplotype only if its nodes not visited by the" << std::endl;
+    std::cerr << "                               haplotypes already taken have at most N bp" << std::endl;
+    std::cerr << "                               [no limit]" << std::endl;
+    std::cerr << "      --bp-escape F            also take a haplotype over --max-new-bp if it" << std::endl;
+    std::cerr << "                               adds a kmer from the reads per F bp of new nodes" << std::endl;
+    std::cerr << "                               (0: never) [0]" << std::endl;
+    std::cerr << "      --max-n-bp N             take a haplotype only if its nodes in the" << std::endl;
+    std::cerr << "                               subchain have at most N unknown (N) bases" << std::endl;
+    std::cerr << "                               [no limit]" << std::endl;
     std::cerr << "      --haploid-scoring        use a scoring model without heterozygous kmers" << std::endl;
     std::cerr << "      --diploid-sampling       choose the best pair from the sampled haplotypes" << std::endl;
     std::cerr << "      --extra-fragments        select all candidates in bad subchains" << std::endl;
@@ -331,6 +344,10 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_EXCLUDE_CONTIG = 1318;
     constexpr int OPT_WRAP = 1319;
     constexpr int OPT_MIN_GREF_LEN = 1320;
+    constexpr int OPT_CONTINUITY_BONUS = 1321;
+    constexpr int OPT_MAX_NEW_BP = 1322;
+    constexpr int OPT_BP_ESCAPE = 1323;
+    constexpr int OPT_MAX_N_BP = 1324;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
     constexpr int OPT_DENSITY = 1600;
@@ -355,6 +372,10 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
         { "ignore-homopolymers", required_argument, 0, OPT_IGNORE_HOMOPOLYMERS },
+        { "continuity-bonus", required_argument, 0, OPT_CONTINUITY_BONUS },
+        { "max-new-bp", required_argument, 0, OPT_MAX_NEW_BP },
+        { "bp-escape", required_argument, 0, OPT_BP_ESCAPE },
+        { "max-n-bp", required_argument, 0, OPT_MAX_N_BP },
         { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "extra-fragments", no_argument, 0, OPT_EXTRA_FRAGMENTS },
@@ -479,6 +500,24 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             if (this->recombinator_parameters.ignore_homopolymers <= 1) {
                 this->logger.error() << "ignore homopolymers must be greater than 1" << std::endl;
             }
+            break;
+        case OPT_CONTINUITY_BONUS:
+            this->recombinator_parameters.continuity_bonus = parse<double>(optarg);
+            if (this->recombinator_parameters.continuity_bonus < 0.0) {
+                this->logger.error() << "continuity bonus must be non-negative" << std::endl;
+            }
+            break;
+        case OPT_MAX_NEW_BP:
+            this->recombinator_parameters.max_new_bp = parse<size_t>(optarg);
+            break;
+        case OPT_BP_ESCAPE:
+            this->recombinator_parameters.bp_escape = parse<double>(optarg);
+            if (this->recombinator_parameters.bp_escape < 0.0) {
+                this->logger.error() << "bp escape must be non-negative" << std::endl;
+            }
+            break;
+        case OPT_MAX_N_BP:
+            this->recombinator_parameters.max_n_bp = parse<size_t>(optarg);
             break;
         case OPT_HAPLOID_SCORING:
             this->recombinator_parameters.haploid_scoring = true;

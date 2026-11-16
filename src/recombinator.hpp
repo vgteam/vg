@@ -334,6 +334,30 @@ public:
         /// Ignore kmers containing homopolymers of at least this length.
         size_t ignore_homopolymers = std::numeric_limits<size_t>::max();
 
+        /// Score added to a candidate in a subchain if a generated haplotype took the
+        /// same GBWT sequence in the previous subchain. This helps the generated
+        /// haplotypes continue with the sequences they took.
+        double continuity_bonus = 0.0;
+
+        /// The new node sequence of a candidate is the total length of the nodes on its
+        /// path through the subchain that no selected haplotype visits. After the first
+        /// haplotype, a candidate is selected only if its new node sequence is at most
+        /// this many bp, or if it passes `bp_escape`. When no candidate qualifies, the
+        /// selected haplotypes are repeated.
+        size_t max_new_bp = std::numeric_limits<size_t>::max();
+
+        /// A candidate over `max_new_bp` still qualifies if it carries at least one new
+        /// sample kmer (present or heterozygous, and carried by no selected haplotype)
+        /// per this many bp of new node sequence. With 0, no candidate over the limit
+        /// qualifies.
+        double bp_escape = 0.0;
+
+        /// A candidate is selected only if the nodes on its path through the subchain
+        /// have at most this many N bases. If no candidate qualifies for the first
+        /// haplotype, the best candidate is taken; if none qualifies later, the
+        /// selected haplotypes are repeated.
+        size_t max_n_bp = std::numeric_limits<size_t>::max();
+
         /// Use the haploid scoring model. The most common kmer count is used as
         /// the coverage estimate. Kmers that would be classified as heterozygous
         /// are treated as homozygous.
@@ -470,6 +494,16 @@ public:
         std::vector<std::pair<size_t, double>> scores;
     };
 
+    /// What the haplotype selection in a subchain uses beyond the kmers.
+    struct SelectionContext {
+        /// For following a haplotype past the end of a fragment. It must be set.
+        const gbwt::FragmentMap* fragment_map = nullptr;
+
+        /// For each generated haplotype, the GBWT sequence it took in the previous
+        /// subchain, or `gbwt::invalid_sequence()`.
+        const std::vector<gbwt::size_type>* sources = nullptr;
+    };
+
     const gbwtgraph::GBZ& gbz;
     const Haplotypes& haplotypes;
     gbwt::FragmentMap fragment_map;
@@ -493,6 +527,36 @@ private:
     Statistics copy_chain(const Haplotypes::TopLevelChain& chain,
         gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata) const;
 };
+
+//------------------------------------------------------------------------------
+
+/// Throw `std::runtime_error` if the parameters are invalid.
+void validate_recombinator_parameters(const Recombinator::Parameters& parameters);
+
+/**
+ * Select haplotypes in a subchain. Return (sequence offset in the subchain, score)
+ * for each selected haplotype. Haplotypes of banned samples and gref covers are never
+ * selected.
+ *
+ * The haplotypes are selected greedily by kmer scores within the limits in the
+ * parameters. With diploid
+ * sampling, the result is the best pair of the selected haplotypes, possibly followed
+ * by extra fragments. Otherwise the selected haplotypes are repeated until there are
+ * `parameters.num_haplotypes` of them.
+ *
+ * Update the statistics with the number of kmers used, if provided. Update the
+ * local haplotypes with ranks and scores in each round of selection, if provided.
+ */
+std::vector<std::pair<size_t, double>> select_haplotypes(
+    const gbwtgraph::GBZ& gbz,
+    const Haplotypes::Subchain& subchain,
+    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
+    double coverage, size_t k,
+    Recombinator::Statistics* statistics,
+    std::vector<Recombinator::LocalHaplotype>* local_haplotypes,
+    const Recombinator::Parameters& parameters,
+    const Recombinator::SelectionContext& context
+);
 
 //------------------------------------------------------------------------------
 

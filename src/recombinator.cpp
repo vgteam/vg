@@ -1511,6 +1511,19 @@ void Recombinator::Parameters::print(std::ostream& out) const {
     if (this->ignore_homopolymers != std::numeric_limits<size_t>::max()) {
         out << "- ignore homopolymers of length >= " << this->ignore_homopolymers << std::endl;
     }
+    if (this->continuity_bonus > 0.0) {
+        out << "- continuity bonus " << this->continuity_bonus << std::endl;
+    }
+    if (this->max_new_bp != std::numeric_limits<size_t>::max()) {
+        out << "- at most " << this->max_new_bp << " bp of new node sequence";
+        if (this->bp_escape > 0.0) {
+            out << ", unless a new sample kmer per " << this->bp_escape << " bp";
+        }
+        out << std::endl;
+    }
+    if (this->max_n_bp != std::numeric_limits<size_t>::max()) {
+        out << "- at most " << this->max_n_bp << " N bases" << std::endl;
+    }
     if (!this->high_coverage_chains.empty()) {
         out << "- " << this->high_coverage_chains.size() << " high-coverage chains ("
             << this->high_coverage_num_haplotypes << " haplotypes each)" << std::endl;
@@ -1612,6 +1625,18 @@ void validate_recombinator_parameters(const Recombinator::Parameters& parameters
     }
     if (parameters.absent_score < 0.0) {
         std::string msg = "validate_recombinator_parameters(): absent score must be non-negative";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.continuity_bonus < 0.0) {
+        std::string msg = "validate_recombinator_parameters(): continuity bonus must be non-negative";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.bp_escape < 0.0) {
+        std::string msg = "validate_recombinator_parameters(): bp escape must be non-negative";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.bp_escape > 0.0 && parameters.max_new_bp == std::numeric_limits<size_t>::max()) {
+        std::string msg = "validate_recombinator_parameters(): bp escape needs a new-bp limit";
         throw std::runtime_error(msg);
     }
     if (!parameters.high_coverage_chains.empty() && parameters.high_coverage_num_haplotypes == 0) {
@@ -2042,10 +2067,59 @@ std::vector<std::pair<size_t, double>> select_diploid(
     return { candidates[best_left], candidates[best_right] };
 }
 
-// Returns (sequence offset in the subchain, score).
-// Updates statistics with the number of kmers used if provided.
-// Updates the local haplotypes with scores and ranks in each round of selection
-// if provided.
+//------------------------------------------------------------------------------
+
+// Return the ids of the nodes the sequence visits in the subchain, sorted and without
+// duplicates. In a normal subchain, the walk continues with the next fragment of the
+// haplotype when a fragment ends, because the generated haplotypes do the same.
+std::vector<nid_t> subchain_walk_nodes(
+    const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain,
+    size_t seq_offset, const gbwt::FragmentMap& fragment_map
+) {
+    const gbwt::GBWT& index = gbz.index;
+    gbwt::edge_type pos = (subchain.has_start() ?
+        gbwt::edge_type(subchain.start, subchain.sequences[seq_offset].second) :
+        index.start(subchain.sequences[seq_offset].first));
+    std::vector<nid_t> nodes;
+    bool normal = (subchain.has_start() && subchain.has_end());
+    gbwt::size_type sequence_id = subchain.sequences[seq_offset].first;
+    while (pos.first != gbwt::ENDMARKER) {
+        nodes.push_back(gbwt::Node::id(pos.first));
+        if (subchain.has_end() && pos.first == subchain.end) {
+            break;
+        }
+        pos = index.LF(pos);
+        while (normal && pos.first == gbwt::ENDMARKER) {
+            sequence_id = fragment_map.oriented_next(sequence_id);
+            if (sequence_id == gbwt::invalid_sequence()) {
+                break;
+            }
+            pos = index.start(sequence_id);
+        }
+    }
+    std::sort(nodes.begin(), nodes.end());
+    nodes.erase(std::unique(nodes.begin(), nodes.end()), nodes.end());
+    return nodes;
+}
+
+// Return the number of N bases on the node.
+size_t node_n_bases(const gbwtgraph::GBZ& gbz, nid_t node) {
+    std::string_view view = gbz.graph.get_sequence_view(gbz.graph.get_handle(node));
+    return std::count(view.begin(), view.end(), 'N') + std::count(view.begin(), view.end(), 'n');
+}
+
+// Return true if the sequence can be selected: it is not from a banned sample or a gref cover.
+bool can_select(const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain, size_t seq_offset, const Recombinator::Parameters& parameters) {
+    gbwt::FullPathName path_name = gbz.index.metadata.fullPath(gbwt::Path::id(subchain.sequences[seq_offset].first));
+    // A gref cover is never a candidate. Its copy of the reference would take haplotype
+    // slots while adding nothing the reference does not, and its fragments are pieces
+    // of other haplotypes. Without it, a gref graph samples the same haplotypes as the
+    // graph it was computed from.
+    return (parameters.banned_samples.find(path_name.sample_name) == parameters.banned_samples.end() && !is_gref_path(path_name));
+}
+
+//------------------------------------------------------------------------------
+
 std::vector<std::pair<size_t, double>> select_haplotypes(
     const gbwtgraph::GBZ& gbz,
     const Haplotypes::Subchain& subchain,
@@ -2053,7 +2127,8 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     double coverage, size_t k,
     Recombinator::Statistics* statistics,
     std::vector<Recombinator::LocalHaplotype>* local_haplotypes,
-    const Recombinator::Parameters& parameters
+    const Recombinator::Parameters& parameters,
+    const Recombinator::SelectionContext& context
 ) {
     // Classify the kmers.
     std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmer_types = classify_kmers(
@@ -2064,20 +2139,119 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     std::vector<std::pair<size_t, double>> selected_haplotypes;
     std::vector<std::pair<size_t, double>> remaining_haplotypes;
     for (size_t seq_offset = 0; seq_offset < subchain.num_sequences(); seq_offset++) {
-        // Metadata to make sure this haplotype isn't among the banned
-        gbwt::size_type sequence_id = subchain.sequences[seq_offset].first;
-        gbwt::size_type path_id = gbwt::Path::id(sequence_id);
-        gbwt::FullPathName path_name = gbz.index.metadata.fullPath(path_id);
-
-        // A gref cover is never a candidate. Its copy of the reference would take haplotype
-        // slots while adding nothing the reference does not, and its fragments are pieces
-        // of other haplotypes. Without it, a gref graph samples the same haplotypes as the
-        // graph it was computed from.
-        if (parameters.banned_samples.find(path_name.sample_name) == parameters.banned_samples.end() && !is_gref_path(path_name)) {
+        if (can_select(gbz, subchain, seq_offset, parameters)) {
             remaining_haplotypes.push_back( { seq_offset, 0.0 });
         }
     }
     std::vector<double> scores(subchain.num_sequences(), 0.0);
+
+    // Continuity bonus: the sequences that a generated haplotype took in the previous subchain.
+    std::vector<bool> continues(subchain.num_sequences(), false);
+    if (context.sources != nullptr && parameters.continuity_bonus > 0.0) {
+        hash_set<gbwt::size_type> sources;
+        sources.insert(context.sources->begin(), context.sources->end());
+        for (size_t seq_offset = 0; seq_offset < subchain.num_sequences(); seq_offset++) {
+            continues[seq_offset] = (sources.find(subchain.sequences[seq_offset].first) != sources.end());
+        }
+    }
+
+    // New-bp limit: the nodes of each candidate (found when first needed) and the nodes
+    // of the selected haplotypes. The escape uses the sample kmers, the kmers of each
+    // candidate, and the kmers carried by the selected haplotypes.
+    bool bp_limit = (parameters.max_new_bp != std::numeric_limits<size_t>::max());
+    bool bp_escape = (bp_limit && parameters.bp_escape > 0.0);
+    bool n_limit = (parameters.max_n_bp != std::numeric_limits<size_t>::max());
+    std::vector<std::vector<nid_t>> candidate_nodes((bp_limit || n_limit) ? subchain.num_sequences() : 0);
+    std::vector<bool> nodes_found(candidate_nodes.size(), false);
+    auto nodes_of = [&](size_t seq_offset) -> const std::vector<nid_t>& {
+        if (!nodes_found[seq_offset]) {
+            candidate_nodes[seq_offset] = subchain_walk_nodes(gbz, subchain, seq_offset, *context.fragment_map);
+            nodes_found[seq_offset] = true;
+        }
+        return candidate_nodes[seq_offset];
+    };
+    hash_set<nid_t> selected_nodes;
+    auto new_bp_of = [&](size_t seq_offset) -> size_t {
+        size_t new_bp = 0;
+        for (nid_t node : nodes_of(seq_offset)) {
+            if (selected_nodes.find(node) == selected_nodes.end()) {
+                new_bp += gbz.graph.get_length(gbz.graph.get_handle(node));
+            }
+        }
+        return new_bp;
+    };
+    size_t words = (subchain.num_kmers() + 63) / 64;
+    std::vector<std::uint64_t> sample_bits, selected_bits;
+    std::vector<std::vector<std::uint64_t>> candidate_bits;
+    if (bp_escape) {
+        sample_bits.assign(words, 0);
+        selected_bits.assign(words, 0);
+        for (size_t kmer_id = 0; kmer_id < kmer_types.size(); kmer_id++) {
+            KmerPresenceMatrix::kmer_classification type = kmer_types[kmer_id].first;
+            if (type == KmerPresenceMatrix::present || type == KmerPresenceMatrix::heterozygous) {
+                sample_bits[kmer_id / 64] |= std::uint64_t(1) << (kmer_id % 64);
+            }
+        }
+        candidate_bits.resize(subchain.num_sequences());
+        for (const auto& candidate : remaining_haplotypes) {
+            subchain.presence_row(candidate.first, candidate_bits[candidate.first]);
+        }
+    }
+    auto within_bp_limit = [&](size_t seq_offset) -> bool {
+        size_t new_bp = new_bp_of(seq_offset);
+        if (new_bp <= parameters.max_new_bp) {
+            return true;
+        }
+        if (!bp_escape) {
+            return false;
+        }
+        size_t new_sample = 0;
+        for (size_t w = 0; w < words; w++) {
+            new_sample += __builtin_popcountll(candidate_bits[seq_offset][w] & ~selected_bits[w] & sample_bits[w]);
+        }
+        return (double(new_sample) * parameters.bp_escape >= double(new_bp));
+    };
+
+    // N-base limit: the N bases on the nodes of the candidate.
+    auto within_n_limit = [&](size_t seq_offset) -> bool {
+        size_t n_bases = 0;
+        for (nid_t node : nodes_of(seq_offset)) {
+            n_bases += node_n_bases(gbz, node);
+        }
+        return (n_bases <= parameters.max_n_bp);
+    };
+
+    // Select a haplotype and update the kmer scores and the state of the limits.
+    auto select = [&](std::pair<size_t, double> pick) {
+        selected_haplotypes.push_back(pick);
+        if (bp_escape) {
+            for (size_t w = 0; w < words; w++) {
+                selected_bits[w] |= candidate_bits[pick.first][w];
+            }
+        }
+        if (bp_limit) {
+            for (nid_t node : nodes_of(pick.first)) {
+                selected_nodes.insert(node);
+            }
+        }
+
+        // Adjust kmer scores based on the selected haplotype.
+        subchain.for_each_kmer(pick.first, [&](size_t kmer_id, bool is_present) {
+            switch (kmer_types[kmer_id].first) {
+            case KmerPresenceMatrix::heterozygous:
+                kmer_types[kmer_id].second += (is_present ? -1.0 : 1.0) * parameters.het_adjustment;
+                break;
+            case KmerPresenceMatrix::present:
+                if (is_present) {
+                    kmer_types[kmer_id].second *= parameters.present_discount;
+                }
+                break;
+            default:
+                break;
+            }
+        });
+    };
+
     while (selected_haplotypes.size() < parameters.num_haplotypes && !remaining_haplotypes.empty()) {
         // Score the haplotypes. We score all of them, as that is cheaper than
         // determining which ones are still relevant.
@@ -2088,7 +2262,11 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
             }
         );
         for (size_t i = 0; i < remaining_haplotypes.size(); i++) {
-            remaining_haplotypes[i].second = scores[remaining_haplotypes[i].first];
+            size_t seq_offset = remaining_haplotypes[i].first;
+            remaining_haplotypes[i].second = scores[seq_offset];
+            if (continues[seq_offset]) {
+                remaining_haplotypes[i].second += parameters.continuity_bonus;
+            }
         }
 
         // Report ranks and scores for each remaining haplotype.
@@ -2107,31 +2285,36 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
             }
         }
 
-        // Select the highest-scoring haplotype.
-        size_t selected = 0;
-        for (size_t i = 1; i < remaining_haplotypes.size(); i++) {
-            if (remaining_haplotypes[i].second > remaining_haplotypes[selected].second) {
+        // Select the highest-scoring haplotype within the limits. We try the candidates
+        // best first, so that we find their nodes only when needed. Ties go to the
+        // candidate listed first. If no candidate is within the limits, take the best
+        // one when nothing has been selected yet, and otherwise stop selecting.
+        bool first = selected_haplotypes.empty();
+        bool apply_bp_limit = (bp_limit && !first);
+        std::vector<size_t> order(remaining_haplotypes.size());
+        for (size_t i = 0; i < order.size(); i++) {
+            order[i] = i;
+        }
+        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) -> bool {
+            return (remaining_haplotypes[a].second > remaining_haplotypes[b].second);
+        });
+        size_t selected = remaining_haplotypes.size();
+        for (size_t i : order) {
+            size_t seq_offset = remaining_haplotypes[i].first;
+            if ((!apply_bp_limit || within_bp_limit(seq_offset)) && (!n_limit || within_n_limit(seq_offset))) {
                 selected = i;
+                break;
             }
         }
-        selected_haplotypes.push_back(remaining_haplotypes[selected]);
-        remaining_haplotypes.erase(remaining_haplotypes.begin() + selected);
-
-        // Adjust kmer scores based on the selected haplotype.
-        subchain.for_each_kmer(selected_haplotypes.back().first, [&](size_t kmer_id, bool is_present) {
-            switch (kmer_types[kmer_id].first) {
-            case KmerPresenceMatrix::heterozygous:
-                kmer_types[kmer_id].second += (is_present ? -1.0 : 1.0) * parameters.het_adjustment;
-                break;
-            case KmerPresenceMatrix::present:
-                if (is_present) {
-                    kmer_types[kmer_id].second *= parameters.present_discount;
-                }
-                break;
-            default:
+        if (selected == remaining_haplotypes.size()) {
+            if (!first) {
                 break;
             }
-        });
+            selected = order.front();
+        }
+        std::pair<size_t, double> pick = remaining_haplotypes[selected];
+        remaining_haplotypes.erase(remaining_haplotypes.begin() + selected);
+        select(pick);
     }
 
     if (parameters.diploid_sampling) {
@@ -2186,8 +2369,15 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
 
             // Select the haplotypes greedily. If we are doing diploid sampling and we get
             // extra fragments, store them for later processing.
+            std::vector<gbwt::size_type> sources;
+            for (const RecombinatorHaplotype& haplotype : haplotypes) {
+                sources.push_back(haplotype.sequence_id);
+            }
+            SelectionContext context;
+            context.fragment_map = &this->fragment_map;
+            context.sources = &sources;
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
-                this->gbz, subchain, kmer_counts, coverage, this->haplotypes.k(), &statistics, nullptr, parameters
+                this->gbz, subchain, kmer_counts, coverage, this->haplotypes.k(), &statistics, nullptr, parameters, context
             );
 #ifdef debug_selected_haplotypes
             for (size_t i = 0; i < selected_haplotypes.size(); i++) {
