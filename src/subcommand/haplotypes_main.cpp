@@ -275,6 +275,9 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "      --similar-threading      when a generated haplotype cannot continue with" << std::endl;
     std::cerr << "                               its panel haplotype, give it the unused" << std::endl;
     std::cerr << "                               selection with the most similar kmers" << std::endl;
+    std::cerr << "      --model-pair             take the first two haplotypes in each subchain" << std::endl;
+    std::cerr << "                               from a kmer count model and a hidden Markov" << std::endl;
+    std::cerr << "                               model over pairs of haplotypes" << std::endl;
     std::cerr << "      --haploid-scoring        use a scoring model without heterozygous kmers" << std::endl;
     std::cerr << "      --diploid-sampling       choose the best pair from the sampled haplotypes" << std::endl;
     std::cerr << "      --extra-fragments        select all candidates in bad subchains" << std::endl;
@@ -352,6 +355,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_BP_ESCAPE = 1323;
     constexpr int OPT_MAX_N_BP = 1324;
     constexpr int OPT_SIMILAR_THREADING = 1325;
+    constexpr int OPT_MODEL_PAIR = 1326;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
     constexpr int OPT_DENSITY = 1600;
@@ -381,6 +385,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "bp-escape", required_argument, 0, OPT_BP_ESCAPE },
         { "max-n-bp", required_argument, 0, OPT_MAX_N_BP },
         { "similar-threading", no_argument, 0, OPT_SIMILAR_THREADING },
+        { "model-pair", no_argument, 0, OPT_MODEL_PAIR },
         { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "extra-fragments", no_argument, 0, OPT_EXTRA_FRAGMENTS },
@@ -526,6 +531,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             break;
         case OPT_SIMILAR_THREADING:
             this->recombinator_parameters.similar_threading = true;
+            break;
+        case OPT_MODEL_PAIR:
+            this->recombinator_parameters.model_pair = true;
             break;
         case OPT_HAPLOID_SCORING:
             this->recombinator_parameters.haploid_scoring = true;

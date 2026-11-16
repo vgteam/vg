@@ -30,6 +30,8 @@ constexpr double Recombinator::HET_ADJUSTMENT;
 constexpr double Recombinator::ABSENT_SCORE;
 constexpr size_t Recombinator::LONG_READ_HOMOPOLYMERS;
 constexpr size_t Recombinator::MIN_GREF_LENGTH;
+constexpr double Recombinator::MODEL_TAU;
+constexpr double Recombinator::MODEL_RHO;
 
 // Other static class variables.
 
@@ -1528,6 +1530,9 @@ void Recombinator::Parameters::print(std::ostream& out) const {
     if (this->similar_threading) {
         out << "- similar threading" << std::endl;
     }
+    if (this->model_pair) {
+        out << "- model pair" << std::endl;
+    }
     if (!this->high_coverage_chains.empty()) {
         out << "- " << this->high_coverage_chains.size() << " high-coverage chains ("
             << this->high_coverage_num_haplotypes << " haplotypes each)" << std::endl;
@@ -1641,6 +1646,18 @@ void validate_recombinator_parameters(const Recombinator::Parameters& parameters
     }
     if (parameters.bp_escape > 0.0 && parameters.max_new_bp == std::numeric_limits<size_t>::max()) {
         std::string msg = "validate_recombinator_parameters(): bp escape needs a new-bp limit";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.model_pair && parameters.num_haplotypes < 2) {
+        std::string msg = "validate_recombinator_parameters(): the model pair requires at least 2 haplotypes";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.model_pair && parameters.diploid_sampling) {
+        std::string msg = "validate_recombinator_parameters(): the model pair cannot be combined with diploid sampling";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.model_pair && parameters.haploid_scoring) {
+        std::string msg = "validate_recombinator_parameters(): the model pair cannot be combined with haploid scoring";
         throw std::runtime_error(msg);
     }
     if (!parameters.high_coverage_chains.empty() && parameters.high_coverage_num_haplotypes == 0) {
@@ -1802,6 +1819,12 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
         }
     }
 
+    // Choose the model pairs.
+    std::vector<std::vector<std::pair<size_t, size_t>>> pairs(this->haplotypes.chains.size());
+    if (parameters.model_pair) {
+        pairs = model_pairs(this->gbz, this->haplotypes, this->fragment_map, counts, coverage, parameters, this->verbosity);
+    }
+
     // Build partial indexes.
     // We use a separate MetadataBuilder for each job, because we don't know in advance
     // how many fragments there will be for each generated haplotype.
@@ -1851,7 +1874,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
                         chain_parameters = &chain_parameters_override;
                     }
                     chain_statistics = this->generate_haplotypes(
-                        this->haplotypes.chains[chain_id], counts, builder, metadata, *chain_parameters, coverage
+                        this->haplotypes.chains[chain_id], counts, builder, metadata, *chain_parameters, coverage, pairs[chain_id]
                     );
                 }
                 job_statistics.combine(chain_statistics);
@@ -2124,6 +2147,162 @@ bool can_select(const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain,
 
 //------------------------------------------------------------------------------
 
+// Return the sample's count of the kmer for the count model: `pair_model::IGNORED_COUNT`
+// for a kmer with a homopolymer that the parameters ignore, and otherwise the count, at
+// most `pair_model::CountModel::MAX_COUNT`.
+size_t model_count(
+    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
+    Haplotypes::Subchain::kmer_type kmer, size_t k, const Recombinator::Parameters& parameters
+) {
+    if (contains_homopolymer(kmer, k, parameters.ignore_homopolymers)) {
+        return pair_model::IGNORED_COUNT;
+    }
+    auto iter = kmer_counts.find(kmer);
+    return std::min((iter == kmer_counts.end() ? size_t(0) : iter->second), pair_model::CountModel::MAX_COUNT);
+}
+
+pair_model::Candidates model_candidates(
+    const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain,
+    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, const std::vector<double>& table,
+    const gbwt::FragmentMap& fragment_map, size_t k, const Recombinator::Parameters& parameters
+) {
+    size_t n = subchain.num_sequences(), J = subchain.num_kmers();
+    bool n_limit = (parameters.max_n_bp != std::numeric_limits<size_t>::max());
+
+    // Kmer presence, copies, N bases, and length of each sequence.
+    std::vector<std::vector<std::uint64_t>> rows(n);
+    std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> copies(n);
+    std::vector<size_t> n_bases(n, 0), length(n, 0);
+    for (size_t i = 0; i < n; i++) {
+        subchain.presence_row(i, rows[i]);
+        subchain.for_each_copy(i, [&](size_t kmer_id, size_t value) {
+            copies[i].emplace_back(kmer_id, value);
+        });
+        for (nid_t node : subchain_walk_nodes(gbz, subchain, i, fragment_map)) {
+            length[i] += gbz.graph.get_length(gbz.graph.get_handle(node));
+            if (n_limit) {
+                n_bases[i] += node_n_bases(gbz, node);
+            }
+        }
+    }
+
+    // If no sequence can be selected, all are used, because the hidden Markov model
+    // needs candidates in every subchain. `select_haplotypes()` then has no
+    // candidates to take the pair from.
+    std::vector<bool> usable(n, false);
+    size_t num_usable = 0;
+    for (size_t i = 0; i < n; i++) {
+        usable[i] = can_select(gbz, subchain, i, parameters);
+        num_usable += usable[i];
+    }
+    if (num_usable == 0) {
+        usable.assign(n, true);
+        num_usable = n;
+    }
+    if (n_limit) {
+        size_t over_limit = 0;
+        for (size_t i = 0; i < n; i++) {
+            over_limit += (usable[i] && n_bases[i] > parameters.max_n_bp);
+        }
+        if (over_limit > 0 && over_limit < num_usable) {
+            for (size_t i = 0; i < n; i++) {
+                usable[i] = usable[i] && (n_bases[i] <= parameters.max_n_bp);
+            }
+        }
+    }
+
+    std::vector<size_t> counts(J);
+    for (size_t j = 0; j < J; j++) {
+        counts[j] = model_count(kmer_counts, subchain.kmers[j], k, parameters);
+    }
+    pair_model::Candidates result = pair_model::score_pairs(rows, copies, usable, counts, table);
+
+    // The haplotype of a sequence is the sample and the phase of its path.
+    const gbwt::Metadata& metadata = gbz.index.metadata;
+    for (const std::vector<size_t>& members : result.members) {
+        std::vector<std::uint64_t> ids;
+        for (size_t i : members) {
+            gbwt::PathName name = metadata.path(gbwt::Path::id(subchain.sequences[i].first));
+            ids.push_back((std::uint64_t(name.sample) << 32) | std::uint64_t(name.phase));
+        }
+        result.haplotypes.push_back(std::move(ids));
+    }
+
+    std::sort(length.begin(), length.end());
+    if (n > 0) {
+        result.length = (n % 2 == 1 ? double(length[n / 2]) : 0.5 * (double(length[n / 2 - 1]) + double(length[n / 2])));
+    }
+    return result;
+}
+
+std::vector<std::vector<std::pair<size_t, size_t>>> model_pairs(
+    const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const gbwt::FragmentMap& fragment_map,
+    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, double coverage,
+    const Recombinator::Parameters& parameters, Haplotypes::Verbosity verbosity
+) {
+    double start = gbwt::readTimer();
+    if (!(coverage > 0.0)) {
+        throw std::runtime_error("model_pairs(): the count model needs a positive kmer coverage");
+    }
+
+    // The model is used in chains sampled with the standard scoring model.
+    std::vector<size_t> chains;
+    for (const Haplotypes::TopLevelChain& chain : haplotypes.chains) {
+        bool full = (chain.subchains.size() == 1 && chain.subchains.front().type == Haplotypes::Subchain::full_haplotype);
+        bool other = (parameters.excluded_chains.count(chain.offset) > 0 || parameters.high_coverage_chains.count(chain.offset) > 0 ||
+            parameters.half_coverage_chains.count(chain.offset) > 0);
+        if (!other && !full && !chain.subchains.empty()) {
+            chains.push_back(chain.offset);
+        }
+    }
+
+    // Fit the count model to the counts of the kmers in those chains.
+    std::vector<double> histogram(pair_model::CountModel::MAX_COUNT + 1, 0.0);
+    for (size_t chain_id : chains) {
+        for (const Haplotypes::Subchain& subchain : haplotypes.chains[chain_id].subchains) {
+            for (auto kmer : subchain.kmers) {
+                size_t count = model_count(kmer_counts, kmer, haplotypes.k(), parameters);
+                if (count != pair_model::IGNORED_COUNT) {
+                    histogram[count] += 1.0;
+                }
+            }
+        }
+    }
+    pair_model::CountModel count_model = pair_model::CountModel::fit(histogram, coverage);
+    std::vector<double> table = pair_model::count_table(count_model, histogram);
+    if (verbosity >= Haplotypes::verbosity_basic) {
+        std::cerr << "Count model: mu " << count_model.mu << ", eps " << count_model.eps << ", r1 " << count_model.r1
+            << ", r0 " << count_model.r0 << ", pi";
+        for (double p : count_model.pi) {
+            std::cerr << " " << p;
+        }
+        std::cerr << " (" << (gbwt::readTimer() - start) << " seconds)" << std::endl;
+    }
+
+    // Find the candidates in the subchains of each chain in parallel, and take the Viterbi path.
+    std::vector<std::vector<std::pair<size_t, size_t>>> result(haplotypes.chains.size());
+    size_t total = 0;
+    for (size_t chain_id : chains) {
+        const Haplotypes::TopLevelChain& chain = haplotypes.chains[chain_id];
+        std::vector<pair_model::Candidates> candidates(chain.subchains.size());
+        #pragma omp parallel for schedule(dynamic, 1)
+        for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
+            candidates[subchain_id] = model_candidates(
+                gbz, chain.subchains[subchain_id], kmer_counts, table, fragment_map, haplotypes.k(), parameters
+            );
+        }
+        std::vector<std::pair<size_t, size_t>> path = pair_model::viterbi(candidates, Recombinator::MODEL_TAU, Recombinator::MODEL_RHO);
+        result[chain_id] = pair_model::choose_sequences(candidates, path);
+        total += result[chain_id].size();
+    }
+    if (verbosity >= Haplotypes::verbosity_basic) {
+        std::cerr << "Model pairs for " << total << " subchains in " << (gbwt::readTimer() - start) << " seconds" << std::endl;
+    }
+    return result;
+}
+
+//------------------------------------------------------------------------------
+
 std::vector<std::pair<size_t, double>> select_haplotypes(
     const gbwtgraph::GBZ& gbz,
     const Haplotypes::Subchain& subchain,
@@ -2255,6 +2434,20 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
             }
         });
     };
+
+    // The model pair becomes the first two haplotypes. A haplotype may pair with itself.
+    if (context.pair != nullptr && !remaining_haplotypes.empty()) {
+        for (size_t seq_offset : { context.pair->first, context.pair->second }) {
+            auto found = std::find_if(remaining_haplotypes.begin(), remaining_haplotypes.end(),
+                [&](const std::pair<size_t, double>& candidate) -> bool { return candidate.first == seq_offset; });
+            if (found != remaining_haplotypes.end()) {
+                remaining_haplotypes.erase(found);
+            } else if (selected_haplotypes.empty() || selected_haplotypes.front().first != seq_offset) {
+                throw std::runtime_error("select_haplotypes(): the model pair includes a haplotype that cannot be selected");
+            }
+            select({ seq_offset, 0.0 });
+        }
+    }
 
     while (selected_haplotypes.size() < parameters.num_haplotypes && !remaining_haplotypes.empty()) {
         // Score the haplotypes. We score all of them, as that is cheaper than
@@ -2404,7 +2597,8 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
     gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
     const Parameters& parameters,
-    double coverage
+    double coverage,
+    const std::vector<std::pair<size_t, size_t>>& model_pairs
 ) const {
     size_t final_haplotypes = (parameters.diploid_sampling ? 2 : parameters.num_haplotypes);
     bool wrap = (parameters.wrap_contigs.find(chain.contig_name) != parameters.wrap_contigs.end());
@@ -2444,6 +2638,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             SelectionContext context;
             context.fragment_map = &this->fragment_map;
             context.sources = &sources;
+            context.pair = (model_pairs.empty() ? nullptr : &model_pairs[subchain_id]);
             std::vector<std::pair<size_t, double>> selected_haplotypes = select_haplotypes(
                 this->gbz, subchain, kmer_counts, coverage, this->haplotypes.k(), &statistics, nullptr, parameters, context
             );
