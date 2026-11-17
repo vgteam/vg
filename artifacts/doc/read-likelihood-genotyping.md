@@ -812,7 +812,12 @@ left out.
 A site's reads are divided among its **slots**. A slot is a strand. Slot 0 is the strand of the
 first allele of `GT`, to the left of the `|`, and slot 1 the strand of the second. But a diploid
 site that is not phaseable pools both strands in one slot, 0, unless `--anchors-hom-split` divides
-its reads between slots 0 and 1, which then carry the same allele. A haploid site also has a single
+its reads between slots 0 and 1, which then carry the same allele. The alleles are those of the
+site's line: two called traversals that spell one sequence are one VCF allele, so a site called
+with both is homozygous, and a called traversal that is symbolically the reference is allele 0.
+Each read's $p_{ra}$ of such a traversal is added to that of the traversal its allele is spelled
+from. Alleles that `-L` merges as similar are not pooled. A site with no line keeps its called
+traversals. A haploid site also has a single
 slot, 0, except at a site of a nested haploid chain whose `GT` is `.|a`, where it is 1. An
 **anchor** is one pin together with the reads of one slot that cross it.
 
@@ -927,7 +932,7 @@ lines describe them.
 | `node` | the graph's ID of the node the pin lies on. For a snarl it is the pin's boundary node: the first node of `snarl` for the start pin, the second for the end pin. Under `--translation` or `--gbz-translation`, `snarl` names the translated segments, while `node` stays the graph's ID |
 | `snarl` | the site's ID, as in the VCF `ID` column: its start and end boundary node IDs, each preceded by `>` or `<` for its orientation. It is also written for off-reference sites, which have no VCF record. A fill anchor's is `fill<node>.<pin>` |
 | `slot` | the slot |
-| `allele` | the slot's allele, as its index in the site's list of candidate alleles rather than a VCF allele number. The list is not written, so the index serves to compare a site's slots. `.` for a fill anchor |
+| `allele` | the slot's allele, as its index in the site's list of candidate alleles rather than a VCF allele number: at a site with a line, the candidate its VCF allele is spelled from. The list is not written, so the index serves to compare a site's slots. `.` for a fill anchor |
 | `gqn` | the `GQN` that a whole-site record for the site would carry, moved or not; `.` where it has none, and for a fill anchor |
 | `explained` | the site's explained share; `.` for a fill anchor |
 | `reliability` | the site's anchor reliability, counting the reads placed at an off-panel site before any was left out for a point another anchor holds; `.` for a fill anchor |

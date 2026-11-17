@@ -235,7 +235,8 @@ const StagedSite& MultiPassCaller::rendered_site(const CalledSite& site) const {
     return *rendered_sites.at(record_key_of(*site.id));
 }
 
-void MultiPassCaller::write_site(StagedSite& site, const vector<int>& genotype) {
+RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
+                                                           const vector<int>& genotype) {
     if (nested_calling) {
         block_records.count_site(site.children, site.alleles.walks, site.alleles.ref_allele);
     }
@@ -250,6 +251,8 @@ void MultiPassCaller::write_site(StagedSite& site, const vector<int>& genotype) 
         own_steps = site.alleles.all_step_sequences(graph);
     }
     const AlleleSequences& steps = site.spliced ? site.spliced->sequences : own_steps;
+    RecordRenderer::WrittenAlleles written;
+    bool has_line = false;
     site_emitter.emit(
         graph,
         CalledSite{
@@ -272,13 +275,16 @@ void MultiPassCaller::write_site(StagedSite& site, const vector<int>& genotype) 
         // so they are told apart by index rather than by walk.
         [&](const vector<int>& allele_traversals, const vector<int>& vcf_genotype,
             vcflib::Variant& record) {
+            written = {allele_traversals, vcf_genotype};
             snarl_caller.write_vcf_fields(allele_traversals, vcf_genotype, site.call_info.get(),
                                           sample_name, record);
             if (sites.is_edit(site.net)) {
                 record.infoFlags["OP"] = true;
             }
-        });
+        },
+        &has_line);
     site.spliced.reset();
+    return has_line ? written : RecordRenderer::WrittenAlleles();
 }
 
 void MultiPassCaller::finish_moved_record(vcflib::Variant& record) {
@@ -470,7 +476,7 @@ void MultiPassCaller::render_retained_records() {
     phase_table.freeze_for_render(emit_phasing);
     record_renderer.render(
         staged_sites,
-        [&](StagedSite& site, const vector<int>& genotype) { write_site(site, genotype); },
+        [&](StagedSite& site, const vector<int>& genotype) { return write_site(site, genotype); },
         show_progress,
         [&]() {
             splicer.index(staged_sites, emit_phasing);

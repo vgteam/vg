@@ -18,7 +18,7 @@ RecordRenderer::RecordRenderer(const PhaseTable& phases, const ReadStrandTable& 
 }
 
 double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chosen,
-                                  const LinkageCollector* model) {
+                                  const vector<int>& written, const LinkageCollector* model) {
     const SiteScore* score = rec.score;
     // The value of the direct pass, with -1, which means there was no gap to normalise, turned
     // into NaN, so that it stays apart from the signed range [-1, 1].
@@ -56,11 +56,14 @@ double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chos
     if (mine == score->genotype_lls.end()) {
         return blank;
     }
-    // Compare only with genotypes over the written alleles, as GL in the VCF does. Those are the
-    // reference traversal and the traversals the chosen genotype names.
-    set<int> emitted(called.begin(), called.end());
-    if (rec.alleles.ref_allele >= 0) {
-        emitted.insert(rec.alleles.ref_allele);
+    // Compare only with genotypes over the written alleles, as GL in the VCF does. Without a line,
+    // those would be the reference traversal and the traversals the chosen genotype names.
+    set<int> emitted(written.begin(), written.end());
+    if (written.empty()) {
+        emitted.insert(called.begin(), called.end());
+        if (rec.alleles.ref_allele >= 0) {
+            emitted.insert(rec.alleles.ref_allele);
+        }
     }
     double best_other = -numeric_limits<double>::infinity();
     for (const auto& [other, ll] : score->genotype_lls) {
@@ -101,7 +104,8 @@ void RecordRenderer::mark_fill_points(const StagedSite& rec, const vector<int>& 
     }
 }
 
-void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& genotype) const {
+void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& genotype,
+                                     const WrittenAlleles& written) const {
     // Mark first: a site with no evidence of its own still has called walks.
     mark_fill_points(rec, genotype);
     if (rec.call_info == nullptr) {
@@ -113,11 +117,43 @@ void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& g
         // per-read responsibilities to collect anchors from.
         return;
     }
-    const AnchorCall call{phases.phase_ordered_genotype(rec.record_key, genotype),
-                          phases.haploid_slot(rec.record_key, genotype),
-                          anchor_gqn(rec, genotype, linker.collector()), score->explained_share};
-    anchors.collect(*score->anchor_evidence, call, rec.id,
-                    anchors.wants_leaf_test() ? rec.is_leaf() : true, strands, rec.record_key);
+    // Each called traversal that the line spells from another traversal, with that traversal.
+    // Two called traversals that spell one sequence share a VCF allele, and a traversal that is
+    // symbolically the reference is allele 0, so the line's GT can be 1|1 or 0|1 where the
+    // genotype names two other traversals.
+    vector<pair<int, int>> written_as;
+    if (!written.traversals.empty() && written.genotype.size() == genotype.size()) {
+        for (size_t i = 0; i < genotype.size(); ++i) {
+            const int allele = written.genotype[i];
+            if (allele >= 0 && (size_t)allele < written.traversals.size()
+                && written.traversals[allele] >= 0 && written.traversals[allele] != genotype[i]) {
+                written_as.emplace_back(genotype[i], written.traversals[allele]);
+            }
+        }
+    }
+    auto as_written = [&](int trav) {
+        for (const auto& [from, to] : written_as) {
+            if (from == trav) {
+                return to;
+            }
+        }
+        return trav;
+    };
+    // The phase table orders the called traversals, so order them before renaming them.
+    vector<int> ordered = phases.phase_ordered_genotype(rec.record_key, genotype);
+    std::ranges::transform(ordered, ordered.begin(), as_written);
+    vector<int> called = genotype;
+    std::ranges::transform(called, called.begin(), as_written);
+    const AnchorCall call{std::move(ordered), phases.haploid_slot(rec.record_key, genotype),
+                          anchor_gqn(rec, called, written.traversals, linker.collector()),
+                          score->explained_share};
+    const bool leaf = anchors.wants_leaf_test() ? rec.is_leaf() : true;
+    if (written_as.empty()) {
+        anchors.collect(*score->anchor_evidence, call, rec.id, leaf, strands, rec.record_key);
+    } else {
+        anchors.collect(pool_written_alleles(*score->anchor_evidence, written_as), call, rec.id,
+                        leaf, strands, rec.record_key);
+    }
 }
 
 void RecordRenderer::hand_off(StagedSiteTable& staged, bool show_progress) const {
@@ -134,7 +170,7 @@ void RecordRenderer::hand_off(StagedSiteTable& staged, bool show_progress) const
         const StagedSite& pr = pending[i];
         if (anchors.is_enabled() && !pr.dropped
             && (pr.placement.reported_inline || pr.reference.no_reference)) {
-            collect_anchors(pr, linker.chosen_genotype(pr));
+            collect_anchors(pr, linker.chosen_genotype(pr), WrittenAlleles());
         }
     }
     // Hand the other chains to the render queues, so that nested and top-level records are
@@ -168,12 +204,11 @@ void RecordRenderer::render(StagedSiteTable& staged, const LineWriter& write_lin
             // AD, GL and GQI agree with the call. It stays sorted, since the line is built from its
             // order, and the anchors put it in phase order themselves.
             vector<int> genotype = linker.chosen_genotype(rec);
-            // Collect the anchors before writing the line, which hands the site's CallInfo on to
-            // update_vcf_info.
+            const WrittenAlleles written = write_line(rec, genotype);
+            // Collect the anchors after the line, so that they follow the alleles it numbered.
             if (anchors.is_enabled()) {
-                collect_anchors(rec, genotype);
+                collect_anchors(rec, genotype, written);
             }
-            write_line(rec, genotype);
         }
     }
     if (show_progress) {

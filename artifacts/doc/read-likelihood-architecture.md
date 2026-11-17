@@ -74,8 +74,9 @@ matched to its site by its ID (`MultiPassCaller::record_id_of_site`).
    (`ReadStrandTable::build_lambda`) and freezes the phase (`PhaseTable::freeze_for_render`).
    `RecordRenderer::render` then hands the nested sites that get a line of their own to the render
    queues, builds each queued site's records once, from its chosen genotype, with the caller's
-   `MultiPassCaller::StagedSiteEmitter`, and collects each site's anchors. With fill anchors on,
-   it also marks which strands' called walks cross each fill point (`FillAnchors::mark_walk`).
+   `MultiPassCaller::StagedSiteEmitter`, and then collects each site's anchors over the alleles
+   its records numbered. With fill anchors on, it also marks which strands' called walks cross
+   each fill point (`FillAnchors::mark_walk`).
    The fill points were placed, and the reads crossing them found, at the end of the direct pass,
    while the read source was open (`FillAnchors::place` and `resolve_reads`).
 5. **Files and reports.** Write the anchor file (`AnchorCollector`) and the mosaic

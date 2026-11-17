@@ -1008,6 +1008,56 @@ TEST_CASE("Each anchor names the kind of genotype it comes from", "[anchor]") {
     }
 }
 
+TEST_CASE("Two called traversals written as one allele pool their reads in one slot", "[anchor]") {
+    // Three candidate alleles; one read fits allele 0, two fit 1 and two fit 2. The site is called
+    // 1/2, but its line spells 1 and 2 as one sequence, so its GT is 1|1.
+    AnchorSiteEvidence ev;
+    ev.n_alleles = 3;
+    ev.start_node = 1;
+    ev.end_node = 4;
+    ev.allele_length = {9, 9, 9};
+    ev.mean_read_length = 10.0f;
+    const vector<int> prefers{0, 1, 1, 2, 2};
+    for (size_t i = 0; i < prefers.size(); ++i) {
+        AnchorRead r;
+        r.read = read_names().intern("pool" + std::to_string(i));
+        r.mismap = 0.02f;
+        r.start_pin.offset = 10 + (int64_t)i;
+        r.end_pin.offset = 30 + (int64_t)i;
+        ev.reads.push_back(r);
+        for (int a = 0; a < 3; ++a) {
+            ev.rel.push_back(prefers[i] == a ? 1.0f : 0.0f);
+        }
+    }
+    const AnchorSiteEvidence pooled = pool_written_alleles(ev, {{2, 1}});
+    for (size_t r = 0; r < pooled.reads.size(); ++r) {
+        REQUIRE(pooled.rel_at(r, 0) + pooled.rel_at(r, 1) + pooled.rel_at(r, 2) == 1.0f);
+        REQUIRE(pooled.rel_at(r, 2) == 0.0f);
+    }
+
+    AnchorParams params;
+    params.min_reads = 1;
+    AnchorCounters counters;
+    params.counters = &counters;
+    vector<AnchorWriter::Anchor> out;
+    build_site_anchors(pooled, AnchorCall{{1, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
+    // One slot at each pin, holding the reads of both traversals, and none of allele 0's.
+    REQUIRE(out.size() == 2);
+    for (const AnchorWriter::Anchor& a : out) {
+        REQUIRE(a.kind == AnchorKind::hom);
+        REQUIRE(a.slot == 0);
+        REQUIRE(a.allele == 1);
+        REQUIRE(a.reads.size() == 4);
+    }
+
+    // Without pooling, the reads of traversal 2 fit an allele the call does not name, and are left
+    // out.
+    out.clear();
+    build_site_anchors(ev, AnchorCall{{1, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
+    REQUIRE(out.size() == 2);
+    REQUIRE(out[0].reads.size() == 2);
+}
+
 /// A fill anchor at `node`, `pin`, holding a read row for each (read, alignment, direction,
 /// offset).
 static AnchorWriter::Anchor fill_anchor_of(nid_t node, uint32_t pin,

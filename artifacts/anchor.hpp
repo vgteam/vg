@@ -605,6 +605,19 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& ca
                         const vector<double>* read_strand = nullptr);
 
 /**
+ * Return `evidence` with each read's share of some candidate alleles moved to the alleles they
+ * are written as.
+ *
+ * A VCF record writes two traversals that spell one sequence as one allele, and a traversal that
+ * is symbolically the reference as allele 0, which the reference traversal spells. Each pair in
+ * `written_as` is a traversal and the traversal its allele is spelled from. Every read's share of
+ * the first is added to its share of the second, and the first keeps none, so each row still sums
+ * to 1. A pair naming a traversal outside the evidence is skipped.
+ */
+AnchorSiteEvidence pool_written_alleles(const AnchorSiteEvidence& evidence,
+                                        const vector<pair<int, int>>& written_as);
+
+/**
  * A collector that turns each chosen site into anchors as the sites are rendered, and writes the
  * anchor file at the end of the run.
  *

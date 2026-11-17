@@ -1034,6 +1034,23 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& ca
     }
 }
 
+AnchorSiteEvidence pool_written_alleles(const AnchorSiteEvidence& evidence,
+                                        const vector<pair<int, int>>& written_as) {
+    AnchorSiteEvidence pooled = evidence;
+    const size_t n = pooled.n_alleles;
+    for (const auto& [from, to] : written_as) {
+        if (from == to || from < 0 || to < 0 || (size_t)from >= n || (size_t)to >= n) {
+            continue;
+        }
+        for (size_t r = 0; r < pooled.reads.size(); ++r) {
+            float* row = pooled.rel.data() + r * n;
+            row[to] += row[from];
+            row[from] = 0.0f;
+        }
+    }
+    return pooled;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Writer
 ////////////////////////////////////////////////////////////////////////////////
@@ -1405,13 +1422,18 @@ static void write_header(ostream& out, const string& graph_name, const string& s
            "name one gap twice, once for each alignment.\n";
     out << "#note\tslot indexes the settled PHASED pair, so slot i is field i of that snarl's GT in "
         << "the VCF -- slot 0 the left allele, slot 1 the right. A homozygous site collapses to one "
-        << "slot holding every read, and carries no haplotype information to join on\n";
+        << "slot holding every read, and carries no haplotype information to join on. A site is "
+        << "homozygous when its GT is: two called traversals that spell one sequence are one VCF "
+        << "allele, and their reads are pooled. Alleles that -L merges as similar, which INFO/MAT "
+        << "marks, are not pooled\n";
     out << "#note\ta nested HAPLOID site also holds one slot, but it is a haplotype: the chain is "
         << "on one strand of a diploid locus because the parent's other allele deletes it. Its slot "
         << "is the strand, matching the non-'.' field of the site's a|. or .|a GT. From v5 -- v4 "
         << "wrote 0 for both strands\n";
     out << "#note\tallele is the index into the site's candidate traversal set, which is NOT the "
-        << "VCF ALT number: the ALT list is chosen after anchors are built. Use slot to join to GT\n";
+        << "VCF ALT number. At a site with a line it is the traversal the slot's VCF allele is "
+        << "spelled from, so a called traversal that is symbolically the reference is written as "
+        << "the reference traversal. Use slot to join to GT\n";
     out << "#note\tgqn is SIGNED in [-1,1] and matches the VCF's GQN, including on the records the "
            "linkage layer moved: negative means linkage called against the reads, which is the "
            "population that carries a 37.8% false-positive rate against 8.6% overall. `.` means the "

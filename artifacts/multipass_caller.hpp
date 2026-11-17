@@ -273,8 +273,9 @@ private:
     /// Get the staged site that the render is writing as `site`.
     const StagedSite& rendered_site(const CalledSite& site) const;
 
-    /// Write the records of a staged site at `genotype`, during the render.
-    void write_site(StagedSite& site, const vector<int>& genotype);
+    /// Write the records of a staged site at `genotype`, during the render, and return how they
+    /// numbered its alleles, or nothing where the site got no line.
+    RecordRenderer::WrittenAlleles write_site(StagedSite& site, const vector<int>& genotype);
 
     /// Give `record` the quality fields of its chosen genotype, if the linkage model moved its
     /// site's genotype (see ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).

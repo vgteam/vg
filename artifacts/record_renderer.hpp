@@ -26,9 +26,20 @@ using namespace std;
  */
 class RecordRenderer {
 public:
-    /// Writes one staged site's records at `genotype`, through the caller that staged it. It
-    /// may keep on the site what writing its records needs.
-    using LineWriter = function<void(StagedSite& site, const vector<int>& genotype)>;
+    /// The alleles a site's record numbered, as `SiteEmitter` numbers them before `-L` merges
+    /// similar ones.
+    struct WrittenAlleles {
+        /// The traversal each VCF allele is spelled from, the reference traversal first, with -1
+        /// for "*". Empty when the site got no line.
+        vector<int> traversals;
+        /// The VCF allele of each entry of the genotype, in the genotype's order.
+        vector<int> genotype;
+    };
+
+    /// Writes one staged site's records at `genotype`, through the caller that staged it, and
+    /// returns how the record numbered its alleles. It may keep on the site what writing its
+    /// records needs.
+    using LineWriter = function<WrittenAlleles(StagedSite& site, const vector<int>& genotype)>;
 
     /**
      * Make a renderer that reads from the given tables and collects anchors into `anchors`.
@@ -53,7 +64,7 @@ public:
      * `write_line` writes the queued sites, one queue per thread. `before_lines`, if set, runs
      * once before the first line.
      *
-     * Each site's anchors are collected just before its line, or, for a nested site with no line,
+     * Each site's anchors are collected just after its line, or, for a nested site with no line,
      * before the hand-off.
      *
      * With `show_progress`, report what was held back and how many records were written.
@@ -65,9 +76,16 @@ private:
     /// Collect the anchors of a staged site at `genotype`, and mark the fill points its called
     /// walks cross.
     ///
+    /// Where the site got a line, `written` says how the line numbered its alleles, and the anchors
+    /// follow it: each called traversal is replaced by the traversal its VCF allele is spelled
+    /// from, and the reads' shares of the two are pooled (see `pool_written_alleles`), so that
+    /// slot i is field i of the line's GT, and gqn is its GQN. The fill points follow the called
+    /// walks themselves.
+    ///
     /// A site with no reference position still gets anchors, since an anchor is placed by node ID.
     /// A site with no read evidence of its own gets none, but still marks its fill points.
-    void collect_anchors(const StagedSite& site, const vector<int>& genotype) const;
+    void collect_anchors(const StagedSite& site, const vector<int>& genotype,
+                         const WrittenAlleles& written) const;
 
     /// Mark the fill points that the walk of each strand of `genotype` at a staged site crosses
     /// (see `FillAnchors::mark_walk`).
@@ -82,8 +100,12 @@ private:
     /// share and clamped to [-1, 1], so that it agrees with the GQN that
     /// `ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype` writes. It is NaN, written
     /// as `.`, where there was no gap to normalise or the margin cannot be recomputed.
+    ///
+    /// `written` lists the traversals the line's alleles are spelled from, as
+    /// `WrittenAlleles::traversals` does, and `chosen` must be over them. Where it is empty, the
+    /// written alleles are taken to be the reference traversal and those `chosen` names.
     static double anchor_gqn(const StagedSite& site, const vector<int>& chosen,
-                             const LinkageCollector* model);
+                             const vector<int>& written, const LinkageCollector* model);
 
     /// Collect anchors for the nested sites that get no line, then move the others to the render
     /// queues (see `StagedSiteTable::hand_off`).
