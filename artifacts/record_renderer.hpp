@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "anchor.hpp"
+#include "fill_pins.hpp"
 #include "genotype_linker.hpp"
 #include "phase_table.hpp"
 #include "read_strand_table.hpp"
@@ -20,7 +21,8 @@ using namespace std;
  *
  * It writes the record of each staged site once, from its chosen genotype. It runs after every
  * linkage pass and phasing round is done, and collects the anchors of each site as it goes, if
- * the anchor collector it was built with is enabled.
+ * the anchor collector it was built with is enabled. Then it also marks the fill points that each
+ * strand's called walk crosses, if fill anchors are made.
  */
 class RecordRenderer {
 public:
@@ -38,9 +40,11 @@ public:
      * @param strands The strand log-odds of each read, for the anchors.
      * @param linker Gives the chosen genotype of each site.
      * @param anchors Collects anchors during `render` if it is enabled then.
+     * @param fill Records which called walks cross each fill point during `render`, if anchors
+     * are collected and fill anchors are made then.
      */
     RecordRenderer(const PhaseTable& phases, const ReadStrandTable& strands,
-                   const GenotypeLinker& linker, AnchorCollector& anchors);
+                   const GenotypeLinker& linker, AnchorCollector& anchors, FillAnchors& fill);
 
     /**
      * Write the records of every staged site at its chosen genotype.
@@ -58,11 +62,16 @@ public:
                 const function<void()>& before_lines = nullptr) const;
 
 private:
-    /// Collect the anchors of a staged site at `genotype`.
+    /// Collect the anchors of a staged site at `genotype`, and mark the fill points its called
+    /// walks cross.
     ///
     /// A site with no reference position still gets anchors, since an anchor is placed by node ID.
-    /// A site with no read evidence of its own gets none.
+    /// A site with no read evidence of its own gets none, but still marks its fill points.
     void collect_anchors(const StagedSite& site, const vector<int>& genotype) const;
+
+    /// Mark the fill points that the walk of each strand of `genotype` at a staged site crosses
+    /// (see `FillAnchors::mark_walk`).
+    void mark_fill_points(const StagedSite& site, const vector<int>& genotype) const;
 
     /// Return the value of the gqn column of the anchors of a site.
     ///
@@ -90,6 +99,8 @@ private:
     const GenotypeLinker& linker;
     /// Collects the anchors of each site, when it is enabled.
     AnchorCollector& anchors;
+    /// Records which called walks cross each fill point, when fill anchors are made.
+    FillAnchors& fill;
 };
 
 }

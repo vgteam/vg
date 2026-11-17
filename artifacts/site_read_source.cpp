@@ -713,6 +713,35 @@ void WindowedSiteReadSource::for_each_read(
     deliver(*entry, ranges, iteratee);
 }
 
+void WindowedSiteReadSource::for_each_read_uncounted(
+    const vector<pair<nid_t, nid_t>>& ranges,
+    const function<void(const SiteRead&)>& iteratee) const {
+
+    if (ranges.empty()) {
+        return;
+    }
+    nid_t min_id = ranges.front().first;
+    nid_t max_id = ranges.front().second;
+    for (const auto& [first, last] : ranges) {
+        min_id = min(min_id, first);
+        max_id = max(max_id, last);
+    }
+    if (window_of(min_id) == window_of(max_id)) {
+        bool was_fetched = false;
+        shared_ptr<const CacheEntry> entry = get_window(window_of(min_id), was_fetched, false);
+        deliver(*entry, ranges, iteratee);
+        return;
+    }
+    const vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
+    fetch_span_keyed(ranges, [&](Alignment& aln, uint64_t) {
+        if (touches(aln, merged)) {
+            SiteRead read;
+            read.aln = &aln;
+            iteratee(read);
+        }
+    });
+}
+
 void WindowedSiteReadSource::deliver_wide(const vector<pair<nid_t, nid_t>>& ranges, nid_t min_id,
                                           nid_t max_id,
                                           const function<void(const SiteRead&)>& iteratee) const {

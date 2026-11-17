@@ -21,6 +21,7 @@
 #include "allele_splicer.hpp"
 #include "descent_policy.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
+#include "fill_pins.hpp"
 #include "genotype_linker.hpp"
 #include "genotype_rescorer.hpp"
 #include "../src/graph_caller.hpp"
@@ -63,6 +64,10 @@ using namespace std;
  * 3. The render builds each staged site's records once, from the genotype the last round chose
  *    (see `RecordRenderer`).
  * 4. The anchor file and the mosaic are written, and the passes are reported.
+ *
+ * With fill anchors on, the fill points are placed and the reads crossing them found after the
+ * direct pass, while the read source is still open, and the render marks which called walks cross
+ * them.
  *
  * It walks the sites of a `SnarlDecomposition` itself, rather than being a `GraphCaller`. It
  * writes its records through a `SortedVCFWriter`, to which it adds its own header lines and
@@ -184,10 +189,15 @@ public:
     }
 
     /// Write assembly anchors to `path`; see AnchorCollector::configure.
+    ///
+    /// Fill anchors are written too where `params.fill_spacing` is above 0, their reads scored by
+    /// `fill_scores`.
     void set_anchors_out(const string& path, const AnchorParams& params,
                          const string& graph_name, const string& reads_source,
-                         double mismap_min) {
+                         double mismap_min, const FillScoreParams& fill_scores) {
         anchor_collector.configure(path, params, graph_name, reads_source, mismap_min);
+        fill_anchors.configure(path.empty() ? 0 : params.fill_spacing, fill_scores,
+                               params.min_read_score);
     }
 
     /// Turn read phasing on or off (see `ReadPhaser`).
@@ -462,6 +472,9 @@ private:
 
     /// Collects the anchors and writes the anchor file, if one was asked for.
     AnchorCollector anchor_collector;
+
+    /// The fill points and the reads that cross them, if fill anchors are made.
+    FillAnchors fill_anchors;
 
     /// Records what became of each off-panel candidate, and writes the dump and the summary.
     /// Declared after the reference offsets it reads.

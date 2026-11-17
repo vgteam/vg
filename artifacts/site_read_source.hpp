@@ -99,6 +99,18 @@ public:
     virtual void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                                const function<void(const SiteRead&)>& iteratee) const = 0;
 
+    /// Visit every read touching the ranges, as `for_each_read` does, while adding nothing to what
+    /// the source counts from the reads it fetches: its tallies of read starts and its off-panel
+    /// candidates. Read holds are not used.
+    ///
+    /// A query made after the sites are genotyped uses this, so that the off-panel candidates
+    /// reported are the ones the sites were genotyped with. The default calls `for_each_read`,
+    /// which suits a source that counts nothing as it fetches. Must be safe to call concurrently.
+    virtual void for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
+                                         const function<void(const SiteRead&)>& iteratee) const {
+        for_each_read(ranges, iteratee);
+    }
+
     /// Visit the alignment of every read touching the ranges, once each.
     ///
     /// This is named differently rather than overloaded, since a lambda converts to either
@@ -276,6 +288,14 @@ public:
 
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                        const function<void(const SiteRead&)>& iteratee) const final;
+
+    /// Visit the reads touching the ranges without tallying or counting any window.
+    ///
+    /// A query inside one window gets the window from the cache, or fetches and caches it
+    /// unsummarized, as a wide site's fetch does. A query over several windows is fetched by its
+    /// ranges, and its reads come without an index of their mappings.
+    void for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
+                                 const function<void(const SiteRead&)>& iteratee) const final;
 
     /// Visit the read starts on the nodes, from tallies of each window's read starts.
     ///

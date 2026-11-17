@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <set>
@@ -10,8 +11,9 @@
 namespace vg::multipass {
 
 RecordRenderer::RecordRenderer(const PhaseTable& phases, const ReadStrandTable& strands,
-                               const GenotypeLinker& linker, AnchorCollector& anchors) :
-    phases(phases), strands(strands), linker(linker), anchors(anchors) {
+                               const GenotypeLinker& linker, AnchorCollector& anchors,
+                               FillAnchors& fill) :
+    phases(phases), strands(strands), linker(linker), anchors(anchors), fill(fill) {
     // Nothing to do
 }
 
@@ -84,7 +86,23 @@ double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chos
     return min(1.0, max(-1.0, margin_phred / achievable_phred * direct.explained_share));
 }
 
+void RecordRenderer::mark_fill_points(const StagedSite& rec, const vector<int>& genotype) const {
+    const vector<Traversal>& walks = rec.alleles.walks;
+    if (!fill.is_enabled() || genotype.empty()
+        || !std::ranges::all_of(genotype, [&](int a) { return a >= 0 && (size_t)a < walks.size(); })) {
+        // A star or missing allele has no walk, so no point can be put on a strand.
+        return;
+    }
+    const vector<int> ordered = phases.phase_ordered_genotype(rec.record_key, genotype);
+    for (const auto& [allele, bits] :
+         fill_marks_of_call(ordered, phases.nested_strand(rec.record_key, genotype))) {
+        fill.mark_walk(rec.net, walks[allele], bits);
+    }
+}
+
 void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& genotype) const {
+    // Mark first: a site with no evidence of its own still has called walks.
+    mark_fill_points(rec, genotype);
     if (rec.call_info == nullptr) {
         return;
     }

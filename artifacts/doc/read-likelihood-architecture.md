@@ -74,7 +74,10 @@ matched to its site by its ID (`MultiPassCaller::record_id_of_site`).
    (`ReadStrandTable::build_lambda`) and freezes the phase (`PhaseTable::freeze_for_render`).
    `RecordRenderer::render` then hands the nested sites that get a line of their own to the render
    queues, builds each queued site's records once, from its chosen genotype, with the caller's
-   `MultiPassCaller::StagedSiteEmitter`, and collects each site's anchors.
+   `MultiPassCaller::StagedSiteEmitter`, and collects each site's anchors. With fill anchors on,
+   it also marks which strands' called walks cross each fill point (`FillAnchors::mark_walk`).
+   The fill points were placed, and the reads crossing them found, at the end of the direct pass,
+   while the read source was open (`FillAnchors::place` and `resolve_reads`).
 5. **Files and reports.** Write the anchor file (`AnchorCollector`) and the mosaic
    (`MosaicWriter`), and report the linkage, phasing, mosaic and block counts.
 
@@ -185,7 +188,7 @@ grouped by the step they serve; the driver and its walk come first.
 | | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the dump and the summary |
 | | `sorted_vcf_writer.hpp`, `site_emitter.hpp`, `vcf_record.hpp` | `SortedVCFWriter`, the record buffer and VCF writer that vg's callers hold; `SiteEmitter`, which builds one site's record from the caller's allele and field callbacks, and which a caller subclasses to change its decisions; and the helpers that build a record |
 | | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks |
-| | `anchor.hpp`, `mosaic_writer.hpp` | the anchor file (`AnchorCollector`, `AnchorWriter`) and the mosaic file (`MosaicWriter`) |
+| | `anchor.hpp`, `fill_pins.hpp`, `mosaic_writer.hpp` | the anchor file (`AnchorCollector`, `AnchorWriter`), the fill anchors in it (`FillAnchors`), and the mosaic file (`MosaicWriter`) |
 | Command line | `subcommand/call_main.cpp` | the options, grouped by subsystem, the `--preset` table, and the construction of every object above |
 
 ## Words the headers use

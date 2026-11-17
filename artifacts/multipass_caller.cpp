@@ -28,7 +28,7 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
     splicer(graph, sites, phase_table),
     off_panel(graph, this->ref_paths),
     candidates(graph, traversal_finder, this->ref_paths, allele_length_range),
-    record_renderer(phase_table, read_strands, linker, anchor_collector)
+    record_renderer(phase_table, read_strands, linker, anchor_collector, fill_anchors)
 {
     site_emitter.genotype_snarls = genotype_snarls;
     // Every call info this caller writes is the read-likelihood genotyper's, which writes GL in
@@ -82,6 +82,14 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     if (show_progress) {
         report_descent_instrumentation();
     }
+    if (fill_anchors.is_enabled() && read_source != nullptr) {
+        // Find the reads at the fill points while the read source is open. No pass after the
+        // direct pass reads reads, and this query leaves the source's counts as they are, so it
+        // cannot change a genotype.
+        fill_anchors.place(graph, sites);
+        fill_anchors.resolve_reads(*read_source, snarl_batch_window > 0 ? snarl_batch_window
+                                                                        : FILL_READ_WINDOW);
+    }
     after_direct_pass();
 
     // Round 1's linkage pass, then read phasing and any further rounds, then the render.
@@ -89,8 +97,15 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     phase_and_regenotype();
     render_retained_records();
     // Anchors are collected while records are built, so they are written afterwards. Does nothing
-    // unless anchors are on.
+    // unless anchors are on. The render marked the called walks across the fill points, so the
+    // fill anchors are made now.
+    if (fill_anchors.is_enabled()) {
+        fill_anchors.add_anchors(anchor_collector);
+    }
     anchor_collector.write(sample_name);
+    if (fill_anchors.is_enabled() && anchor_collector.is_enabled()) {
+        fill_anchors.report(cerr);
+    }
 
     // The reports, and the mosaic, need to know which sites have a line, so they come last.
     finalise_linkage_outputs();

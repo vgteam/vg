@@ -75,6 +75,13 @@ public:
     /// when the site has no such phase or its phase names a different allele.
     int haploid_slot(size_t record_key, const vector<int>& genotype) const;
 
+    /// Return which parent strand, 0 or 1, carries a site of a nested haploid chain with a
+    /// one-allele genotype, or -1 where `haploid_slot` would give 0 for want of such a phase.
+    ///
+    /// A site with -1 and a one-allele genotype is in a region of ploidy 1, and is on every strand
+    /// of it.
+    int nested_strand(size_t record_key, const vector<int>& genotype) const;
+
 private:
     /// The phase calls in the order they were made. Where a site has more than one, the last one
     /// is its phase.

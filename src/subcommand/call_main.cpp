@@ -733,6 +733,8 @@ void help_call(char** argv) {
          << "                            called" << endl
          << "      --anchors-end-new N   write a snarl's end anchor only if it has at least" << endl
          << "                            N reads that its start anchor lacks [0]" << endl
+         << "      --anchors-fill N      also pin points every N bp inside unbranched node" << endl
+         << "                            runs longer than N bp; 0 turns this off [1000]" << endl
          << "      --anchors-hom-split   with --read-phasing, split the reads at a" << endl
          << "                            homozygous site into two haplotypes by their" << endl
          << "                            strand log-odds" << endl
@@ -868,6 +870,8 @@ int main_call(int argc, char** argv) {
     // on without either, for testing.
     bool off_ref_nesting = getenv("VG_CALL_OFF_REF_NESTING") != nullptr;
     AnchorParams anchor_params;
+    // The spacing of the fill anchors in bp, from --anchors-fill.
+    int64_t anchors_fill = 1000;
     /// Counts of how the anchor code placed reads in this run.
     AnchorCounters anchor_run_counters;
     // Mosaic settings. Where no haplotype can be followed, fill the gap with the reference.
@@ -1074,6 +1078,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_ANCHORS_MIN_SCORE = 1065;
     constexpr int OPT_ANCHORS_KEEP_OFF_CALL = 1066;
     constexpr int OPT_ANCHORS_END_PIN_MIN_NEW = 1067;
+    constexpr int OPT_ANCHORS_FILL = 1123;
     constexpr int OPT_NO_MOSAIC_PATCH = 1053;
     constexpr int OPT_MOSAIC_PATCH = 1054;
     constexpr int OPT_NO_MOSAIC_NESTED = 1055;
@@ -1211,6 +1216,7 @@ int main_call(int argc, char** argv) {
             {"anchors-min-q", required_argument, nullptr, OPT_ANCHORS_MIN_SCORE},
             {"anchors-keep-off-call", no_argument, nullptr, OPT_ANCHORS_KEEP_OFF_CALL},
             {"anchors-end-new", required_argument, nullptr, OPT_ANCHORS_END_PIN_MIN_NEW},
+            {"anchors-fill", required_argument, nullptr, OPT_ANCHORS_FILL},
         }}},
         {"the mosaic", {"--mosaic-out", "the read-likelihood genotyper",
          [&] { return !mosaic_out.empty(); }, {
@@ -1347,6 +1353,12 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_ANCHORS_KEEP_OFF_CALL:
             anchor_params.keep_off_call = true;
+            break;
+        case OPT_ANCHORS_FILL:
+            anchors_fill = parse<int64_t>(optarg);
+            if (anchors_fill < 0) {
+                logger.error() << "--anchors-fill must be at least 0" << endl;
+            }
             break;
         case OPT_MOSAIC_OUT:
             mosaic_out = optarg;
@@ -3031,8 +3043,12 @@ int main_call(int argc, char** argv) {
         }
         if (!anchors_out.empty()) {
             // The anchor file names the read file, since its read offsets refer to those reads.
-            multipass_caller->set_anchors_out(anchors_out, anchor_params, graph_filename,
-                                              reads.reads_file(), min_mismap_prob);
+            anchor_params.fill_spacing = (size_t)anchors_fill;
+            multipass_caller->set_anchors_out(
+                anchors_out, anchor_params, graph_filename, reads.reads_file(), min_mismap_prob,
+                FillScoreParams{.use_mapping_quality = !no_mismap_term,
+                                .min_mismap = min_mismap_prob,
+                                .max_mismap = max_mismap_prob});
         }
         if (multipass_caller != nullptr) {
             multipass_caller->set_read_phasing(read_phasing, read_phasing_params);
