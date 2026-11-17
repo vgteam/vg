@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 191
+plan tests 199
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -247,6 +247,34 @@ is $(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rl_mosaic.tsv --
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors.tsv -t 1 \
     > rl_anchors.vcf 2> rl_anchors.err
 is "$?" "0" "--anchors-out produces output"
+# Fill anchors pin points spaced evenly inside runs of nodes with no branch. They are on by default
+# with --anchors-out, at a spacing longer than any run in this graph, so --anchors-fill 20 is used
+# to make some.
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_fill0.tsv --anchors-fill 0 -t 1 \
+    > rl_fill0.vcf 2>/dev/null
+is "$(/usr/bin/cmp rl_anchors.vcf rl_fill0.vcf && echo same)" "same" \
+   "the default fill anchors leave the VCF as --anchors-fill 0 writes it"
+is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_fill0.tsv | wc -l | tr -d ' ') "0" \
+   "--anchors-fill 0 writes no fill anchors"
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_fill20.tsv --anchors-fill 20 -t 1 \
+    > rl_fill20.vcf 2>/dev/null
+is "$(/usr/bin/cmp rl_fill0.vcf rl_fill20.vcf && echo same)" "same" \
+   "fill anchors 20 bp apart leave the VCF unchanged"
+is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_fill20.tsv | wc -l | awk '{print ($1 > 0)}') "1" \
+   "--anchors-fill 20 writes fill anchors"
+# A read point is the read and the number of read bases before the point: offset + 1 on strand 0,
+# and offset on strand 1.
+is $(awk -F'\t' '$1 == "R" {print $2 "\t" ($3 == 0 ? $4 + 1 : $4)}' rl_fill20.tsv | sort | uniq -d \
+     | wc -l | tr -d ' ') "0" "no read point is in two anchors"
+is $(awk -F'\t' '$1 == "A" && !(NF == 10 && $10 ~ /^(het|hom|hom-split|haploid|fill-shared|fill-strand|fill-off-call)$/)' \
+     rl_fill20.tsv | wc -l | tr -d ' ') "0" "every anchor row ends with its kind"
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_fill20_t4.tsv --anchors-fill 20 -t 4 \
+    > /dev/null 2>&1
+is "$(/usr/bin/cmp rl_fill20.tsv rl_fill20_t4.tsv && echo same)" "same" \
+   "the anchor file with fill anchors does not depend on the thread count"
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-fill 20 -t 1 > /dev/null 2> rl_fill_alone.err
+is $(grep -c -- "--anchors-fill only applies to the anchor file" rl_fill_alone.err) "1" \
+   "--anchors-fill without --anchors-out is refused"
 
 # Nested calling: a parent snarl with a deletion edge over a chain of two SNP snarls.
 vg gbwt -G nesting/deletion_over_snp_chain.gfa --gbz-format -g nest.gbz --set-reference GRCh 2>/dev/null
@@ -295,7 +323,8 @@ rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 call
       callrl_nopack.vcf callrl_nopack_z.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf \
       rl_t1.vcf rl_t4.vcf rl_link_off.vcf rl_link_default.vcf \
       rl_default.vcf rl_mosaic.tsv rl_paths.gaf rl_graph.gfa rl_expand.txt \
-      rl_anchors.tsv rl_anchors.vcf rl_anchors.err \
+      rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_fill0.tsv rl_fill0.vcf rl_fill20.tsv \
+      rl_fill20.vcf rl_fill20_t4.tsv rl_fill_alone.err \
       nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt \
       nest_off.gbz nest_off.gam nest_off.vcf nest_off_walks.vcf
 

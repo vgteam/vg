@@ -804,8 +804,9 @@ No point of a read alignment is in two anchors. A point of a read is the number 
 before it, and two alignments of one read name, such as paired-end mates, are told apart. Where an
 off-panel site's anchor would hold a point that a snarl's anchor holds, or that an off-panel anchor
 earlier in the file holds, it leaves that read out, and an off-panel anchor left with fewer than
-`--anchors-reads` reads is not written. vg reports on standard error how many read placements
-and anchors it left out.
+`--anchors-reads` reads is not written. A [fill anchor](#fill-anchors) gives way to both kinds of
+site anchor in the same way. vg reports on standard error how many read placements and anchors it
+left out.
 
 A site's reads are divided among its **slots**. A slot is a strand. Slot 0 is the strand of the
 first allele of `GT`, to the left of the `|`, and slot 1 the strand of the second. But a diploid
@@ -853,28 +854,77 @@ fitted in the same way from the final phase.
   set's labelling. Any other read whose $y_{rs}$ is 0 is placed by a coin flip derived from its
   name, so it takes the same slot at every site.
 
+#### Fill anchors
+
+A site's pins lie at its boundaries, so sequence that no site varies, and the inside of a site
+whose alleles are long, can lie far from every pin. **Fill anchors** pin points that the graph
+alone chooses, so that such sequence is pinned too. `--anchors-fill` sets their spacing $K$, 1000
+bp by default, and 0 turns them off.
+
+A **unitig** is a longest run of nodes in which each node's right side has one edge, to the next
+node of the run, and that node's left side has that one edge alone. The two nodes of each such join
+differ. Inside each unitig of length $L$ greater than $K$, $n = \lceil L/K \rceil - 1$ **fill
+points** divide the length evenly: reading the unitig from its end whose node has the smaller ID,
+the $i$-th point has $iL/(n+1)$ bases of the unitig before it, rounded to the nearest base. A point
+that falls on a join between two nodes moves forward one base at a time until it lies inside a
+node. It is dropped if it reaches the end of the unitig, and a later point that the move reaches or
+passes is dropped too. The points depend only on the graph and $K$, so every run on one graph uses
+the same ones.
+
+Each read that crosses a fill point is placed there, as at a site's pin, and the reads at a point
+make one **fill anchor**, which has one slot. The reads pass the same filters as a site's reads:
+`--read-min-mapq`, and no secondary alignments. A read that visits the point's node more than once,
+or has no base aligned to the node base before the point, is not placed. A read's anchor
+confidence at a fill anchor is $-10 \log_{10} e_r$, which is its confidence at a site with one
+allele.
+
+The slot and kind of a fill anchor come from the called walks of the innermost site that holds the
+point's node:
+
+- **fill-shared**, in slot 0, where both of the sample's strands cross the point: in sequence that
+  both called alleles share, at a homozygous site, at a site in a region of ploidy 1, or where no
+  site holds the node.
+- **fill-strand**, in slot $s$, where only the called walk of strand $s$ crosses it: on a node that
+  only one called allele visits, or in a nested haploid chain on strand $s$.
+- **fill-off-call**, in slot 0, where no called walk crosses it: on a node no called allele visits,
+  or in a site that has no called genotype.
+
+A fill anchor gives way at a read point to every snarl's and off-panel site's anchor, and to a fill
+anchor written before it. It is written only if at least `--anchors-reads` of its reads remain,
+whatever its kind. `--anchors-min-q` applies to its reads. `--anchors-het-only`,
+`--anchors-leaf-only` and `--anchors-min-gqn` choose sites, so they do not apply to it.
+
+A fill anchor is only as right as the read placements it rests on. In centromeric arrays and other
+large repeats, a read from one copy of the repeat can be placed on another copy in the panel, and a
+fill anchor there shares the placement errors of the site anchors around it. Better graphs or
+haplotype sampling are the remedy, not a rule about anchors.
+
 #### Rows of the anchor file
 
 The file is tab-separated. Each anchor is written as an `A` row, followed by one `R` row for each
 of its reads. Header lines start with `#`, and a reader should skip keys it does not recognise.
-Among them, the `#read` lines list the read names, which `R` rows refer to by index. The `#H` lines
-name the columns of each kind of row, and the `#note` lines describe them.
+Among them, `#anchors-version` gives the format version, 10, which changes whenever the columns or
+their meaning change. The `#filters` line gives the thresholds the anchors were written with,
+`fill=` the spacing of the fill anchors among them. The `#read` lines list the read names, which
+`R` rows refer to by index. The `#H` lines name the columns of each kind of row, and the `#note`
+lines describe them.
 
 | `A` column | Meaning |
 |---|---|
 | `node` | the graph's ID of the node the pin lies on. For a snarl it is the pin's boundary node: the first node of `snarl` for the start pin, the second for the end pin. Under `--translation` or `--gbz-translation`, `snarl` names the translated segments, while `node` stays the graph's ID |
-| `snarl` | the site's ID, as in the VCF `ID` column: its start and end boundary node IDs, each preceded by `>` or `<` for its orientation. It is also written for off-reference sites, which have no VCF record |
+| `snarl` | the site's ID, as in the VCF `ID` column: its start and end boundary node IDs, each preceded by `>` or `<` for its orientation. It is also written for off-reference sites, which have no VCF record. A fill anchor's is `fill<node>.<pin>` |
 | `slot` | the slot |
-| `allele` | the slot's allele, as its index in the site's list of candidate alleles rather than a VCF allele number. The list is not written, so the index serves to compare a site's slots |
-| `gqn` | the `GQN` that a whole-site record for the site would carry, moved or not; `.` where it has none |
-| `explained` | the site's explained share |
-| `reliability` | the site's anchor reliability, counting the reads placed at an off-panel site before any was left out for a point another anchor holds |
+| `allele` | the slot's allele, as its index in the site's list of candidate alleles rather than a VCF allele number. The list is not written, so the index serves to compare a site's slots. `.` for a fill anchor |
+| `gqn` | the `GQN` that a whole-site record for the site would carry, moved or not; `.` where it has none, and for a fill anchor |
+| `explained` | the site's explained share; `.` for a fill anchor |
+| `reliability` | the site's anchor reliability, counting the reads placed at an off-panel site before any was left out for a point another anchor holds; `.` for a fill anchor |
 | `pin` | where the pin lies in `node`: the node's bases before it, along the node's forward strand |
+| `kind` | `het` for a strand of a genotype with two different alleles, `hom` for the one slot of a homozygous genotype, `hom-split` for a slot of a homozygous genotype that `--anchors-hom-split` divided, `haploid` for the one slot of a genotype of one allele (a nested haploid chain, or a site in a region of ploidy 1), and `fill-shared`, `fill-strand` or `fill-off-call` for a fill anchor |
 
 | `R` column | Meaning |
 |---|---|
 | `read_id` | the read's index in the `#read` lines; paired mates share a name, and so an index |
-| `strand` | the direction in which the read crosses the pin, not one of the sample's strands: 0 in the site's direction, 1 against it |
+| `strand` | the direction in which the read crosses the pin, not one of the sample's strands: 0 in the site's direction, 1 against it. A fill anchor's direction is its node's forward strand |
 | `offset` | the 0-based offset, in the read as sequenced, of the read's last base before the pin, reading in the site's direction. The point of the read the pin is at follows that base on strand 0 and precedes it on strand 1, so it has `offset` + 1 read bases before it on strand 0 and `offset` on strand 1 |
 | `score` | the read's anchor confidence |
 
@@ -888,6 +938,7 @@ name the columns of each kind of row, and the `#note` lines describe them.
 - `--anchors-keep-off-call` keeps reads whose best candidate allele was not called; by default they
   are left out.
 - `--anchors-reads` skips anchors with fewer reads than its value.
+- `--anchors-fill` sets the spacing of the [fill anchors](#fill-anchors), and 0 writes none.
 - With `--anchors-end-new` set to $N$, a slot's end anchor is written only if at least $N$ of the
   slot's reads cross the end pin but not the start pin, which drops end anchors that mostly repeat
   the start anchor's reads.
@@ -927,7 +978,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Quality fields](#options-that-change-the-fields) | `--no-share-quality`, `--depth-quality`, `--min-confidence` |
 | [Allele merging](#options-that-change-the-fields) | `--cluster`, `--cluster-min-len` |
 | [Mosaic](#mosaic---mosaic-out) | `--mosaic-out`, `--mosaic-patch-gaps`, `--no-mosaic-patch-gaps`, `--no-mosaic-nested`, `--mosaic-break-unexplained` |
-| [Anchors](#assembly-anchors---anchors-out) | `--anchors-out`, `--anchors-reads`, `--anchors-min-gqn`, `--anchors-min-q`, `--anchors-het-only`, `--anchors-leaf-only`, `--anchors-keep-off-call`, `--anchors-end-new`, `--anchors-phase-hets`, `--no-anchors-phase-hets`, `--anchors-strict-hets`, `--anchors-hom-split`, `--split-min-q`, `--split-min-side` |
+| [Anchors](#assembly-anchors---anchors-out) | `--anchors-out`, `--anchors-fill`, `--anchors-reads`, `--anchors-min-gqn`, `--anchors-min-q`, `--anchors-het-only`, `--anchors-leaf-only`, `--anchors-keep-off-call`, `--anchors-end-new`, `--anchors-phase-hets`, `--no-anchors-phase-hets`, `--anchors-strict-hets`, `--anchors-hom-split`, `--split-min-q`, `--split-min-side` |
 | Debugging and evaluation | `--dump-likelihoods` (writes each read's $e_r$ and $p_{ra}$ at every site to a file, as TSV), `--regeno-shuffle` (randomises the sign of each $\Lambda_{rs}$ before re-genotyping, as a control for how much the phase contributes); `--flat-mixture` and `--anchors-strict-hets`, listed above, also serve to measure the parts they replace |
 | Presets | `--preset` |
 
