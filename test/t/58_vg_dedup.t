@@ -38,7 +38,7 @@ rm -f base-graph.vg dedup.vg chopped.vg dedup-unchopped.gfa chopped-unchopped.gf
 
 # A test graph with repeated sequence that can be deduplicated.
 # See dedup/README.md for further details.
-zstd -d --force --quiet dedup/dedup.gfa.zst -o base-graph.gfa
+gunzip -c dedup/dedup.gfa.gz > base-graph.gfa
 vg convert -g base-graph.gfa > base-graph.vg
 
 # Just the graph output.
