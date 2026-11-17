@@ -905,9 +905,12 @@ whatever its kind. `--anchors-min-q` applies to its reads. `--anchors-het-only`,
 `--anchors-leaf-only` and `--anchors-min-gqn` choose sites, so they do not apply to it.
 
 A fill anchor is only as right as the read placements it rests on. In centromeric arrays and other
-large repeats, a read from one copy of the repeat can be placed on another copy in the panel, and a
-fill anchor there shares the placement errors of the site anchors around it. Better graphs or
-haplotype sampling are the remedy, not a rule about anchors.
+large repeats, a read from one copy of the repeat can be placed on another copy in the panel. A
+site anchor leaves out a read whose best allele is not one the site was called with, which drops
+some of those reads, but a fill anchor keeps every read that crosses its point, so in such repeats a
+fill anchor holds misplaced reads more often than the site anchors around it. Where sequence has
+close copies elsewhere in the genome, reads from those copies can be placed on anchors of every
+kind. Better graphs or haplotype sampling are the remedy, not a rule about anchors.
 
 #### Rows of the anchor file
 
