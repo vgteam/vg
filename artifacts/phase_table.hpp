@@ -78,8 +78,9 @@ public:
     /// Return which parent strand, 0 or 1, carries a site of a nested haploid chain with a
     /// one-allele genotype, or -1 where `haploid_slot` would give 0 for want of such a phase.
     ///
-    /// A site with -1 and a one-allele genotype is in a region of ploidy 1, and is on every strand
-    /// of it.
+    /// A site with -1 and a one-allele genotype is either in a region of ploidy 1, and on every
+    /// strand of it, or a nested chain on one strand of its parent whose strand is not known, as
+    /// when the linkage model gave its parent no phase.
     int nested_strand(size_t record_key, const vector<int>& genotype) const;
 
 private:

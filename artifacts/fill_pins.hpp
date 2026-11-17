@@ -14,7 +14,7 @@
  *
  * Each read that crosses a fill point is placed there, and a point with reads becomes a fill
  * anchor of one slot. The slot comes from the called walks of the innermost site that holds the
- * point's node (see `classify_fill_point`).
+ * point's node and has a called genotype whose strands are known (see `FillAnchors::slot_of`).
  */
 
 #include <array>
@@ -119,12 +119,18 @@ constexpr uint8_t FILL_EVERY_STRAND = 4;
  * Return the walks of a called genotype that mark fill points, as pairs of an allele and the bits
  * its walk sets.
  *
+ * A genotype of one allele at a nested site whose strand is not known gives no walks, since its
+ * one allele lies on one strand of the region, and which one is not known. The walks of the sites
+ * around it then decide its points.
+ *
  * @param genotype The called alleles, in phase order.
  * @param nested_strand For a genotype of one allele at a nested haploid chain, the strand of the
- * parent that carries the chain, 0 or 1. Otherwise -1, and a genotype of one allele is on every
- * strand of its region.
+ * parent that carries the chain, 0 or 1, or -1 where it is not known.
+ * @param nested Whether the site is nested in another. A site that is not, with a genotype of one
+ * allele, is in a region of ploidy 1, and its allele is on every strand of the region.
  */
-vector<pair<int, uint8_t>> fill_marks_of_call(const vector<int>& genotype, int nested_strand);
+vector<pair<int, uint8_t>> fill_marks_of_call(const vector<int>& genotype, int nested_strand,
+                                              bool nested);
 
 /// The kind and slot of a fill anchor.
 struct FillSlot {
@@ -140,7 +146,7 @@ struct FillSlot {
  * no called walk crosses is fill-off-call, in slot 0.
  *
  * @param held_by_root Whether the point's node lies in no site.
- * @param mark The bits that the called walks of the site holding the node set on the point.
+ * @param mark The bits that the called walks of the site deciding the point set on it.
  */
 FillSlot classify_fill_point(bool held_by_root, uint8_t mark);
 
@@ -207,8 +213,8 @@ public:
     bool is_enabled() const { return spacing > 0; }
 
     /**
-     * Place the points in the unitigs of `point_graph`, and find the innermost site of
-     * `decomposition` that holds each point's node.
+     * Place the points in the unitigs of `point_graph`, and find the sites of `decomposition` that
+     * hold each point's node.
      *
      * Both must outlive this object.
      */
@@ -222,15 +228,18 @@ public:
      * `SiteReadSource::for_each_read_uncounted`). A read is placed at a point by
      * `resolve_anchor_pin`, as an exit pin in the direction of the node's forward strand, so a
      * read that visits the node twice, or has no base aligned to the node base before the point,
-     * is not placed.
+     * is not placed. Nor is a read whose alignment does not reach the node base before the point,
+     * or that has no read base after the point outside its soft clips.
      */
     void resolve_reads(const SiteReadSource& reads, size_t window);
 
     /**
-     * Record that a called walk through `site` crosses the points on its nodes, by setting `bits`
-     * on the marks of those points that `site` is the innermost site to hold.
+     * Record that `site` has a called genotype, and that the walk of its allele `walk` crosses the
+     * points on the walk's nodes that `site` holds.
      *
-     * Safe to call from many threads.
+     * The walk sets `bits` on each such point. At a point that several sites hold, only the marks
+     * of the innermost of them with a called genotype count (see `slot_of`). The marks do not
+     * depend on the order of the calls. Safe to call from many threads.
      *
      * @param bits Which strands the walk is, from `fill_marks_of_call`.
      */
@@ -250,10 +259,32 @@ public:
     /// Return the reads placed at the points, grouped by point.
     const vector<FillPlacement>& placements() const { return placed_reads; }
 
-    /// Return the kind and slot of the fill anchor at point `point`, from the marks so far.
+    /**
+     * Return the kind and slot of the fill anchor at point `point`, from the marks so far.
+     *
+     * The innermost site that holds the point's node and was marked decides, as
+     * `classify_fill_point` says. A site that was not genotyped, or that is a nested chain whose
+     * strand is not known, marks nothing, so the site around it decides. A point that sites hold,
+     * none of them marked, is fill-off-call.
+     */
     FillSlot slot_of(size_t point) const;
 
 private:
+    /// A node of the points that a read visits.
+    struct VisitedNode {
+        /// The node.
+        nid_t node = 0;
+        /// The index in the read's path of the read's first mapping on the node.
+        int mapping = -1;
+        /// How many of the read's mappings are on the node.
+        size_t mappings = 0;
+    };
+
+    /// Set `visited` to the nodes of `nodes`, which is sorted, that `read` visits, once each and
+    /// sorted.
+    static void nodes_visited(const SiteRead& read, const vector<nid_t>& nodes,
+                              vector<VisitedNode>& visited);
+
     /// Return the placements of the reads touching the points `fill_points[begin, end)`, which lie
     /// in one window of node IDs.
     vector<FillPlacement> resolve_window(const SiteReadSource& reads, size_t begin,
@@ -261,8 +292,8 @@ private:
 
     /// Place `read` at each of the points `fill_points[begin, end)` on the nodes `visited`, which
     /// it visits, and append the placements to `out`.
-    void place_read(const SiteRead& read, const vector<nid_t>& visited, size_t begin, size_t end,
-                    vector<FillPlacement>& out);
+    void place_read(const SiteRead& read, const vector<VisitedNode>& visited, size_t begin,
+                    size_t end, vector<FillPlacement>& out);
 
     /// The spacing in bases, or 0 for no fill anchors.
     size_t spacing = 0;
@@ -277,12 +308,20 @@ private:
 
     /// The points, sorted by node, then pin.
     vector<FillPoint> fill_points;
-    /// The canonical net handle of the innermost site that holds each point's node.
-    vector<net_handle_t> owners;
-    /// Whether each point's node lies in no site.
-    vector<uint8_t> held_by_root;
-    /// The bits the called walks set on each point.
-    vector<std::atomic<uint8_t>> marks;
+    /// The sites that hold some point's node, each as its canonical net handle, sorted.
+    vector<net_handle_t> holding_sites;
+    /// Whether each site of `holding_sites` was marked by `mark_walk`.
+    vector<std::atomic<uint8_t>> site_marked;
+    /// The sites that hold each point's node, innermost first, as indices into `holding_sites`.
+    /// Those of point i are entries `holder_start[i]` to `holder_start[i + 1]` of `holders`. A
+    /// point with none lies in no site.
+    vector<uint32_t> holders;
+    /// Where the sites of each point start in `holders`, with one more entry at the end.
+    vector<uint32_t> holder_start;
+    /// The mark of each point: the bits the called walks set on it, in the low byte, from the
+    /// innermost site to mark it, whose depth among the point's sites, counting the innermost as 1,
+    /// is the high byte. 0 for a point no walk has marked.
+    vector<std::atomic<uint16_t>> marks;
     /// The reads placed at the points, grouped by point once `resolve_reads` is done.
     vector<FillPlacement> placed_reads;
 
@@ -290,6 +329,10 @@ private:
     FillPointTally point_tally;
     /// How the reads were resolved at the points.
     AnchorCounters read_counters;
+    /// The reads whose alignment on a point's node does not reach the node base before the point.
+    std::atomic<size_t> not_reached{0};
+    /// The reads that stop at a point, or go on past it only in a soft clip.
+    std::atomic<size_t> stopped{0};
     /// The reads resolved at a point.
     std::atomic<size_t> resolved{0};
     /// The resolved reads left out for a score below `min_read_score`.

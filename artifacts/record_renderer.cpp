@@ -95,7 +95,8 @@ void RecordRenderer::mark_fill_points(const StagedSite& rec, const vector<int>& 
     }
     const vector<int> ordered = phases.phase_ordered_genotype(rec.record_key, genotype);
     for (const auto& [allele, bits] :
-         fill_marks_of_call(ordered, phases.nested_strand(rec.record_key, genotype))) {
+         fill_marks_of_call(ordered, phases.nested_strand(rec.record_key, genotype),
+                            rec.placement.level > 0)) {
         fill.mark_walk(rec.net, walks[allele], bits);
     }
 }

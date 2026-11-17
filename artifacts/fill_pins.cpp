@@ -9,8 +9,12 @@
 
 #include <omp.h>
 
+#include <handlegraph/util.hpp>
+
+#include "decomposition_sites.hpp"
 #include "parallel_sort.hpp"
 #include "site_values.hpp"
+#include "../src/path.hpp"
 #include "../src/statistics.hpp"
 
 namespace vg {
@@ -224,12 +228,15 @@ vector<FillPoint> place_fill_points(const HandleGraph& graph, size_t spacing,
     return points;
 }
 
-vector<pair<int, uint8_t>> fill_marks_of_call(const vector<int>& genotype, int nested_strand) {
+vector<pair<int, uint8_t>> fill_marks_of_call(const vector<int>& genotype, int nested_strand,
+                                              bool nested) {
     vector<pair<int, uint8_t>> marks;
     if (genotype.size() == 1) {
-        const bool on_one_strand = nested_strand == 0 || nested_strand == 1;
-        marks.emplace_back(genotype[0],
-                           on_one_strand ? (uint8_t)(1 << nested_strand) : FILL_EVERY_STRAND);
+        if (nested_strand == 0 || nested_strand == 1) {
+            marks.emplace_back(genotype[0], (uint8_t)(1 << nested_strand));
+        } else if (!nested) {
+            marks.emplace_back(genotype[0], FILL_EVERY_STRAND);
+        }
     } else if (genotype.size() == 2 && genotype[0] != genotype[1]) {
         marks.emplace_back(genotype[0], FILL_STRAND_0);
         marks.emplace_back(genotype[1], FILL_STRAND_1);
@@ -270,66 +277,138 @@ void FillAnchors::configure(size_t point_spacing, const FillScoreParams& read_sc
     min_read_score = min_score;
 }
 
+namespace {
+
+/// Order net handles by their bits, which is enough to sort and search them.
+bool net_before(const net_handle_t& a, const net_handle_t& b) {
+    return handlegraph::as_integer(a) < handlegraph::as_integer(b);
+}
+
+}
+
 void FillAnchors::place(const HandleGraph& point_graph, const SnarlDecomposition& decomposition) {
     graph = &point_graph;
     sites = &decomposition;
     fill_points = place_fill_points(point_graph, spacing, point_tally);
-    owners.assign(fill_points.size(), net_handle_t());
-    held_by_root.assign(fill_points.size(), 0);
+    // The sites holding each point's node, innermost first. Most points lie in no site.
+    vector<vector<net_handle_t>> held_in(fill_points.size());
 #pragma omp parallel for schedule(dynamic, 1024)
     for (size_t i = 0; i < fill_points.size(); ++i) {
-        const net_handle_t site =
+        net_handle_t site =
             multipass::placement_of_node(decomposition, point_graph, fill_points[i].node).site;
-        owners[i] = decomposition.canonical(site);
-        held_by_root[i] = decomposition.is_root(site) ? 1 : 0;
+        // The depth of a site among a point's sites is kept in a byte (see `marks`).
+        while (!decomposition.is_root(site) && held_in[i].size() < 255) {
+            held_in[i].push_back(decomposition.canonical(site));
+            site = enclosing_site(decomposition, site);
+        }
     }
-    marks = vector<std::atomic<uint8_t>>(fill_points.size());
+    holding_sites.clear();
+    for (const auto& sites_of_point : held_in) {
+        holding_sites.insert(holding_sites.end(), sites_of_point.begin(), sites_of_point.end());
+    }
+    std::sort(holding_sites.begin(), holding_sites.end(), net_before);
+    holding_sites.erase(std::unique(holding_sites.begin(), holding_sites.end()),
+                        holding_sites.end());
+    holders.clear();
+    holder_start.assign(1, 0);
+    for (auto& sites_of_point : held_in) {
+        for (const net_handle_t& site : sites_of_point) {
+            holders.push_back((uint32_t)(std::lower_bound(holding_sites.begin(), holding_sites.end(),
+                                                          site, net_before)
+                                         - holding_sites.begin()));
+        }
+        holder_start.push_back((uint32_t)holders.size());
+        vector<net_handle_t>().swap(sites_of_point);
+    }
+    site_marked = vector<std::atomic<uint8_t>>(holding_sites.size());
+    marks = vector<std::atomic<uint16_t>>(fill_points.size());
+}
+
+void FillAnchors::nodes_visited(const SiteRead& read, const vector<nid_t>& nodes,
+                                vector<VisitedNode>& visited) {
+    const Path& path = read.aln->path();
+    visited.clear();
+    auto add = [&](int i) {
+        visited.push_back(VisitedNode{path.mapping(i).position().node_id(), i, 1});
+    };
+    if (read.indexed()) {
+        // The index holds the read's mappings on the queried nodes, which are `nodes`.
+        for (size_t k = 0; k < read.mapping_count; ++k) {
+            add((int)read.mappings[k]);
+        }
+    } else {
+        for (int i = 0; i < path.mapping_size(); ++i) {
+            if (std::ranges::binary_search(nodes, path.mapping(i).position().node_id())) {
+                add(i);
+            }
+        }
+    }
+    std::ranges::sort(visited, {}, [](const VisitedNode& v) { return make_pair(v.node, v.mapping); });
+    // Merge the visits to each node into the first.
+    size_t kept = 0;
+    for (size_t i = 0; i < visited.size(); ++i) {
+        if (kept > 0 && visited[kept - 1].node == visited[i].node) {
+            ++visited[kept - 1].mappings;
+        } else {
+            visited[kept++] = visited[i];
+        }
+    }
+    visited.resize(kept);
 }
 
 namespace {
 
-/// Set `visited` to the nodes of `nodes`, which is sorted, that `read` visits, once each and
-/// sorted.
-void nodes_visited(const SiteRead& read, const vector<nid_t>& nodes, vector<nid_t>& visited) {
-    const Path& path = read.aln->path();
-    visited.clear();
-    if (read.indexed()) {
-        // The index holds the read's mappings on the queried nodes, which are `nodes`.
-        for (size_t k = 0; k < read.mapping_count; ++k) {
-            visited.push_back(path.mapping((int)read.mappings[k]).position().node_id());
-        }
-    } else {
-        for (const Mapping& m : path.mapping()) {
-            if (std::ranges::binary_search(nodes, m.position().node_id())) {
-                visited.push_back(m.position().node_id());
-            }
-        }
-    }
-    std::ranges::sort(visited);
-    const auto repeats = std::ranges::unique(visited);
-    visited.erase(repeats.begin(), repeats.end());
+/// Return whether mapping `m` aligns its read to node base `base`, which is counted along the
+/// forward strand of the node, of `length` bases. A deleted node base counts as aligned.
+bool mapping_reaches(const Mapping& m, size_t length, size_t base) {
+    const size_t visited_base = m.position().is_reverse() ? length - 1 - base : base;
+    const auto first = (size_t)m.position().offset();
+    return visited_base >= first && visited_base < first + (size_t)mapping_from_length(m);
+}
+
+/// Return whether the read of a placement at an exit pin inside a node has a base after the
+/// point, in the direction the read crosses it, outside its soft clips.
+bool goes_on_past(const Alignment& aln, const AnchorPlacement& placed) {
+    const int64_t after = placed.direction == 0 ? placed.offset + 1 : placed.offset - 1;
+    return after >= softclip_start(aln)
+        && after < (int64_t)aln.sequence().size() - softclip_end(aln);
 }
 
 }
 
-void FillAnchors::place_read(const SiteRead& read, const vector<nid_t>& visited, size_t begin,
-                             size_t end, vector<FillPlacement>& out) {
+void FillAnchors::place_read(const SiteRead& read, const vector<VisitedNode>& visited,
+                             size_t begin, size_t end, vector<FillPlacement>& out) {
     const float score = fill_read_score(read.aln->mapping_quality(), scores);
+    const Path& path = read.aln->path();
     // The read's index in read_names(), found at its first placement.
     auto name = numeric_limits<uint32_t>::max();
     const auto first = fill_points.begin() + (ptrdiff_t)begin;
     const auto last = fill_points.begin() + (ptrdiff_t)end;
-    for (nid_t id : visited) {
+    for (const VisitedNode& visit : visited) {
+        const nid_t id = visit.node;
+        const size_t node_length = graph->get_length(graph->get_handle(id));
         for (auto point = std::lower_bound(first, last, FillPoint{id, 0});
              point != last && point->node == id; ++point) {
+            if (visit.mappings == 1
+                && !mapping_reaches(path.mapping(visit.mapping), node_length, point->pin - 1)) {
+                // The read's one mapping on the node ends before the point or starts after it. A
+                // read that visits the node more than once is left to `resolve_anchor_pin`.
+                ++not_reached;
+                continue;
+            }
             const AnchorPlacement placed =
                 resolve_anchor_pin(read, *graph, id, false, true, read_counters, point->pin);
             if (!placed.placed()) {
                 continue;
             }
+            // An exit pin needs a read base only before the point, so a read must also be checked
+            // to cross it. A check of the read around the point, such as exact matches to the graph
+            // over a few bases on each side, would go here too.
+            if (!goes_on_past(*read.aln, placed)) {
+                ++stopped;
+                continue;
+            }
             ++resolved;
-            // A check of the read around the point, such as exact matches to the graph over a
-            // few bases on each side, would go here.
             if (score < min_read_score) {
                 ++low_score;
                 continue;
@@ -362,7 +441,7 @@ vector<FillPlacement> FillAnchors::resolve_window(const SiteReadSource& reads, s
         }
     }
     vector<FillPlacement> out;
-    vector<nid_t> visited;
+    vector<VisitedNode> visited;
     reads.for_each_read_uncounted(ranges, [&](const SiteRead& read) {
         nodes_visited(read, nodes, visited);
         place_read(read, visited, begin, end, out);
@@ -406,26 +485,75 @@ void FillAnchors::resolve_reads(const SiteReadSource& reads, size_t window) {
     std::ranges::stable_sort(placed_reads, {}, &FillPlacement::point);
 }
 
+namespace {
+
+/// Set `bits` on a point's mark from a site at `depth` among the point's sites, where no site
+/// deeper than it has marked the point.
+void set_mark(std::atomic<uint16_t>& mark, uint16_t depth, uint8_t bits) {
+    uint16_t seen = mark.load(std::memory_order_relaxed);
+    while (true) {
+        const auto seen_depth = (uint16_t)(seen >> 8);
+        if (seen_depth != 0 && seen_depth < depth) {
+            return;
+        }
+        // A site at the same depth adds its bits, and a deeper one replaces the bits of the site
+        // around it.
+        const auto wanted = (uint16_t)(seen_depth == depth ? (seen | bits) : ((depth << 8) | bits));
+        if (wanted == seen
+            || mark.compare_exchange_weak(seen, wanted, std::memory_order_relaxed)) {
+            return;
+        }
+    }
+}
+
+}
+
 void FillAnchors::mark_walk(const net_handle_t& site, const Traversal& walk, uint8_t bits) {
     if (fill_points.empty() || sites == nullptr) {
         return;
     }
-    const net_handle_t owner = sites->canonical(site);
+    const net_handle_t canonical_site = sites->canonical(site);
+    const auto found = std::lower_bound(holding_sites.begin(), holding_sites.end(),
+                                        canonical_site, net_before);
+    if (found == holding_sites.end() || *found != canonical_site) {
+        // The site holds no point.
+        return;
+    }
+    const auto site_index = (uint32_t)(found - holding_sites.begin());
+    site_marked[site_index].store(1, std::memory_order_relaxed);
     for (const handle_t& h : walk) {
         const nid_t id = graph->get_id(h);
         for (auto point = std::ranges::lower_bound(fill_points, FillPoint{id, 0});
              point != fill_points.end() && point->node == id; ++point) {
             const auto i = (size_t)(point - fill_points.begin());
-            if (held_by_root[i] == 0 && owners[i] == owner) {
-                marks[i].fetch_or(bits, std::memory_order_relaxed);
+            // The walk visits the site's boundary nodes, which the site does not hold, so look
+            // for it among the point's sites.
+            for (uint32_t k = holder_start[i]; k < holder_start[i + 1]; ++k) {
+                if (holders[k] == site_index) {
+                    set_mark(marks[i], (uint16_t)(k - holder_start[i] + 1), bits);
+                    break;
+                }
             }
         }
     }
 }
 
 FillSlot FillAnchors::slot_of(size_t point) const {
-    return classify_fill_point(held_by_root[point] != 0,
-                               marks[point].load(std::memory_order_relaxed));
+    const uint32_t first = holder_start[point];
+    const uint32_t past = holder_start[point + 1];
+    if (first == past) {
+        return classify_fill_point(true, 0);
+    }
+    const uint16_t mark = marks[point].load(std::memory_order_relaxed);
+    for (uint32_t k = first; k < past; ++k) {
+        if (site_marked[holders[k]].load(std::memory_order_relaxed) != 0) {
+            // This is the innermost site with a called genotype. Its walks may not cross the
+            // point, and then a site around it that marked the point does not count.
+            const bool its_bits = (mark >> 8) == k - first + 1;
+            return classify_fill_point(false, its_bits ? (uint8_t)(mark & 0xff) : 0);
+        }
+    }
+    return classify_fill_point(false, 0);
 }
 
 void FillAnchors::add_anchors(AnchorCollector& anchors) {
@@ -486,9 +614,11 @@ void FillAnchors::report(ostream& out) const {
     out << "[vg call] fill anchors: " << resolved.load() << " read placements resolved, "
         << pins.verified.load() << " checked against the graph's base and "
         << pins.verify_failed.load() << " failing the check; refused: "
-        << pins.repeat_visit.load() << " reads visit the point's node more than once, "
+        << not_reached.load() << " reads on the point's node end before the point or start "
+        << "after it, " << pins.repeat_visit.load() << " visit the node more than once, "
         << pins.unaligned_base.load() << " have no read base aligned to the node base before the "
-        << "point; " << low_score.load() << " placements below the minimum read score" << endl;
+        << "point, " << stopped.load() << " stop at the point or go on past it only in a soft "
+        << "clip; " << low_score.load() << " placements below the minimum read score" << endl;
     out << "[vg call] fill anchors: points with reads: " << kind_counts[0] << " fill-shared, "
         << kind_counts[1] << " fill-strand, " << kind_counts[2] << " fill-off-call" << endl;
 }

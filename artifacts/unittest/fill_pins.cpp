@@ -139,6 +139,36 @@ TEST_CASE("A run gets the same points whichever end it is read from", "[fill]") 
     REQUIRE(points_of(graph, 500, tally) == raw_forward);
 }
 
+TEST_CASE("A point that moves off a join past the next point takes its place", "[fill]") {
+    // Nodes of 2, 1, 1 and 3 bp make a run of 7 bp, which a spacing of 2 divides at 2, 4 and 5
+    // bases. The first point moves off the joins at 2, 3 and 4 bases to 5, passing the second and
+    // reaching the third, which are dropped.
+    bdsg::HashGraph graph;
+    const vector<size_t> lengths{2, 1, 1, 3};
+    for (size_t i = 0; i < lengths.size(); ++i) {
+        add_node(graph, (nid_t)(i + 1), lengths[i]);
+        if (i > 0) {
+            graph.create_edge(graph.get_handle((nid_t)i), graph.get_handle((nid_t)(i + 1)));
+        }
+    }
+    FillPointTally tally;
+    REQUIRE(points_of(graph, 2, tally) == vector<FillPoint>{{4, 1}});
+    REQUIRE(tally.merged == 2);
+}
+
+TEST_CASE("A run that closes on itself is read from its node with the smallest ID", "[fill]") {
+    // Nodes 7 and 8 joined into a cycle. Its point falls on the join after node 7 and moves one
+    // base into node 8.
+    bdsg::HashGraph graph;
+    const handle_t a = add_node(graph, 7, 600);
+    const handle_t b = add_node(graph, 8, 600);
+    graph.create_edge(a, b);
+    graph.create_edge(b, a);
+    FillPointTally tally;
+    REQUIRE(points_of(graph, 1000, tally) == vector<FillPoint>{{8, 1}});
+    REQUIRE(tally.unitigs == 1);
+}
+
 TEST_CASE("A point in a node the run reads in reverse is pinned along the node's forward strand",
           "[fill]") {
     // The run is 51 forward then 52 reverse, joined right side to right side. Its point falls on
@@ -154,11 +184,15 @@ TEST_CASE("A point in a node the run reads in reverse is pinned along the node's
 
 TEST_CASE("A called genotype marks the fill points of its walks by strand", "[fill]") {
     using Marks = vector<pair<int, uint8_t>>;
-    REQUIRE(fill_marks_of_call({3, 5}, -1) == Marks{{3, FILL_STRAND_0}, {5, FILL_STRAND_1}});
-    REQUIRE(fill_marks_of_call({2, 2}, -1) == Marks{{2, FILL_EVERY_STRAND}});
-    REQUIRE(fill_marks_of_call({4}, -1) == Marks{{4, FILL_EVERY_STRAND}});
-    REQUIRE(fill_marks_of_call({4}, 1) == Marks{{4, FILL_STRAND_1}});
-    REQUIRE(fill_marks_of_call({1, 2, 1}, -1) == Marks{{1, FILL_EVERY_STRAND}, {2, FILL_EVERY_STRAND}});
+    REQUIRE(fill_marks_of_call({3, 5}, -1, false) == Marks{{3, FILL_STRAND_0}, {5, FILL_STRAND_1}});
+    REQUIRE(fill_marks_of_call({2, 2}, -1, true) == Marks{{2, FILL_EVERY_STRAND}});
+    // One allele at a site that is not nested is in a region of ploidy 1.
+    REQUIRE(fill_marks_of_call({4}, -1, false) == Marks{{4, FILL_EVERY_STRAND}});
+    REQUIRE(fill_marks_of_call({4}, 1, true) == Marks{{4, FILL_STRAND_1}});
+    // One allele at a nested site whose strand is not known marks nothing.
+    REQUIRE(fill_marks_of_call({4}, -1, true).empty());
+    REQUIRE(fill_marks_of_call({1, 2, 1}, -1, false)
+            == Marks{{1, FILL_EVERY_STRAND}, {2, FILL_EVERY_STRAND}});
 }
 
 TEST_CASE("A fill anchor's kind and slot come from the marks on its point", "[fill]") {
@@ -241,7 +275,8 @@ TEST_CASE("A fill anchor's slot comes from the called walks of the site that hol
     REQUIRE(fill.points() == vector<FillPoint>{{1, 600}, {2, 600}, {3, 600}, {4, 600}});
     const net_handle_t site = find_snarl(sites, graph, 1, 4);
     auto mark = [&](const vector<int>& genotype, int nested_strand) {
-        for (const auto& [allele, bits] : fill_marks_of_call(genotype, nested_strand)) {
+        for (const auto& [allele, bits] :
+             fill_marks_of_call(genotype, nested_strand, nested_strand >= 0)) {
             fill.mark_walk(site, bubble.walk(allele == 0 ? 2 : 3), bits);
         }
     };
@@ -279,6 +314,76 @@ TEST_CASE("A fill anchor's slot comes from the called walks of the site that hol
     SECTION("a walk marks no point that another site holds") {
         fill.mark_walk(sites.get_root(), bubble.walk(2), FILL_STRAND_0);
         REQUIRE(is(slot_on(2), AnchorKind::fill_off_call, 0));
+    }
+}
+
+TEST_CASE("The innermost genotyped site holding a fill point decides its slot", "[fill]") {
+    // A parent site 2..8 with arms 3 and 4..7, where 4..7 is a child site with arms 5 and 6, and
+    // flanking nodes 1 and 9. Every node is 1200 bp, so each holds a point at a spacing of 1000.
+    bdsg::HashGraph graph;
+    for (nid_t id = 1; id <= 9; ++id) {
+        add_node(graph, id, 1200);
+    }
+    for (auto [from, to] : vector<pair<nid_t, nid_t>>{{1, 2}, {2, 3}, {3, 8}, {2, 4}, {4, 5},
+                                                      {4, 6}, {5, 7}, {6, 7}, {7, 8}, {8, 9}}) {
+        graph.create_edge(graph.get_handle(from), graph.get_handle(to));
+    }
+    auto walk = [&](const vector<nid_t>& ids) {
+        Traversal t;
+        for (nid_t id : ids) {
+            t.push_back(graph.get_handle(id));
+        }
+        return t;
+    };
+    IntegratedSnarlFinder finder(graph);
+    DecompositionPair decomposition(graph, finder);
+    EditSnarlDecompositionOverlay sites(decomposition.adapter, graph);
+    FillAnchors fill;
+    fill.configure(1000, FillScoreParams{true, 0.02, 0.95}, 0.0);
+    fill.place(graph, sites);
+    const net_handle_t parent = find_snarl(sites, graph, 2, 8);
+    const net_handle_t child = find_snarl(sites, graph, 4, 7);
+    // The parent is heterozygous, with arm 3 on strand 0 and the child's arm 5 on strand 1.
+    auto mark_parent = [&]() {
+        fill.mark_walk(parent, walk({2, 3, 8}), FILL_STRAND_0);
+        fill.mark_walk(parent, walk({2, 4, 5, 7, 8}), FILL_STRAND_1);
+    };
+    auto mark_child = [&](const vector<int>& genotype, int nested_strand) {
+        for (const auto& [allele, bits] : fill_marks_of_call(genotype, nested_strand, true)) {
+            fill.mark_walk(child, walk({4, allele == 0 ? 5 : 6, 7}), bits);
+        }
+    };
+    auto slot_on = [&](nid_t id) { return fill.slot_of(point_on(fill, id)); };
+    auto is = [](FillSlot got, AnchorKind kind, int slot) {
+        return got.kind == kind && got.slot == slot;
+    };
+
+    SECTION("the parent decides the points of a child that was not genotyped") {
+        mark_parent();
+        REQUIRE(is(slot_on(3), AnchorKind::fill_strand, 0));
+        REQUIRE(is(slot_on(4), AnchorKind::fill_strand, 1));
+        REQUIRE(is(slot_on(5), AnchorKind::fill_strand, 1));
+        REQUIRE(is(slot_on(6), AnchorKind::fill_off_call, 0));
+        REQUIRE(is(slot_on(9), AnchorKind::fill_shared, 0));
+    }
+    SECTION("a genotyped child decides its own points, whatever its parent's walks") {
+        // The child, marked first, is homozygous for arm 6, which the parent's walks do not take.
+        mark_child({1, 1}, -1);
+        mark_parent();
+        REQUIRE(is(slot_on(5), AnchorKind::fill_off_call, 0));
+        REQUIRE(is(slot_on(6), AnchorKind::fill_shared, 0));
+        REQUIRE(is(slot_on(4), AnchorKind::fill_strand, 1));
+    }
+    SECTION("a nested chain of one copy names the strand that carries it") {
+        mark_parent();
+        mark_child({0}, 1);
+        REQUIRE(is(slot_on(5), AnchorKind::fill_strand, 1));
+        REQUIRE(is(slot_on(6), AnchorKind::fill_off_call, 0));
+    }
+    SECTION("a nested chain of one copy whose strand is not known leaves its points to the parent") {
+        mark_child({0}, -1);
+        mark_parent();
+        REQUIRE(is(slot_on(5), AnchorKind::fill_strand, 1));
     }
 }
 
@@ -349,6 +454,82 @@ TEST_CASE("The reads crossing each fill point become a fill anchor's rows", "[fi
         "2 fill2.600 0 600 fill-strand", "forward 0 1799",
         "3 fill3.600 1 600 fill-strand", "backward 1 1800",
         "4 fill4.600 0 600 fill-shared", "backward 1 600", "forward 0 2999"});
+}
+
+/// An alignment of `name` to node `id` of `graph` from its base `offset`, along the strand
+/// `reverse` names, matching `length` bases, with `clip_before` and `clip_after` bases soft clipped
+/// before and after.
+static Alignment on_node(const HandleGraph& graph, const string& name, nid_t id, bool reverse,
+                         size_t offset, size_t length, size_t clip_before, size_t clip_after) {
+    Alignment aln;
+    aln.set_name(name);
+    Mapping* m = aln.mutable_path()->add_mapping();
+    m->mutable_position()->set_node_id(id);
+    m->mutable_position()->set_is_reverse(reverse);
+    m->mutable_position()->set_offset((int64_t)offset);
+    auto clip = [&](size_t bases) {
+        Edit* e = m->add_edit();
+        e->set_from_length(0);
+        e->set_to_length((int32_t)bases);
+        e->set_sequence(string(bases, 'A'));
+    };
+    if (clip_before > 0) {
+        clip(clip_before);
+    }
+    Edit* e = m->add_edit();
+    e->set_from_length((int32_t)length);
+    e->set_to_length((int32_t)length);
+    if (clip_after > 0) {
+        clip(clip_after);
+    }
+    aln.set_sequence(string(clip_before, 'A')
+                     + graph.get_sequence(graph.get_handle(id, reverse)).substr(offset, length)
+                     + string(clip_after, 'A'));
+    aln.set_mapping_quality(60);
+    return aln;
+}
+
+TEST_CASE("A read is placed at a fill point only where it crosses it", "[fill]") {
+    // One node of 1200 bp, with its point after base 599.
+    bdsg::HashGraph graph;
+    add_node(graph, 1, 1200);
+    IntegratedSnarlFinder finder(graph);
+    DecompositionPair decomposition(graph, finder);
+    EditSnarlDecompositionOverlay sites(decomposition.adapter, graph);
+    FillAnchors fill;
+    fill.configure(1000, FillScoreParams{true, 0.02, 0.95}, 0.0);
+    fill.place(graph, sites);
+    REQUIRE(fill.points() == vector<FillPoint>{{1, 600}});
+
+    InMemorySiteReadSource reads;
+    // Two reads that do not reach the node base before the point.
+    reads.add(on_node(graph, "short", 1, false, 0, 300, 0, 0));
+    reads.add(on_node(graph, "late", 1, false, 700, 300, 0, 0));
+    // Three reads whose aligned bases end at the point: one ends there, one goes on in a soft
+    // clip, and one, along the node's reverse strand, starts there after a soft clip.
+    reads.add(on_node(graph, "ends", 1, false, 400, 200, 0, 0));
+    reads.add(on_node(graph, "clipped", 1, false, 400, 200, 0, 50));
+    reads.add(on_node(graph, "clipped-reverse", 1, true, 600, 200, 50, 0));
+    // Two reads that cross it, one each way.
+    reads.add(on_node(graph, "crosses", 1, false, 400, 400, 0, 0));
+    reads.add(on_node(graph, "crosses-reverse", 1, true, 400, 400, 20, 0));
+    fill.resolve_reads(reads, FILL_READ_WINDOW);
+
+    vector<pair<uint32_t, uint8_t>> placed;
+    for (const FillPlacement& p : fill.placements()) {
+        placed.emplace_back(p.offset, p.direction);
+    }
+    std::ranges::sort(placed);
+    // The forward read has node base 599 at its base 199. The reverse read reads node base 599
+    // as its 201st aligned base, after the 20 clipped bases.
+    REQUIRE(placed == vector<pair<uint32_t, uint8_t>>{{199, 0}, {220, 1}});
+
+    ostringstream report;
+    fill.report(report);
+    REQUIRE(report.str().find("2 reads on the point's node end before the point or start after it")
+            != string::npos);
+    REQUIRE(report.str().find("3 stop at the point or go on past it only in a soft clip")
+            != string::npos);
 }
 
 }

@@ -1456,13 +1456,21 @@ static void write_header(ostream& out, const string& graph_name, const string& s
            "graph alone. A unitig is a longest run of nodes joined end to end with no branch. Inside "
            "each unitig longer than the fill spacing K (fill=K in #filters, 0 for no fill anchors), "
            "ceil(L/K)-1 points divide its length L evenly, and a point that falls between two nodes "
-           "moves forward into the next node. A fill anchor holds every read that crosses its "
-           "point.\n";
-    out << "#note\ta fill anchor has one slot. Where both of the sample's strands cross its point, "
-           "or no site holds the point, the slot is 0 and the kind fill-shared. Where only one "
-           "strand's called walk through the site holding the point crosses it, the slot is that "
-           "strand, as an index into the site's GT, and the kind fill-strand. Where no called walk "
-           "crosses it, the slot is 0 and the kind fill-off-call.\n";
+           "moves forward into the next node. A fill anchor holds, in its one slot, the reads placed "
+           "at its point: a read is placed where it visits the node once, aligns a read base to the "
+           "node base before the point along the node's forward strand, and has a read base on the "
+           "point's other side outside its soft clips.\n";
+    out << "#note\ta fill anchor's slot and kind come from the called walks of the deciding site: "
+           "the innermost site holding the point that has a called genotype, passing over a nested "
+           "chain whose strand is not known. Where no site holds the point, where both of the "
+           "sample's strands cross it, or where the site's genotype is homozygous or in a region of "
+           "ploidy 1, the slot is 0 and the kind fill-shared. Where only one strand's called walk "
+           "crosses it, the slot is that strand and the kind fill-strand. Where no called walk of "
+           "the deciding site crosses it, or no site holding it has a called genotype, the slot is "
+           "0 and the kind fill-off-call.\n";
+    out << "#note\ta fill-strand slot is a field of the deciding site's phased GT, as a site "
+           "anchor's slot is. The row does not name that site, so the slot names a haplotype only "
+           "where a reader finds the site, from the snarl decomposition, and it is phased.\n";
     out << "#note\ta fill anchor leaves out a read whose point a snarl's or an off-panel anchor "
            "holds, or a fill anchor written before it, and is written only if at least min-reads "
            "reads remain.\n";

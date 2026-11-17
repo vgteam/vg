@@ -779,7 +779,8 @@ Three options change how the rows are formed, and the header records each choice
 ### Assembly anchors (`--anchors-out`)
 
 The anchor file records, for each genotyped site, which reads support which of the sample's
-strands, for use in pangenome-guided assembly. `--anchors-out` also turns on the genotyping of
+strands, for use in pangenome-guided assembly. It also records the reads at points spaced along
+runs of nodes with no branch, the [fill anchors](#fill-anchors). `--anchors-out` also turns on the genotyping of
 [off-reference chains](#which-child-chains-are-genotyped), which can change the VCF's phases
 and, under `--regenotype`, its genotypes; `--no-off-ref-nesting` turns that off. For a graph
 sampled with its reference paths kept, map the reads as described under [Mapping without the
@@ -864,30 +865,39 @@ bp by default, and 0 turns them off.
 A **unitig** is a longest run of nodes in which each node's right side has one edge, to the next
 node of the run, and that node's left side has that one edge alone. The two nodes of each such join
 differ. Inside each unitig of length $L$ greater than $K$, $n = \lceil L/K \rceil - 1$ **fill
-points** divide the length evenly: reading the unitig from its end whose node has the smaller ID,
-the $i$-th point has $iL/(n+1)$ bases of the unitig before it, rounded to the nearest base. A point
-that falls on a join between two nodes moves forward one base at a time until it lies inside a
-node. It is dropped if it reaches the end of the unitig, and a later point that the move reaches or
-passes is dropped too. The points depend only on the graph and $K$, so every run on one graph uses
-the same ones.
+points** divide the length evenly: the $i$-th point has $iL/(n+1)$ bases of the unitig before it,
+rounded to the nearest base, half up. A unitig is read from its end whose node has the smaller ID. A
+unitig of one node is read along the node's forward strand, and so is one that closes on itself,
+starting from its node with the smallest ID. A point that falls on a join between two nodes moves
+forward one base at a time until it lies inside a node. It is dropped if it reaches the end of the
+unitig, and a later point that the move reaches or passes is dropped too. The points depend only on
+the graph and $K$, so every run on one graph uses the same ones.
 
 Each read that crosses a fill point is placed there, as at a site's pin, and the reads at a point
 make one **fill anchor**, which has one slot. The reads pass the same filters as a site's reads:
-`--read-min-mapq`, and no secondary alignments. A read that visits the point's node more than once,
-or has no base aligned to the node base before the point, is not placed. A read's anchor
+`--read-min-mapq`, and no secondary alignments. A read is placed only where it visits the point's
+node once, has a read base aligned to the node base before the point, along the node's forward
+strand, and has a read base on the point's other side outside its soft clips. A read's anchor
 confidence at a fill anchor is $-10 \log_{10} e_r$, which is its confidence at a site with one
 allele.
 
-The slot and kind of a fill anchor come from the called walks of the innermost site that holds the
-point's node:
+The slot and kind of a fill anchor come from the called walks of its **deciding site**: the
+innermost site that holds the point's node and has a called genotype. A nested chain of one copy
+whose strand is not known, as where the linkage model gave its parent no phase, is passed over, so
+the site around it decides. So is a site that was not genotyped, as under `--no-nested` or below a
+nested site that could not be genotyped.
 
 - **fill-shared**, in slot 0, where both of the sample's strands cross the point: in sequence that
-  both called alleles share, at a homozygous site, at a site in a region of ploidy 1, or where no
-  site holds the node.
+  both called alleles of the deciding site share, at a homozygous site, at a site in a region of
+  ploidy 1, or where no site holds the node.
 - **fill-strand**, in slot $s$, where only the called walk of strand $s$ crosses it: on a node that
   only one called allele visits, or in a nested haploid chain on strand $s$.
-- **fill-off-call**, in slot 0, where no called walk crosses it: on a node no called allele visits,
-  or in a site that has no called genotype.
+- **fill-off-call**, in slot 0, where no called walk of the deciding site crosses it, or where sites
+  hold the node but none has a called genotype.
+
+A fill-strand slot is field $s$ of the deciding site's phased `GT`, as a site anchor's slot is. The
+`A` row does not name the deciding site, so the slot names a haplotype only where a reader finds
+that site, from the snarl decomposition, and it is phased.
 
 A fill anchor gives way at a read point to every snarl's and off-panel site's anchor, and to a fill
 anchor written before it. It is written only if at least `--anchors-reads` of its reads remain,
