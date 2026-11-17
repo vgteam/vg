@@ -77,8 +77,11 @@ matched to its site by its ID (`MultiPassCaller::record_id_of_site`).
    `MultiPassCaller::StagedSiteEmitter`, and then collects each site's anchors over the alleles
    its records numbered. With fill anchors on, it also marks which strands' called walks cross
    each fill point (`FillAnchors::mark_walk`).
-   The fill points were placed, and the reads crossing them found, at the end of the direct pass,
-   while the read source was open (`FillAnchors::place` and `resolve_reads`).
+   The fill points were placed before the direct pass (`FillAnchors::place_points`), and the sites
+   holding each point were found at its end (`place`). With a windowed read source, the reads
+   crossing the points of each window the pass fetched whole were placed from that window while
+   the pass held it (`resolve_window_reads`). The reads of the other windows were fetched at the
+   end of the pass (`resolve_reads`).
 5. **Files and reports.** Write the anchor file (`AnchorCollector`) and the mosaic
    (`MosaicWriter`), and report the linkage, phasing, mosaic and block counts.
 

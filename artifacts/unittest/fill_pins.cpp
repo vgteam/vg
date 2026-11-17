@@ -5,9 +5,11 @@
 
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include <bdsg/hash_graph.hpp>
@@ -271,7 +273,8 @@ TEST_CASE("A fill anchor's slot comes from the called walks of the site that hol
     EditSnarlDecompositionOverlay sites(pair.adapter, graph);
     FillAnchors fill;
     fill.configure(1000, FillScoreParams{true, 0.02, 0.95}, 0.0);
-    fill.place(graph, sites);
+    fill.place_points(graph, FILL_READ_WINDOW);
+    fill.place(sites);
     REQUIRE(fill.points() == vector<FillPoint>{{1, 600}, {2, 600}, {3, 600}, {4, 600}});
     const net_handle_t site = find_snarl(sites, graph, 1, 4);
     auto mark = [&](const vector<int>& genotype, int nested_strand) {
@@ -340,7 +343,8 @@ TEST_CASE("The innermost genotyped site holding a fill point decides its slot", 
     EditSnarlDecompositionOverlay sites(decomposition.adapter, graph);
     FillAnchors fill;
     fill.configure(1000, FillScoreParams{true, 0.02, 0.95}, 0.0);
-    fill.place(graph, sites);
+    fill.place_points(graph, FILL_READ_WINDOW);
+    fill.place(sites);
     const net_handle_t parent = find_snarl(sites, graph, 2, 8);
     const net_handle_t child = find_snarl(sites, graph, 4, 7);
     // The parent is heterozygous, with arm 3 on strand 0 and the child's arm 5 on strand 1.
@@ -395,7 +399,8 @@ TEST_CASE("The reads crossing each fill point become a fill anchor's rows", "[fi
     EditSnarlDecompositionOverlay sites(pair.adapter, graph);
     FillAnchors fill;
     fill.configure(1000, FillScoreParams{true, 0.02, 0.95}, 0.0);
-    fill.place(graph, sites);
+    fill.place_points(graph, FILL_READ_WINDOW);
+    fill.place(sites);
 
     // One read along arm 2 forward, and one along arm 3 read backward.
     InMemorySiteReadSource reads;
@@ -406,7 +411,7 @@ TEST_CASE("The reads crossing each fill point become a fill anchor's rows", "[fi
         backward.push_back(graph.flip(*it));
     }
     reads.add(along(graph, "backward", backward));
-    fill.resolve_reads(reads, FILL_READ_WINDOW);
+    fill.resolve_reads(reads);
     REQUIRE(fill.placements().size() == 6);
 
     const net_handle_t site = find_snarl(sites, graph, 1, 4);
@@ -456,6 +461,58 @@ TEST_CASE("The reads crossing each fill point become a fill anchor's rows", "[fi
         "4 fill4.600 0 600 fill-shared", "backward 1 600", "forward 0 2999"});
 }
 
+TEST_CASE("Reads placed from the windows a source fetches match those resolve_reads fetches",
+          "[fill]") {
+    FillBubble bubble;
+    const HandleGraph& graph = bubble.graph;
+    IntegratedSnarlFinder finder(graph);
+    DecompositionPair decomposition(graph, finder);
+    EditSnarlDecompositionOverlay sites(decomposition.adapter, graph);
+    InMemorySiteReadSource reads;
+    reads.add(along(graph, "forward", bubble.walk(2)));
+    reads.add(along(graph, "other", bubble.walk(3)));
+    const SiteReadSource::WindowReads window_reads =
+        [&reads](const vector<pair<nid_t, nid_t>>& ranges,
+                 const function<void(const SiteRead&)>& iteratee) {
+            reads.for_each_read(ranges, iteratee);
+        };
+    auto placed = [](const FillAnchors& fill) {
+        vector<tuple<uint32_t, string, uint32_t, uint32_t, float, uint8_t>> out;
+        for (const FillPlacement& p : fill.placements()) {
+            out.emplace_back(p.point, read_names().name(p.read), p.alignment, p.offset, p.score,
+                             p.direction);
+        }
+        return out;
+    };
+
+    // Windows of 2 node IDs: node 1 in window 0, nodes 2 and 3 in window 1, node 4 in window 2.
+    FillAnchors fetched;
+    fetched.configure(1000, FillScoreParams{true, 0.02, 0.95}, 0.0);
+    fetched.place_points(graph, 2);
+    fetched.place(sites);
+    fetched.resolve_reads(reads);
+
+    FillAnchors observed;
+    observed.configure(1000, FillScoreParams{true, 0.02, 0.95}, 0.0);
+    observed.place_points(graph, 2);
+    // A range that is not exactly one window is ignored, and a window's reads are placed only
+    // once.
+    observed.resolve_window_reads(0, 3, window_reads);
+    observed.resolve_window_reads(1, 2, window_reads);
+    observed.resolve_window_reads(2, 3, window_reads);
+    observed.resolve_window_reads(2, 3, window_reads);
+    observed.place(sites);
+    observed.resolve_reads(reads);
+
+    REQUIRE(placed(fetched).size() == 6);
+    REQUIRE(placed(observed) == placed(fetched));
+    ostringstream report;
+    observed.report(report);
+    REQUIRE(report.str().find("reads placed from 1 windows of 2 node IDs as the direct pass "
+                              "fetched them, and from 2 windows fetched after it")
+            != string::npos);
+}
+
 /// An alignment of `name` to node `id` of `graph` from its base `offset`, along the strand
 /// `reverse` names, matching `length` bases, with `clip_before` and `clip_after` bases soft clipped
 /// before and after.
@@ -498,7 +555,8 @@ TEST_CASE("A read is placed at a fill point only where it crosses it", "[fill]")
     EditSnarlDecompositionOverlay sites(decomposition.adapter, graph);
     FillAnchors fill;
     fill.configure(1000, FillScoreParams{true, 0.02, 0.95}, 0.0);
-    fill.place(graph, sites);
+    fill.place_points(graph, FILL_READ_WINDOW);
+    fill.place(sites);
     REQUIRE(fill.points() == vector<FillPoint>{{1, 600}});
 
     InMemorySiteReadSource reads;
@@ -513,7 +571,7 @@ TEST_CASE("A read is placed at a fill point only where it crosses it", "[fill]")
     // Two reads that cross it, one each way.
     reads.add(on_node(graph, "crosses", 1, false, 400, 400, 0, 0));
     reads.add(on_node(graph, "crosses-reverse", 1, true, 400, 400, 20, 0));
-    fill.resolve_reads(reads, FILL_READ_WINDOW);
+    fill.resolve_reads(reads);
 
     vector<pair<uint32_t, uint8_t>> placed;
     for (const FillPlacement& p : fill.placements()) {

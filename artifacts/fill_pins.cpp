@@ -286,10 +286,27 @@ bool net_before(const net_handle_t& a, const net_handle_t& b) {
 
 }
 
-void FillAnchors::place(const HandleGraph& point_graph, const SnarlDecomposition& decomposition) {
+void FillAnchors::place_points(const HandleGraph& point_graph, size_t window) {
     graph = &point_graph;
-    sites = &decomposition;
     fill_points = place_fill_points(point_graph, spacing, point_tally);
+    window_size = max<size_t>(window, 1);
+    windows.clear();
+    for (size_t i = 0; i < fill_points.size();) {
+        const nid_t number = fill_points[i].node / (nid_t)window_size;
+        size_t j = i;
+        while (j < fill_points.size() && fill_points[j].node / (nid_t)window_size == number) {
+            ++j;
+        }
+        windows.push_back(PointWindow{number, i, j});
+        i = j;
+    }
+    window_claimed = vector<std::atomic<bool>>(windows.size());
+    window_placements = vector<vector<FillPlacement>>(windows.size());
+}
+
+void FillAnchors::place(const SnarlDecomposition& decomposition) {
+    const HandleGraph& point_graph = *graph;
+    sites = &decomposition;
     // The sites holding each point's node, innermost first. Most points lie in no site.
     vector<vector<net_handle_t>> held_in(fill_points.size());
 #pragma omp parallel for schedule(dynamic, 1024)
@@ -423,8 +440,8 @@ void FillAnchors::place_read(const SiteRead& read, const vector<VisitedNode>& vi
     }
 }
 
-vector<FillPlacement> FillAnchors::resolve_window(const SiteReadSource& reads, size_t begin,
-                                                  size_t end) {
+vector<FillPlacement> FillAnchors::resolve_window(const SiteReadSource::WindowReads& reads,
+                                                  size_t begin, size_t end) {
     // The points' nodes, which are sorted, and the ranges of node IDs they make.
     vector<nid_t> nodes;
     vector<pair<nid_t, nid_t>> ranges;
@@ -442,43 +459,60 @@ vector<FillPlacement> FillAnchors::resolve_window(const SiteReadSource& reads, s
     }
     vector<FillPlacement> out;
     vector<VisitedNode> visited;
-    reads.for_each_read_uncounted(ranges, [&](const SiteRead& read) {
+    reads(ranges, [&](const SiteRead& read) {
         nodes_visited(read, nodes, visited);
         place_read(read, visited, begin, end, out);
     });
     return out;
 }
 
-void FillAnchors::resolve_reads(const SiteReadSource& reads, size_t window) {
+void FillAnchors::resolve_window_reads(nid_t first, nid_t last,
+                                       const SiteReadSource::WindowReads& reads) {
+    // Only a range that is exactly one window holds all of that window's points and none of
+    // another's.
+    if (window_size == 0 || first % (nid_t)window_size != 0
+        || last - first + 1 != (nid_t)window_size) {
+        return;
+    }
+    const nid_t number = first / (nid_t)window_size;
+    const auto found = std::ranges::lower_bound(windows, number, {}, &PointWindow::number);
+    if (found == windows.end() || found->number != number) {
+        return;
+    }
+    const auto w = (size_t)(found - windows.begin());
+    if (window_claimed[w].exchange(true)) {
+        return;
+    }
+    window_placements[w] = resolve_window(reads, found->begin, found->end);
+    ++windows_observed;
+}
+
+void FillAnchors::resolve_reads(const SiteReadSource& reads) {
     placed_reads.clear();
     if (fill_points.empty()) {
         return;
     }
-    window = max<size_t>(window, 1);
-    // The points of each window of node IDs, as [begin, end) in `fill_points`.
-    vector<pair<size_t, size_t>> windows;
-    for (size_t i = 0; i < fill_points.size();) {
-        const nid_t w = fill_points[i].node / (nid_t)window;
-        size_t j = i;
-        while (j < fill_points.size() && fill_points[j].node / (nid_t)window == w) {
-            ++j;
-        }
-        windows.emplace_back(i, j);
-        i = j;
-    }
-    // The placements of each window, kept apart so that their order does not depend on the
-    // threads.
-    vector<vector<FillPlacement>> found(windows.size());
+    const SiteReadSource::WindowReads fetch = [&reads](
+        const vector<pair<nid_t, nid_t>>& ranges, const function<void(const SiteRead&)>& iteratee) {
+        reads.for_each_read_uncounted(ranges, iteratee);
+    };
+    // The placements of each window are kept apart, so that their order depends neither on the
+    // threads nor on which windows `resolve_window_reads` took.
+    std::atomic<size_t> fetched{0};
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t w = 0; w < windows.size(); ++w) {
-        found[w] = resolve_window(reads, windows[w].first, windows[w].second);
+        if (!window_claimed[w].exchange(true)) {
+            window_placements[w] = resolve_window(fetch, windows[w].begin, windows[w].end);
+            ++fetched;
+        }
     }
+    windows_fetched = fetched.load();
     size_t total = 0;
-    for (const auto& placements : found) {
+    for (const auto& placements : window_placements) {
         total += placements.size();
     }
     placed_reads.reserve(total);
-    for (auto& placements : found) {
+    for (auto& placements : window_placements) {
         placed_reads.insert(placed_reads.end(), placements.begin(), placements.end());
         vector<FillPlacement>().swap(placements);
     }
@@ -610,6 +644,9 @@ void FillAnchors::report(ostream& out) const {
         << " bp in " << point_tally.unitigs << " unbranched node runs longer than that; "
         << point_tally.dropped_at_end << " dropped at a run's end and " << point_tally.merged
         << " at the next point, when moved forward off a join between nodes" << endl;
+    out << "[vg call] fill anchors: reads placed from " << windows_observed.load() << " windows of "
+        << window_size << " node IDs as the direct pass fetched them, and from " << windows_fetched
+        << " windows fetched after it" << endl;
     const AnchorPinCounters& pins = read_counters.pins;
     out << "[vg call] fill anchors: " << resolved.load() << " read placements resolved, "
         << pins.verified.load() << " checked against the graph's base and "

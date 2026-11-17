@@ -71,6 +71,22 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
             .edit_bar = off_panel.bar(),
         });
 
+    // Place the fill points before the direct pass, and have the read source pass each window it
+    // fetches whole to the fill anchors, which place the reads crossing that window's points while
+    // the window is in memory. The fill windows must be the source's windows, or
+    // `resolve_window_reads` takes none of them; `snarl_batch_window` is the source's window (see
+    // `set_snarl_batching`). The observer adds nothing to the source's tallies of read starts or to
+    // its off-panel candidates, so it cannot change a genotype.
+    const size_t fill_window = snarl_batch_window > 0 ? snarl_batch_window : FILL_READ_WINDOW;
+    const bool fill_reads = fill_anchors.is_enabled() && read_source != nullptr;
+    if (fill_reads) {
+        fill_anchors.place_points(graph, fill_window);
+        read_source->set_window_observer(
+            [this](nid_t first, nid_t last, const SiteReadSource::WindowReads& reads) {
+                fill_anchors.resolve_window_reads(first, last, reads);
+            });
+    }
+
     // The direct pass.
     walker.walk(recurse_type, snarl_batch_window, show_progress,
                 [&](const net_handle_t& site) { return tree_genotyper.genotype(site); });
@@ -82,14 +98,16 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     if (show_progress) {
         report_descent_instrumentation();
     }
-    if (fill_anchors.is_enabled() && read_source != nullptr) {
-        // Find the reads at the fill points while the read source is open. No pass after the
-        // direct pass reads reads, and this query adds nothing to the source's tallies of read
-        // starts or to its off-panel candidates, so it cannot change a genotype. A windowed
-        // source keeps the fetch statistics of this query apart from the site queries'.
-        fill_anchors.place(graph, sites);
-        fill_anchors.resolve_reads(*read_source, snarl_batch_window > 0 ? snarl_batch_window
-                                                                        : FILL_READ_WINDOW);
+    if (fill_reads) {
+        // No fetch is running between the passes, so the observer can be removed. Then place the
+        // reads at the fill points of the windows the direct pass never fetched whole, while the
+        // read source is open. No pass after the direct pass reads reads, and this query adds
+        // nothing to the source's tallies of read starts or to its off-panel candidates, so it
+        // cannot change a genotype. A windowed source keeps the fetch statistics of this query
+        // apart from the site queries'.
+        read_source->set_window_observer(nullptr);
+        fill_anchors.place(sites);
+        fill_anchors.resolve_reads(*read_source);
     }
     after_direct_pass();
 

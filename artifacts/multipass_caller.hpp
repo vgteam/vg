@@ -65,9 +65,10 @@ using namespace std;
  *    (see `RecordRenderer`).
  * 4. The anchor file and the mosaic are written, and the passes are reported.
  *
- * With fill anchors on, the fill points are placed and the reads crossing them found after the
- * direct pass, while the read source is still open, and the render marks which called walks cross
- * them.
+ * With fill anchors on, the fill points are placed before the direct pass. The reads crossing them
+ * are placed from each window the read source fetches whole during the pass, and from the other
+ * windows, which are fetched after it while the read source is still open. The render marks which
+ * called walks cross them.
  *
  * It walks the sites of a `SnarlDecomposition` itself, rather than being a `GraphCaller`. It
  * writes its records through a `SortedVCFWriter`, to which it adds its own header lines and

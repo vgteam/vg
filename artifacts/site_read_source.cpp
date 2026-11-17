@@ -879,19 +879,35 @@ WindowedSiteReadSource::get_window(size_t window, bool& was_fetched, bool counte
     // Free the windows dropped from the cache after releasing the lock. Freeing a window's reads
     // takes long enough that other threads would queue on the lock.
     vector<shared_ptr<const CacheEntry>> dropped;
-    std::scoped_lock guard(cache_mutex);
-    if (tally) {
-        starts.try_emplace(window, std::move(tallies));
+    {
+        std::scoped_lock guard(cache_mutex);
+        if (tally) {
+            starts.try_emplace(window, std::move(tallies));
+        }
+        if (count) {
+            edits.try_emplace(window, std::move(window_candidates));
+        }
+        if (found_entry) {
+            return found_entry;
+        }
+        was_fetched = true;
+        cache.store(window, entry, dropped);
     }
-    if (count) {
-        edits.try_emplace(window, std::move(window_candidates));
+    dropped.clear();
+    if (window_observer) {
+        const auto first = (nid_t)(window * window_size);
+        window_observer(first, first + (nid_t)window_size - 1,
+                        [&](const vector<pair<nid_t, nid_t>>& ranges,
+                            const function<void(const SiteRead&)>& iteratee) {
+                            deliver(*entry, ranges, iteratee, false);
+                        });
     }
-    if (found_entry) {
-        return found_entry;
-    }
-    was_fetched = true;
-    cache.store(window, entry, dropped);
     return entry;
+}
+
+bool WindowedSiteReadSource::set_window_observer(WindowObserver observer) const {
+    window_observer = std::move(observer);
+    return true;
 }
 
 shared_ptr<WindowedSiteReadSource::CacheEntry>
@@ -1352,7 +1368,8 @@ bool WindowedSiteReadSource::for_each_window_read(
 
 void WindowedSiteReadSource::deliver(const CacheEntry& entry,
                                      const vector<pair<nid_t, nid_t>>& ranges,
-                                     const function<void(const SiteRead&)>& iteratee) const {
+                                     const function<void(const SiteRead&)>& iteratee,
+                                     bool in_stats) const {
     // Use local buffers, since the iteratee is caller code that might query the source again.
     vector<pair<uint32_t, uint32_t>> hits;
     // Merge the ranges, so that ranges that overlap find each index entry once.
@@ -1372,8 +1389,10 @@ void WindowedSiteReadSource::deliver(const CacheEntry& entry,
                                             entry.offset_start.data(), iteratee);
 
     // Add once per site query, to keep atomic increments off the per-entry path.
-    counters.scanned += hits.size();
-    counters.delivered += n_delivered;
+    if (in_stats) {
+        counters.scanned += hits.size();
+        counters.delivered += n_delivered;
+    }
 }
 
 size_t WindowedSiteReadSource::get_read_count() const {

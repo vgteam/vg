@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 204
+plan tests 205
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -280,17 +280,20 @@ is $(grep -c -- "--anchors-fill only applies to the anchor file" rl_fill_alone.e
    "--anchors-fill without --anchors-out is refused"
 # Reads fetched from an indexed GAM, a window of 8 node IDs at a time, so that the fill points span
 # several windows. Finding the fill anchors' reads adds nothing to the read-start tallies or the
-# off-panel candidates that the sites are genotyped from.
+# off-panel candidates that the sites are genotyped from. Most windows' reads are placed at the fill
+# points as the sites fetch the windows, rather than fetched again after the sites are genotyped.
 vg gamsort -i rl_sorted.gam.gai sim.gam > rl_sorted.gam 2>/dev/null
 for arm in 0_1 20_1 20_4; do
     vg call x.gbz --read-likelihood --gam rl_sorted.gam --gam-index rl_sorted.gam.gai \
         --read-window 8 --off-panel-dump rl_ix_${arm}.dump --anchors-out rl_ix_${arm}.tsv \
-        --anchors-fill ${arm%_*} -t ${arm#*_} > rl_ix_${arm}.vcf 2>/dev/null
+        --anchors-fill ${arm%_*} -t ${arm#*_} > rl_ix_${arm}.vcf 2> rl_ix_${arm}.err
 done
 is "$(/usr/bin/cmp rl_ix_0_1.vcf rl_ix_20_1.vcf && /usr/bin/cmp rl_ix_0_1.dump rl_ix_20_1.dump && echo same)" \
    "same" "fill anchors from an indexed GAM leave the VCF and the off-panel dump unchanged"
 is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_ix_20_1.tsv | wc -l | awk '{print ($1 > 0)}') "1" \
    "fill anchors are found from an indexed GAM"
+is $(grep -c "fill anchors: reads placed from [1-9][0-9]* windows" rl_ix_20_1.err) "1" \
+   "fill anchors place reads from the windows the sites fetch"
 is "$(/usr/bin/cmp rl_ix_20_1.tsv rl_ix_20_4.tsv && echo same)" "same" \
    "the anchor file from an indexed GAM does not depend on the thread count"
 

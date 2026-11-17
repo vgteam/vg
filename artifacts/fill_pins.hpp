@@ -189,10 +189,15 @@ struct FillPlacement {
  * The fill anchors of a run: their points, the reads that cross them, and the called walks that
  * cross them.
  *
- * Use it in this order. `place` places the points once the snarls are found. `resolve_reads` finds
- * the reads crossing each point, before the read source is closed. `mark_walk`, called for each
- * strand of each called site as its record is rendered, records which strands cross each point.
- * `add_anchors` then makes the anchors, and `report` writes the counts.
+ * Use it in this order. `place_points` places the points and groups them by window of node IDs.
+ * While the sites are genotyped, a read source can call `resolve_window_reads` as its window
+ * observer (see `SiteReadSource::set_window_observer`), which places the reads crossing the points
+ * of each window the source fetches whole, while that window is in memory. `place` finds the sites
+ * that hold each point's node. `resolve_reads` fetches the reads of the windows that
+ * `resolve_window_reads` did not take, before the read source is closed, and gathers every
+ * window's placements. `mark_walk`, called for each strand of each called site as its record is
+ * rendered, records which strands cross each point. `add_anchors` then makes the anchors, and
+ * `report` writes the counts.
  */
 class FillAnchors {
 public:
@@ -213,25 +218,46 @@ public:
     bool is_enabled() const { return spacing > 0; }
 
     /**
-     * Place the points in the unitigs of `point_graph`, and find the sites of `decomposition` that
-     * hold each point's node.
+     * Place the points in the unitigs of `point_graph`, and group them by window of `window` node
+     * IDs.
      *
-     * Both must outlive this object.
+     * To take the windows of a read source, `window` must be the source's window width, since
+     * `resolve_window_reads` takes only whole windows of this width. `point_graph` must outlive this
+     * object.
      */
-    void place(const HandleGraph& point_graph, const SnarlDecomposition& decomposition);
+    void place_points(const HandleGraph& point_graph, size_t window);
 
     /**
-     * Find where each read of `reads` crosses each point.
+     * Find the sites of `decomposition` that hold each point's node.
      *
-     * The points are taken a window of `window` node IDs at a time, on several threads, and the
-     * reads touching each window's points are fetched without counting them (see
+     * Call it after `place_points`. `decomposition` must outlive this object.
+     */
+    void place(const SnarlDecomposition& decomposition);
+
+    /**
+     * Place the reads of `reads` at the points in the window of node IDs from `first` to `last`,
+     * as `resolve_reads` would, unless that window's reads were placed already.
+     *
+     * It has the signature of a `SiteReadSource::WindowObserver`, so that the caller can have a
+     * read source pass it each window the source fetches whole, and `resolve_reads` then fetches
+     * only the windows it did not take. A range that is not exactly one window of `place_points`
+     * is ignored. Safe to call from many threads.
+     */
+    void resolve_window_reads(nid_t first, nid_t last, const SiteReadSource::WindowReads& reads);
+
+    /**
+     * Find where each read of `reads` crosses each point, in the windows whose reads
+     * `resolve_window_reads` did not place.
+     *
+     * The windows are taken on several threads, and the reads touching each window's points are
+     * fetched without counting them (see
      * `SiteReadSource::for_each_read_uncounted`). A read is placed at a point by
      * `resolve_anchor_pin`, as an exit pin in the direction of the node's forward strand, so a
      * read that visits the node twice, or has no base aligned to the node base before the point,
      * is not placed. Nor is a read whose alignment does not reach the node base before the point,
      * or that has no read base after the point outside its soft clips.
      */
-    void resolve_reads(const SiteReadSource& reads, size_t window);
+    void resolve_reads(const SiteReadSource& reads);
 
     /**
      * Record that `site` has a called genotype, and that the walk of its allele `walk` crosses the
@@ -285,9 +311,18 @@ private:
     static void nodes_visited(const SiteRead& read, const vector<nid_t>& nodes,
                               vector<VisitedNode>& visited);
 
-    /// Return the placements of the reads touching the points `fill_points[begin, end)`, which lie
-    /// in one window of node IDs.
-    vector<FillPlacement> resolve_window(const SiteReadSource& reads, size_t begin,
+    /// The points in one window of node IDs.
+    struct PointWindow {
+        /// The window's number, its first node ID divided by `window_size`.
+        nid_t number = 0;
+        /// The points, as [begin, end) in `fill_points`.
+        size_t begin = 0;
+        size_t end = 0;
+    };
+
+    /// Return the placements of the reads of `reads` touching the points `fill_points[begin, end)`,
+    /// which lie in one window of node IDs.
+    vector<FillPlacement> resolve_window(const SiteReadSource::WindowReads& reads, size_t begin,
                                          size_t end);
 
     /// Place `read` at each of the points `fill_points[begin, end)` on the nodes `visited`, which
@@ -301,13 +336,26 @@ private:
     FillScoreParams scores;
     /// The smallest score a read must have to be placed.
     double min_read_score = 0.0;
-    /// The graph the points are in, or null before `place`.
+    /// The graph the points are in, or null before `place_points`.
     const HandleGraph* graph = nullptr;
     /// The sites, or null before `place`.
     const SnarlDecomposition* sites = nullptr;
 
     /// The points, sorted by node, then pin.
     vector<FillPoint> fill_points;
+    /// The width of the windows of node IDs the points are grouped by, or 0 before
+    /// `place_points`.
+    size_t window_size = 0;
+    /// The windows that hold points, in order.
+    vector<PointWindow> windows;
+    /// Whether the reads of each window of `windows` have been placed, or are being placed.
+    vector<std::atomic<bool>> window_claimed;
+    /// The placements in each window of `windows`, until `resolve_reads` gathers them.
+    vector<vector<FillPlacement>> window_placements;
+    /// The windows whose reads `resolve_window_reads` placed.
+    std::atomic<size_t> windows_observed{0};
+    /// The windows whose reads `resolve_reads` fetched.
+    size_t windows_fetched = 0;
     /// The sites that hold some point's node, each as its canonical net handle, sorted.
     vector<net_handle_t> holding_sites;
     /// Whether each site of `holding_sites` was marked by `mark_walk`.

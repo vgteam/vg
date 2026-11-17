@@ -110,6 +110,29 @@ public:
         for_each_read(ranges, iteratee);
     }
 
+    /// Visits the reads of one window that touch the given ranges, each once, as `for_each_read`
+    /// would.
+    using WindowReads = function<void(const vector<pair<nid_t, nid_t>>& ranges,
+                                      const function<void(const SiteRead&)>& iteratee)>;
+    /// Called with each window of node IDs that a source fetches whole: the window's first and
+    /// last node IDs, and its reads.
+    using WindowObserver = function<void(nid_t first, nid_t last, const WindowReads& reads)>;
+
+    /**
+     * From now on, call `observer` with each window this source fetches whole, once the window is
+     * cached, on the thread that fetched it. An empty `observer` turns this off.
+     *
+     * Several threads can call `observer` at once. A window the cache dropped is passed again when
+     * it is fetched again, so `observer` must pass over windows it has seen. The reads it visits
+     * add nothing to the fetch statistics, the read-start tallies or the off-panel candidates. Not
+     * safe to call while reads are being fetched.
+     *
+     * @returns false, and calls nothing, if the source does not fetch reads by window.
+     */
+    virtual bool set_window_observer(WindowObserver /*observer*/) const {
+        return false;
+    }
+
     /// Visit the alignment of every read touching the ranges, once each.
     ///
     /// This is named differently rather than overloaded, since a lambda converts to either
@@ -296,6 +319,9 @@ public:
     /// these queries are kept apart from those of the site queries (see `fetch_stats`).
     void for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
                                  const function<void(const SiteRead&)>& iteratee) const final;
+
+    /// Call `observer` with each window this source fetches whole, once it is cached.
+    bool set_window_observer(WindowObserver observer) const final;
 
     /// Visit the read starts on the nodes, from tallies of each window's read starts.
     ///
@@ -563,10 +589,12 @@ private:
 
     /// Hand the entry's reads that touch the ranges to the caller, in the order they were fetched.
     ///
-    /// Reads are found through the entry's node index.
+    /// Reads are found through the entry's node index. Unless `in_stats` is false, the index
+    /// entries examined and the reads delivered are added to the fetch statistics; the window
+    /// observer's reads are not.
     void deliver(const CacheEntry& entry,
                  const vector<pair<nid_t, nid_t>>& ranges,
-                 const function<void(const SiteRead&)>& iteratee) const;
+                 const function<void(const SiteRead&)>& iteratee, bool in_stats = true) const;
 
     /// Hand a wide site's reads to the caller, from a fetch of its own.
     ///
@@ -701,6 +729,9 @@ private:
     ///
     /// Fetches run without it.
     mutable std::mutex cache_mutex;
+
+    /// Called with each window fetched whole and cached, or empty. See `set_window_observer`.
+    mutable WindowObserver window_observer;
 };
 
 /**
