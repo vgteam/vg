@@ -139,13 +139,20 @@ private:
     std::vector<Entry> entries;
 };
 
-/// Selects chopping positions from `candidates`, in sorted order. Returned
-/// offsets do not include the sentinels at the start and end of the sequence.
-///
-/// Assumes that `counts` has a non-zero count for every segment. The cost of
-/// a segment is `piece_weight + length / occurrences`. Since the number of
-/// occurrences is based on fingerprints, rare collisions may lead to
-/// suboptimal choices.
+/**
+ * Selects chopping positions from `candidates`, in sorted order. Returned
+ * offsets do not include the sentinels at the start and end of the sequence.
+ *
+ * Assumes that `counts` has a non-zero count for every segment. The cost of
+ * a segment is `piece_weight + length / occurrences`. Since the number of
+ * occurrences is based on fingerprints, rare collisions may lead to
+ * suboptimal choices.
+ *
+ * NOTE: Dynamic programming prioritizes the leftmost minimum-cost chopping.
+ * In particular, if we have a long node with unique sequence, the first piece
+ * may be below max length, while subsequent pieces are max length. Chopping
+ * with vg mod --chop does the opposite.
+ */
 std::vector<size_t> choose_cuts(
     const CutCandidateSet& candidates,
     const SegmentCountTable& counts,
