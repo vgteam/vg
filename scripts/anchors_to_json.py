@@ -71,7 +71,7 @@ def main():
     ap.add_argument("--min-coverage", type=int, default=2, help="minimum reads per anchor [2]")
     ap.add_argument("--max-coverage", type=int, default=1000000)
     ap.add_argument("--min-score", type=float, default=0.0, help="per-read assignment phred")
-    ap.add_argument("--min-gqn", type=float, default=0.0, help="site GQN; '.' never passes a >0 cut")
+    ap.add_argument("--min-gqn", type=float, default=0.0, help="site GQN; '.' never passes a >0 cut; fill anchors are not filtered by GQN")
     ap.add_argument("--min-explained", type=float, default=0.0)
     ap.add_argument("--nodes", help="restrict to node IDs in this file, one per line")
     ap.add_argument("--keep-shared-names", action="store_true",
@@ -169,8 +169,10 @@ def main():
                 if keep_nodes is not None and node not in keep_nodes:
                     skip = True
                 # A '.' GQN means the site offered no gap to normalise, which is not zero and must
-                # not pass a positive threshold by accident.
-                if args.min_gqn > 0.0 and (gqn is None or gqn < args.min_gqn):
+                # not pass a positive threshold by accident. A fill anchor belongs to no site, so
+                # --min-gqn does not apply to it, as vg's --anchors-min-gqn does not.
+                if (args.min_gqn > 0.0 and not snarl.startswith("fill")
+                        and (gqn is None or gqn < args.min_gqn)):
                     skip = True
                 if explained is not None and explained < args.min_explained:
                     skip = True

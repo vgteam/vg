@@ -303,6 +303,16 @@ static void log_windowed_read_source_stats(const Logger& logger,
     logger.info() << label
                   << stats.whole_fetches << " windows fetched whole, holding "
                   << stats.whole_fetch_reads << " reads" << endl;
+    // The queries after the sites are genotyped, which find the reads at the fill anchors' points,
+    // are tallied apart.
+    if (const WindowedSiteReadSource::FetchStats later = windowed.uncounted_fetch_stats();
+        later.fetched > 0 || later.scanned > 0) {
+        logger.info() << label << "the fill anchors' queries, after genotyping, fetched "
+                      << later.fetched << " reads, with " << later.whole_fetches
+                      << " windows fetched whole (" << later.refetches << " of them windows the "
+                      << "cache had dropped), and examined " << later.scanned
+                      << " read candidates, delivering " << later.delivered << endl;
+    }
     if (off_panel) {
         logger.info() << label << stats.refetches
                       << " of the whole fetches were of a window the cache had dropped, and "
@@ -721,7 +731,8 @@ void help_call(char** argv) {
          << "  anchors:" << endl
          << "      --anchors-out FILE    write assembly anchors to FILE: the reads at each" << endl
          << "                            genotyped snarl's boundaries, grouped by the" << endl
-         << "                            called allele they fit" << endl
+         << "                            called allele they fit, and at points spaced" << endl
+         << "                            along unbranched node runs" << endl
          << "      --anchors-het-only    write anchors only at heterozygous sites" << endl
          << "      --anchors-leaf-only   write anchors only at leaf snarls" << endl
          << "      --anchors-reads N     minimum reads per anchor [2]" << endl

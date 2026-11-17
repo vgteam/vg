@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 199
+plan tests 204
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -248,14 +248,16 @@ vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors.tsv -t 1 
     > rl_anchors.vcf 2> rl_anchors.err
 is "$?" "0" "--anchors-out produces output"
 # Fill anchors pin points spaced evenly inside runs of nodes with no branch. They are on by default
-# with --anchors-out, at a spacing longer than any run in this graph, so --anchors-fill 20 is used
-# to make some.
+# with --anchors-out, at a spacing longer than any run in this graph, so the default places no point
+# here and --anchors-fill 20 is used to make some.
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_fill0.tsv --anchors-fill 0 -t 1 \
     > rl_fill0.vcf 2>/dev/null
 is "$(/usr/bin/cmp rl_anchors.vcf rl_fill0.vcf && echo same)" "same" \
-   "the default fill anchors leave the VCF as --anchors-fill 0 writes it"
+   "the default spacing, which places no fill point in this graph, leaves the VCF as --anchors-fill 0 writes it"
 is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_fill0.tsv | wc -l | tr -d ' ') "0" \
    "--anchors-fill 0 writes no fill anchors"
+is "$(grep '^#filters' rl_fill0.tsv | awk '{print $NF}') $(grep '^#filters' rl_anchors.tsv | awk '{print $NF}')" \
+   "fill=0 fill=1000" "the anchor file records the fill spacing, 0 for none and 1000 by default"
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_fill20.tsv --anchors-fill 20 -t 1 \
     > rl_fill20.vcf 2>/dev/null
 is "$(/usr/bin/cmp rl_fill0.vcf rl_fill20.vcf && echo same)" "same" \
@@ -263,7 +265,8 @@ is "$(/usr/bin/cmp rl_fill0.vcf rl_fill20.vcf && echo same)" "same" \
 is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_fill20.tsv | wc -l | awk '{print ($1 > 0)}') "1" \
    "--anchors-fill 20 writes fill anchors"
 # A read point is the read and the number of read bases before the point: offset + 1 on strand 0,
-# and offset on strand 1.
+# and offset on strand 1. No point of this run is claimed twice, so the rule that ranks anchors
+# claiming one point is tested in the unit tests.
 is $(awk -F'\t' '$1 == "R" {print $2 "\t" ($3 == 0 ? $4 + 1 : $4)}' rl_fill20.tsv | sort | uniq -d \
      | wc -l | tr -d ' ') "0" "no read point is in two anchors"
 is $(awk -F'\t' '$1 == "A" && !(NF == 10 && $10 ~ /^(het|hom|hom-split|haploid|fill-shared|fill-strand|fill-off-call)$/)' \
@@ -275,6 +278,21 @@ is "$(/usr/bin/cmp rl_fill20.tsv rl_fill20_t4.tsv && echo same)" "same" \
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-fill 20 -t 1 > /dev/null 2> rl_fill_alone.err
 is $(grep -c -- "--anchors-fill only applies to the anchor file" rl_fill_alone.err) "1" \
    "--anchors-fill without --anchors-out is refused"
+# Reads fetched from an indexed GAM, a window of 8 node IDs at a time, so that the fill points span
+# several windows. Finding the fill anchors' reads adds nothing to the read-start tallies or the
+# off-panel candidates that the sites are genotyped from.
+vg gamsort -i rl_sorted.gam.gai sim.gam > rl_sorted.gam 2>/dev/null
+for arm in 0_1 20_1 20_4; do
+    vg call x.gbz --read-likelihood --gam rl_sorted.gam --gam-index rl_sorted.gam.gai \
+        --read-window 8 --off-panel-dump rl_ix_${arm}.dump --anchors-out rl_ix_${arm}.tsv \
+        --anchors-fill ${arm%_*} -t ${arm#*_} > rl_ix_${arm}.vcf 2>/dev/null
+done
+is "$(/usr/bin/cmp rl_ix_0_1.vcf rl_ix_20_1.vcf && /usr/bin/cmp rl_ix_0_1.dump rl_ix_20_1.dump && echo same)" \
+   "same" "fill anchors from an indexed GAM leave the VCF and the off-panel dump unchanged"
+is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_ix_20_1.tsv | wc -l | awk '{print ($1 > 0)}') "1" \
+   "fill anchors are found from an indexed GAM"
+is "$(/usr/bin/cmp rl_ix_20_1.tsv rl_ix_20_4.tsv && echo same)" "same" \
+   "the anchor file from an indexed GAM does not depend on the thread count"
 
 # Nested calling: a parent snarl with a deletion edge over a chain of two SNP snarls.
 vg gbwt -G nesting/deletion_over_snp_chain.gfa --gbz-format -g nest.gbz --set-reference GRCh 2>/dev/null
@@ -295,6 +313,13 @@ is $(grep -v "^#" nest_hap.vcf | awk '$2 == 30' | cut -f10 | cut -d: -f1) "1|0" 
    "the parent is called het for the deletion that spans the nested chain"
 is $(grep -v "^#" nest_hap.vcf | awk '$2 == 51' | cut -f10 | cut -d: -f1) ".|1" \
    "the nested haploid record names the strand its parent leaves the chain on"
+# Fill anchors 10 bp apart: those on the chain that strand 1 alone crosses name that strand, and
+# one outside the parent is shared.
+vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased \
+    --anchors-out nest_hap_anchors.tsv --anchors-fill 10 > /dev/null 2>&1
+is "$(awk -F'\t' '$1 == "A" && $3 ~ /^fill[1259][.]10$/ {printf "%s %s %s,", $3, $4, $10}' nest_hap_anchors.tsv)" \
+   "fill1.10 0 fill-shared,fill2.10 1 fill-strand,fill5.10 1 fill-strand,fill9.10 1 fill-strand," \
+   "fill anchors on the nested haploid chain name the strand that carries it"
 
 # Groups of a site's walks choose its genotype by default: walks that differ only inside child
 # chains share a group. The sample carries the insertion >2>10..13>5 on both strands, which differ
@@ -324,8 +349,10 @@ rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 call
       rl_t1.vcf rl_t4.vcf rl_link_off.vcf rl_link_default.vcf \
       rl_default.vcf rl_mosaic.tsv rl_paths.gaf rl_graph.gfa rl_expand.txt \
       rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_fill0.tsv rl_fill0.vcf rl_fill20.tsv \
-      rl_fill20.vcf rl_fill20_t4.tsv rl_fill_alone.err \
+      rl_fill20.vcf rl_fill20_t4.tsv rl_fill_alone.err rl_sorted.gam rl_sorted.gam.gai \
+      rl_ix_0_1.* rl_ix_20_1.* rl_ix_20_4.* \
       nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt \
+      nest_hap_anchors.tsv \
       nest_off.gbz nest_off.gam nest_off.vcf nest_off_walks.vcf
 
 

@@ -720,6 +720,12 @@ void WindowedSiteReadSource::for_each_read_uncounted(
     if (ranges.empty()) {
         return;
     }
+    // The other threads wait here until the snapshot is taken, so that none of their fetches is
+    // in it.
+    std::call_once(site_queries_end, [this]() {
+        site_query_stats = tally_now();
+        site_queries_ended.store(true, std::memory_order_release);
+    });
     nid_t min_id = ranges.front().first;
     nid_t max_id = ranges.front().second;
     for (const auto& [first, last] : ranges) {
@@ -1375,6 +1381,38 @@ size_t WindowedSiteReadSource::get_read_count() const {
 }
 
 WindowedSiteReadSource::FetchStats WindowedSiteReadSource::fetch_stats() const {
+    if (site_queries_ended.load(std::memory_order_acquire)) {
+        return site_query_stats;
+    }
+    return tally_now();
+}
+
+WindowedSiteReadSource::FetchStats WindowedSiteReadSource::uncounted_fetch_stats() const {
+    FetchStats later;
+    if (!site_queries_ended.load(std::memory_order_acquire)) {
+        return later;
+    }
+    const FetchStats now = tally_now();
+    const FetchStats& before = site_query_stats;
+    later.fetched = now.fetched - before.fetched;
+    later.filtered = now.filtered - before.filtered;
+    later.cache_hits = now.cache_hits - before.cache_hits;
+    later.cache_misses = now.cache_misses - before.cache_misses;
+    later.scanned = now.scanned - before.scanned;
+    later.delivered = now.delivered - before.delivered;
+    later.straddles = now.straddles - before.straddles;
+    later.wide_from_windows = now.wide_from_windows - before.wide_from_windows;
+    later.straddle_nodes = now.straddle_nodes - before.straddle_nodes;
+    later.straddle_wanted = now.straddle_wanted - before.straddle_wanted;
+    later.whole_fetches = now.whole_fetches - before.whole_fetches;
+    later.refetches = now.refetches - before.refetches;
+    later.edit_fetches = now.edit_fetches - before.edit_fetches;
+    later.held_queries = now.held_queries - before.held_queries;
+    later.whole_fetch_reads = now.whole_fetch_reads - before.whole_fetch_reads;
+    return later;
+}
+
+WindowedSiteReadSource::FetchStats WindowedSiteReadSource::tally_now() const {
     FetchStats stats;
     stats.fetched = counters.fetched.load();
     stats.filtered = counters.filtered.load();

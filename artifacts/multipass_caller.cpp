@@ -84,8 +84,9 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     }
     if (fill_anchors.is_enabled() && read_source != nullptr) {
         // Find the reads at the fill points while the read source is open. No pass after the
-        // direct pass reads reads, and this query leaves the source's counts as they are, so it
-        // cannot change a genotype.
+        // direct pass reads reads, and this query adds nothing to the source's tallies of read
+        // starts or to its off-panel candidates, so it cannot change a genotype. A windowed
+        // source keeps the fetch statistics of this query apart from the site queries'.
         fill_anchors.place(graph, sites);
         fill_anchors.resolve_reads(*read_source, snarl_batch_window > 0 ? snarl_batch_window
                                                                         : FILL_READ_WINDOW);

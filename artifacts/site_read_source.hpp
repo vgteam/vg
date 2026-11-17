@@ -99,9 +99,8 @@ public:
     virtual void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                                const function<void(const SiteRead&)>& iteratee) const = 0;
 
-    /// Visit every read touching the ranges, as `for_each_read` does, while adding nothing to what
-    /// the source counts from the reads it fetches: its tallies of read starts and its off-panel
-    /// candidates. Read holds are not used.
+    /// Visit every read touching the ranges, as `for_each_read` does, while adding nothing to the
+    /// source's tallies of read starts or to its off-panel candidates. Read holds are not used.
     ///
     /// A query made after the sites are genotyped uses this, so that the off-panel candidates
     /// reported are the ones the sites were genotyped with. The default calls `for_each_read`,
@@ -293,7 +292,8 @@ public:
     ///
     /// A query inside one window gets the window from the cache, or fetches and caches it
     /// unsummarized, as a wide site's fetch does. A query over several windows is fetched by its
-    /// ranges, and its reads come without an index of their mappings.
+    /// ranges, and its reads come without an index of their mappings. The fetch statistics of
+    /// these queries are kept apart from those of the site queries (see `fetch_stats`).
     void for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
                                  const function<void(const SiteRead&)>& iteratee) const final;
 
@@ -369,8 +369,15 @@ public:
     /// A snapshot of the tally of a source's fetches and queries.
     using FetchStats = FetchTally<size_t>;
 
-    /// Return a snapshot of the tally of the fetches and queries so far, across all threads.
+    /// Return a snapshot of the tally of the site queries' fetches, across all threads.
+    ///
+    /// The queries of `for_each_read_uncounted`, which come after the site queries, are left out:
+    /// the tally ends when the first of them starts.
     FetchStats fetch_stats() const;
+
+    /// Return a snapshot of the tally of the fetches of `for_each_read_uncounted`, which is all 0
+    /// where it has not run.
+    FetchStats uncounted_fetch_stats() const;
 
     /// Drop every cached window and return how many reads they held.
     ///
@@ -662,6 +669,17 @@ private:
 
     /// The tally of the fetches and queries, which `fetch_stats` reports.
     mutable FetchTally<atomic<size_t>> counters;
+
+    /// Return a snapshot of `counters`.
+    FetchStats tally_now() const;
+
+    /// Ends the site queries' tally at the first query of `for_each_read_uncounted`.
+    mutable std::once_flag site_queries_end;
+    /// The tally of the site queries, once the first query of `for_each_read_uncounted` has
+    /// started.
+    mutable FetchStats site_query_stats;
+    /// Whether `site_query_stats` is set.
+    mutable atomic<bool> site_queries_ended{false};
 
     /// Read-start tallies by window, added when a window is first tallied and kept for the whole
     /// run.
