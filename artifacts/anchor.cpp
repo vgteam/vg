@@ -123,6 +123,26 @@ void AnchorCounters::report(ostream& out) const {
     phase_check.report(out);
 }
 
+const char* anchor_kind_name(AnchorKind kind) {
+    switch (kind) {
+    case AnchorKind::het:
+        return "het";
+    case AnchorKind::hom:
+        return "hom";
+    case AnchorKind::hom_split:
+        return "hom-split";
+    case AnchorKind::haploid:
+        return "haploid";
+    case AnchorKind::fill_shared:
+        return "fill-shared";
+    case AnchorKind::fill_strand:
+        return "fill-strand";
+    case AnchorKind::fill_off_call:
+        return "fill-off-call";
+    }
+    return "?";
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Pin resolution
 ////////////////////////////////////////////////////////////////////////////////
@@ -921,6 +941,18 @@ static vector<SlotAnchors> make_slot_anchors(const AnchorSiteEvidence& evidence,
     return slots;
 }
 
+/// Return the kind of the anchors of a site whose called alleles are `genotype`, in which
+/// `phase_split` says whether a homozygote was divided by strand.
+static AnchorKind site_anchor_kind(const vector<int>& genotype, bool phase_split) {
+    if (genotype.size() == 1) {
+        return AnchorKind::haploid;
+    }
+    if (phase_split) {
+        return AnchorKind::hom_split;
+    }
+    return all_alleles_equal(genotype) ? AnchorKind::hom : AnchorKind::het;
+}
+
 void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& call,
                         string_view snarl_id, const AnchorParams& params,
                         vector<AnchorWriter::Anchor>& out,
@@ -971,7 +1003,8 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& ca
     site_anchor.snarl = snarl_id;
     site_anchor.gqn = gqn;
     site_anchor.explained = call.explained;
-    site_anchor.edit = evidence.inside_node;
+    site_anchor.source = evidence.inside_node ? PinSource::off_panel : PinSource::snarl;
+    site_anchor.kind = site_anchor_kind(genotype, phase_split);
     vector<SlotAnchors> slots = make_slot_anchors(evidence, slot_allele, base_slot, site_anchor);
 
     count_shared_names(evidence.reads, counters);
@@ -1085,6 +1118,39 @@ static bool written_before(const AnchorWriter::Anchor& a, const AnchorWriter::An
     return false;
 }
 
+/**
+ * Return whether anchor `a` comes before `b` in the file.
+ *
+ * Anchors are ordered by node ID. On one node, the anchors of sites come first, ordered by snarl
+ * and slot, since two snarls can share a boundary node, and then the fill anchors, ordered by pin,
+ * which the text of their IDs would not do. Anchors that agree on all of that are ordered by the
+ * rest of what is written for them, so that the order cannot depend on how a parallel sort shares
+ * out the work, nor on which thread collected which anchor.
+ */
+static bool file_order_before(const AnchorWriter::Anchor& a, const AnchorWriter::Anchor& b,
+                              const ReadNameTable& table) {
+    if (a.node != b.node) {
+        return a.node < b.node;
+    }
+    const bool a_fill = a.source == PinSource::fill;
+    if (const bool b_fill = b.source == PinSource::fill; a_fill != b_fill) {
+        return b_fill;
+    }
+    if (a_fill && a.pin != b.pin) {
+        return a.pin < b.pin;
+    }
+    if (a.snarl != b.snarl) {
+        return a.snarl < b.snarl;
+    }
+    if (a.slot != b.slot) {
+        return a.slot < b.slot;
+    }
+    if (a.pin != b.pin) {
+        return a.pin < b.pin;
+    }
+    return written_before(a, b, table);
+}
+
 vector<AnchorWriter::Anchor> AnchorWriter::take_sorted() {
     vector<Anchor> all;
     all.reserve(anchor_count());
@@ -1105,24 +1171,8 @@ vector<AnchorWriter::Anchor> AnchorWriter::take_sorted() {
             return x.offset < y.offset;
         });
     }
-    // Order the anchors by node ID, then by snarl and slot, since two snarls can share a boundary
-    // node. Order anchors that agree on node, snarl and slot by the rest of what is written for
-    // them, so that the order cannot depend on how the parallel sort shares out the work, nor on
-    // which thread collected which anchor.
     parallel_sort(all.begin(), all.end(), [&table](const Anchor& a, const Anchor& b) {
-        if (a.node != b.node) {
-            return a.node < b.node;
-        }
-        if (a.snarl != b.snarl) {
-            return a.snarl < b.snarl;
-        }
-        if (a.slot != b.slot) {
-            return a.slot < b.slot;
-        }
-        if (a.pin != b.pin) {
-            return a.pin < b.pin;
-        }
-        return written_before(a, b, table);
+        return file_order_before(a, b, table);
     });
     return all;
 }
@@ -1145,54 +1195,82 @@ struct ReadPointHash {
     }
 };
 
+/// Whether each read point is held by an anchor, by the point.
+using HeldPoints = unordered_map<ReadPoint, bool, ReadPointHash>;
+
 /**
- * Remove read rows from off-panel anchors so that no point of a read alignment is in two
- * anchors, then remove the off-panel anchors left with too few reads.
+ * Remove from each anchor of `source`, in file order, the reads whose points `held` says are held,
+ * and return how many were removed.
  *
- * In file order, an off-panel anchor leaves out a read whose point a snarl's anchor holds, or an
- * earlier off-panel anchor kept. Snarl anchors are not checked against one another. Two snarls'
- * pins face into their own snarls, so no read crosses one point at both.
+ * An anchor left with at least `min_reads` reads then holds its reads' points.
+ */
+static size_t leave_out_held_reads(vector<AnchorWriter::Anchor>& all, PinSource source,
+                                   size_t min_reads, HeldPoints& held) {
+    size_t left_out = 0;
+    for (AnchorWriter::Anchor& a : all) {
+        if (a.source != source) {
+            continue;
+        }
+        left_out += std::erase_if(a.reads, [&held](const AnchorWriter::ReadRow& r) {
+            return held[point_of(r)];
+        });
+        if (a.reads.size() < min_reads) {
+            continue;
+        }
+        for (const AnchorWriter::ReadRow& r : a.reads) {
+            held[point_of(r)] = true;
+        }
+    }
+    return left_out;
+}
+
+/**
+ * Remove read rows from off-panel and fill anchors so that no point of a read alignment is in two
+ * anchors, then remove the off-panel and fill anchors left with too few reads.
+ *
+ * A snarl's anchor keeps every read. Then, in file order, an off-panel anchor leaves out a read
+ * whose point a snarl's anchor holds, or an earlier off-panel anchor kept. Last, in file order, a
+ * fill anchor leaves out a read whose point a snarl's anchor or a kept off-panel anchor holds, or
+ * an earlier fill anchor kept. Snarl anchors are not checked against one another. Two snarls' pins
+ * face into their own snarls, so no read crosses one point at both.
  *
  * @param tally Where the read rows and anchors left out are counted.
  */
 static void leave_out_held_points(vector<AnchorWriter::Anchor>& all, size_t min_reads,
                                   AnchorWriter::Tally& tally) {
-    // Who holds each point of an off-panel anchor: 0 for no anchor yet, 1 for a snarl's anchor,
-    // and 2 for an off-panel anchor that was kept.
-    unordered_map<ReadPoint, uint8_t, ReadPointHash> held(1024);
+    // Whether each point of an off-panel or fill anchor is held: by a snarl's anchor, or by an
+    // off-panel or fill anchor that was kept.
+    HeldPoints held(1024);
     for (const AnchorWriter::Anchor& a : all) {
-        if (!a.edit) {
+        if (a.source == PinSource::snarl) {
             continue;
         }
         for (const AnchorWriter::ReadRow& r : a.reads) {
-            held.try_emplace(point_of(r), 0);
+            held.try_emplace(point_of(r), false);
         }
     }
     for (const AnchorWriter::Anchor& a : all) {
-        if (a.edit || held.empty()) {
+        if (a.source != PinSource::snarl || held.empty()) {
             continue;
         }
         for (const AnchorWriter::ReadRow& r : a.reads) {
             if (auto found = held.find(point_of(r)); found != held.end()) {
-                found->second = 1;
+                found->second = true;
             }
         }
     }
-    tally.placements_left_out = 0;
-    for (AnchorWriter::Anchor& a : all) {
-        if (!a.edit) {
-            continue;
+    // Leave out the held reads of the off-panel anchors, then of the fill anchors, so that a fill
+    // anchor gives way to an off-panel anchor written after it.
+    tally.placements_left_out = leave_out_held_reads(all, PinSource::off_panel, min_reads, held);
+    tally.fill_placements_left_out = leave_out_held_reads(all, PinSource::fill, min_reads, held);
+    tally.anchors_left_out = 0;
+    tally.fill_anchors_left_out = 0;
+    std::erase_if(all, [min_reads, &tally](const AnchorWriter::Anchor& a) {
+        if (a.source == PinSource::snarl || a.reads.size() >= min_reads) {
+            return false;
         }
-        tally.placements_left_out +=
-            std::erase_if(a.reads, [&held](const AnchorWriter::ReadRow& r) { return held[point_of(r)] != 0; });
-        if (a.reads.size() >= min_reads) {
-            for (const AnchorWriter::ReadRow& r : a.reads) {
-                held[point_of(r)] = 2;
-            }
-        }
-    }
-    tally.anchors_left_out = std::erase_if(all, [min_reads](const AnchorWriter::Anchor& a) {
-        return a.edit && a.reads.size() < min_reads;
+        ++(a.source == PinSource::fill ? tally.fill_anchors_left_out : tally.anchors_left_out);
+        return true;
     });
 }
 
@@ -1265,7 +1343,7 @@ static void write_header(ostream& out, const string& graph_name, const string& s
                          const string& reads_source, double mismap_min, const AnchorParams& params,
                          const FileReadTable& table) {
     // The format version, raised whenever the columns or their meaning change.
-    out << "#anchors-version\t9\n";
+    out << "#anchors-version\t10\n";
     // Which vg wrote the file, since values can change between versions of vg while the format
     // version does not. Consumers skip unknown '#' lines.
     out << "#vg-version\t" << Version::get_version() << "\n";
@@ -1293,7 +1371,7 @@ static void write_header(ostream& out, const string& graph_name, const string& s
         << " off-call=" << (params.keep_off_call ? "kept" : "dropped")
         << " end-pin-min-new=" << params.end_pin_min_new
         << " hom-split=" << (params.hom_split ? "on" : "off")
-        << " het-placement=" << het_placement << "\n";
+        << " het-placement=" << het_placement << " fill=" << params.fill_spacing << "\n";
     if (params.hom_split) {
         // The two slots of a split homozygous site look like a heterozygote's, except that their
         // `allele` column is equal, so the header says that splitting was on.
@@ -1374,7 +1452,30 @@ static void write_header(ostream& out, const string& graph_name, const string& s
            "op<node>.<offset>.M<length>: offset is its first changed base along the node's forward "
            "strand, length the bases it replaces, and its ALTs are what the reads spell there. "
            "From v9\n";
-    out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\treliability\tpin\n";
+    out << "#note\ta fill anchor, with snarl column fill<node>.<pin>, pins a point chosen from the "
+           "graph alone. A unitig is a longest run of nodes joined end to end with no branch. Inside "
+           "each unitig longer than the fill spacing K (fill=K in #filters, 0 for no fill anchors), "
+           "ceil(L/K)-1 points divide its length L evenly, and a point that falls between two nodes "
+           "moves forward into the next node. A fill anchor holds every read that crosses its "
+           "point.\n";
+    out << "#note\ta fill anchor has one slot. Where both of the sample's strands cross its point, "
+           "or no site holds the point, the slot is 0 and the kind fill-shared. Where only one "
+           "strand's called walk through the site holding the point crosses it, the slot is that "
+           "strand, as an index into the site's GT, and the kind fill-strand. Where no called walk "
+           "crosses it, the slot is 0 and the kind fill-off-call.\n";
+    out << "#note\ta fill anchor leaves out a read whose point a snarl's or an off-panel anchor "
+           "holds, or a fill anchor written before it, and is written only if at least min-reads "
+           "reads remain.\n";
+    out << "#note\ta fill anchor writes . for allele, gqn, explained and reliability, which belong "
+           "to sites. Its R rows read along the node's forward strand: strand 0 means the read "
+           "crosses the point in the direction of the node's forward strand. Their score is the "
+           "phred-scaled mismapping probability of the read, clamped as at a site.\n";
+    out << "#note\tkind is het (one strand of a genotype with two different alleles), hom (the one "
+           "slot of a homozygous genotype, holding every read), hom-split (one strand of a "
+           "homozygous genotype whose reads were divided by their strand log-odds), haploid (the "
+           "one slot of a genotype of one allele: a nested haploid chain, or a region of ploidy 1), "
+           "or one of the fill anchor kinds fill-shared, fill-strand and fill-off-call.\n";
+    out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\treliability\tpin\tkind\n";
     out << "#H\tR\tread_id\tstrand\toffset\tscore\n";
     for (size_t i = 0; i < table.names.size(); ++i) {
         out << "#read\t" << i << "\t" << table.names[i] << "\n";
@@ -1383,19 +1484,31 @@ static void write_header(ostream& out, const string& graph_name, const string& s
 
 /// Write an anchor's A row and its R rows, to a stream set to fixed-point notation.
 static void format_anchor(ostream& os, const AnchorWriter::Anchor& a, const vector<uint32_t>& row_of) {
-    os << "A\t" << a.node << "\t" << a.snarl << "\t" << a.slot << "\t" << a.allele << "\t";
+    os << "A\t" << a.node << "\t" << a.snarl << "\t" << a.slot << "\t";
+    if (a.allele < 0) {
+        os << ".";
+    } else {
+        os << a.allele;
+    }
+    os << "\t";
     if (std::isnan(a.gqn)) {
         os << ".";
     } else {
         os << std::setprecision(3) << a.gqn;
     }
-    os << "\t" << std::setprecision(3) << a.explained << "\t";
+    os << "\t";
+    if (std::isnan(a.explained)) {
+        os << ".";
+    } else {
+        os << std::setprecision(3) << a.explained;
+    }
+    os << "\t";
     if (a.reliability < 0.0) {
         os << ".";
     } else {
         os << std::setprecision(2) << a.reliability;
     }
-    os << "\t" << a.pin << "\n";
+    os << "\t" << a.pin << "\t" << anchor_kind_name(a.kind) << "\n";
     for (const AnchorWriter::ReadRow& r : a.reads) {
         os << "R\t" << row_of[r.read] << "\t" << (int)r.direction << "\t" << r.offset << "\t"
            << std::setprecision(1) << r.score << "\n";
@@ -1442,8 +1555,10 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     leave_out_held_points(all, params.min_reads, written);
     written.anchors_written = all.size();
     written.placements_written = 0;
+    written.written_by_kind.fill(0);
     for (const Anchor& a : all) {
         written.placements_written += a.reads.size();
+        ++written.written_by_kind[(size_t)a.kind];
     }
     const FileReadTable table = build_file_read_table(all);
 
@@ -1567,6 +1682,13 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, const AnchorCa
     }
 }
 
+void AnchorCollector::add(AnchorWriter::Anchor&& anchor) {
+    if (path.empty() || writer == nullptr) {
+        return;
+    }
+    writer->add(std::move(anchor));
+}
+
 void AnchorCollector::write(const string& sample_name) {
     if (path.empty() || writer == nullptr) {
         return;
@@ -1579,6 +1701,19 @@ void AnchorCollector::write(const string& sample_name) {
          << writer->tally().placements_left_out << " off-panel read placements left out because a "
          << "snarl's anchor or an earlier off-panel anchor holds the same read point, and then "
          << writer->tally().anchors_left_out << " off-panel anchors below the minimum reads" << endl;
+    if (params.fill_spacing > 0) {
+        const AnchorWriter::Tally& tally = writer->tally();
+        cerr << "[vg call] fill anchors: " << tally.fill_placements_left_out
+             << " read placements left out because a snarl's, an off-panel or an earlier fill "
+             << "anchor holds the same read point, and then " << tally.fill_anchors_left_out
+             << " fill anchors below the minimum reads" << endl;
+        cerr << "[vg call] anchors written by kind:";
+        for (size_t k = 0; k < ANCHOR_KIND_COUNT; ++k) {
+            cerr << (k == 0 ? " " : ", ") << anchor_kind_name((AnchorKind)k) << " "
+                 << tally.written_by_kind[k];
+        }
+        cerr << endl;
+    }
     if (params.counters != nullptr) {
         params.counters->report(cerr);
     }

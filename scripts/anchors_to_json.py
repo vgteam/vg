@@ -161,9 +161,10 @@ def main():
                 flush()
                 kept_reads = []
                 node, snarl, slot = int(fields[1]), fields[2], int(fields[3])
-                allele = int(fields[4])
+                # A fill anchor belongs to no site, so its allele, gqn and explained are '.'.
+                allele = None if fields[4] == "." else int(fields[4])
                 gqn = None if fields[5] == "." else float(fields[5])
-                explained = float(fields[6])
+                explained = None if fields[6] == "." else float(fields[6])
                 skip = False
                 if keep_nodes is not None and node not in keep_nodes:
                     skip = True
@@ -171,7 +172,7 @@ def main():
                 # not pass a positive threshold by accident.
                 if args.min_gqn > 0.0 and (gqn is None or gqn < args.min_gqn):
                     skip = True
-                if explained < args.min_explained:
+                if explained is not None and explained < args.min_explained:
                     skip = True
                 if skip:
                     dropped_site += 1

@@ -1460,7 +1460,7 @@ is $(grep -o "[0-9]* off-panel read placements left out" opx_t1.err | awk '{prin
 is "$(awk -F'\t' '/^A/ && $3 ~ /^op7\.14\.I/{print $4":"$9}' opx_t1.tsv | sort | uniq -c | awk '{print $1}' | sort -u)" "1" \
    "an insertion with no tract has one anchor per slot"
 is "$(python3 ../scripts/check_anchors.py --anchors opx_t1.tsv 2>&1 | cut -c1-3)" "OK " \
-   "check_anchors.py accepts the fixture's anchors, version 9"
+   "check_anchors.py accepts the fixture's anchors, version 10"
 vg call opx.gbz --read-likelihood --gam opx.gam -t 4 -s samp --anchors-out opx_t4.tsv > opx_t4.vcf 2>/dev/null
 is "$(cmp -s opx_t1.vcf opx_t4.vcf && cmp -s opx_t1.tsv opx_t4.tsv && echo same)" "same" \
    "one thread or four give the same VCF and anchors"
