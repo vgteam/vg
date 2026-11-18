@@ -185,9 +185,6 @@ $(function() {
 <li>find_bubble()
 : <a class="el" href="classvg_1_1RepresentativeTraversalFinder.html#ad8cc120dc63491eadfdc7b00cd1dc519">vg::RepresentativeTraversalFinder</a>
 </li>
-<li>find_chain_alignment()
-: <a class="el" href="classvg_1_1MinimizerMapper.html#a17159e36ad9bf4ec79494259b22457a2">vg::MinimizerMapper</a>
-</li>
 <li>find_constriction_bicliques()
 : <a class="el" href="classvg_1_1Surjector.html#a54b0b7fe9db83a6cfdbebf9dbeb81f04">vg::Surjector</a>
 </li>
@@ -218,6 +215,9 @@ $(function() {
 <li>find_index()
 : <a class="el" href="classvg_1_1LegacyCaller.html#a280eb6052ea0781644047711b7fb17d4">vg::LegacyCaller</a>
 </li>
+<li>find_link_alignment()
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a04abb320b107d7930a6f642d43e836e3">vg::MinimizerMapper</a>
+</li>
 <li>find_loader()
 : <a class="el" href="classvg_1_1io_1_1Registry.html#a7414063ac702dd6cbe8a7149a49be922">vg::io::Registry</a>
 </li>
@@ -242,6 +242,12 @@ $(function() {
 <li>find_named_traversals()
 : <a class="el" href="classvg_1_1PathRestrictedTraversalFinder.html#ab046472d6a0a26a52c91574e7a09373d">vg::PathRestrictedTraversalFinder</a>
 </li>
+<li>find_next_non_overlapping()
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a1d5706c110c46df8850f8127ef69c815">vg::MinimizerMapper</a>
+</li>
+<li>find_next_to_skip_to()
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a9a072a28f98bbdcf802979bcb5b7fa81">vg::MinimizerMapper</a>
+</li>
 <li>find_node_by_name_or_add_new()
 : <a class="el" href="classvg_1_1VG.html#a04774a86b07508e9e5955abfba2171ff">vg::VG</a>
 </li>
@@ -249,8 +255,8 @@ $(function() {
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a4247391b8d74dc68b48a792a31ed6d60">vg::MinimizerMapper</a>
 </li>
 <li>find_path_traversals()
-: <a class="el" href="classvg_1_1GBWTTraversalFinder.html#aaabea1b758eb8fecbefe2e5966971b47">vg::GBWTTraversalFinder</a>
-, <a class="el" href="classvg_1_1PathTraversalFinder.html#a4adb802f78ec1893954d052156953541">vg::PathTraversalFinder</a>
+: <a class="el" href="classvg_1_1GBWTTraversalFinder.html#ae5c1c58803837ee498776e964039440d">vg::GBWTTraversalFinder</a>
+, <a class="el" href="classvg_1_1PathTraversalFinder.html#a4e1ad0b033b6fb33991f70271a252749">vg::PathTraversalFinder</a>
 </li>
 <li>find_pos()
 : <a class="el" href="structvg_1_1WFANode.html#a4460062120b4153f4ea19b4bfc916ef5">vg::WFANode</a>
@@ -299,10 +305,13 @@ $(function() {
 <li>find_sub_mems_fast()
 : <a class="el" href="classvg_1_1BaseMapper.html#a81fa3eae0321720511b1f54fa28968bb">vg::BaseMapper</a>
 </li>
+<li>find_tail_alignment()
+: <a class="el" href="classvg_1_1MinimizerMapper.html#af30d42a451096fd34e13b93cbda2dc3b">vg::MinimizerMapper</a>
+</li>
 <li>find_traversals()
 : <a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a47d24a43aef54ca51318b8ae89e51328">vg::ExhaustiveTraversalFinder</a>
 , <a class="el" href="classvg_1_1FlowTraversalFinder.html#a3a98435210220ec4c041594095e9ba5a">vg::FlowTraversalFinder</a>
-, <a class="el" href="classvg_1_1GBWTTraversalFinder.html#a51629578949a646918048fb07744b3f3">vg::GBWTTraversalFinder</a>
+, <a class="el" href="classvg_1_1GBWTTraversalFinder.html#a3f4f3f644df9755b387bab551451827d">vg::GBWTTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathBasedTraversalFinder.html#af58be82fdbce530b2662a6329e08bd77">vg::PathBasedTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathRestrictedTraversalFinder.html#a78b03570bd5d59d3c870bbd192eae685">vg::PathRestrictedTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathTraversalFinder.html#a3da29145d1ed82d950bdeb895d3b3bf4">vg::PathTraversalFinder</a>
@@ -585,7 +594,7 @@ $(function() {
 , <a class="el" href="classxg_1_1XG.html#aff636eab67405c3c27ba4f2be4f0a6f5">xg::XG</a>
 </li>
 <li>for_each_path_matching()
-: <a class="el" href="classhandlegraph_1_1PathMetadata.html#a01967c3713408b24ed6c3c20ff2ddd23">handlegraph::PathMetadata</a>
+: <a class="el" href="classhandlegraph_1_1PathMetadata.html#aef274133ea4ac6c96fd5e5330e2c620c">handlegraph::PathMetadata</a>
 </li>
 <li>for_each_path_matching_impl()
 : <a class="el" href="classhandlegraph_1_1PathMetadata.html#af040579085f8d49fcb6733e1f9cc8c27">handlegraph::PathMetadata</a>
@@ -754,7 +763,7 @@ $(function() {
 : <a class="el" href="structvg_1_1FragmentedHaplotypeVisit.html#a4ed1a2a742bf774b9cd3072d0d9f8069">vg::FragmentedHaplotypeVisit</a>
 </li>
 <li>FragmentLengthDistribution()
-: <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a8788ddb09653e64eb868cbc942df95c6">vg::FragmentLengthDistribution</a>
+: <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a8551fd1f0ad1270145483715f35c7b6b">vg::FragmentLengthDistribution</a>
 </li>
 <li>free_nodes()
 : <a class="el" href="classvg_1_1SnarlManagerDecomposition_1_1NodeDirectory.html#a98da6d86af2897cb3fbf478d896b681d">vg::SnarlManagerDecomposition::NodeDirectory</a>

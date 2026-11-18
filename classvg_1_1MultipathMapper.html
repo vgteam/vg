@@ -123,9 +123,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac0a6f15f0273faa48ff52a59a08855e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa4307bce23fe2a909f96273dbca7b126"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aa4307bce23fe2a909f96273dbca7b126">calibrate_mismapping_detection</a> (size_t num_simulations, const vector&lt; size_t &gt; &amp;simulated_read_lengths)</td></tr>
 <tr class="separator:aa4307bce23fe2a909f96273dbca7b126"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad25f505dc4d7fbca4040b483d2eb11a2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad25f505dc4d7fbca4040b483d2eb11a2">determine_distance_correlation</a> ()</td></tr>
-<tr class="memdesc:ad25f505dc4d7fbca4040b483d2eb11a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Experimental: skeleton code for predicting path distance from minimum distance.  <a href="classvg_1_1MultipathMapper.html#ad25f505dc4d7fbca4040b483d2eb11a2">More...</a><br /></td></tr>
-<tr class="separator:ad25f505dc4d7fbca4040b483d2eb11a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad897513b9554b2dabebea47cc3f3da9f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad897513b9554b2dabebea47cc3f3da9f">set_alignment_scores</a> (const int8_t *score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
 <tr class="separator:ad897513b9554b2dabebea47cc3f3da9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad3848a9b82e967ca119dd94add068597"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad3848a9b82e967ca119dd94add068597">set_min_softclip_length_for_splice</a> (size_t length)</td></tr>
@@ -562,8 +559,6 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a2994778198719e960d1a2875fa0815e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afcc5ceaad2a3f21c4c38beb05c59f474"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#afcc5ceaad2a3f21c4c38beb05c59f474">sort_and_compute_mapping_quality</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; pair&lt; size_t, size_t &gt;&gt; *duplicate_pairs_out=nullptr, vector&lt; double &gt; *pair_multiplicities=nullptr) const</td></tr>
 <tr class="separator:afcc5ceaad2a3f21c4c38beb05c59f474"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a46edc0708ffa290b067a937c1876904c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a46edc0708ffa290b067a937c1876904c">estimate_missed_rescue_multiplicity</a> (size_t which_pair, const vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, const vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs1, const vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs2, bool from_secondary_rescue) const</td></tr>
-<tr class="separator:a46edc0708ffa290b067a937c1876904c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a773dfb92a782fc5bc46d371aaeee5d7e"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a773dfb92a782fc5bc46d371aaeee5d7e">cluster_multiplicity</a> (const <a class="el" href="classvg_1_1MultipathMapper.html#acae95760b8750cf3b2bb48d00fe499fd">memcluster_t</a> &amp;cluster) const</td></tr>
 <tr class="separator:a773dfb92a782fc5bc46d371aaeee5d7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae534f0c248a4b44bdf389ead66d105e3"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ae534f0c248a4b44bdf389ead66d105e3">pair_cluster_multiplicity</a> (const <a class="el" href="classvg_1_1MultipathMapper.html#acae95760b8750cf3b2bb48d00fe499fd">memcluster_t</a> &amp;cluster_1, const <a class="el" href="classvg_1_1MultipathMapper.html#acae95760b8750cf3b2bb48d00fe499fd">memcluster_t</a> &amp;cluster_2) const</td></tr>
@@ -604,8 +599,6 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a42169ca0715c4c784584ba3d2a5d34bb"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhaplo_1_1haploMath_1_1RRMemo.html">haploMath::RRMemo</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a42169ca0715c4c784584ba3d2a5d34bb">get_rr_memo</a> (double <a class="el" href="classvg_1_1MultipathMapper.html#a26993f76e9bbe5c48e0b436cc9c3fda8">recombination_penalty</a>, size_t population_size) const</td></tr>
 <tr class="memdesc:a42169ca0715c4c784584ba3d2a5d34bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a thread_local RRMemo with these parameters.  <a href="classvg_1_1MultipathMapper.html#a42169ca0715c4c784584ba3d2a5d34bb">More...</a><br /></td></tr>
 <tr class="separator:a42169ca0715c4c784584ba3d2a5d34bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a362ad957c6634b60317158966c3e02f7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a362ad957c6634b60317158966c3e02f7">establish_strand_consistency</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs)</td></tr>
-<tr class="separator:a362ad957c6634b60317158966c3e02f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac4311460002c8df22a29b3e55cc4e1ff"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac4311460002c8df22a29b3e55cc4e1ff">pessimistic_gap</a> (int64_t length, double multiplier) const</td></tr>
 <tr class="memdesc:ac4311460002c8df22a29b3e55cc4e1ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">A restrained estimate of the amount of gap we would like to align for a read tail.  <a href="classvg_1_1MultipathMapper.html#ac4311460002c8df22a29b3e55cc4e1ff">More...</a><br /></td></tr>
 <tr class="separator:ac4311460002c8df22a29b3e55cc4e1ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1746,25 +1739,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ad25f505dc4d7fbca4040b483d2eb11a2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad25f505dc4d7fbca4040b483d2eb11a2">&#9670;&nbsp;</a></span>determine_distance_correlation()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::MultipathMapper::determine_distance_correlation </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Experimental: skeleton code for predicting path distance from minimum distance. </p>
-
-</div>
-</div>
 <a id="ac3de928a00a38f13fe42009ea5185a7a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac3de928a00a38f13fe42009ea5185a7a">&#9670;&nbsp;</a></span>distance()</h2>
 
@@ -1908,98 +1882,6 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Make an alignment to a rescue graph and translate it back to the original node space Returns false if the alignment fails, but does not check statistical significance </p>
-
-</div>
-</div>
-<a id="a362ad957c6634b60317158966c3e02f7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a362ad957c6634b60317158966c3e02f7">&#9670;&nbsp;</a></span>establish_strand_consistency()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::MultipathMapper::establish_strand_consistency </td>
-          <td>(</td>
-          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>multipath_aln_pairs</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>cluster_pairs</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also inverts the distances in the cluster pairs vector according to the strand </p>
-
-</div>
-</div>
-<a id="a46edc0708ffa290b067a937c1876904c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a46edc0708ffa290b067a937c1876904c">&#9670;&nbsp;</a></span>estimate_missed_rescue_multiplicity()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">double vg::MultipathMapper::estimate_missed_rescue_multiplicity </td>
-          <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>which_pair</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>cluster_pairs</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>cluster_graphs1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>cluster_graphs2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>from_secondary_rescue</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Estimates the number of equivalent mappings (including this one), which we may not have seen due to unexplored rescues. </p>
 
 </div>
 </div>

@@ -292,6 +292,7 @@ $(function() {
 , <a class="el" href="classvg_1_1MEMChainModelVertex.html#a10cf4210b2f802b628111fe2cd1f309b">vg::MEMChainModelVertex</a>
 , <a class="el" href="classvg_1_1MEMClusterer_1_1HitNode.html#aa0f6834e2a0860792afc6a701d3396c3">vg::MEMClusterer::HitNode</a>
 , <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a002868b55e87a630c4e4f1e1ff213008">vg::MinimizerMapper::Minimizer</a>
+, <a class="el" href="structvg_1_1MinimizerMapper_1_1ScoredPath.html#a0f421eaadcab7706311b146a758721d3">vg::MinimizerMapper::ScoredPath</a>
 , <a class="el" href="structvg_1_1Recombinator_1_1Statistics.html#a348046df697bf6a89261ecfcb6ac6765">vg::Recombinator::Statistics</a>
 , <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Cluster.html#abe1c7432c38de20678f5a74798d96bd4">vg::SnarlDistanceIndexClusterer::Cluster</a>
 , <a class="el" href="structvg_1_1Subpath.html#acffb5adff6c20c194740186323f1f484">vg::Subpath</a>
@@ -324,7 +325,7 @@ $(function() {
 : <a class="el" href="structvg_1_1BenchmarkResult.html#a880a443c67063f66623006cd82b5ec9d">vg::BenchmarkResult</a>
 </li>
 <li>score_exact_match()
-: <a class="el" href="classvg_1_1EditAlignmentScorer.html#af316fc8147c809667f6ce5cf7de5e26d">vg::EditAlignmentScorer</a>
+: <a class="el" href="classvg_1_1EditAlignmentScorer.html#aeb8369c6289b40195ac556caca3513bf">vg::EditAlignmentScorer</a>
 , <a class="el" href="classvg_1_1MatrixAlignmentScorer.html#a8426c13564a248741e6cd9ab028f2e04">vg::MatrixAlignmentScorer</a>
 , <a class="el" href="classvg_1_1QualAdjAlignmentScorer.html#abc902e1b1c28be2fe5e73d6284810ff8">vg::QualAdjAlignmentScorer</a>
 </li>
@@ -374,9 +375,6 @@ $(function() {
 <li>score_tree()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#ad4b6267b5e93d0fb618de0584cf2b213">vg::MinimizerMapper</a>
 </li>
-<li>scored_chain
-: <a class="el" href="structvg_1_1algorithms_1_1ChainWithRec.html#ae1c2a6df66616d7110bfce62f4794214">vg::algorithms::ChainWithRec</a>
-</li>
 <li>scorer
 : <a class="el" href="classvg_1_1GSSWAligner.html#a577f9d62b5bbc9055bafc27ddaff1db4">vg::GSSWAligner</a>
 </li>
@@ -423,7 +421,7 @@ $(function() {
 : <a class="el" href="classvg_1_1NGSSimulator.html#a99ce1e3ba72956bbf9d1cbaa0fd89014">vg::NGSSimulator</a>
 </li>
 <li>Seed()
-: <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html#adf405ffb00189f3c469f3fc7e79fde01">vg::SnarlDistanceIndexClusterer::Seed</a>
+: <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html#a7859f190024d96f7182de94f197df881">vg::SnarlDistanceIndexClusterer::Seed</a>
 </li>
 <li>seed
 : <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1SeedCache.html#a1430e1d0dccc75ffa1962408e6226a21">vg::SnarlDistanceIndexClusterer::SeedCache</a>
@@ -1272,7 +1270,7 @@ $(function() {
 : <a class="el" href="classvg_1_1PathBasedTraversalFinder.html#a905239f50078de78279dd9f0ff82faf3">vg::PathBasedTraversalFinder</a>
 </li>
 <li>SnarlManager()
-: <a class="el" href="classvg_1_1SnarlManager.html#a61b2b80def0128deea2d2da4886b955e">vg::SnarlManager</a>
+: <a class="el" href="classvg_1_1SnarlManager.html#a1037a2341484dc7b54a68cd7207d34b8">vg::SnarlManager</a>
 </li>
 <li>SnarlManagerDecomposition()
 : <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a7011bf0e84928f3e370d184ae68e2eb5">vg::SnarlManagerDecomposition</a>
@@ -1319,9 +1317,6 @@ $(function() {
 </li>
 <li>sort_and_compute_mapping_quality()
 : <a class="el" href="classvg_1_1MultipathMapper.html#a2994778198719e960d1a2875fa0815e8">vg::MultipathMapper</a>
-</li>
-<li>sort_by_chain_score
-: <a class="el" href="classvg_1_1MinimizerMapper.html#a1006ffeadb8f60e819d8cfbf24e33109">vg::MinimizerMapper</a>
 </li>
 <li>sort_by_mapping_rank()
 : <a class="el" href="classvg_1_1Paths.html#a2970302cae3a54ef7f4296dbf49266fd">vg::Paths</a>
@@ -1370,6 +1365,9 @@ $(function() {
 </li>
 <li>source_rev
 : <a class="el" href="classvg_1_1SourceSinkOverlay.html#a4ad14a56e07ef3fdc3a0346f4f6e0e05">vg::SourceSinkOverlay</a>
+</li>
+<li>source_tree
+: <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html#a41ddb850f85b05a43861f71d77ce67a4">vg::algorithms::SparseAnchorChain</a>
 </li>
 <li>SourceSinkOverlay()
 : <a class="el" href="classvg_1_1SourceSinkOverlay.html#a6eaf260d8530ba866753bb3bcb612e15">vg::SourceSinkOverlay</a>
@@ -1497,7 +1495,7 @@ $(function() {
 , <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Subchain.html#a16932e227f0ac0972fb63bc300a5374d">vg::HaplotypePartitioner::Subchain</a>
 , <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#af3baaf52c08ac684ac2571a9f4f56ec0">vg::Haplotypes::Subchain</a>
 , <a class="el" href="structvg_1_1KmerPresenceMatrix_1_1ChildIterator.html#af532bbc439da6b0aadfb617744bca420">vg::KmerPresenceMatrix::ChildIterator</a>
-, <a class="el" href="classvg_1_1multipath__alignment__t.html#a4cd9b91704e89c799019d9c8962b16bb">vg::multipath_alignment_t</a>
+, <a class="el" href="classvg_1_1multipath__alignment__t.html#ae79344b60aed1577a39391b4b42574f3">vg::multipath_alignment_t</a>
 , <a class="el" href="structvg_1_1MultipathAlignment.html#a8003b8991108e99465d8fd80fc74cc03">vg::MultipathAlignment</a>
 , <a class="el" href="classvg_1_1NetGraph.html#a2d7b0b659aae1f47312bb76aae43dda0">vg::NetGraph</a>
 , <a class="el" href="structvg_1_1PathPiece.html#a566e80edb720f6da234b617c0a566f74">vg::PathPiece</a>
@@ -1674,7 +1672,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1streamistream.html#a0b87c404670f610d20f49f1e2c166648">vg::io::streamistream</a>
 </li>
 <li>StreamMultiplexer()
-: <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#ae72f4179a6cb14beb1b6460603d88233">vg::io::StreamMultiplexer</a>
+: <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#af8352f0fcbb63f162734d48d2ec573ce">vg::io::StreamMultiplexer</a>
 </li>
 <li>StreamSorter()
 : <a class="el" href="classvg_1_1StreamSorter.html#a9ef0b8a33f5011eaf655b9420d86b0f5">vg::StreamSorter&lt; Message &gt;</a>

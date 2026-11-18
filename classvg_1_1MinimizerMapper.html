@@ -108,6 +108,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1read__alignment__index__t.html">read_alignment_index_t</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Type to point to an alignment of a known read.  <a href="structvg_1_1MinimizerMapper_1_1read__alignment__index__t.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1ScoredPath.html">ScoredPath</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
@@ -252,6 +254,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ab3cccc612356ab2fe41f105efbaffebf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a197e157b84141fa7ca168a3a5f978583"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a197e157b84141fa7ca168a3a5f978583">max_read_lookback_bases_per_base</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a4c7f4f6cc0434370cf897332050a859b">default_max_read_lookback_bases_per_base</a></td></tr>
 <tr class="separator:a197e157b84141fa7ca168a3a5f978583"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac76b70196a9ed6ebbc79d65277630c4c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac76b70196a9ed6ebbc79d65277630c4c">allow_seed_overlap</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a178c64ba32f35a5d206076d8191ea5bd">default_allow_seed_overlap</a></td></tr>
+<tr class="separator:ac76b70196a9ed6ebbc79d65277630c4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7646fc428d4eb41fb022dd9c61afa687"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a7646fc428d4eb41fb022dd9c61afa687">item_bonus</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a47b33ac9dea218de205fdf4d5c3d53de">default_item_bonus</a></td></tr>
 <tr class="separator:a7646fc428d4eb41fb022dd9c61afa687"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5e6e66b39ed25c3d81f82546231d790a"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5e6e66b39ed25c3d81f82546231d790a">gap_scale</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a2739e3b492d0978a4c17c761a0946bcd">default_gap_scale</a></td></tr>
@@ -264,10 +268,10 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a05b1280ff66b9ad01015c490f35fc005"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a82da9f52e8af8e9dde669c903d441adc"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a82da9f52e8af8e9dde669c903d441adc">max_indel_bases_per_base</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a9b891451941f27e9a03628869da2f795">default_max_indel_bases_per_base</a></td></tr>
 <tr class="separator:a82da9f52e8af8e9dde669c903d441adc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a012d6c74e5b277ee2e6367cf23bfd080"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a012d6c74e5b277ee2e6367cf23bfd080">chain_score_threshold</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a0b244b594d69d2d7c8fecf4e81c14d68">default_chain_score_threshold</a></td></tr>
-<tr class="separator:a012d6c74e5b277ee2e6367cf23bfd080"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa529844f35af90abeb6e9bf62ab0c523"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa529844f35af90abeb6e9bf62ab0c523">target_alignment_attempts</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a2da0c1ceb89cf099fabb7b84b8e74056">default_target_alignment_attempts</a></td></tr>
-<tr class="separator:aa529844f35af90abeb6e9bf62ab0c523"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1677328ba08dd880df47d5d6850ceffe"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1677328ba08dd880df47d5d6850ceffe">chain_score_threshold</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#aab1b514ca6a9f9b9a6380d6a7840a233">default_chain_score_threshold</a></td></tr>
+<tr class="separator:a1677328ba08dd880df47d5d6850ceffe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abfe1b168ce5c7aac9372f6e979c70c29"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#abfe1b168ce5c7aac9372f6e979c70c29">target_alignment_attempts</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a4987c0773556a936c7af3183cd3040e3">default_target_alignment_attempts</a></td></tr>
+<tr class="separator:abfe1b168ce5c7aac9372f6e979c70c29"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada8578ed33c349fa8f9e5ff7562ac71f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ada8578ed33c349fa8f9e5ff7562ac71f">max_chains_per_tree</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a8fd75b16ce33d33287c898cb7056e3d5">default_max_chains_per_tree</a></td></tr>
 <tr class="separator:ada8578ed33c349fa8f9e5ff7562ac71f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b4cc838d0959b158c0c68b1e84e9123"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2b4cc838d0959b158c0c68b1e84e9123">min_chain_score_per_base</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a98337be6c0a1ca4eac0c131448492115">default_min_chain_score_per_base</a></td></tr>
@@ -304,8 +308,6 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a91874da9e58cff0c6ae63354f0b6dd4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b778c71a85578515d39395c4e05ac00"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1b778c71a85578515d39395c4e05ac00">softclip_penalty</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a6b74310e8a652311091942ab5ab6085a">default_softclip_penalty</a></td></tr>
 <tr class="separator:a1b778c71a85578515d39395c4e05ac00"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1006ffeadb8f60e819d8cfbf24e33109"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1006ffeadb8f60e819d8cfbf24e33109">sort_by_chain_score</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#a660c0927845a795613529acf90fceefe">default_sort_by_chain_score</a></td></tr>
-<tr class="separator:a1006ffeadb8f60e819d8cfbf24e33109"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0df762ac6300835ee936f77a1b3daf8d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0df762ac6300835ee936f77a1b3daf8d">min_unique_node_fraction</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#ab3835a6952cc643f0b29dbe10ffdbc9e">default_min_unique_node_fraction</a></td></tr>
 <tr class="separator:a0df762ac6300835ee936f77a1b3daf8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a84b734b0d1be3a5015eb92f8c331b6f3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a84b734b0d1be3a5015eb92f8c331b6f3">use_explored_cap</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#adc6c21f5f381f4a6ea7e7e777dc64f21">default_use_explored_cap</a></td></tr>
@@ -478,6 +480,9 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a4c7f4f6cc0434370cf897332050a859b"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4c7f4f6cc0434370cf897332050a859b">default_max_read_lookback_bases_per_base</a> = 1.0</td></tr>
 <tr class="memdesc:a4c7f4f6cc0434370cf897332050a859b"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many bases should we look back in the read when chaining, per base of read length?  <a href="classvg_1_1MinimizerMapper.html#a4c7f4f6cc0434370cf897332050a859b">More...</a><br /></td></tr>
 <tr class="separator:a4c7f4f6cc0434370cf897332050a859b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a178c64ba32f35a5d206076d8191ea5bd"><td class="memItemLeft" align="right" valign="top">static constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a178c64ba32f35a5d206076d8191ea5bd">default_allow_seed_overlap</a> = false</td></tr>
+<tr class="memdesc:a178c64ba32f35a5d206076d8191ea5bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should consecutive seeds in a chain be allowed to overlap?  <a href="classvg_1_1MinimizerMapper.html#a178c64ba32f35a5d206076d8191ea5bd">More...</a><br /></td></tr>
+<tr class="separator:a178c64ba32f35a5d206076d8191ea5bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a47b33ac9dea218de205fdf4d5c3d53de"><td class="memItemLeft" align="right" valign="top">static constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a47b33ac9dea218de205fdf4d5c3d53de">default_item_bonus</a> = 0</td></tr>
 <tr class="memdesc:a47b33ac9dea218de205fdf4d5c3d53de"><td class="mdescLeft">&#160;</td><td class="mdescRight">How much of a bonus should we give to each item in chaining?  <a href="classvg_1_1MinimizerMapper.html#a47b33ac9dea218de205fdf4d5c3d53de">More...</a><br /></td></tr>
 <tr class="separator:a47b33ac9dea218de205fdf4d5c3d53de"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -495,10 +500,10 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a9b891451941f27e9a03628869da2f795"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a9b891451941f27e9a03628869da2f795">default_max_indel_bases_per_base</a> = 0.2</td></tr>
 <tr class="memdesc:a9b891451941f27e9a03628869da2f795"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many bases of indel should we allow in chaining, per base of read length?  <a href="classvg_1_1MinimizerMapper.html#a9b891451941f27e9a03628869da2f795">More...</a><br /></td></tr>
 <tr class="separator:a9b891451941f27e9a03628869da2f795"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0b244b594d69d2d7c8fecf4e81c14d68"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0b244b594d69d2d7c8fecf4e81c14d68">default_chain_score_threshold</a> = 100</td></tr>
-<tr class="separator:a0b244b594d69d2d7c8fecf4e81c14d68"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2da0c1ceb89cf099fabb7b84b8e74056"><td class="memItemLeft" align="right" valign="top">static constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2da0c1ceb89cf099fabb7b84b8e74056">default_target_alignment_attempts</a> = 4</td></tr>
-<tr class="separator:a2da0c1ceb89cf099fabb7b84b8e74056"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aab1b514ca6a9f9b9a6380d6a7840a233"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aab1b514ca6a9f9b9a6380d6a7840a233">default_chain_score_threshold</a> = 100</td></tr>
+<tr class="separator:aab1b514ca6a9f9b9a6380d6a7840a233"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4987c0773556a936c7af3183cd3040e3"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4987c0773556a936c7af3183cd3040e3">default_target_alignment_attempts</a> = 4</td></tr>
+<tr class="separator:a4987c0773556a936c7af3183cd3040e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8fd75b16ce33d33287c898cb7056e3d5"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a8fd75b16ce33d33287c898cb7056e3d5">default_max_chains_per_tree</a> = 1</td></tr>
 <tr class="memdesc:a8fd75b16ce33d33287c898cb7056e3d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allow up to this many chains per tree.  <a href="classvg_1_1MinimizerMapper.html#a8fd75b16ce33d33287c898cb7056e3d5">More...</a><br /></td></tr>
 <tr class="separator:a8fd75b16ce33d33287c898cb7056e3d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -548,9 +553,6 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a6b74310e8a652311091942ab5ab6085a"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6b74310e8a652311091942ab5ab6085a">default_softclip_penalty</a> = 0.0</td></tr>
 <tr class="memdesc:a6b74310e8a652311091942ab5ab6085a"><td class="mdescLeft">&#160;</td><td class="mdescRight">How much should candidate alignment scores be penalized for softclipped bases?  <a href="classvg_1_1MinimizerMapper.html#a6b74310e8a652311091942ab5ab6085a">More...</a><br /></td></tr>
 <tr class="separator:a6b74310e8a652311091942ab5ab6085a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a660c0927845a795613529acf90fceefe"><td class="memItemLeft" align="right" valign="top">static constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a660c0927845a795613529acf90fceefe">default_sort_by_chain_score</a> = false</td></tr>
-<tr class="memdesc:a660c0927845a795613529acf90fceefe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should alignments be ranked by chain score instead of base-level score?  <a href="classvg_1_1MinimizerMapper.html#a660c0927845a795613529acf90fceefe">More...</a><br /></td></tr>
-<tr class="separator:a660c0927845a795613529acf90fceefe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3835a6952cc643f0b29dbe10ffdbc9e"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab3835a6952cc643f0b29dbe10ffdbc9e">default_min_unique_node_fraction</a> = 0.0</td></tr>
 <tr class="memdesc:ab3835a6952cc643f0b29dbe10ffdbc9e"><td class="mdescLeft">&#160;</td><td class="mdescRight">How much of an alignment needs to be from distinct nodes to be a distinct alignment?  <a href="classvg_1_1MinimizerMapper.html#ab3835a6952cc643f0b29dbe10ffdbc9e">More...</a><br /></td></tr>
 <tr class="separator:ab3835a6952cc643f0b29dbe10ffdbc9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -679,16 +681,24 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a421cdd65bac59fac39fd3b87cce0f3ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a59563aa4a1d0f00d909edd4cf8b8aa7a"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a59563aa4a1d0f00d909edd4cf8b8aa7a">get_read_coverage</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; std::vector&lt; size_t &gt;&gt; &amp;seed_sets, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers) const</td></tr>
 <tr class="separator:a59563aa4a1d0f00d909edd4cf8b8aa7a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0680e65534d4751b74df5967b201335d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0680e65534d4751b74df5967b201335d">do_chaining_on_trees</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classvg_1_1ZipCodeForest.html">ZipCodeForest</a> &amp;zip_code_forest, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;minimizers, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;chains, std::vector&lt; std::vector&lt; bool &gt;&gt; &amp;chain_rec_flags, std::vector&lt; size_t &gt; &amp;chain_rec_counts, std::vector&lt; size_t &gt; &amp;chain_source_tree, std::vector&lt; int &gt; &amp;chain_score_estimates, std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;minimizer_kept_chain_count, std::vector&lt; double &gt; &amp;multiplicity_by_chain, std::vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;minimizer_explored, vector&lt; double &gt; &amp;multiplicity_by_alignment, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
-<tr class="separator:a0680e65534d4751b74df5967b201335d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac09bddb516b25ff66ff96f9ee219f231"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac09bddb516b25ff66ff96f9ee219f231">get_best_chain_stats</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classvg_1_1ZipCodeForest.html">ZipCodeForest</a> &amp;zip_code_forest, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;chains, const std::vector&lt; size_t &gt; &amp;chain_source_tree, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, const std::vector&lt; int &gt; &amp;chain_score_estimates, bool &amp;best_chain_correct, double &amp;best_chain_coverage, size_t &amp;best_chain_longest_jump, double &amp;best_chain_average_jump, size_t &amp;best_chain_anchors, size_t &amp;best_chain_anchor_length, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
-<tr class="separator:ac09bddb516b25ff66ff96f9ee219f231"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a02a9c616acc91e7d6281a09fea8003fb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a02a9c616acc91e7d6281a09fea8003fb">do_alignment_on_chains</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;minimizers, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;chains, const std::vector&lt; size_t &gt; &amp;chain_rec_counts, const std::vector&lt; size_t &gt; &amp;chain_source_tree, const std::vector&lt; double &gt; &amp;multiplicity_by_chain, const std::vector&lt; int &gt; &amp;chain_score_estimates, const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;minimizer_kept_chain_count, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, vector&lt; double &gt; &amp;multiplicity_by_alignment, vector&lt; size_t &gt; &amp;alignments_to_source, <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;minimizer_explored, <a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html">aligner_stats_t</a> &amp;stats, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
-<tr class="separator:a02a9c616acc91e7d6281a09fea8003fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acfc088cc27b7bd6639eb61b523252987"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#acfc088cc27b7bd6639eb61b523252987">pick_mappings_from_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, const std::vector&lt; double &gt; &amp;multiplicity_by_alignment, const std::vector&lt; size_t &gt; &amp;alignments_to_source, const std::vector&lt; int &gt; &amp;chain_score_estimates, std::vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;mappings, std::vector&lt; double &gt; &amp;scores, std::vector&lt; double &gt; &amp;multiplicity_by_mapping, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
-<tr class="separator:acfc088cc27b7bd6639eb61b523252987"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a17159e36ad9bf4ec79494259b22457a2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a17159e36ad9bf4ec79494259b22457a2">find_chain_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;to_chain, const std::vector&lt; size_t &gt; &amp;chain, size_t rec_count, <a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html">aligner_stats_t</a> *stats=nullptr) const</td></tr>
-<tr class="separator:a17159e36ad9bf4ec79494259b22457a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0a4c97c7604e17b42d6c949de2539d0e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0a4c97c7604e17b42d6c949de2539d0e">do_chaining_on_trees</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classvg_1_1ZipCodeForest.html">ZipCodeForest</a> &amp;zip_code_forest, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;minimizers, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &gt; &amp;chains, std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;minimizer_kept_chain_count, std::vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;minimizer_explored, vector&lt; double &gt; &amp;multiplicity_by_alignment, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a0a4c97c7604e17b42d6c949de2539d0e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6a87f86f66dd911c1bdc4cfcc0dd6ffa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6a87f86f66dd911c1bdc4cfcc0dd6ffa">get_best_chain_stats</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &gt; &amp;chains, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, bool &amp;best_chain_correct, double &amp;best_chain_coverage, size_t &amp;best_chain_longest_jump, double &amp;best_chain_average_jump, size_t &amp;best_chain_anchors, size_t &amp;best_chain_anchor_length, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a6a87f86f66dd911c1bdc4cfcc0dd6ffa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a594df985cee31a961d6faeaaa14d048d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a594df985cee31a961d6faeaaa14d048d">do_alignment_on_chains</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">MinimizerMapper::Minimizer</a> &gt; &amp;minimizers, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &gt; &amp;chains, const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;minimizer_kept_chain_count, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, vector&lt; double &gt; &amp;multiplicity_by_alignment, vector&lt; size_t &gt; &amp;alignments_to_source, <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;minimizer_explored, <a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html">aligner_stats_t</a> &amp;stats, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a594df985cee31a961d6faeaaa14d048d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9b2dabb047df82c6f57d09cf7be5c56a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a9b2dabb047df82c6f57d09cf7be5c56a">pick_mappings_from_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, std::vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;mappings, std::vector&lt; double &gt; &amp;scores, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a9b2dabb047df82c6f57d09cf7be5c56a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaf4d75b90571a93c08f05878d9ff9839"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aaf4d75b90571a93c08f05878d9ff9839">do_base_level_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;to_chain, const <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &amp;chain, <a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html">aligner_stats_t</a> *stats=nullptr) const</td></tr>
+<tr class="separator:aaf4d75b90571a93c08f05878d9ff9839"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af30d42a451096fd34e13b93cbda2dc3b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1MinimizerMapper_1_1ScoredPath.html">ScoredPath</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af30d42a451096fd34e13b93cbda2dc3b">find_tail_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &amp;tail_anchor, const <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a> &amp;wfa_extender, bool is_left_tail, <a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html">aligner_stats_t</a> *stats=nullptr) const</td></tr>
+<tr class="separator:af30d42a451096fd34e13b93cbda2dc3b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d5706c110c46df8850f8127ef69c815"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1d5706c110c46df8850f8127ef69c815">find_next_non_overlapping</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;to_chain, const std::vector&lt; size_t &gt; &amp;chain, const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> *&amp;here, vector&lt; size_t &gt;::const_iterator &amp;next_it) const</td></tr>
+<tr class="separator:a1d5706c110c46df8850f8127ef69c815"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9a072a28f98bbdcf802979bcb5b7fa81"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a9a072a28f98bbdcf802979bcb5b7fa81">find_next_to_skip_to</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;to_chain, const std::vector&lt; size_t &gt; &amp;chain, const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> *&amp;here, vector&lt; size_t &gt;::const_iterator &amp;next_it) const</td></tr>
+<tr class="separator:a9a072a28f98bbdcf802979bcb5b7fa81"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a04abb320b107d7930a6f642d43e836e3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1MinimizerMapper_1_1ScoredPath.html">ScoredPath</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a04abb320b107d7930a6f642d43e836e3">find_link_alignment</a> (const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;to_chain, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; size_t &gt;::const_iterator &amp;here_it, const vector&lt; size_t &gt;::const_iterator &amp;next_it, const <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a> &amp;wfa_extender, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;aligner, <a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html">aligner_stats_t</a> *stats=nullptr) const</td></tr>
+<tr class="separator:a04abb320b107d7930a6f642d43e836e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4247391b8d74dc68b48a792a31ed6d60"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4247391b8d74dc68b48a792a31ed6d60">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;best, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;second_best) const</td></tr>
 <tr class="separator:a4247391b8d74dc68b48a792a31ed6d60"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad2a8850ee32bef9fd4b1a52034d5a930"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ad2a8850ee32bef9fd4b1a52034d5a930">attempt_rescue</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aligned_read, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;rescued_alignment, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, bool rescue_forward)</td></tr>
@@ -721,8 +731,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:ad0a9d591551601ea3699b8a1b2347e81"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afdbaa5b2938d0050476d078d336286cf"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#afdbaa5b2938d0050476d078d336286cf">get_tail_forest</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extended_seed, size_t read_length, bool left_tails, size_t *longest_detectable_gap=nullptr) const</td></tr>
 <tr class="separator:afdbaa5b2938d0050476d078d336286cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a12558b08552a22a9a28db3fb0fd3779d"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a12558b08552a22a9a28db3fb0fd3779d">get_best_alignment_against_any_tree</a> (const vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &amp;trees, const string &amp;sequence, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;default_position, bool pin_left, size_t longest_detectable_gap, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng) const</td></tr>
-<tr class="separator:a12558b08552a22a9a28db3fb0fd3779d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4df768fe58dc9b32c453f13805e78c2b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1MinimizerMapper_1_1ScoredPath.html">ScoredPath</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4df768fe58dc9b32c453f13805e78c2b">get_best_alignment_against_any_tree</a> (const vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &amp;trees, const string &amp;sequence, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;default_position, bool pin_left, size_t longest_detectable_gap, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng) const</td></tr>
+<tr class="separator:a4df768fe58dc9b32c453f13805e78c2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4355a2ecfe99c02410f92093efc77ce4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4355a2ecfe99c02410f92093efc77ce4">dfs_gbwt</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;from, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const</td></tr>
 <tr class="separator:a4355a2ecfe99c02410f92093efc77ce4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a657e584de6e57a3f6f15616f245e39ef"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a657e584de6e57a3f6f15616f245e39ef">dfs_gbwt</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> from_handle, size_t from_offset, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const</td></tr>
@@ -833,8 +843,8 @@ Static Protected Member Functions</h2></td></tr>
 <tr class="separator:a79654a1638227197fd75f33ab24b1276"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1997418c9faffdc16674de0cda5bcfa2"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1997418c9faffdc16674de0cda5bcfa2">dump_debug_dotplot</a> (const std::string &amp;name, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const std::vector&lt; std::pair&lt; std::string, std::vector&lt; std::vector&lt; size_t &gt;&gt;&gt;&gt; &amp;seed_sets, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>)</td></tr>
 <tr class="separator:a1997418c9faffdc16674de0cda5bcfa2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a21b038c9298166c53d6510597688a5c1"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a21b038c9298166c53d6510597688a5c1">dump_debug_chains</a> (const <a class="el" href="classvg_1_1ZipCodeForest.html">ZipCodeForest</a> &amp;zip_code_forest, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;chains, const std::vector&lt; std::vector&lt; bool &gt;&gt; &amp;chain_rec_flags, const std::vector&lt; size_t &gt; &amp;chain_source_tree, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>, bool <a class="el" href="classvg_1_1MinimizerMapper.html#a0c089b0256f6cf1d4a048b9c7e773a9c">haplotype_positions</a>)</td></tr>
-<tr class="separator:a21b038c9298166c53d6510597688a5c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a73a21908160da9095beb288414c657db"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a73a21908160da9095beb288414c657db">dump_debug_chains</a> (const <a class="el" href="classvg_1_1ZipCodeForest.html">ZipCodeForest</a> &amp;zip_code_forest, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;seed_anchors, const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &gt; &amp;chains, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>, bool <a class="el" href="classvg_1_1MinimizerMapper.html#a0c089b0256f6cf1d4a048b9c7e773a9c">haplotype_positions</a>)</td></tr>
+<tr class="separator:a73a21908160da9095beb288414c657db"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af667c12a73803c136e79fe22c3fc6cb7"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af667c12a73803c136e79fe22c3fc6cb7">dump_debug_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
 <tr class="memdesc:af667c12a73803c136e79fe22c3fc6cb7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Dump a graph.  <a href="classvg_1_1MinimizerMapper.html#af667c12a73803c136e79fe22c3fc6cb7">More...</a><br /></td></tr>
 <tr class="separator:af667c12a73803c136e79fe22c3fc6cb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1776,8 +1786,8 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="a02a9c616acc91e7d6281a09fea8003fb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a02a9c616acc91e7d6281a09fea8003fb">&#9670;&nbsp;</a></span>do_alignment_on_chains()</h2>
+<a id="a594df985cee31a961d6faeaaa14d048d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a594df985cee31a961d6faeaaa14d048d">&#9670;&nbsp;</a></span>do_alignment_on_chains()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1812,32 +1822,8 @@ Friends</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>chains</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_rec_counts</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_source_tree</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; double &gt; &amp;&#160;</td>
-          <td class="paramname"><em>multiplicity_by_chain</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; int &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_score_estimates</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1902,8 +1888,58 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="a0680e65534d4751b74df5967b201335d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0680e65534d4751b74df5967b201335d">&#9670;&nbsp;</a></span>do_chaining_on_trees()</h2>
+<a id="aaf4d75b90571a93c08f05878d9ff9839"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaf4d75b90571a93c08f05878d9ff9839">&#9670;&nbsp;</a></span>do_base_level_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> vg::MinimizerMapper::do_base_level_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>to_chain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &amp;&#160;</td>
+          <td class="paramname"><em>chain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html">aligner_stats_t</a> *&#160;</td>
+          <td class="paramname"><em>stats</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Convert a SparseAnchorChain to a base-level alignment</p>
+<p>If given base processing stats for bases and for time, adds aligned bases and consumed time to them. </p>
+
+</div>
+</div>
+<a id="a0a4c97c7604e17b42d6c949de2539d0e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0a4c97c7604e17b42d6c949de2539d0e">&#9670;&nbsp;</a></span>do_chaining_on_trees()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1944,44 +1980,14 @@ Friends</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>chains</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; std::vector&lt; bool &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_rec_flags</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_rec_counts</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_source_tree</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; int &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_score_estimates</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>minimizer_kept_chain_count</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; double &gt; &amp;&#160;</td>
-          <td class="paramname"><em>multiplicity_by_chain</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -2075,8 +2081,8 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="a21b038c9298166c53d6510597688a5c1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a21b038c9298166c53d6510597688a5c1">&#9670;&nbsp;</a></span>dump_debug_chains()</h2>
+<a id="a73a21908160da9095beb288414c657db"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a73a21908160da9095beb288414c657db">&#9670;&nbsp;</a></span>dump_debug_chains()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2111,20 +2117,8 @@ Friends</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>chains</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; std::vector&lt; bool &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_rec_flags</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_source_tree</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -2747,8 +2741,8 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="a17159e36ad9bf4ec79494259b22457a2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a17159e36ad9bf4ec79494259b22457a2">&#9670;&nbsp;</a></span>find_chain_alignment()</h2>
+<a id="a04abb320b107d7930a6f642d43e836e3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a04abb320b107d7930a6f642d43e836e3">&#9670;&nbsp;</a></span>find_link_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2757,28 +2751,40 @@ Friends</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> vg::MinimizerMapper::find_chain_alignment </td>
+          <td class="memname"><a class="el" href="structvg_1_1MinimizerMapper_1_1ScoredPath.html">MinimizerMapper::ScoredPath</a> vg::MinimizerMapper::find_link_alignment </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>to_chain</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain</em>, </td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>rec_count</em>, </td>
+          <td class="paramtype">const vector&lt; size_t &gt;::const_iterator &amp;&#160;</td>
+          <td class="paramname"><em>here_it</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; size_t &gt;::const_iterator &amp;&#160;</td>
+          <td class="paramname"><em>next_it</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a> &amp;&#160;</td>
+          <td class="paramname"><em>wfa_extender</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;&#160;</td>
+          <td class="paramname"><em>aligner</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -2798,9 +2804,8 @@ Friends</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Turn a chain into an <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.</p>
-<p>Operating on the given input alignment, align the tails and intervening sequences along the given chain of perfect-match seeds, and return an optimal <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.</p>
-<p>If given base processing stats for bases and for time, adds aligned bases and consumed time to them. </p>
+<p>Find a link alignment between "here" and "next".</p>
+<p>The alignment may bail out without finding anything, in which case the "score" field of the output will be set to -<a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">std::numeric_limits&lt;int32_t&gt;::max()</a>. </p>
 
 </div>
 </div>
@@ -2838,6 +2843,104 @@ Friends</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Find the minimizers in the sequence using the minimizer index, and return them sorted in read order. </p>
+
+</div>
+</div>
+<a id="a1d5706c110c46df8850f8127ef69c815"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1d5706c110c46df8850f8127ef69c815">&#9670;&nbsp;</a></span>find_next_non_overlapping()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::find_next_non_overlapping </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>to_chain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>chain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> *&amp;&#160;</td>
+          <td class="paramname"><em>here</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; size_t &gt;::const_iterator &amp;&#160;</td>
+          <td class="paramname"><em>next_it</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Move "next" to get the first anchor which doesn't overlap "here". </p>
+
+</div>
+</div>
+<a id="a9a072a28f98bbdcf802979bcb5b7fa81"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9a072a28f98bbdcf802979bcb5b7fa81">&#9670;&nbsp;</a></span>find_next_to_skip_to()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::find_next_to_skip_to </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>to_chain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>chain</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> *&amp;&#160;</td>
+          <td class="paramname"><em>here</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; size_t &gt;::const_iterator &amp;&#160;</td>
+          <td class="paramname"><em>next_it</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Move "next" past skippable anchors, if they would force large gaps. </p>
 
 </div>
 </div>
@@ -2943,6 +3046,63 @@ Friends</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Find seeds for all minimizers passing the filters. Takes in minimizers sorted in read order, and a view of them sorted in score order. </p>
+
+</div>
+</div>
+<a id="af30d42a451096fd34e13b93cbda2dc3b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af30d42a451096fd34e13b93cbda2dc3b">&#9670;&nbsp;</a></span>find_tail_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1MinimizerMapper_1_1ScoredPath.html">MinimizerMapper::ScoredPath</a> vg::MinimizerMapper::find_tail_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &amp;&#160;</td>
+          <td class="paramname"><em>tail_anchor</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a> &amp;&#160;</td>
+          <td class="paramname"><em>wfa_extender</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>is_left_tail</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1MinimizerMapper_1_1aligner__stats__t.html">aligner_stats_t</a> *&#160;</td>
+          <td class="paramname"><em>stats</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Find an optimal alignment path for a tail extending out from an anchor.</p>
+<p>First tries to do basic extension via the <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a>, and if that fails then falls back to full graph alignment.</p>
+<p>If given base processing stats for bases and for time, adds aligned bases and consumed time to them. </p>
 
 </div>
 </div>
@@ -3162,8 +3322,8 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="a12558b08552a22a9a28db3fb0fd3779d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a12558b08552a22a9a28db3fb0fd3779d">&#9670;&nbsp;</a></span>get_best_alignment_against_any_tree()</h2>
+<a id="a4df768fe58dc9b32c453f13805e78c2b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4df768fe58dc9b32c453f13805e78c2b">&#9670;&nbsp;</a></span>get_best_alignment_against_any_tree()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3172,7 +3332,7 @@ Friends</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt; vg::MinimizerMapper::get_best_alignment_against_any_tree </td>
+          <td class="memname"><a class="el" href="structvg_1_1MinimizerMapper_1_1ScoredPath.html">MinimizerMapper::ScoredPath</a> vg::MinimizerMapper::get_best_alignment_against_any_tree </td>
           <td>(</td>
           <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>trees</em>, </td>
@@ -3228,8 +3388,8 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="ac09bddb516b25ff66ff96f9ee219f231"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac09bddb516b25ff66ff96f9ee219f231">&#9670;&nbsp;</a></span>get_best_chain_stats()</h2>
+<a id="a6a87f86f66dd911c1bdc4cfcc0dd6ffa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6a87f86f66dd911c1bdc4cfcc0dd6ffa">&#9670;&nbsp;</a></span>get_best_chain_stats()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3246,12 +3406,6 @@ Friends</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1ZipCodeForest.html">ZipCodeForest</a> &amp;&#160;</td>
-          <td class="paramname"><em>zip_code_forest</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>seeds</em>, </td>
         </tr>
@@ -3264,26 +3418,14 @@ Friends</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; std::vector&lt; size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1algorithms_1_1SparseAnchorChain.html">algorithms::SparseAnchorChain</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>chains</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_source_tree</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1algorithms_1_1Anchor.html">algorithms::Anchor</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>seed_anchors</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; int &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_score_estimates</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -4204,8 +4346,8 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="acfc088cc27b7bd6639eb61b523252987"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acfc088cc27b7bd6639eb61b523252987">&#9670;&nbsp;</a></span>pick_mappings_from_alignments()</h2>
+<a id="a9b2dabb047df82c6f57d09cf7be5c56a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b2dabb047df82c6f57d09cf7be5c56a">&#9670;&nbsp;</a></span>pick_mappings_from_alignments()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4228,24 +4370,6 @@ Friends</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; double &gt; &amp;&#160;</td>
-          <td class="paramname"><em>multiplicity_by_alignment</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>alignments_to_source</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; int &gt; &amp;&#160;</td>
-          <td class="paramname"><em>chain_score_estimates</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">std::vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>mappings</em>, </td>
         </tr>
@@ -4254,12 +4378,6 @@ Friends</h2></td></tr>
           <td></td>
           <td class="paramtype">std::vector&lt; double &gt; &amp;&#160;</td>
           <td class="paramname"><em>scores</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; double &gt; &amp;&#160;</td>
-          <td class="paramname"><em>multiplicity_by_mapping</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -5774,14 +5892,28 @@ template&lt;typename Score &gt; </div>
 
 </div>
 </div>
-<a id="a012d6c74e5b277ee2e6367cf23bfd080"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a012d6c74e5b277ee2e6367cf23bfd080">&#9670;&nbsp;</a></span>chain_score_threshold</h2>
+<a id="ac76b70196a9ed6ebbc79d65277630c4c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac76b70196a9ed6ebbc79d65277630c4c">&#9670;&nbsp;</a></span>allow_seed_overlap</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">double vg::MinimizerMapper::chain_score_threshold = <a class="el" href="classvg_1_1MinimizerMapper.html#a0b244b594d69d2d7c8fecf4e81c14d68">default_chain_score_threshold</a></td>
+          <td class="memname">bool vg::MinimizerMapper::allow_seed_overlap = <a class="el" href="classvg_1_1MinimizerMapper.html#a178c64ba32f35a5d206076d8191ea5bd">default_allow_seed_overlap</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1677328ba08dd880df47d5d6850ceffe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1677328ba08dd880df47d5d6850ceffe">&#9670;&nbsp;</a></span>chain_score_threshold</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::chain_score_threshold = <a class="el" href="classvg_1_1MinimizerMapper.html#aab1b514ca6a9f9b9a6380d6a7840a233">default_chain_score_threshold</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -5886,8 +6018,8 @@ template&lt;typename Score &gt; </div>
 
 </div>
 </div>
-<a id="a0b244b594d69d2d7c8fecf4e81c14d68"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0b244b594d69d2d7c8fecf4e81c14d68">&#9670;&nbsp;</a></span>default_chain_score_threshold</h2>
+<a id="a178c64ba32f35a5d206076d8191ea5bd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a178c64ba32f35a5d206076d8191ea5bd">&#9670;&nbsp;</a></span>default_allow_seed_overlap</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -5896,7 +6028,31 @@ template&lt;typename Score &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr double vg::MinimizerMapper::default_chain_score_threshold = 100</td>
+          <td class="memname">constexpr bool vg::MinimizerMapper::default_allow_seed_overlap = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Should consecutive seeds in a chain be allowed to overlap? </p>
+
+</div>
+</div>
+<a id="aab1b514ca6a9f9b9a6380d6a7840a233"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aab1b514ca6a9f9b9a6380d6a7840a233">&#9670;&nbsp;</a></span>default_chain_score_threshold</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t vg::MinimizerMapper::default_chain_score_threshold = 100</td>
         </tr>
       </table>
   </td>
@@ -7677,8 +7833,8 @@ template&lt;typename Score &gt; </div>
 
 </div>
 </div>
-<a id="a660c0927845a795613529acf90fceefe"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a660c0927845a795613529acf90fceefe">&#9670;&nbsp;</a></span>default_sort_by_chain_score</h2>
+<a id="a4987c0773556a936c7af3183cd3040e3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4987c0773556a936c7af3183cd3040e3">&#9670;&nbsp;</a></span>default_target_alignment_attempts</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -7687,31 +7843,7 @@ template&lt;typename Score &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr bool vg::MinimizerMapper::default_sort_by_chain_score = false</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Should alignments be ranked by chain score instead of base-level score? </p>
-
-</div>
-</div>
-<a id="a2da0c1ceb89cf099fabb7b84b8e74056"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2da0c1ceb89cf099fabb7b84b8e74056">&#9670;&nbsp;</a></span>default_target_alignment_attempts</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">constexpr int vg::MinimizerMapper::default_target_alignment_attempts = 4</td>
+          <td class="memname">constexpr size_t vg::MinimizerMapper::default_target_alignment_attempts = 4</td>
         </tr>
       </table>
   </td>
@@ -9355,28 +9487,14 @@ template&lt;typename Score &gt; </div>
 
 </div>
 </div>
-<a id="a1006ffeadb8f60e819d8cfbf24e33109"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1006ffeadb8f60e819d8cfbf24e33109">&#9670;&nbsp;</a></span>sort_by_chain_score</h2>
+<a id="abfe1b168ce5c7aac9372f6e979c70c29"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abfe1b168ce5c7aac9372f6e979c70c29">&#9670;&nbsp;</a></span>target_alignment_attempts</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::MinimizerMapper::sort_by_chain_score = <a class="el" href="classvg_1_1MinimizerMapper.html#a660c0927845a795613529acf90fceefe">default_sort_by_chain_score</a></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="aa529844f35af90abeb6e9bf62ab0c523"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa529844f35af90abeb6e9bf62ab0c523">&#9670;&nbsp;</a></span>target_alignment_attempts</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int vg::MinimizerMapper::target_alignment_attempts = <a class="el" href="classvg_1_1MinimizerMapper.html#a2da0c1ceb89cf099fabb7b84b8e74056">default_target_alignment_attempts</a></td>
+          <td class="memname">size_t vg::MinimizerMapper::target_alignment_attempts = <a class="el" href="classvg_1_1MinimizerMapper.html#a4987c0773556a936c7af3183cd3040e3">default_target_alignment_attempts</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
