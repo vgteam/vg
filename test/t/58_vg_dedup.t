@@ -53,7 +53,7 @@ rm -f dedup.vg
 vg dedup base-graph.vg -f dedup.fa -G dedup.gfa
 is $? 0 "dedup works with GFA and FASTA output"
 is "$(grep -c '^>' dedup.fa)" 1716 "1716 stored strings in FASTA"
-is "$(grep -c '^S\t[0-9]*\t\*' dedup.gfa)" 12488 "12488 chopped pieces in GFA"
+is "$(grep -c '^S.*superstring' dedup.gfa)" 12488 "12488 chopped pieces in GFA"
 rm -f dedup.fa dedup.gfa
 
 # All three outputs.
@@ -62,7 +62,7 @@ is $? 0 "dedup works with all three outputs"
 cmp base-graph.vg dedup.vg > /dev/null
 is $? 1 "chopping changes the graph"
 is "$(grep -c '^>' dedup.fa)" 1716 "1716 stored strings in FASTA"
-is "$(grep -c '^S\t[0-9]*\t\*' dedup.gfa)" 12488 "12488 chopped pieces in GFA"
+is "$(grep -c '^S.*superstring' dedup.gfa)" 12488 "12488 chopped pieces in GFA"
 rm -f dedup.vg dedup.fa dedup.gfa
 
 # Cleanup.
