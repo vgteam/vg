@@ -1,5 +1,6 @@
 #include "recombinator.hpp"
 
+#include "../artifacts/diploid_pair_scorer.hpp"
 #include "gref.hpp"
 #include "statistics.hpp"
 #include "algorithms/component.hpp"
@@ -2170,12 +2171,21 @@ std::vector<std::pair<size_t, double>> select_diploid(
     std::int64_t best_score = std::numeric_limits<std::int64_t>::min();
     size_t best_left = 0, best_right = 0;
 
+    // Decode the presence rows of the candidates once, so that scoring a pair
+    // takes a few popcounts per 64 kmers.
+    std::vector<size_t> sequences;
+    sequences.reserve(candidates.size());
+    for (const auto& candidate : candidates) {
+        sequences.push_back(candidate.first);
+    }
+    DiploidPairScorer scorer(subchain, sequences, kmer_types);
+
     // We now consider taking the same haplotype twice. If this is a bad subchain
     // and we sample extra fragments, the number of fragments will depend on
     // whether we take the same haplotype twice.
     for (size_t left = 0; left < candidates.size(); left++) {
         for (size_t right = left; right < candidates.size(); right++) {
-            std::int64_t score = subchain.diploid_score(candidates[left].first, candidates[right].first, kmer_types);
+            std::int64_t score = scorer.score(left, right);
             if (score > best_score) {
                 best_score = score;
                 best_left = left;
