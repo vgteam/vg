@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 90
+plan tests 95
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -85,8 +85,10 @@ rm -f x.longread.zipcodes
 
 rm -Rf grid-out
 mkdir grid-out
-vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-basename grid-out/file --hard-hit-cap 5:6
-is "$(ls grid-out/*.gam | wc -l)" "2" "Grid search works end-inclusive"
+touch grid-out/kept.gaf
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -O grid-out/file.gam -O grid-out/kept.gaf --hard-hit-cap 5:6 --report-name grid-out/report.tsv
+is "$(ls grid-out/file*.gam | wc -l)" "2" "Grid search works end-inclusive"
+is "$(cat grid-out/report.tsv | grep -v "^#" | wc -l | sed 's/^[[:space:]]*//')" "2" "Grid search reports one row per condition"
 rm -Rf grid-out
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
@@ -206,6 +208,15 @@ samtools view surject.bam | cut -f2 | sort | uniq -c > surject.flags
 diff direct.flags surject.flags
 is $? 0 "SAM flags are the same between giraffe and surject"
 
+vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 -t 1 > stdout.gam
+vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 -t 1 --output-file file.gam --output-file file.sam
+
+is "$(vg view --extract-tag PARAMS_JSON file.gam)" "$(vg view --extract-tag PARAMS_JSON stdout.gam)" "Embedded parameters work with multiple outputs"
+is "$(vg stats -a file.gam | grep "Total alignments")" "$(vg stats -a stdout.gam | grep "Total alignments")" "Number of alignments is the same with multiple outputs"
+is "$(samtools view file.sam | wc -l | sed 's/^[[:space:]]*//')" "$(vg stats -a stdout.gam | grep "Total alignments" | cut -f2 -d':' | tr -d ' ')" "Number of alignments is the same between output formats"
+
+rm -f stdout.gam file.gam file.sam
+
 # Test paired surjected mapping
 vg giraffe x.fa x.vcf.gz --show-work -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 4)" "$(printf '321\n762')" "surjection of paired reads to SAM yields correct positions"
@@ -320,12 +331,15 @@ is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph wit
 is "$(grep -c '^@' mapped.gaf)" 2 "GAF has a header"
 is "$(grep -c '^@RN' mapped.gaf)" 1 "GAF has a reference name header"
 
+vg giraffe -Z brca.giraffe.gbz -m brca.shortread.withzip.min -z brca.shortread.zipcodes -d brca.dist -G reads.gam --named-coordinates -o gaf --track-correctness > mapped-tracked.gaf
+is "$?" "0" "Mapping reads as GAF to named coordinates succeeds when giraffe also loads a positional graph"
+
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
 cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.txt
 
 is "$(md5sum gaf_names.txt | cut -f1 -d' ')" "$(md5sum gam_names.txt | cut -f1 -d' ')" "Mapping reads as named GAF uses the same names as named GAM"
 
-rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
+rm -f reads.gam mapped.gam mapped.gaf mapped-tracked.gaf brca.* gam_names.txt gaf_names.txt
 
 # Try long read alignment with Distance Index 2
 vg construct -S -a -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >1mb1kgp.vg 2>/dev/null
