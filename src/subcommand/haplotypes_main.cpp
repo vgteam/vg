@@ -160,14 +160,14 @@ int main_haplotypes(int argc, char** argv) {
     gbwtgraph::GBZ gbz;
     Haplotypes haplotypes;
     bool preprocess = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_preprocess);
-    std::jthread haplotype_loader;
+    std::thread haplotype_loader;
     std::string haplotype_error;
     if (!preprocess) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
             config.logger.info() << "Loading haplotype information from "
                                  << config.haplotype_input << std::endl;
         }
-        haplotype_loader = std::jthread([&haplotypes, &haplotype_error, &config]() {
+        haplotype_loader = std::thread([&haplotypes, &haplotype_error, &config]() {
             try {
                 sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
             } catch (const std::runtime_error& e) {
