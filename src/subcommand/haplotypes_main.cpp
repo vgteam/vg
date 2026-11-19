@@ -154,20 +154,42 @@ int main_haplotypes(int argc, char** argv) {
     // Parse the arguments.
     HaplotypesConfig config(argc, argv, max_threads);
 
-    // Load the graph.
+    // Load the graph. Haplotype information from a file loads on another thread
+    // at the same time.
+    double load_start = gbwt::readTimer();
     gbwtgraph::GBZ gbz;
-    load_gbz(gbz, config.graph_name, config.verbosity >= Haplotypes::verbosity_basic);
-
-    // Generate or load haplotype information.
     Haplotypes haplotypes;
-    if (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_preprocess) {
-        preprocess_graph(gbz, haplotypes, config);
-    } else {
+    bool preprocess = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_preprocess);
+    std::jthread haplotype_loader;
+    std::string haplotype_error;
+    if (!preprocess) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
-            config.logger.info() << "Loading haplotype information from " 
+            config.logger.info() << "Loading haplotype information from "
                                  << config.haplotype_input << std::endl;
         }
-        haplotypes.load_from(config.haplotype_input);
+        haplotype_loader = std::jthread([&haplotypes, &haplotype_error, &config]() {
+            try {
+                sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
+            } catch (const std::runtime_error& e) {
+                haplotype_error = e.what();
+            }
+        });
+    }
+    load_gbz(gbz, config.graph_name, config.verbosity >= Haplotypes::verbosity_basic);
+
+    // Generate haplotype information, or wait for it to load.
+    if (preprocess) {
+        preprocess_graph(gbz, haplotypes, config);
+    } else {
+        haplotype_loader.join();
+        if (!haplotype_error.empty()) {
+            config.logger.error() << "cannot load haplotype information from " << config.haplotype_input
+                                  << ": " << haplotype_error << std::endl;
+        }
+        if (config.verbosity >= Haplotypes::verbosity_basic) {
+            double seconds = gbwt::readTimer() - load_start;
+            config.logger.info() << "Loaded the graph and the haplotype information in " << seconds << " seconds" << std::endl;
+        }
         require_compatible_graphs(gbz, "GBZ", haplotypes, "Haplotype Information");
     }
     bool sampling = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes);
