@@ -726,14 +726,15 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         config.logger.info() << "Building minimizer index" << std::endl;
     }
-    MinimizerIndexParameters params;
-    params.k = config.k;
-    params.w_or_s = config.w;
-    params.progress = (config.verbosity >= Haplotypes::verbosity_detailed);
-    HaplotypePartitioner::minimizer_index_type minimizer_index = build_minimizer_index(gbz, nullptr, nullptr, params);
+    HaplotypePartitioner::minimizer_index_type minimizer_index(gbz, config.k, config.w);
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - minimizer;
         config.logger.info() << "Built the minimizer index in " << seconds << " seconds" << std::endl;
+    }
+    if (config.verbosity >= Haplotypes::verbosity_detailed) {
+        config.logger.info() << "Minimizer index: " << minimizer_index.size() << " keys ("
+                             << minimizer_index.unique_keys() << " unique), "
+                             << minimizer_index.number_of_values() << " occurrences" << std::endl;
     }
 
     // R-index.

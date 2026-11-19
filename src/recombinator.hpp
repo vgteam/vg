@@ -10,6 +10,7 @@
 #include "gbwtgraph_helper.hpp"
 #include "hash_map.hpp"
 #include "recombinator_haplotypes.hpp"
+#include "../artifacts/haplotype_minimizer_index.hpp"
 #include "../artifacts/recombinator_model.hpp"
 #include "snarl_distance_index.hpp"
 
@@ -44,7 +45,7 @@ public:
     typedef Haplotypes::Subchain::kmer_type kmer_type;
 
     /// Minimizer index without payloads.
-    typedef gbwtgraph::MinimizerIndex<gbwtgraph::Key64> minimizer_index_type;
+    typedef HaplotypeMinimizerIndex minimizer_index_type;
 
     /**
      * A subchain is a substring of a top-level chain defined by at most two

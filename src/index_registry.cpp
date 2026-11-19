@@ -4365,12 +4365,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         r_index.setGBWT(gbz.index);
 
         // Build minimizer index without payload.
-        MinimizerIndexParameters minimizer_params;
-        minimizer_params.minimizers(IndexingParameters::haplotype_sampling_minimizer_k,
-                                    IndexingParameters::haplotype_sampling_minimizer_w)
-                        .verbose(IndexingParameters::verbosity >= IndexingParameters::Debug);
-        HaplotypePartitioner::minimizer_index_type minimizer_index =
-            build_minimizer_index(gbz, nullptr, nullptr, minimizer_params);
+        HaplotypePartitioner::minimizer_index_type minimizer_index(gbz,
+            IndexingParameters::haplotype_sampling_minimizer_k, IndexingParameters::haplotype_sampling_minimizer_w);
 
         // Partition the haplotypes.
         Haplotypes::Verbosity hap_verbosity = (IndexingParameters::verbosity != IndexingParameters::None
