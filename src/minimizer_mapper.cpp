@@ -4074,8 +4074,11 @@ void MinimizerMapper::flag_repetitive_minimizers(std::vector<Minimizer>& minimiz
 
 std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<Minimizer>& minimizers, LazyRNG& rng) const {
 
-    //Do an unshuffled sort of the minimizers to get the runs together
-    vector<size_t> minimizer_sort_order = sort_permutation(minimizers.begin(), minimizers.end());
+    //Do an unshuffled stable sort of the minimizers to get the runs together
+    vector<size_t> minimizer_sort_order = range_vector(minimizers.size());
+    std::stable_sort(minimizer_sort_order.begin(), minimizer_sort_order.end(), [&](size_t a, size_t b) {
+        return minimizers[a] < minimizers[b];
+    });
 
     //To keep minimizers with the same key together, sort the runs and then fill in the actual minimizers later
     //Runs point to the index in minimizer_sort_order of the first minimizer of a run
