@@ -179,6 +179,26 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html">Deconstructor</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ContentChopParameters.html">ContentChopParameters</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Settings for content-aware node chopping.  <a href="structvg_1_1ContentChopParameters.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PieceLocation.html">PieceLocation</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Location of a piece (chopped node) in the original node and the stored strings.  <a href="structvg_1_1PieceLocation.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ChoppingPlan.html">ChoppingPlan</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PieceDirectory.html">PieceDirectory</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1KmerAnchor.html">KmerAnchor</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A k-mer with a locally minimal hash. A candidate position for chopping.  <a href="structvg_1_1KmerAnchor.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubstringFingerprinter.html">SubstringFingerprinter</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1CutCandidateSet.html">CutCandidateSet</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SegmentCountTable.html">SegmentCountTable</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A map from segment fingerprints to their occurrence counts.  <a href="classvg_1_1SegmentCountTable.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DeletionAligner.html">DeletionAligner</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DinucleotideMachine.html">DinucleotideMachine</a></td></tr>
@@ -1394,6 +1414,16 @@ Functions</h2></td></tr>
 <tr class="memitem:a59b210d36dec7a492d9c566018552adb"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a59b210d36dec7a492d9c566018552adb">for_each_neighbor_impl</a> (const <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html">handlegraph::SnarlDecomposition</a> &amp;decomposition, const <a class="el" href="structhandlegraph_1_1net__handle__t.html">handlegraph::net_handle_t</a> &amp;here, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, bool go_left, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1net__handle__t.html">handlegraph::net_handle_t</a> &amp;)&gt; &amp;iteratee)</td></tr>
 <tr class="memdesc:a59b210d36dec7a492d9c566018552adb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Implement <a class="el" href="namespacevg.html#a41174008284bc249b3f8fb1c8e7c13e3">for_each_neighbor()</a> for an iteratee that returns bool.  <a href="namespacevg.html#a59b210d36dec7a492d9c566018552adb">More...</a><br /></td></tr>
 <tr class="separator:a59b210d36dec7a492d9c566018552adb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2bb9fbf117f05b812a150763b2fcae15"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1KmerAnchor.html">KmerAnchor</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2bb9fbf117f05b812a150763b2fcae15">find_anchors</a> (std::string_view sequence, size_t kmer_length, size_t radius)</td></tr>
+<tr class="separator:a2bb9fbf117f05b812a150763b2fcae15"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a537eea1fe401c94adad9b50b0f581ece"><td class="memItemLeft" align="right" valign="top">std::uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a537eea1fe401c94adad9b50b0f581ece">sequence_fingerprint</a> (std::string_view sequence)</td></tr>
+<tr class="separator:a537eea1fe401c94adad9b50b0f581ece"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3415713a9ec9cef1c62b0fe9c5f43bfb"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3415713a9ec9cef1c62b0fe9c5f43bfb">choose_cuts</a> (const <a class="el" href="classvg_1_1CutCandidateSet.html">CutCandidateSet</a> &amp;candidates, const <a class="el" href="classvg_1_1SegmentCountTable.html">SegmentCountTable</a> &amp;counts, double piece_weight)</td></tr>
+<tr class="separator:a3415713a9ec9cef1c62b0fe9c5f43bfb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1e5d159a474825ff4268ed8c8f0ecdc8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1ChoppingPlan.html">ChoppingPlan</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1e5d159a474825ff4268ed8c8f0ecdc8">plan_content_chopping</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1ContentChopParameters.html">ContentChopParameters</a> &amp;parameters)</td></tr>
+<tr class="separator:a1e5d159a474825ff4268ed8c8f0ecdc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac56edf2749b413dd39322bd39f4faaea"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1PieceDirectory.html">PieceDirectory</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac56edf2749b413dd39322bd39f4faaea">chop_by_plan</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1ChoppingPlan.html">ChoppingPlan</a> &amp;plan)</td></tr>
+<tr class="separator:ac56edf2749b413dd39322bd39f4faaea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3caa19999a88016c7aedf3fefb8ca69c"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3caa19999a88016c7aedf3fefb8ca69c">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">Funnel::State</a> &amp;state)</td></tr>
 <tr class="separator:a3caa19999a88016c7aedf3fefb8ca69c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a01d75b9f4caceab73edc37f61c160f0c"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::GBWTBuilder &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a01d75b9f4caceab73edc37f61c160f0c">create_gbwt_builder</a> (const <a class="el" href="structvg_1_1GAFSorterFile.html">GAFSorterFile</a> &amp;output)</td></tr>
@@ -1657,8 +1687,16 @@ Functions</h2></td></tr>
 <tr class="memitem:a234b2ca417edb50a3c738991fcfc269a"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a234b2ca417edb50a3c738991fcfc269a"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a234b2ca417edb50a3c738991fcfc269a">set_intersection</a> (const unordered_set&lt; T &gt; &amp;set_1, const unordered_set&lt; T &gt; &amp;set_2, unordered_set&lt; T &gt; *out_intersection)</td></tr>
 <tr class="separator:a234b2ca417edb50a3c738991fcfc269a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad8c4a075bb9301c8050d89ed8e6a33b9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad8c4a075bb9301c8050d89ed8e6a33b9">graph_to_gfa</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, ostream &amp;out, const set&lt; string &gt; &amp;rgfa_paths, bool rgfa_pline, bool use_w_lines)</td></tr>
-<tr class="separator:ad8c4a075bb9301c8050d89ed8e6a33b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa08e39c28bc9a21e3e49cea1c1aefc5d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa08e39c28bc9a21e3e49cea1c1aefc5d">graph_to_gfa</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, ostream &amp;out, const set&lt; string &gt; &amp;rgfa_paths, bool include_rgfa_paths, bool use_w_lines)</td></tr>
+<tr class="separator:aa08e39c28bc9a21e3e49cea1c1aefc5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6d1ca4080e154a81d33534876abdf1ca"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6d1ca4080e154a81d33534876abdf1ca">write_gfa_header</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, ostream &amp;out, const set&lt; string &gt; &amp;rgfa_paths, bool include_rgfa_paths)</td></tr>
+<tr class="separator:a6d1ca4080e154a81d33534876abdf1ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a15814ad96e8f1eff2aef7675eaaf4c40"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a15814ad96e8f1eff2aef7675eaaf4c40">write_gfa_nodes</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, ostream &amp;out, const set&lt; string &gt; &amp;rgfa_paths)</td></tr>
+<tr class="separator:a15814ad96e8f1eff2aef7675eaaf4c40"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2705f6e823b933ef3216963dd8d2e517"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2705f6e823b933ef3216963dd8d2e517">write_gfa_edges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, ostream &amp;out)</td></tr>
+<tr class="separator:a2705f6e823b933ef3216963dd8d2e517"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1376a13ec317c1d8a00a4e53c58259a2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1376a13ec317c1d8a00a4e53c58259a2">write_gfa_paths</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, ostream &amp;out, const set&lt; string &gt; &amp;rgfa_paths, bool include_rgfa_paths, bool use_w_lines)</td></tr>
+<tr class="separator:a1376a13ec317c1d8a00a4e53c58259a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae968813905d72a9d49a1822b390cbe5d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae968813905d72a9d49a1822b390cbe5d">from_handle_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;from, <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> &amp;to)</td></tr>
 <tr class="separator:ae968813905d72a9d49a1822b390cbe5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0eaa4d69a029a84c1d3028745c84bc4c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0eaa4d69a029a84c1d3028745c84bc4c">from_path_handle_graph</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;from, <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> &amp;to)</td></tr>
@@ -6751,6 +6789,43 @@ template&lt;typename ProbIn &gt; </div>
 
 </div>
 </div>
+<a id="a3415713a9ec9cef1c62b0fe9c5f43bfb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3415713a9ec9cef1c62b0fe9c5f43bfb">&#9670;&nbsp;</a></span>choose_cuts()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; size_t &gt; vg::choose_cuts </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1CutCandidateSet.html">CutCandidateSet</a> &amp;&#160;</td>
+          <td class="paramname"><em>candidates</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1SegmentCountTable.html">SegmentCountTable</a> &amp;&#160;</td>
+          <td class="paramname"><em>counts</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>piece_weight</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Selects chopping positions from <code>candidates</code>, in sorted order. Returned offsets do not include the sentinels at the start and end of the sequence.</p>
+<p>Assumes that <code>counts</code> has a non-zero count for every segment. The cost of a segment is <code>piece_weight + length / occurrences</code>. Since the number of occurrences is based on fingerprints, rare collisions may lead to suboptimal choices.</p>
+<p>NOTE: Dynamic programming prioritizes the leftmost minimum-cost chopping. In particular, if we have a long node with unique sequence, the first piece may be below max length, while subsequent pieces are max length. Chopping with vg mod &ndash;chop does the opposite. </p>
+
+</div>
+</div>
 <a id="acfe23dc452245bf901fee2ed698afe7d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#acfe23dc452245bf901fee2ed698afe7d">&#9670;&nbsp;</a></span>choose_good_thread_count()</h2>
 
@@ -6804,6 +6879,44 @@ concurrency", and container limit information that may be available in /proc. </
 </table>
 </div><div class="memdoc">
 <p>Compute the number of ways to select k items from a collection of n distinguishable items, ignoring order. Returns the natural log of the (integer) result. </p>
+
+</div>
+</div>
+<a id="ac56edf2749b413dd39322bd39f4faaea"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac56edf2749b413dd39322bd39f4faaea">&#9670;&nbsp;</a></span>chop_by_plan()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1PieceDirectory.html">PieceDirectory</a> vg::chop_by_plan </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1ChoppingPlan.html">ChoppingPlan</a> &amp;&#160;</td>
+          <td class="paramname"><em>plan</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Chops the graph according to the given plan.</p>
+<p>Chopping may give new IDs to all nodes, and it invalidates handles into the graph.</p>
+<dl class="section pre"><dt>Precondition</dt><dd>The plan was made for this graph.</dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>A directory of original locations of chopped nodes.</dd></dl>
+<dl class="exception"><dt>Exceptions</dt><dd>
+  <table class="exception">
+    <tr><td class="paramname">&lt;tt&gt;std::runtime_error&lt;/tt&gt;</td><td>if the chopped graph does not have each piece of the plan as a node of the right length. The graph is left chopped. </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>
@@ -10958,6 +11071,43 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
+<a id="a2bb9fbf117f05b812a150763b2fcae15"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2bb9fbf117f05b812a150763b2fcae15">&#9670;&nbsp;</a></span>find_anchors()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; <a class="el" href="structvg_1_1KmerAnchor.html">KmerAnchor</a> &gt; vg::find_anchors </td>
+          <td>(</td>
+          <td class="paramtype">std::string_view&#160;</td>
+          <td class="paramname"><em>sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>kmer_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>radius</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns the k-mers of the sequence whose hash is strictly smaller than the hash of every other k-mer starting at most <code>radius</code> bases away, in sequence order. Hashing is case insensitive and only considers the bases A, C, G and T.</p>
+<p>Similar to finding forward strand minimizers with window length <code>2 * radius + 1</code>.</p>
+<dl class="section pre"><dt>Precondition</dt><dd><code>kmer_length</code> is between 1 and 32. </dd></dl>
+
+</div>
+</div>
 <a id="ac80bc94af296d0a543d983eae79afac0"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac80bc94af296d0a543d983eae79afac0">&#9670;&nbsp;</a></span>find_breakpoints()</h2>
 
@@ -14111,8 +14261,8 @@ template&lt;typename AnnotationType &gt; </div>
 
 </div>
 </div>
-<a id="ad8c4a075bb9301c8050d89ed8e6a33b9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad8c4a075bb9301c8050d89ed8e6a33b9">&#9670;&nbsp;</a></span>graph_to_gfa()</h2>
+<a id="aa08e39c28bc9a21e3e49cea1c1aefc5d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa08e39c28bc9a21e3e49cea1c1aefc5d">&#9670;&nbsp;</a></span>graph_to_gfa()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -14139,7 +14289,7 @@ template&lt;typename AnnotationType &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>rgfa_pline</em> = <code>false</code>, </td>
+          <td class="paramname"><em>include_rgfa_paths</em> = <code>false</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -14154,7 +14304,8 @@ template&lt;typename AnnotationType &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Export the given <a class="el" href="classvg_1_1VG.html">VG</a> graph to the given GFA file. Express paths mentioned in rgfa_paths as rGFA. If rgfa_pline is set, also express them as dedicated lines. If use_w_lines is set, reference and haplotype paths will use W lines instead of P lines. </p>
+<p>Serialize the given graph to the given output in GFA format.</p>
+<p>This effectively calls <a class="el" href="namespacevg.html#a6d1ca4080e154a81d33534876abdf1ca">write_gfa_header()</a>, <a class="el" href="namespacevg.html#a15814ad96e8f1eff2aef7675eaaf4c40">write_gfa_nodes()</a>, <a class="el" href="namespacevg.html#a2705f6e823b933ef3216963dd8d2e517">write_gfa_edges()</a>, and <a class="el" href="namespacevg.html#a1376a13ec317c1d8a00a4e53c58259a2">write_gfa_paths()</a> with the given arguments. See the documentation of those functions for further details. </p>
 
 </div>
 </div>
@@ -22964,6 +23115,48 @@ template&lt;typename Iterator &gt; </div>
 
 </div>
 </div>
+<a id="a1e5d159a474825ff4268ed8c8f0ecdc8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1e5d159a474825ff4268ed8c8f0ecdc8">&#9670;&nbsp;</a></span>plan_content_chopping()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1ChoppingPlan.html">ChoppingPlan</a> vg::plan_content_chopping </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1ContentChopParameters.html">ContentChopParameters</a> &amp;&#160;</td>
+          <td class="paramname"><em>parameters</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Finds chopping points in the given graph according to the given parameters for content-aware node chopping. Uses OpenMP threads. For best results, long repetitive unitigs should be single nodes in the graph.</p>
+<dl class="exception"><dt>Exceptions</dt><dd>
+  <table class="exception">
+    <tr><td class="paramname">&lt;tt&gt;std::invalid_argument&lt;/tt&gt;</td><td>if the parameters cannot be used.</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>The algorithm is roughly as follows:</p>
+<ol type="1">
+<li>Identify candidate positions in each long node by minimum k-mer hash within the given radius.</li>
+<li>Compute the frequency of each distinct segment over all long nodes. A segment is a substring between two candidate positions, at most the maximum segment length apart.</li>
+<li>Find the cheapest chopping for each long node using dynamic programming.</li>
+<li>Pack the sequences corresponding to the selected pieces into stored strings. We currently consider only substring relationships but not partial overlaps. </li>
+</ol>
+
+</div>
+</div>
 <a id="ac7f5da8e25414026729f0c4d09243f6d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac7f5da8e25414026729f0c4d09243f6d">&#9670;&nbsp;</a></span>pmax()</h2>
 
@@ -25578,6 +25771,25 @@ template&lt;class T1 , class T2 &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a537eea1fe401c94adad9b50b0f581ece"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a537eea1fe401c94adad9b50b0f581ece">&#9670;&nbsp;</a></span>sequence_fingerprint()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::uint64_t vg::sequence_fingerprint </td>
+          <td>(</td>
+          <td class="paramtype">std::string_view&#160;</td>
+          <td class="paramname"><em>sequence</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns the fingerprint of the entire sequence, as computed by <code><a class="el" href="classvg_1_1SubstringFingerprinter.html">SubstringFingerprinter</a></code>. </p>
 
 </div>
 </div>
@@ -31391,6 +31603,170 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Open a tempfile and write the kmers to it. The calling context should remove it with <a class="el" href="namespacevg_1_1temp__file.html#a9885078330e16129fccc5fb6d8717ec5">temp_file::remove()</a>. In the case that the size limit is exceeded, throws a <a class="el" href="classvg_1_1SizeLimitExceededException.html">SizeLimitExceededException</a> and deletes the temp file. </p>
+
+</div>
+</div>
+<a id="a2705f6e823b933ef3216963dd8d2e517"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2705f6e823b933ef3216963dd8d2e517">&#9670;&nbsp;</a></span>write_gfa_edges()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::write_gfa_edges </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Write a GFA link line for each edge of the given graph.</p>
+<p>Each edge is written from a forward handle if either of its directions allows that. If both directions start from a reverse handle, the edge is written from the lower node ID. This keeps the output stable for tests. </p>
+
+</div>
+</div>
+<a id="a6d1ca4080e154a81d33534876abdf1ca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6d1ca4080e154a81d33534876abdf1ca">&#9670;&nbsp;</a></span>write_gfa_header()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::write_gfa_header </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const set&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>rgfa_paths</em> = <code>{}</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>include_rgfa_paths</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Write a GFA header line of a GFA 1.1 file for the given graph.</p>
+<p>Reference samples will be listed in the RS tag. Reference sense paths included in rgfa_paths will not be included, unless include_rgfa_paths is set.</p>
+<dl class="section note"><dt>Note</dt><dd>Pass <a class="el" href="namespacevg.html#a1376a13ec317c1d8a00a4e53c58259a2">write_gfa_paths()</a> the same rgfa_paths and include_rgfa_paths arguments, so that the RS tag matches the paths written. </dd></dl>
+
+</div>
+</div>
+<a id="a15814ad96e8f1eff2aef7675eaaf4c40"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a15814ad96e8f1eff2aef7675eaaf4c40">&#9670;&nbsp;</a></span>write_gfa_nodes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::write_gfa_nodes </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const set&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>rgfa_paths</em> = <code>{}</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Write a GFA segment line for each node of the given graph.</p>
+<p>This also writes rGFA tags for nodes visited by paths named in rgfa_paths.</p>
+<dl class="exception"><dt>Exceptions</dt><dd>
+  <table class="exception">
+    <tr><td class="paramname">std::runtime_error</td><td>if a path named in rgfa_paths visits a node in reverse orientation. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a1376a13ec317c1d8a00a4e53c58259a2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1376a13ec317c1d8a00a4e53c58259a2">&#9670;&nbsp;</a></span>write_gfa_paths()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::write_gfa_paths </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const set&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>rgfa_paths</em> = <code>{}</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>include_rgfa_paths</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>use_w_lines</em> = <code>true</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Write the paths of the given graph as GFA lines, sorted by name.</p>
+<p><a class="el" href="classvg_1_1Paths.html">Paths</a> included in rgfa_paths are skipped, unless include_rgfa_paths is set. Each path is written either as a path (P) or a walk (W) line, depending on use_w_lines. Generic paths and paths with a nonzero phase block are always written as P lines.</p>
+<dl class="section note"><dt>Note</dt><dd>Pass <a class="el" href="namespacevg.html#a6d1ca4080e154a81d33534876abdf1ca">write_gfa_header()</a> the same rgfa_paths and rgfa_pline, so that its RS tag matches the paths written. </dd></dl>
 
 </div>
 </div>
