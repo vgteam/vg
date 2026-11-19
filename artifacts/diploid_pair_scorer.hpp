@@ -24,8 +24,7 @@ namespace vg {
  * A pair holds 0, 1 or 2 copies of each kmer. An absent kmer scores 1, 0 or -1
  * for those copies, a present kmer -1, 0 or 1, and a heterozygous kmer 1 for
  * one copy and 0 otherwise. Frequent and ignored kmers score 0. The score of the
- * pair is the sum over the kmers, which is what
- * `KmerPresenceMatrix::diploid_score()` returns.
+ * pair is the sum over the kmers.
  *
  * The judge decodes the presence row of each sequence once and keeps a mask of
  * the kmers in each scored class. It then scores a pair with five popcounts per

@@ -198,8 +198,7 @@ TEST_CASE("Haplotype selection in a subchain", "[haplotypes][recombinator]") {
     SelectionFixture fixture;
     Recombinator::Parameters parameters;
     parameters.num_haplotypes = 4;
-    Recombinator::SelectionContext context;
-    context.fragment_map = &fixture.fragment_map;
+    Recombinator::SelectionContext context { .fragment_map = fixture.fragment_map };
 
     SECTION("the fixture is what the test expects") {
         for (size_t i = 0; i < 4; i++) {
@@ -267,6 +266,15 @@ TEST_CASE("Haplotype selection in a subchain", "[haplotypes][recombinator]") {
         REQUIRE(fixture.select(parameters, context) == std::vector<size_t>({ 0, 3, 1, 0 }));
         parameters.max_n_bp = 6;
         REQUIRE(fixture.select(parameters, context) == std::vector<size_t>({ 0, 3, 1, 2 }));
+    }
+
+    SECTION("the N-base limit uses the N bases stored for the walks") {
+        // The stored counts give sequence 3 the 6 N bases that the walk of sequence 2
+        // has, so the selection shows that the stored counts are used.
+        fixture.subchain.set_copies(std::vector<Haplotypes::Subchain::kmer_copies_type>(fixture.subchain.num_sequences()));
+        fixture.subchain.set_walk_bases(33.5, { 0, 0, 0, 6 });
+        parameters.max_n_bp = 0;
+        REQUIRE(fixture.select(parameters, context) == std::vector<size_t>({ 0, 1, 2, 0 }));
     }
 
     SECTION("continuity bonus") {
@@ -377,6 +385,18 @@ TEST_CASE("Model pair candidates in a subchain", "[haplotypes][recombinator]") {
         REQUIRE(result.scores.size() == result.size() * result.size());
         // Sequence lengths are 31, 2026, 36, and 31 bp.
         REQUIRE(result.length == Approx(33.5));
+    }
+
+    SECTION("the subchain may store the bases of the walks") {
+        // The stored length and N bases differ from those of the walks, where sequence 2
+        // has the 6 N bases, so the result shows that the stored values are used.
+        fixture.subchain.set_copies(std::vector<Haplotypes::Subchain::kmer_copies_type>(fixture.subchain.num_sequences()));
+        fixture.subchain.set_walk_bases(100.0, { 0, 0, 0, 6 });
+        REQUIRE(candidates().length == Approx(100.0));
+        parameters.max_n_bp = 5;
+        pair_model::Candidates result = candidates();
+        REQUIRE(group_of(result, 3) == result.size());
+        REQUIRE(group_of(result, 2) < result.size());
     }
 
     SECTION("a sequence over the N-base limit is not a candidate") {

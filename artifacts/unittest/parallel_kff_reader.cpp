@@ -105,15 +105,6 @@ std::vector<kmer_count_type> read_kmers(const std::string& filename, size_t n, s
     return result;
 }
 
-// Return a random sequence of the given length.
-std::string random_sequence(size_t length, std::mt19937& rng) {
-    std::string result;
-    for (size_t i = 0; i < length; i++) {
-        result.push_back("ACGT"[rng() & 3]);
-    }
-    return result;
-}
-
 // Return sections with blocks of up to 3 kmers, then sections of single kmers,
 // with k = 5.
 std::vector<TestSection> mixed_sections() {
@@ -127,7 +118,7 @@ std::vector<TestSection> mixed_sections() {
     for (size_t section = 0; section < 2; section++) {
         TestSection single { 5, 1, {} };
         for (size_t i = 0; i < 25; i++) {
-            single.blocks.push_back({ random_sequence(5, rng), { static_cast<uint8_t>(rng() & 0xFF) } });
+            single.blocks.push_back({ pseudo_random_sequence(5, rng()), { static_cast<uint8_t>(rng() & 0xFF) } });
         }
         result.push_back(single);
     }
@@ -176,6 +167,8 @@ TEST_CASE("ParallelKFFReader takes the kmer length from the first section", "[kf
         write_kff(filename, sections, encoding);
         ParallelKFFReader reader(filename);
         REQUIRE(reader.max_kmers_per_block == 3);
+        REQUIRE_THROWS_AS(reader.read(1000), std::runtime_error);
+        // Other threads may read after the error, and they must not read the section.
         REQUIRE_THROWS_AS(reader.read(1000), std::runtime_error);
     }
 

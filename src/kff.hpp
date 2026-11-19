@@ -122,8 +122,8 @@ private:
     /// The file, positioned at the next block or section.
     Kff_file file;
 
-    /// The section holding the next block, or null if the next block is in a
-    /// section not opened yet.
+    /// The open section of blocks, or null at the end of the file. It may have no
+    /// blocks left; `next_section()` moves past such sections.
     std::unique_ptr<Block_section_reader> section;
 
     /// Kmers decoded from the latest block but not returned yet.

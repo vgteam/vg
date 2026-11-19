@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 122
+plan tests 128
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -230,17 +230,52 @@ vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --bp-escape 300 -g /d
 is $? 1 "the bp escape needs a new-bp limit"
 is $(grep -c "bp escape needs a new-bp limit" escape_log.txt) 1 "an appropriate error message is printed"
 
-# Subchain kmers with a single construction job, where the subchains are built in
-# parallel. The nodes up to 61718199 are the micb component of the test graph.
+# The subchains of all chains are built as one set of tasks, and a large subchain uses
+# all threads by itself. Selection without a continuity bonus is parallel as well. None of
+# it may depend on the number of threads. OMP_NUM_THREADS lets vg use 4 threads on a
+# machine with fewer cores.
+vg haplotypes -t 1 --subchain-length 300 --subchain-kmers -H full_t1.hapl full.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 --subchain-length 300 --subchain-kmers -H full_t4.hapl full.gbz
+cmp -s full_t1.hapl full_t4.hapl
+is $? 0 "subchain kmers do not depend on the number of threads"
+vg haplotypes -t 1 --subchain-length 300 -H full_unique_t1.hapl full.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 --subchain-length 300 -H full_unique_t4.hapl full.gbz
+cmp -s full_unique_t1.hapl full_unique_t4.hapl
+is $? 0 "minimizers with a single occurrence do not depend on the number of threads"
+# The nodes up to 61718199 are the micb component of the test graph. With long
+# subchains, some of its subchains are large enough to use all threads.
 awk -F '\t' '{ split($7, w, /[<>]/) } $1 == "H" || ($1 == "S" && $2 <= 61718199) || ($1 == "L" && $2 <= 61718199) || ($1 == "W" && w[2] <= 61718199)' \
     haplotype-sampling/micb-kir3dl1.gfa > micb.gfa
 vg gbwt -G micb.gfa --gbz-format -g micb.gbz -r micb.ri
 vg index -j micb.dist micb.gbz
-vg haplotypes -t 1 --subchain-length 300 --subchain-kmers -H micb_t1.hapl micb.gbz
-vg haplotypes -v 1 -t 4 --subchain-length 300 --subchain-kmers -H micb_t4.hapl micb.gbz 2> micb_log.txt
-is $(grep -c "Partitioned 1 components into 1 jobs" micb_log.txt) 1 "the micb graph is a single construction job"
+vg haplotypes -t 1 --subchain-length 5000 --subchain-kmers -H micb_t1.hapl micb.gbz
+OMP_NUM_THREADS=4 vg haplotypes -v 2 -t 4 --subchain-length 5000 --subchain-kmers -H micb_t4.hapl micb.gbz 2> micb_log.txt
+is $(grep -c "large subchains with all threads" micb_log.txt) 1 "some subchains are built with all threads"
 cmp -s micb_t1.hapl micb_t4.hapl
-is $? 0 "subchain kmers do not depend on the number of threads"
+is $? 0 "large subchains with subchain kmers do not depend on the number of threads"
+vg haplotypes -t 1 --subchain-length 5000 -H micb_unique_t1.hapl micb.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 --subchain-length 5000 -H micb_unique_t4.hapl micb.gbz
+cmp -s micb_unique_t1.hapl micb_unique_t4.hapl
+is $? 0 "large subchains with minimizers with a single occurrence do not depend on the number of threads"
+vg haplotypes -t 1 ${SUBCHAIN_SAMPLING} --include-reference -g parallel_t1.gbz full.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 ${SUBCHAIN_SAMPLING} --include-reference -g parallel_t4.gbz full.gbz
+cmp -s parallel_t1.gbz parallel_t4.gbz
+is $? 0 "selection without a continuity bonus does not depend on the number of threads"
+vg haplotypes -t 1 -i full.hapl -k haplotype-sampling/HG003.kff --diploid-sampling -g diploid_t1.gbz full.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 -i full.hapl -k haplotype-sampling/HG003.kff --diploid-sampling -g diploid_t4.gbz full.gbz
+cmp -s diploid_t1.gbz diploid_t4.gbz
+is $? 0 "diploid sampling does not depend on the number of threads"
+
+# An index with subchain kmers stores the N bases of the walk of each sequence. Here a
+# node that more than one but not every haplotype visits is all N, so the stored counts
+# differ between sequences, and validation checks that each count is stored with its
+# sequence.
+N_NODE=$(awk -F '\t' '$1 == "W" { n++; split($7, w, /[<>]/); delete seen; for (i in w) { if (w[i] != "" && !(w[i] in seen)) { seen[w[i]] = 1; count[w[i]]++ } } } END { for (id in count) { if (count[id] > 1 && count[id] < n) { print id } } }' micb.gfa | sort -n | head -1)
+awk -F '\t' -v OFS='\t' -v id="${N_NODE}" '$1 == "S" && $2 == id { gsub(/./, "N", $3) } { print }' micb.gfa > micb_n.gfa
+vg gbwt -G micb_n.gfa --gbz-format -g micb_n.gbz -r micb_n.ri
+vg index -j micb_n.dist micb_n.gbz
+[ -n "${N_NODE}" ] && vg haplotypes --validate --subchain-length 300 --subchain-kmers -H micb_n.hapl micb_n.gbz
+is $? 0 "the N bases of the walks are stored with their sequences"
 
 # Sampling with a gref reference. Build a gref version of the test graph; -l 1 keeps
 # every fragment so the length filter has something to act on.
@@ -439,7 +474,9 @@ rm -f diploid_ignore.gbz diploid_ont.gbz
 rm -f subchain.hapl model_pair.gbz model_pair_t1.gbz preset_model.gbz no_model_pair.gbz no_similar.gbz no_bonus.gbz
 rm -f no_limit.gbz bp_limit.gbz bp_escape.gbz bp_limit_no_ref.gbz model_pair_unique.gbz
 rm -f hicov_subchain.gbz hicov_model_pair.gbz preset_log.txt escape_log.txt
-rm -f micb.gfa micb.gbz micb.ri micb.dist micb_t1.hapl micb_t4.hapl micb_log.txt
+rm -f micb.gfa micb.gbz micb.ri micb.dist micb_t1.hapl micb_t4.hapl micb_log.txt micb_unique_t1.hapl micb_unique_t4.hapl
+rm -f full_t1.hapl full_t4.hapl full_unique_t1.hapl full_unique_t4.hapl parallel_t1.gbz parallel_t4.gbz diploid_t1.gbz diploid_t4.gbz
+rm -f micb_n.gfa micb_n.gbz micb_n.ri micb_n.dist micb_n.hapl
 rm -f gref.pg gref.gfa gref.gbz gref.ri gref.dist gref.hapl gref.fa
 rm -f gref_base.gbz gref_ref.gbz gref_ref.fa gref_long.gbz
 rm -f gref_ref.ri gref_ref.dist gref_ref2.gbz gref_ref2.fa

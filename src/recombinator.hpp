@@ -45,7 +45,7 @@ public:
     typedef Haplotypes::Subchain::kmer_type kmer_type;
 
     /// Minimizer index without payloads.
-    typedef HaplotypeMinimizerIndex minimizer_index_type;
+    using minimizer_index_type = HaplotypeMinimizerIndex;
 
     /**
      * A subchain is a substring of a top-level chain defined by at most two
@@ -117,8 +117,9 @@ public:
      * Creates a `Haplotypes` representation of the haplotypes in the GBWT index.
      *
      * Top-level chains (weakly connected components in the graph) are assigned to
-     * a number of jobs that can be later used as GBWT construction jobs. Multiple
-     * jobs are run in parallel using OpenMP threads.
+     * a number of jobs that can be later used as GBWT construction jobs. The
+     * subchains of all chains are built as one set of tasks that OpenMP threads
+     * run in parallel.
      *
      * Each top-level chain is partitioned into subchains that consist of one or
      * more snarls. Multiple snarls are combined into the same subchain if the
@@ -173,49 +174,34 @@ private:
     //   of the same haplotype remain within the subchain and reach the end.
     std::vector<sequence_type> get_sequences(Subchain subchain) const;
 
-    // Return the sorted set of kmers that are minimizers in the sequence and have
-    // a single occurrence in the graph.
-    std::vector<kmer_type> unique_minimizers(
-        gbwt::size_type sequence_id,
-        gbwt::CachedGBWT& cached_gbwt,
-        vg::hash_map<kmer_type, size_t>& kmer_cache
+    // The numbers of subchains with fragmented sequences, of fragmented sequences, and
+    // of the fragments past the first in them.
+    struct FragmentCounts {
+        size_t subchains = 0;
+        size_t sequences = 0;
+        size_t additional = 0;
+
+        void add(const FragmentCounts& another) {
+            this->subchains += another.subchains;
+            this->sequences += another.sequences;
+            this->additional += another.additional;
+        }
+    };
+
+    // Return the subchains of the top-level chain with the sequences crossing each. A
+    // subchain that no haplotype crosses becomes a suffix and a prefix, and a chain
+    // without snarls becomes a subchain of full haplotypes.
+    std::vector<std::pair<Subchain, std::vector<sequence_type>>> chain_subchains(
+        const gbwtgraph::TopLevelChain& chain, const std::string& contig_name, const Parameters& parameters
     ) const;
 
-    // Returns the sorted set of kmers that are minimizers in the sequence over the
-    // subchain and have a single occurrence in the graph. If the sequence does not
-    // reach the end of the subchain, this will try to continue with the next fragment(s).
-    //
-    // Because we likely traverse the same nodes and see the same minimizers in
-    // multiple haplotypes, we cache them at subchain level.
-    //
-    // Also reports the number of fragments that were used to generate the kmers.
-    //
-    // To avoid using kmers shared between all haplotypes in the subchain, and
-    // potentially with neighboring subchains, this does not include kmers contained
-    // entirely in the shared initial/final nodes.
-    std::vector<kmer_type> unique_minimizers(
-        sequence_type sequence, Subchain subchain, size_t& fragments,
-        gbwt::CachedGBWT& cached_gbwt,
-        vg::hash_map<kmer_type, size_t>& kmer_cache
-    ) const;
-
-    // Build subchains for a specific top-level chain.
-    void build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const;
-
-    // Build the subchains from subchain kmers (`Parameters::subchain_kmers`) and append
-    // them to the chain, given the sequences crossing each subchain.
-    void build_kmer_subchains(
-        const std::vector<std::pair<Subchain, std::vector<sequence_type>>>& to_process, Haplotypes::TopLevelChain& output
-    ) const;
-
-    // Set the subchain kmers, their presence in the sequences, and their copies in the
-    // output subchain (`Parameters::subchain_kmers`). The sequences cross the subchain.
-    void build_subchain_kmers(const Subchain& subchain, const std::vector<sequence_type>& sequences, Haplotypes::Subchain& output) const;
-
-    // Return the kmers among the minimizers that occur in the graph only on the nodes,
-    // sorted. A minimizer that the minimizer index does not contain is not returned.
-    std::vector<kmer_type> kmers_on_nodes(
-        const hash_map<kmer_type, minimizer_index_type::minimizer_type>& minimizers, const hash_set<nid_t>& nodes
+    // Build the output subchain from the sequences crossing the subchain, using the
+    // threads if `parallel` is set. The kmers are subchain kmers or minimizers with a
+    // single occurrence in the graph (`Parameters::subchain_kmers`); a subchain of full
+    // haplotypes always uses the latter. Adds the fragmented sequences to `fragments`.
+    void build_subchain(
+        const Subchain& subchain, const std::vector<sequence_type>& sequences, Haplotypes::Subchain& output,
+        const Parameters& parameters, bool parallel, FragmentCounts& fragments
     ) const;
 };
 
@@ -558,9 +544,8 @@ public:
 
     /// What the haplotype selection in a subchain uses beyond the kmers.
     struct SelectionContext {
-        /// For following a haplotype past the end of a fragment. Needed with a new-bp
-        /// or N-base limit.
-        const gbwt::FragmentMap* fragment_map = nullptr;
+        /// For following a haplotype past the end of a fragment.
+        const gbwt::FragmentMap& fragment_map;
 
         /// For each generated haplotype, the GBWT sequence it took in the previous
         /// subchain, or `gbwt::invalid_sequence()`.
@@ -591,13 +576,36 @@ private:
         const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, double coverage, const Parameters& parameters
     ) const;
 
+    // The haplotypes that `select_haplotypes()` selects in a subchain, and the kmers it
+    // adds to `Statistics::kmers`.
+    struct SubchainSelection {
+        std::vector<std::pair<size_t, double>> haplotypes;
+        size_t kmers = 0;
+    };
+
+    // Return the parameters for sampling the chain. High- and half-coverage chains use
+    // their own scoring model, no diploid sampling, and their own haplotype count, which
+    // are set in `chain_override` for them.
+    const Parameters& chain_parameters(size_t chain_id, const Parameters& parameters, Parameters& chain_override) const;
+
+    // Select the haplotypes in the subchains of the chains that are sampled, all
+    // subchains in parallel, largest first. This is possible where the selection in a
+    // subchain depends only on the subchain: without a continuity bonus. Returns the
+    // selections by chain offset and subchain, and no selections for the other chains.
+    std::vector<std::vector<SubchainSelection>> select_in_parallel(
+        const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts, double coverage,
+        const Parameters& parameters, const std::vector<std::vector<std::pair<size_t, size_t>>>& pairs
+    ) const;
+
     // Generate haplotypes for the given chain. The model pairs are for the subchains
-    // of the chain, or empty.
+    // of the chain, or empty. The selections are those of `select_in_parallel()` for the
+    // chain, or empty if the chain selects as it goes.
     Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain,
         const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
         gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
         const Parameters& parameters, double coverage,
-        const std::vector<std::pair<size_t, size_t>>& pairs) const;
+        const std::vector<std::pair<size_t, size_t>>& pairs,
+        const std::vector<SubchainSelection>& selections) const;
 
     // Copy the given chain through verbatim, preserving the reference/generic
     // path and all haplotypes without personalization.
@@ -617,11 +625,9 @@ void validate_recombinator_parameters(const Recombinator::Parameters& parameters
  *
  * If the context has a pair, it becomes the first two haplotypes, and the function
  * throws `std::runtime_error` if a member of the pair cannot be selected. The rest are
- * selected greedily by kmer scores within the limits in the parameters. Throws
- * `std::invalid_argument` if a new-bp or N-base limit is set and the context has no
- * fragment map. With diploid sampling, the result is the best pair of the selected
- * haplotypes, possibly followed
- * by extra fragments. Otherwise the selected haplotypes are repeated until there are
+ * selected greedily by kmer scores within the limits in the parameters. With diploid
+ * sampling, the result is the best pair of the selected haplotypes, possibly followed by
+ * extra fragments. Otherwise the selected haplotypes are repeated until there are
  * `parameters.num_haplotypes` of them.
  *
  * Update the statistics with the number of kmers used, if provided. Update the
@@ -658,18 +664,126 @@ void thread_by_similarity(
     std::vector<size_t>& haplotype_to_selected, sdsl::bit_vector& selected_in_use
 );
 
-/// Return a table from the kmers, in both orientations, to their positions in the list.
-hash_map<Haplotypes::Subchain::kmer_type, std::uint32_t> oriented_kmer_positions(
-    const std::vector<Haplotypes::Subchain::kmer_type>& kmers, size_t k
-);
+/**
+ * The walk of a GBWT sequence through a subchain. It starts at node `start`, at the
+ * offset of the sequence there, or at the start of the sequence without a start node
+ * (`gbwt::ENDMARKER`). It ends at node `end`, or at the end of the sequence without an
+ * end node. With both nodes, where a fragment of the haplotype ends, the walk continues
+ * with the next fragment, because the generated haplotypes do the same. The part of the
+ * walk in one fragment is a piece.
+ */
+class SubchainWalk {
+public:
+    /// An empty walk.
+    SubchainWalk() = default;
 
-/// Return the number of occurrences of the kmers of the table from
-/// `oriented_kmer_positions()`, in either orientation, in the pieces of a sequence, by
-/// position of the kmer in the table. A kmer is counted where the piece has `k` valid
-/// characters ending at it.
-hash_map<std::uint32_t, std::uint32_t> count_oriented_kmers(
-    const std::vector<std::string>& pieces, const hash_map<Haplotypes::Subchain::kmer_type, std::uint32_t>& positions, size_t k
-);
+    /// Walk the sequence through the subchain from `start` to `end`.
+    SubchainWalk(
+        const gbwt::CachedGBWT& index, const gbwt::FragmentMap& fragment_map,
+        gbwt::node_type start, gbwt::node_type end, Haplotypes::sequence_type sequence
+    );
+
+    /// Call `visit(node, starts_piece)` for each node the walk of the sequence from `start`
+    /// to `end` visits, in order, where `starts_piece` is true for the first node of each
+    /// piece. Stop when `visit` returns false. Return false if `visit` stopped the walk.
+    static bool for_each_visit(
+        const gbwt::CachedGBWT& index, const gbwt::FragmentMap& fragment_map,
+        gbwt::node_type start, gbwt::node_type end, Haplotypes::sequence_type sequence,
+        const std::function<bool(gbwt::node_type, bool)>& visit
+    );
+
+    /// Return the ids of the nodes the walk visits, sorted and without duplicates.
+    std::vector<nid_t> node_ids() const;
+
+    /// Return the sequence of each piece. The first node of the walk contributes its
+    /// last `start_max` bases and the end node its first `end_max` bases. A walk whose
+    /// first node is the end node has no sequence, and neither has an empty walk.
+    std::vector<std::string> sequence_pieces(const gbwtgraph::GBWTGraph& graph, size_t start_max, size_t end_max) const;
+
+    /// Return the number of pieces in `sequence_pieces()`.
+    size_t pieces() const;
+
+    /// Return a hash of the nodes the walk visits and of its pieces.
+    size_t hash() const;
+
+    /// Two walks are equal if they visit the same nodes in the same pieces.
+    bool operator==(const SubchainWalk& another) const = default;
+
+private:
+    // The nodes in the order the walk visits them, and the offset in `visits` where each
+    // piece starts.
+    std::vector<gbwt::node_type> visits;
+    std::vector<std::uint32_t> piece_starts;
+
+    // The walk ends at the end node.
+    bool reaches_end = false;
+
+    // Return true if `sequence_pieces()` returns any.
+    bool has_sequence() const;
+};
+
+/**
+ * A table from the kmers of a list, in both orientations, to their positions in the
+ * list. Where a kmer is also the reverse complement of another kmer of the list, the
+ * later position in the list wins. The table is an open-addressing hash table at most
+ * half full, because it is looked up at every base of the sequences.
+ */
+class OrientedKmerTable {
+public:
+    /// The position returned for a kmer that is not in the table.
+    constexpr static std::uint32_t NONE = std::numeric_limits<std::uint32_t>::max();
+
+    /// Build the table for the kmers of length `k`.
+    OrientedKmerTable(const std::vector<Haplotypes::Subchain::kmer_type>& kmers, size_t k);
+
+    /// Return the position of the kmer in the list, or `NONE`.
+    std::uint32_t find(Haplotypes::Subchain::kmer_type kmer) const {
+        for (size_t i = this->slot(kmer); this->keys[i] != EMPTY; i = (i + 1) & this->mask) {
+            if (this->keys[i] == kmer) {
+                return this->positions[i];
+            }
+        }
+        return NONE;
+    }
+
+private:
+    // Kmers are at most 31 bases, so a key with every bit set is not a kmer.
+    constexpr static Haplotypes::Subchain::kmer_type EMPTY = std::numeric_limits<Haplotypes::Subchain::kmer_type>::max();
+
+    std::vector<Haplotypes::Subchain::kmer_type> keys;
+    std::vector<std::uint32_t> positions;
+    size_t mask = 0;
+    size_t shift = 0;
+
+    size_t slot(Haplotypes::Subchain::kmer_type kmer) const {
+        return static_cast<size_t>((kmer * 0x9E3779B97F4A7C15ULL) >> this->shift) & this->mask;
+    }
+};
+
+/// The number of occurrences of the kmers of an `OrientedKmerTable`, in either
+/// orientation, in the pieces of one sequence, by the position of the kmer in the list
+/// the table was built from. A kmer is counted where a piece has `k` valid characters
+/// ending at it. Counting a new sequence replaces the counts of the previous one, and
+/// takes time proportional to the length of the sequence, not to the number of kmers.
+class OrientedKmerCounts {
+public:
+    /// Prepare to count the kmers of a table built from a list of `kmers` kmers.
+    explicit OrientedKmerCounts(size_t kmers) : counts(kmers, 0) {}
+
+    /// Count the kmers of the table in the pieces of a sequence.
+    void count(const std::vector<std::string>& pieces, const OrientedKmerTable& positions, size_t k);
+
+    /// Return (position, occurrences) for the kmers that occur in the sequence, in the
+    /// order of their first occurrence.
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> occurrence_list() const;
+
+    /// The number of occurrences of the kmer at the given position.
+    std::uint32_t operator[](size_t position) const { return this->counts[position]; }
+
+private:
+    std::vector<std::uint32_t> counts;
+    std::vector<std::uint32_t> occurring_positions;
+};
 
 /**
  * Return the candidates for the model pair in a subchain
@@ -681,8 +795,10 @@ hash_map<std::uint32_t, std::uint32_t> count_oriented_kmers(
  * the N-base rule then applies to all of them. The candidates are the groups that
  * `pair_model::score_pairs()` keeps among the sequences the model uses. The haplotype
  * of a sequence is the sample and the phase of its path. The length of the subchain is
- * the median, over the sequences, of the total length of the distinct nodes each one
- * visits in the subchain.
+ * the median bases of the walks of the sequences, and the N bases of a sequence are those
+ * of its walk (`Haplotypes::Subchain::median_walk_bases`). They are read from the subchain
+ * if it stores them (`Haplotypes::Subchain::has_walk_bases()`), and the sequences are
+ * walked otherwise.
  */
 pair_model::Candidates model_candidates(
     const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain,

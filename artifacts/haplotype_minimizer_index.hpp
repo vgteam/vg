@@ -10,6 +10,7 @@
 #include <gbwtgraph/minimizer.h>
 
 #include <cstddef>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -20,17 +21,16 @@ namespace vg {
  * occurs.
  *
  * It holds the keys and positions that gbwtgraph::index_haplotypes() puts into a
- * gbwtgraph::MinimizerIndex<Key64> with no payload, unweighted minimizers and no syncmers. Its
- * lookup methods have the same names, types and answers as that index's, so it can replace that
- * index where nothing else is needed.
+ * gbwtgraph::MinimizerIndex<Key64> with no payload, unweighted minimizers and no syncmers, and it
+ * looks them up by key.
  *
  * The gbwtgraph index inserts every occurrence under one lock, so only one thread builds it at a
  * time. This index takes no lock. It divides the keys into buckets by a hash. Each thread keeps
  * the occurrences it finds in bins of its own, one for each bucket. Then each bucket is gathered
  * from the bins of all threads, sorted and cleared of duplicates on a thread of its own. Each
- * bucket is sized by the occurrences it holds. The graph is traversed twice, for half of the
- * buckets each time, so that the collected occurrences take no more memory than the finished
- * index.
+ * bucket is sized by the occurrences it holds. Until the buckets are built, the bins hold each
+ * collected occurrence in 16 bytes, and the occurrences that several threads found are held once
+ * for each of them.
  *
  * The positions of each key are distinct and sorted. Each key has at least one position.
  */
@@ -39,8 +39,6 @@ public:
     using key_type = gbwtgraph::Key64;
     using minimizer_type = gbwtgraph::Kmer<key_type>;
     using code_type = gbwtgraph::KmerEncoding::code_type;
-    using value_type = gbwtgraph::KmerEncoding::value_type;
-    using multi_value_type = gbwtgraph::KmerEncoding::multi_value_type;
 
     /**
      * Index the minimizers in all haplotypes of the graph
@@ -63,24 +61,12 @@ public:
         return this->finder.minimizers(sequence);
     }
 
-    /// Return the number of graph positions where the minimizer occurs.
-    size_t count(const minimizer_type& minimizer) const { return this->find(minimizer).second; }
+    /// Return the number of graph positions where the kmer with the key occurs.
+    size_t count(code_type key) const { return this->positions(key).size(); }
 
-    /**
-     * Return the graph positions where the minimizer occurs
-     *
-     * @returns A pointer to the sorted, encoded positions and their number. The pointer is null
-     * when the minimizer does not occur. Decode the positions with get_value().
-     */
-    multi_value_type find(const minimizer_type& minimizer) const;
-
-    /**
-     * Return the position at the index in a list of positions from find()
-     *
-     * The payload pointer of the value is null, as this index has no payloads. An index past the end
-     * of the list gives gbwtgraph::Position::no_pos().
-     */
-    value_type get_value(multi_value_type values, size_t index) const;
+    /// Return the graph positions where the kmer with the key occurs, sorted and encoded as
+    /// gbwtgraph::Position values. The list is empty when the kmer does not occur.
+    std::span<const code_type> positions(code_type key) const;
 
     /// Return the number of distinct keys.
     size_t size() const;
@@ -120,7 +106,7 @@ private:
         }
 
         /// Return the positions of the key, or an empty list if the bucket does not hold it.
-        multi_value_type find(code_type key) const;
+        std::span<const code_type> find(code_type key) const;
     };
 
     /// Finds the minimizers in a sequence. It holds no keys, and only its parameters are used.

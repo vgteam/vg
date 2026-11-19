@@ -625,7 +625,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             }
             break;
         case 't':
-            set_thread_count(logger, optarg);
+            this->threads = set_thread_count(logger, optarg, static_cast<int>(max_threads));
             break;
 
         case OPT_VALIDATE:
@@ -1346,9 +1346,9 @@ std::vector<size_t> stored_copies(const Haplotypes::Subchain& subchain, size_t s
     subchain.for_each_kmer(seq_offset, [&copies](size_t j, bool is_present) {
         copies[j] = (is_present ? 1 : 0);
     });
-    subchain.for_each_copy(seq_offset, [&copies](size_t j, size_t value) {
+    for (auto [j, value] : subchain.get_copies(seq_offset)) {
         copies[j] = value;
-    });
+    }
     return copies;
 }
 
@@ -1361,21 +1361,19 @@ void validate_subchain_kmers(const Logger& logger,
                              const gbwtgraph::GBWTGraph& graph,
                              const gbwt::FragmentMap& fragment_map,
                              size_t k, size_t chain_id, size_t subchain_id) {
-    vg::hash_map<Haplotypes::Subchain::kmer_type, std::uint32_t> positions = vg::oriented_kmer_positions(subchain.kmers, k);
+    vg::OrientedKmerTable positions(subchain.kmers, k);
     std::vector<size_t> sequences_with_kmer(subchain.num_kmers(), 0);
     std::vector<size_t> first_copies;
     std::vector<bool> informative(subchain.num_kmers(), false);
+    vg::OrientedKmerCounts occurrences(subchain.num_kmers());
     for (size_t i = 0; i < subchain.num_sequences(); i++) {
         std::vector<std::string> haplotype = get_haplotype(
             graph, fragment_map, subchain.sequences[i], subchain.start, subchain.end, k
         );
-        std::vector<size_t> occurrences(subchain.num_kmers(), 0);
-        for (const auto& [kmer_id, count] : vg::count_oriented_kmers(haplotype, positions, k)) {
-            occurrences[kmer_id] = count;
-        }
+        occurrences.count(haplotype, positions, k);
         std::vector<size_t> copies = stored_copies(subchain, i);
         for (size_t j = 0; j < subchain.num_kmers(); j++) {
-            if (size_t expected = std::min(occurrences[j], Haplotypes::Subchain::MAX_COPIES); copies[j] != expected) {
+            if (size_t expected = std::min(size_t(occurrences[j]), Haplotypes::Subchain::MAX_COPIES); copies[j] != expected) {
                 std::string message = "kmer " + std::to_string(j) + ": " + expected_got(expected, copies[j]) + " copies";
                 validate_error_sequence(logger, chain_id, subchain_id, i, message);
             }
@@ -1398,6 +1396,42 @@ void validate_subchain_kmers(const Logger& logger,
         if (!informative[j]) {
             validate_error_subchain(logger, chain_id, subchain_id, "kmer " + std::to_string(j) + ": every sequence has the same copies");
         }
+    }
+}
+
+// Validate the bases of the walks that an index built with subchain kmers stores: the
+// N bases of each walk and the median bases over the walks must be those of new walks.
+void validate_walk_bases(const Logger& logger,
+                         const Haplotypes::Subchain& subchain,
+                         const gbwtgraph::GBWTGraph& graph,
+                         const gbwt::FragmentMap& fragment_map,
+                         size_t chain_id, size_t subchain_id) {
+    if (!subchain.has_walk_bases()) {
+        validate_error_subchain(logger, chain_id, subchain_id, "the subchain has copies but no walk bases");
+    }
+    gbwt::CachedGBWT cache(*(graph.index));
+    std::vector<size_t> walk_bases;
+    for (size_t i = 0; i < subchain.num_sequences(); i++) {
+        size_t bases = 0;
+        size_t n_bases = 0;
+        for (nid_t node : vg::SubchainWalk(cache, fragment_map, subchain.start, subchain.end, subchain.get_sequence(i)).node_ids()) {
+            std::string_view view = graph.get_sequence_view(graph.get_handle(node));
+            bases += view.size();
+            n_bases += static_cast<size_t>(std::ranges::count(view, 'N') + std::ranges::count(view, 'n'));
+        }
+        if (n_bases != subchain.walk_n_bases[i]) {
+            validate_error_sequence(logger, chain_id, subchain_id, i, "walk: " + expected_got(n_bases, size_t(subchain.walk_n_bases[i])) + " N bases");
+        }
+        walk_bases.push_back(bases);
+    }
+    std::ranges::sort(walk_bases);
+    size_t n = walk_bases.size();
+    double median = 0.0;
+    if (n > 0) {
+        median = (n % 2 == 1 ? double(walk_bases[n / 2]) : 0.5 * (double(walk_bases[n / 2 - 1]) + double(walk_bases[n / 2])));
+    }
+    if (median != subchain.median_walk_bases) {
+        validate_error_subchain(logger, chain_id, subchain_id, "walks: " + expected_got(median, subchain.median_walk_bases) + " median bases");
     }
 }
 
@@ -1514,6 +1548,7 @@ void validate_chain(const Logger& logger,
         // Kmers.
         if (subchain.has_copies()) {
             validate_subchain_kmers(logger, subchain, graph, fragment_map, minimizer_index.k(), chain_id, subchain_id);
+            validate_walk_bases(logger, subchain, graph, fragment_map, chain_id, subchain_id);
         } else if (subchain.type != Haplotypes::Subchain::full_haplotype) {
             vg::hash_set<Haplotypes::Subchain::kmer_type> all_kmers;
             for (size_t i = 0; i < subchain.num_kmers(); i++) {
@@ -1534,7 +1569,7 @@ void validate_chain(const Logger& logger,
                 for (const std::string& sequence : haplotype) {
                     auto minimizers = minimizer_index.minimizers(sequence);
                     for (auto& minimizer : minimizers) {
-                        if (minimizer_index.count(minimizer) == 1) {
+                        if (minimizer_index.count(minimizer.key.get_key()) == 1) {
                             unique_minimizers[minimizer.key.get_key()] = false;
                         }
                     }

@@ -274,11 +274,13 @@ void ParallelKFFReader::open_next_section() {
 Block_section_reader* ParallelKFFReader::next_section() {
     while (this->section != nullptr && this->section->remaining_blocks == 0) {
         this->open_next_section();
-        if (this->section != nullptr && (this->section->k != this->k || this->section->data_size != this->data_bytes ||
-            this->section->max > this->max_kmers_per_block)) {
-            throw std::runtime_error("ParallelKFFReader: file " + this->file.filename +
-                " has sections with different kmer lengths, count sizes, or block lengths");
-        }
+    }
+    // The buffers are sized for the first section, so a section that does not match it
+    // is never read. The check is made on every call, so every later call fails too.
+    if (this->section != nullptr && (this->section->k != this->k || this->section->data_size != this->data_bytes ||
+        this->section->max > this->max_kmers_per_block)) {
+        throw std::runtime_error("ParallelKFFReader: file " + this->file.filename +
+            " has sections with different kmer lengths, count sizes, or block lengths");
     }
     return this->section.get();
 }
@@ -320,7 +322,7 @@ std::vector<std::pair<ParallelKFFReader::kmer_type, size_t>> ParallelKFFReader::
     // after it. Allocate the space for them before taking the lock.
     size_t kmer_bytes = kff_bytes(this->k);
     size_t record_bytes = kmer_bytes + this->data_bytes;
-    auto records = std::make_unique_for_overwrite<uint8_t[]>(n * record_bytes);
+    std::unique_ptr<uint8_t[]> records(new uint8_t[n * record_bytes]);
     size_t num_records = 0;
 
     {

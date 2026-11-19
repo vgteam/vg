@@ -23,13 +23,6 @@ using finder_type = gbwtgraph::MinimizerIndex<HaplotypeMinimizerIndex::key_type>
 constexpr size_t BUCKET_BITS = 10;
 constexpr size_t BUCKETS = size_t(1) << BUCKET_BITS;
 
-/// The number of traversals of the graph. Each one collects the occurrences in an equal share of
-/// the buckets. A collected occurrence takes 16 bytes and an indexed one about 8. With two
-/// traversals, the collected occurrences take about as much memory as the finished index, and every
-/// minimizer is found twice.
-constexpr size_t PASSES = 2;
-constexpr size_t BUCKETS_PER_PASS = BUCKETS / PASSES;
-
 /**
  * Return the bucket of an encoded key
  *
@@ -55,23 +48,22 @@ struct Occurrence {
 };
 
 /**
- * A thread's store of the minimizer occurrences it found in a range of buckets, with one bin for
- * each bucket
+ * A thread's store of the minimizer occurrences it found, with one bin for each bucket
+ *
+ * Each thread adds to its own store at every occurrence, so the stores are aligned to cache lines,
+ * which keeps one thread's writes from invalidating the store of another.
  *
  * Occurrences wait in a buffer until it fills. Consecutive windows of one thread overlap and share
  * many occurrences, so the buffer is sorted and its duplicates removed before the occurrences go to
  * their bins. A bin is a deque, which grows in small blocks without copying.
  */
-class OccurrenceBins {
+class alignas(gbwtgraph::CACHE_LINE_SIZE) OccurrenceBins {
 public:
-    /// Create bins for the buckets from `first` to `first + count - 1`.
-    OccurrenceBins(size_t first, size_t count) : first(first), bins(count) {}
+    OccurrenceBins() : bins(BUCKETS) {}
 
-    /// Add an occurrence if its bucket is in the range.
+    /// Add an occurrence.
     void add(Occurrence occurrence) {
-        if (this->holds(bucket_of(occurrence.key))) {
-            this->buffer.push_back(occurrence);
-        }
+        this->buffer.push_back(occurrence);
     }
 
     /// Move the buffered occurrences to their bins if the buffer is full.
@@ -83,28 +75,21 @@ public:
 
     /// Move the buffered occurrences to their bins.
     void flush() {
-        std::ranges::sort(this->buffer);
-        auto duplicates = std::ranges::unique(this->buffer);
-        this->buffer.erase(duplicates.begin(), duplicates.end());
+        gbwt::removeDuplicates(this->buffer, false);
         for (const Occurrence& occurrence : this->buffer) {
-            this->bins[bucket_of(occurrence.key) - this->first].push_back(occurrence);
+            this->bins[bucket_of(occurrence.key)].push_back(occurrence);
         }
         this->buffer.clear();
     }
 
-    /// Return true if the bucket is in the range.
-    bool holds(size_t bucket) const {
-        return bucket >= this->first && bucket - this->first < this->bins.size();
-    }
-
-    /// Return the number of occurrences in the bin of a bucket in the range.
+    /// Return the number of occurrences in the bin of the bucket.
     size_t bin_size(size_t bucket) const {
-        return this->bins[bucket - this->first].size();
+        return this->bins[bucket].size();
     }
 
-    /// Append the occurrences in the bin of a bucket in the range to the vector, and free the bin.
+    /// Append the occurrences in the bin of the bucket to the vector, and free the bin.
     void take(size_t bucket, std::vector<Occurrence>& out) {
-        std::deque<Occurrence>& bin = this->bins[bucket - this->first];
+        std::deque<Occurrence>& bin = this->bins[bucket];
         out.insert(out.end(), bin.begin(), bin.end());
         std::deque<Occurrence>().swap(bin);
     }
@@ -113,7 +98,6 @@ private:
     /// The number of occurrences at which the buffer is flushed.
     constexpr static size_t BUFFER_SIZE = 65536;
 
-    size_t first;
     std::vector<Occurrence> buffer;
     std::vector<std::deque<Occurrence>> bins;
 };
@@ -166,18 +150,16 @@ void add_window_occurrences(
 }
 
 /**
- * Find the minimizer occurrences in all haplotype windows of the graph, in a range of buckets
+ * Find the minimizer occurrences in all haplotype windows of the graph
  *
  * The windows are the haplotype-consistent walks that gbwtgraph::for_each_haplotype_window()
  * reports.
  *
  * @returns The occurrences found by each thread, indexed by OpenMP thread number.
  */
-std::vector<OccurrenceBins> collect_occurrences(
-    const gbwtgraph::GBWTGraph& graph, const finder_type& finder, size_t first_bucket, size_t buckets
-) {
+std::vector<OccurrenceBins> collect_occurrences(const gbwtgraph::GBWTGraph& graph, const finder_type& finder) {
     int threads = omp_get_max_threads();
-    std::vector result(static_cast<size_t>(threads), OccurrenceBins(first_bucket, buckets));
+    std::vector<OccurrenceBins> result(static_cast<size_t>(threads));
     gbwtgraph::for_each_haplotype_window(graph, finder.window_bp(),
         [&graph, &finder, &result](const std::vector<handlegraph::handle_t>& traversal, const std::string& sequence) {
             add_window_occurrences(graph, finder, traversal, sequence, result[omp_get_thread_num()]);
@@ -199,9 +181,7 @@ std::vector<Occurrence> take_bucket(std::vector<OccurrenceBins>& bins, size_t bu
     for (OccurrenceBins& thread_bins : bins) {
         thread_bins.take(bucket, result);
     }
-    std::ranges::sort(result);
-    auto duplicates = std::ranges::unique(result);
-    result.erase(duplicates.begin(), duplicates.end());
+    gbwt::removeDuplicates(result, false);
     return result;
 }
 
@@ -222,43 +202,36 @@ size_t distinct_keys(const std::vector<Occurrence>& occurrences) {
 
 HaplotypeMinimizerIndex::HaplotypeMinimizerIndex(const gbwtgraph::GBZ& gbz, size_t k, size_t w) :
     finder(k, w, 0, false), buckets(BUCKETS) {
-    for (size_t first = 0; first < BUCKETS; first += BUCKETS_PER_PASS) {
-        std::vector<OccurrenceBins> bins = collect_occurrences(gbz.graph, this->finder, first, BUCKETS_PER_PASS);
+    std::vector<OccurrenceBins> bins = collect_occurrences(gbz.graph, this->finder);
 
-        // A thread that builds a bucket reads only the bins of that bucket, so the buckets are built
-        // in parallel without a lock.
-        #pragma omp parallel for schedule(dynamic, 1)
-        for (size_t bucket_id = first; bucket_id < first + BUCKETS_PER_PASS; bucket_id++) {
-            std::vector<Occurrence> occurrences = take_bucket(bins, bucket_id);
-            Bucket& bucket = this->buckets[bucket_id];
-            bucket.keys.reserve(distinct_keys(occurrences));
-            bucket.positions.reserve(occurrences.size());
-            for (const Occurrence& occurrence : occurrences) {
-                bucket.append(occurrence.key, occurrence.position);
-            }
+    // A thread that builds a bucket reads only the bins of that bucket, so the buckets are built in
+    // parallel without a lock.
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (size_t bucket_id = 0; bucket_id < BUCKETS; bucket_id++) {
+        std::vector<Occurrence> occurrences = take_bucket(bins, bucket_id);
+        // The bucket is built in a local object and moved into place, so threads building
+        // neighbouring buckets do not write to the same cache line.
+        Bucket bucket;
+        bucket.keys.reserve(distinct_keys(occurrences));
+        bucket.positions.reserve(occurrences.size());
+        for (const Occurrence& occurrence : occurrences) {
+            bucket.append(occurrence.key, occurrence.position);
         }
+        this->buckets[bucket_id] = std::move(bucket);
     }
 }
 
-HaplotypeMinimizerIndex::multi_value_type HaplotypeMinimizerIndex::Bucket::find(code_type key) const {
+std::span<const code_type> HaplotypeMinimizerIndex::Bucket::find(code_type key) const {
     auto iter = std::ranges::lower_bound(this->keys, key, {}, &Entry::key);
     if (iter == this->keys.end() || iter->key != key) {
-        return multi_value_type(nullptr, 0);
+        return {};
     }
     size_t start = (iter == this->keys.begin() ? 0 : (iter - 1)->end);
-    return multi_value_type(this->positions.data() + start, iter->end - start);
+    return std::span<const code_type>(this->positions.data() + start, iter->end - start);
 }
 
-HaplotypeMinimizerIndex::multi_value_type HaplotypeMinimizerIndex::find(const minimizer_type& minimizer) const {
-    code_type key = minimizer.key.get_key();
+std::span<const code_type> HaplotypeMinimizerIndex::positions(code_type key) const {
     return this->buckets[bucket_of(key)].find(key);
-}
-
-HaplotypeMinimizerIndex::value_type HaplotypeMinimizerIndex::get_value(multi_value_type values, size_t index) const {
-    if (index >= values.second) {
-        return value_type(gbwtgraph::Position::no_pos(), nullptr);
-    }
-    return value_type(gbwtgraph::Position(values.first[index]), nullptr);
 }
 
 size_t HaplotypeMinimizerIndex::size() const {

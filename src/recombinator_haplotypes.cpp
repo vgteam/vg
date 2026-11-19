@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cmath>
+#include <unordered_map>
 
 //#define debug_selected_haplotypes
 
@@ -19,6 +20,7 @@ constexpr size_t Haplotypes::KFF_BLOCK_SIZE;
 constexpr std::uint32_t Haplotypes::Header::MAGIC_NUMBER;
 constexpr std::uint32_t Haplotypes::Header::VERSION;
 constexpr std::uint32_t Haplotypes::Header::COPIES_VERSION;
+constexpr std::uint32_t Haplotypes::Header::WALK_BASES_VERSION;
 constexpr std::uint32_t Haplotypes::Header::COMPRESSED_VERSION;
 constexpr std::uint32_t Haplotypes::Header::VERSION_WITH_TAGS;
 constexpr std::uint32_t Haplotypes::Header::MIN_VERSION;
@@ -326,53 +328,135 @@ void KmerPresenceMatrix::score_sequences(
     for (size_t rank = 0; rank < this->get_num_sequences(); rank++) {
         if (this->is_parent(rank)) {
             parent_start = this->parent(rank) * this->num_kmers;
-            parent_score = 0.0;
-            for (size_t kmer_id = 0; kmer_id < this->num_kmers; kmer_id++) {
-                // +1 if the kmer is present and -1 if it is absent.
-                double multiplier = -1.0 + 2.0 * this->parents[parent_start + kmer_id];
-                parent_score += multiplier * kmers[kmer_id].second;
-            }
+            parent_score = this->parent_score(parent_start, kmers);
             sequence_score(rank, parent_score);
         } else {
-            ChildIterator child_iter(*this, rank);
-            double child_score = parent_score;
-            while (!child_iter.end()) {
-                size_t kmer_id = child_iter.kmer_id();
-                auto was_present = this->parents[parent_start + kmer_id];
-                // -2 if the kmer is present in the parent and +2 if it is absent.
-                double multiplier = 2.0 - 4.0 * was_present;
-                child_score += multiplier * kmers[kmer_id].second;
-                ++child_iter;
-            }
-            sequence_score(rank, child_score);
+            sequence_score(rank, this->add_child_differences(rank, parent_start, parent_score, kmers));
         }
     }
 }
 
-std::int64_t KmerPresenceMatrix::diploid_score(
-    size_t first, size_t second,
+double KmerPresenceMatrix::score_sequence(
+    size_t sequence, const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
+) const {
+    size_t parent_start = this->parent(sequence) * this->num_kmers;
+    double score = this->parent_score(parent_start, kmers);
+    if (!this->is_parent(sequence)) {
+        score = this->add_child_differences(sequence, parent_start, score, kmers);
+    }
+    return score;
+}
+
+std::optional<KmerPresenceMatrix::ScoringPlan> KmerPresenceMatrix::scoring_plan(size_t max_differences) const {
+    if (this->num_kmers > size_t(std::numeric_limits<std::int32_t>::max())) {
+        return std::nullopt;
+    }
+    ScoringPlan plan;
+    plan.list_of.assign(this->get_num_sequences(), ScoringPlan::PARENT);
+    // The lists of the children of the current parent, by hash.
+    std::unordered_map<size_t, std::vector<std::uint32_t>> parent_lists;
+    size_t parent_start = 0;
+    std::vector<std::int32_t> list;
+    for (size_t rank = 0; rank < this->get_num_sequences(); rank++) {
+        if (this->is_parent(rank)) {
+            parent_start = this->parent(rank) * this->num_kmers;
+            parent_lists.clear();
+            continue;
+        }
+        list.clear();
+        size_t hash = 0;
+        for (ChildIterator child_iter(*this, rank); !child_iter.end(); ++child_iter) {
+            auto kmer_id = static_cast<std::int32_t>(child_iter.kmer_id());
+            std::int32_t difference = (this->parents[parent_start + kmer_id] ? -1 - kmer_id : kmer_id);
+            list.push_back(difference);
+            hash = (hash ^ std::hash<std::int32_t>()(difference)) * 0x100000001B3;
+        }
+        std::vector<std::uint32_t>& same_hash = parent_lists[hash];
+        for (std::uint32_t candidate : same_hash) {
+            auto [first, last] = plan.lists[candidate];
+            if (std::equal(list.begin(), list.end(), plan.differences.begin() + first, plan.differences.begin() + last)) {
+                plan.list_of[rank] = candidate;
+                break;
+            }
+        }
+        if (plan.list_of[rank] == ScoringPlan::PARENT) {
+            if (plan.differences.size() + list.size() > max_differences) {
+                return std::nullopt;
+            }
+            plan.list_of[rank] = static_cast<std::uint32_t>(plan.lists.size());
+            same_hash.push_back(plan.list_of[rank]);
+            plan.lists.emplace_back(plan.differences.size(), plan.differences.size() + list.size());
+            if (plan.differences.size() + list.size() > plan.differences.capacity()) {
+                // Grow as a vector would, but never past the limit.
+                plan.differences.reserve(std::min(std::max(2 * plan.differences.capacity(), plan.differences.size() + list.size()), max_differences));
+            }
+            plan.differences.insert(plan.differences.end(), list.begin(), list.end());
+        }
+    }
+    return plan;
+}
+
+void KmerPresenceMatrix::score_sequences(
+    const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers, const ScoringPlan& plan,
+    const std::function<void(size_t, double)>& sequence_score
+) const {
+    // The score of each list of differences, computed when first needed for the
+    // current parent; a list belongs to the children of one parent.
+    std::vector<double> list_scores(plan.lists.size());
+    std::vector<bool> scored(plan.lists.size(), false);
+    double parent_score = 0.0;
+    for (size_t rank = 0; rank < this->get_num_sequences(); rank++) {
+        std::uint32_t list = plan.list_of[rank];
+        if (list == ScoringPlan::PARENT) {
+            parent_score = this->parent_score(this->parent(rank) * this->num_kmers, kmers);
+            sequence_score(rank, parent_score);
+            continue;
+        }
+        if (!scored[list]) {
+            // The same additions as in `add_child_differences()`: -2 if the kmer is
+            // present in the parent and +2 if it is absent.
+            double score = parent_score;
+            auto [first, last] = plan.lists[list];
+            for (size_t i = first; i < last; i++) {
+                std::int32_t difference = plan.differences[i];
+                if (difference < 0) {
+                    score += -2.0 * kmers[-1 - difference].second;
+                } else {
+                    score += 2.0 * kmers[difference].second;
+                }
+            }
+            list_scores[list] = score;
+            scored[list] = true;
+        }
+        sequence_score(rank, list_scores[list]);
+    }
+}
+
+double KmerPresenceMatrix::parent_score(
+    size_t parent_start, const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
+) const {
+    double score = 0.0;
+    for (size_t kmer_id = 0; kmer_id < this->num_kmers; kmer_id++) {
+        // +1 if the kmer is present and -1 if it is absent.
+        double multiplier = -1.0 + 2.0 * this->parents[parent_start + kmer_id];
+        score += multiplier * kmers[kmer_id].second;
+    }
+    return score;
+}
+
+double KmerPresenceMatrix::add_child_differences(
+    size_t rank, size_t parent_start, double score,
     const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
 ) const {
-    // Accessed by `3 * classification + num_present`.
-    constexpr static std::array<std::int8_t, 15> SCORE_MATRIX {
-        1, 0, -1, // Absent
-        0, 1, 0,  // Heterozygous
-        -1, 0, 1, // Present
-        0, 0, 0,  // Frequent
-        0, 0, 0,  // Ignored
-    };
-
-    Iterator first_iter(*this, first);
-    Iterator second_iter(*this, second);
-    std::int64_t score = 0;
-    while (!first_iter.end() && !second_iter.end()) {
-        size_t kmer_id = first_iter.kmer_id;
-        size_t num_present = first_iter.is_present + second_iter.is_present;
-        score += SCORE_MATRIX[3 * static_cast<size_t>(kmers[kmer_id].first) + num_present];
-        ++first_iter;
-        ++second_iter;
+    ChildIterator child_iter(*this, rank);
+    while (!child_iter.end()) {
+        size_t kmer_id = child_iter.kmer_id();
+        auto was_present = this->parents[parent_start + kmer_id];
+        // -2 if the kmer is present in the parent and +2 if it is absent.
+        double multiplier = 2.0 - 4.0 * was_present;
+        score += multiplier * kmers[kmer_id].second;
+        ++child_iter;
     }
-
     return score;
 }
 
@@ -479,13 +563,15 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
         std::cerr << "Initialized the hash map with " << result.size() << " kmers in " << seconds << " seconds" << std::endl;
     }
 
-    // Read the KFF file and add the counts using multiple threads.
+    // Read the KFF file and add the counts using multiple threads. An exception cannot
+    // leave a task, so a task keeps the first error, and it is thrown after the tasks.
     checkpoint = gbwt::readTimer();
     size_t kmer_count = 0;
+    std::string error;
     #pragma omp parallel
     {
         #pragma omp task
-        {
+        try {
             while (true) {
                 std::vector<std::pair<ParallelKFFReader::kmer_type, size_t>> block = reader.read(KFF_BLOCK_SIZE);
                 if (block.empty()) {
@@ -506,7 +592,21 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
                     kmer_count += block.size();
                 }
             }
+        } catch (const std::exception& e) {
+            #pragma omp critical (kmer_count_error)
+            if (error.empty()) {
+                error = e.what();
+            }
+        } catch (const char* message) {
+            // The KFF library throws C strings.
+            #pragma omp critical (kmer_count_error)
+            if (error.empty()) {
+                error = message;
+            }
         }
+    }
+    if (!error.empty()) {
+        throw std::runtime_error(error);
     }
     if (verbosity >= verbosity_detailed) {
         double seconds = gbwt::readTimer() - checkpoint;
@@ -624,6 +724,10 @@ void Haplotypes::Subchain::simple_sds_serialize(std::ostream& out, std::uint32_t
         this->copy_kmers.simple_sds_serialize(out);
         this->copy_values.simple_sds_serialize(out);
     }
+    if (version >= Header::WALK_BASES_VERSION) {
+        sdsl::simple_sds::serialize_value<double>(this->median_walk_bases, out);
+        this->walk_n_bases.simple_sds_serialize(out);
+    }
 }
 
 void load_subchain_header(Haplotypes::Subchain& subchain, std::istream& in, std::uint32_t version) {
@@ -704,6 +808,18 @@ void Haplotypes::Subchain::set_copies(const std::vector<kmer_copies_type>& copie
     this->copy_offsets[copies.size()] = offset;
 }
 
+void Haplotypes::Subchain::set_walk_bases(double median, const std::vector<size_t>& n_bases) {
+    if (n_bases.size() != this->sequences.size()) {
+        throw std::invalid_argument("Haplotypes::Subchain::set_walk_bases(): N bases do not match the sequences");
+    }
+    this->median_walk_bases = median;
+    size_t largest = (n_bases.empty() ? 0 : *std::ranges::max_element(n_bases));
+    this->walk_n_bases = sdsl::int_vector<0>(n_bases.size(), 0, static_cast<std::uint8_t>(sdsl::bits::length(largest)));
+    for (size_t i = 0; i < n_bases.size(); i++) {
+        this->walk_n_bases[i] = n_bases[i];
+    }
+}
+
 void Haplotypes::Subchain::simple_sds_load(std::istream& in, std::uint32_t version) {
     load_subchain_header(*this, in, version);
 
@@ -736,6 +852,16 @@ void Haplotypes::Subchain::simple_sds_load(std::istream& in, std::uint32_t versi
         this->copy_kmers = sdsl::int_vector<0>();
         this->copy_values = sdsl::int_vector<0>();
     }
+    if (version >= Header::WALK_BASES_VERSION) {
+        this->median_walk_bases = sdsl::simple_sds::load_value<double>(in);
+        this->walk_n_bases.simple_sds_load(in);
+        if (!this->walk_n_bases.empty() && this->walk_n_bases.size() != this->sequences.size()) {
+            throw sdsl::simple_sds::InvalidData("Subchain walk N bases do not match the sequences");
+        }
+    } else {
+        this->median_walk_bases = 0.0;
+        this->walk_n_bases = sdsl::int_vector<0>();
+    }
 }
 
 size_t Haplotypes::Subchain::simple_sds_size(std::uint32_t version) const {
@@ -747,6 +873,9 @@ size_t Haplotypes::Subchain::simple_sds_size(std::uint32_t version) const {
     result += this->kmers_present.simple_sds_size();
     if (version >= Header::COPIES_VERSION) {
         result += this->copy_offsets.simple_sds_size() + this->copy_kmers.simple_sds_size() + this->copy_values.simple_sds_size();
+    }
+    if (version >= Header::WALK_BASES_VERSION) {
+        result += sdsl::simple_sds::value_size<double>() + this->walk_n_bases.simple_sds_size();
     }
     return result;
 }
@@ -799,7 +928,7 @@ bool Haplotypes::has_copies() const {
 }
 
 std::uint32_t Haplotypes::file_version() const {
-    static_assert(Header::VERSION == Header::COPIES_VERSION, "choose the file version of an index without copies");
+    static_assert(Header::VERSION == Header::WALK_BASES_VERSION, "choose the file version of an index without copies");
     return (this->has_copies() ? Header::VERSION : Header::COPIES_VERSION - 1);
 }
 

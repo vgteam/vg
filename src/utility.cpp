@@ -1084,8 +1084,8 @@ int set_thread_count(const Logger& logger, const string& arg, int max_threads) {
     } else if (num_threads > max_threads) {
         // If the user asked for more threads than we can actually use, cap it.
         logger.warn() << "Thread count (-t) is greater than the maximum number of threads available (" 
-                      << omp_get_max_threads() << "), capping to that value" << endl;
-        num_threads = omp_get_max_threads();
+                      << max_threads << "), capping to that value" << endl;
+        num_threads = max_threads;
     }
     
     omp_set_num_threads(num_threads);

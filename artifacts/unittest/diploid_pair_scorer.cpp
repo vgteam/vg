@@ -54,7 +54,7 @@ Haplotypes::Subchain random_subchain(size_t num_kmers, size_t clusters, size_t s
     return result;
 }
 
-// Return a random class for each kmer, with every class present.
+// Return a random class for each kmer, each class with the same probability.
 kmer_types_type random_kmer_types(size_t num_kmers, std::mt19937& rng) {
     kmer_types_type result;
     for (size_t kmer_id = 0; kmer_id < num_kmers; kmer_id++) {
@@ -64,11 +64,46 @@ kmer_types_type random_kmer_types(size_t num_kmers, std::mt19937& rng) {
     return result;
 }
 
+// Return the presence of each kmer in each sequence of the subchain, read kmer by kmer.
+std::vector<std::vector<bool>> presence(const Haplotypes::Subchain& subchain) {
+    std::vector<std::vector<bool>> result(subchain.num_sequences(), std::vector<bool>(subchain.num_kmers(), false));
+    for (size_t i = 0; i < subchain.num_sequences(); i++) {
+        subchain.for_each_kmer(i, [&](size_t kmer_id, bool is_present) {
+            result[i][kmer_id] = is_present;
+        });
+    }
+    return result;
+}
+
+// Return the score of the pair of sequences: for each kmer with c copies in the pair,
+// 1 - c if it is absent, 1 if it is heterozygous and c is 1, c - 1 if it is present,
+// and 0 otherwise.
+std::int64_t pair_score(const std::vector<std::vector<bool>>& present, size_t a, size_t b, const kmer_types_type& kmer_types) {
+    std::int64_t score = 0;
+    for (size_t kmer_id = 0; kmer_id < kmer_types.size(); kmer_id++) {
+        std::int64_t copies = std::int64_t(present[a][kmer_id]) + std::int64_t(present[b][kmer_id]);
+        switch (kmer_types[kmer_id].first) {
+        case KmerPresenceMatrix::absent:
+            score += 1 - copies;
+            break;
+        case KmerPresenceMatrix::heterozygous:
+            score += (copies == 1 ? 1 : 0);
+            break;
+        case KmerPresenceMatrix::present:
+            score += copies - 1;
+            break;
+        default:
+            break;
+        }
+    }
+    return score;
+}
+
 } // anonymous namespace
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("DiploidPairScorer agrees with the presence matrix", "[haplotypes]") {
+TEST_CASE("DiploidPairScorer scores pairs by the classes of their kmers", "[haplotypes]") {
     std::mt19937 rng(0xD1F);
     // Several trials of each length, so that the kmers next to the word
     // boundaries take every class.
@@ -92,9 +127,10 @@ TEST_CASE("DiploidPairScorer agrees with the presence matrix", "[haplotypes]") {
         candidates.push_back(candidates.front());
 
         DiploidPairScorer scorer(subchain, candidates, kmer_types);
+        std::vector<std::vector<bool>> present = presence(subchain);
         for (size_t first = 0; first < candidates.size(); first++) {
             for (size_t second = 0; second < candidates.size(); second++) {
-                std::int64_t expected = subchain.diploid_score(candidates[first], candidates[second], kmer_types);
+                std::int64_t expected = pair_score(present, candidates[first], candidates[second], kmer_types);
                 REQUIRE(scorer.score(first, second) == expected);
             }
         }
