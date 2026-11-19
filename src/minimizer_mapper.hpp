@@ -24,6 +24,7 @@
 #include <structures/immutable_list.hpp>
 
 #include <atomic>
+#include <functional>
 
 namespace vg {
 
@@ -100,7 +101,18 @@ class MinimizerMapper : public AlignerClient {
      */
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
 
+    /**
+     * A function that gives, for a read, more sequences in which to find
+     * minimizers. Each sequence has the read's length and gives a base at each
+     * read offset where it stands in for the read, with 'N' elsewhere.
+     */
+    using StandInSequenceSource = std::function<std::vector<std::string>(const Alignment& aln)>;
 
+    /// If set, single-end mapping also finds minimizers in the sequences this
+    /// gives for each read, and seeds from them as if they were in the read.
+    /// Paired-end mapping does not use it. SAFARI uses it to seed reads whose
+    /// own k-mers damage has changed.
+    StandInSequenceSource stand_in_sequences;
 
 
     // Mapping settings.
@@ -706,6 +718,14 @@ protected:
      * return them sorted in read order.
      */
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
+
+    /**
+     * Add to the read's minimizers, sorted in read order, those found in the
+     * sequences that stand_in_sequences gives for the read, except for those
+     * already there with the same key, offset and orientation. Keeps them
+     * sorted in read order. Does nothing if stand_in_sequences is not set.
+     */
+    void add_stand_in_minimizers(const Alignment& aln, std::vector<Minimizer>& minimizers_in_read, Funnel& funnel) const;
 
     /**
      * Flag minimizers as being in repetitive regions of the read

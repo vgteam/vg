@@ -18,6 +18,7 @@
 #include <mutex>
 
 #include "subcommand.hpp"
+#include "giraffe_main.hpp"
 #include "options.hpp"
 
 #include "../snarl_seed_clusterer.hpp"
@@ -666,13 +667,18 @@ void apply_haplotype_sampling_preset(std::string_view preset_name, Logger& logge
 
 //----------------------------------------------------------------------------
 
-void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
-    cerr << "usage:" << endl
-         << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist [-m graph.withzip.min -z graph.zipcodes]] <input options> [other options] > output.gam" << endl
-         << "  " << argv[0] << " giraffe -Z graph.gbz --haplotype-name graph.hapl --kff-name sample.kff <input options> [other options] > output.gam" << endl
-         << endl
-         << "Fast haplotype-aware read mapper." << endl
-         << endl;
+void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help,
+                  const GiraffeVariant& variant) {
+    if (variant.print_help) {
+        variant.print_help(cerr);
+    } else {
+        cerr << "usage:" << endl
+             << "  " << argv[0] << " " << variant.name << " -Z graph.gbz [-d graph.dist [-m graph.withzip.min -z graph.zipcodes]] <input options> [other options] > output.gam" << endl
+             << "  " << argv[0] << " " << variant.name << " -Z graph.gbz --haplotype-name graph.hapl --kff-name sample.kff <input options> [other options] > output.gam" << endl
+             << endl
+             << "Fast haplotype-aware read mapper." << endl
+             << endl;
+    }
 
     cerr << "basic options:" << endl
          << "  -Z, --gbz-name FILE           map to this GBZ graph" << endl
@@ -785,7 +791,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
 
 //----------------------------------------------------------------------------
 
-int main_giraffe(int argc, char** argv) {
+int vg::subcommand::run_giraffe(int argc, char** argv, const GiraffeVariant& variant) {
 
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
@@ -1207,7 +1213,7 @@ int main_giraffe(int argc, char** argv) {
     parser->make_short_options(short_options);
 
     if (argc == 2) {
-        help_giraffe(argv, *parser, presets, false);
+        help_giraffe(argv, *parser, presets, false, variant);
         return 1;
     }
 
@@ -1486,7 +1492,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv, *parser, presets, true);
+                help_giraffe(argv, *parser, presets, true, variant);
                 exit(1);
                 break;
         }
@@ -1967,6 +1973,9 @@ int main_giraffe(int argc, char** argv) {
         &oversized_zipcodes, path_position_graph
     );
     MinimizerMapper& minimizer_mapper = *minimizer_mapper_ptr;
+    if (variant.configure_mapper) {
+        variant.configure_mapper(minimizer_mapper, paired);
+    }
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }
@@ -2592,6 +2601,10 @@ int main_giraffe(int argc, char** argv) {
 }
 
 //----------------------------------------------------------------------------
+
+int main_giraffe(int argc, char** argv) {
+    return run_giraffe(argc, argv, GiraffeVariant());
+}
 
 // Register subcommand
 static Subcommand vg_giraffe("giraffe", "fast haplotype-aware read alignment", PIPELINE, 6, main_giraffe);
