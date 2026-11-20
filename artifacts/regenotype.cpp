@@ -627,7 +627,6 @@ void count_move(const vector<int>& before, const vector<int>& after,
     }
 }
 
-
 /// Return whether the reads prefer the other order of a site's two alleles `a` and `b` to the one
 /// that puts `strand0_allele` on strand 0, where `forward` scores `a` on strand 0 and `reverse`
 /// scores `b` there. A site whose strand-0 allele is neither prefers no other order.

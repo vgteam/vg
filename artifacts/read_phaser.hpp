@@ -41,11 +41,9 @@ public:
      * swaps.
      *
      * @param phase_set_id Returns the run-wide ID of a phase set of a contig.
-     * @param show_fit Whether to report the table of the fit of the panel's error rates.
      */
     void phase(StagedSiteTable& staged, PhaseTable& phases, ReadStrandTable& strands,
-               const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
-               bool show_fit);
+               const function<size_t(const string& contig, size_t phase_set)>& phase_set_id);
 
 private:
     /// Fill `sites` with the read evidence of each diploid heterozygous site, in record order.
@@ -57,8 +55,8 @@ private:
                        const function<size_t(const string& contig, size_t phase_set)>&
                            phase_set_id) const;
 
-    /// Write what the last `phase()` did to standard error, with the fit's table if `show_fit`.
-    void report(bool show_fit) const;
+    /// Write what the last `phase()` did to standard error.
+    void report() const;
 
     /// Whether read phasing is on.
     bool on = false;

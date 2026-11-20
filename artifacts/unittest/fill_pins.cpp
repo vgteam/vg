@@ -479,8 +479,8 @@ TEST_CASE("Reads placed from the windows a source fetches match those resolve_re
     auto placed = [](const FillAnchors& fill) {
         vector<tuple<uint32_t, string, uint32_t, uint32_t, float, uint8_t>> out;
         for (const FillPlacement& p : fill.placements()) {
-            out.emplace_back(p.point, read_names().name(p.read), p.alignment, p.offset, p.score,
-                             p.direction);
+            out.emplace_back(p.point, read_names().name(p.row.read), p.row.alignment,
+                             p.row.offset, p.row.score, p.row.direction);
         }
         return out;
     };
@@ -575,7 +575,7 @@ TEST_CASE("A read is placed at a fill point only where it crosses it", "[fill]")
 
     vector<pair<uint32_t, uint8_t>> placed;
     for (const FillPlacement& p : fill.placements()) {
-        placed.emplace_back(p.offset, p.direction);
+        placed.emplace_back(p.row.offset, p.row.direction);
     }
     std::ranges::sort(placed);
     // The forward read has node base 599 at its base 199. The reverse read reads node base 599

@@ -103,8 +103,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
         // reads at the fill points of the windows the direct pass never fetched whole, while the
         // read source is open. No pass after the direct pass reads reads, and this query adds
         // nothing to the source's tallies of read starts or to its off-panel candidates, so it
-        // cannot change a genotype. A windowed source keeps the fetch statistics of this query
-        // apart from the site queries'.
+        // cannot change a genotype.
         read_source->set_window_observer(nullptr);
         fill_anchors.place(sites);
         fill_anchors.resolve_reads(*read_source);
@@ -397,8 +396,7 @@ void MultiPassCaller::phase_reads() {
         read_phaser.phase(staged_sites, phase_table, read_strands,
                           [this](const string& contig, size_t phase_set) {
                               return phase_set_id(contig, phase_set);
-                          },
-                          show_progress);
+                          });
     }
 }
 

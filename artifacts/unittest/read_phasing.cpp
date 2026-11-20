@@ -328,7 +328,6 @@ TEST_CASE("read phasing fits the panel's error rates from its pieces", "[read_ph
     // Every pair is 1 kb apart, so the fit sees only the agreement at 1 kb.
     const double agreement = (1.0 + counters.panel.correlation(1000)) / 2.0;
     REQUIRE(agreement == Approx(390.0 / 399.0).epsilon(0.003));
-    REQUIRE(counters.panel_fit.size() == 8);
 
     // Too few pairs fit no rates.
     vector<PhaseSite> few = linked_sites(100, 1000, 0, [](size_t) { return false; });

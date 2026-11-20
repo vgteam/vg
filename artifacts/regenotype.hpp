@@ -341,9 +341,8 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const Stran
 ///
 /// Reads fix the strands of one run's sites relative to each other but not to another run's (see
 /// `PhaseSite::run`), so the reads are scored in groups by the run their strands come from (see
-/// `read_strand`). Reads with no strand
-/// join the frame group: the group of the site's own run if a read with a strand comes from it,
-/// and otherwise the largest group.
+/// `read_strand`). Reads with no strand join the frame group: the group of the site's own run if a
+/// read with a strand comes from it, and otherwise the largest group.
 ///
 /// Each assignment of the frame group is scored with the other groups: each takes the same
 /// assignment with the probability `strands.correlations` gives for its run against the frame

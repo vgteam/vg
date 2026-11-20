@@ -375,8 +375,8 @@ vector<vector<int>> genotypes_with_one_more_copy(const BestScoreTable& best,
  * where one copy of a group carries the reads of two haplotypes. One more copy of the group takes
  * over the reads of the second haplotype, so the gain drops. One more allele of the group does not
  * spell a mosaic either, so a mosaic should lose less of its gain, though how much it keeps depends
- * on the reads. So we charge each multiset the largest drop in its gain that one more copy of one of its groups of two
- * or more alleles brings, or nothing if no such copy lowers the gain.
+ * on the reads. So we charge each multiset the largest drop in its gain that one more copy of one
+ * of its groups of two or more alleles brings, or nothing if no such copy lowers the gain.
  *
  * The number of genotypes at ploidy + 1 grows with the cube of the number of alleles at a diploid
  * site, so we take the gain of a multiset at ploidy + 1 from fewer genotypes. Each multiset at

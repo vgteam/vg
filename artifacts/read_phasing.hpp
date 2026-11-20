@@ -235,18 +235,6 @@ struct PanelErrorModel {
     double vote(size_t distance) const;
 };
 
-/// A bin of the pairs of sites the panel's error rates are fitted to, by distance.
-struct PanelFitBin {
-    /// The mean distance between the sites of a pair, in bases.
-    double distance = 0.0;
-    /// The fraction of the pairs that the panel orders as the reads do.
-    double observed = 0.0;
-    /// That fraction as the fitted rates predict it.
-    double predicted = 0.0;
-    /// The number of pairs.
-    size_t count = 0;
-};
-
 /// A report of what read phasing did.
 struct ReadPhasingCounters {
     /// Sites phased.
@@ -280,10 +268,7 @@ struct ReadPhasingCounters {
     size_t panel_pairs_reversed = 0;
     /// The panel's error rates, fitted from those pairs.
     PanelErrorModel panel;
-    /// The fit's table, in bins of the pairs by distance.
-    vector<PanelFitBin> panel_fit;
 };
-
 
 /// Return the size of the link between two sites.
 ///

@@ -116,7 +116,7 @@ static vector<PhaseTable::NestedLink> nested_links(
 
 void ReadPhaser::phase(
     StagedSiteTable& staged, PhaseTable& phases, ReadStrandTable& strands,
-    const function<size_t(const string& contig, size_t phase_set)>& phase_set_id, bool show_fit) {
+    const function<size_t(const string& contig, size_t phase_set)>& phase_set_id) {
     if (!on || phases.calls().empty()) {
         return;
     }
@@ -141,10 +141,10 @@ void ReadPhaser::phase(
     // allele numbers in its GT.
     counters.strands_rederived += phases.swap_strands(strands.flips(),
                                                       nested_links(staged, phase_index));
-    report(show_fit);
+    report();
 }
 
-void ReadPhaser::report(bool show_fit) const {
+void ReadPhaser::report() const {
     const ReadPhasingCounters& c = counters;
     cerr << "[vg call] read phasing: " << c.sites << " het sites, " << c.reliable
          << " reliable, " << c.chains << " blocks, " << c.breaks << " chain breaks ("
@@ -172,14 +172,6 @@ void ReadPhaser::report(bool show_fit) const {
              << c.panel.flip_rate << " of sites" << endl;
     } else {
         cerr << "; too few to fit its error rates" << endl;
-    }
-    if (show_fit && !c.panel_fit.empty()) {
-        cerr << "[vg call] panel phase fit, distance / agreement observed / predicted / n:";
-        for (const PanelFitBin& bin : c.panel_fit) {
-            cerr << "  " << bin.distance << " " << bin.observed << " " << bin.predicted << " "
-                 << bin.count;
-        }
-        cerr << endl;
     }
 }
 

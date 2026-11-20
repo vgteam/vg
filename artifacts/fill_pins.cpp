@@ -323,15 +323,14 @@ void FillAnchors::place(const SnarlDecomposition& decomposition) {
     for (const auto& sites_of_point : held_in) {
         holding_sites.insert(holding_sites.end(), sites_of_point.begin(), sites_of_point.end());
     }
-    std::sort(holding_sites.begin(), holding_sites.end(), net_before);
-    holding_sites.erase(std::unique(holding_sites.begin(), holding_sites.end()),
-                        holding_sites.end());
+    std::ranges::sort(holding_sites, net_before);
+    const auto repeats = std::ranges::unique(holding_sites);
+    holding_sites.erase(repeats.begin(), repeats.end());
     holders.clear();
     holder_start.assign(1, 0);
     for (auto& sites_of_point : held_in) {
         for (const net_handle_t& site : sites_of_point) {
-            holders.push_back((uint32_t)(std::lower_bound(holding_sites.begin(), holding_sites.end(),
-                                                          site, net_before)
+            holders.push_back((uint32_t)(std::ranges::lower_bound(holding_sites, site, net_before)
                                          - holding_sites.begin()));
         }
         holder_start.push_back((uint32_t)holders.size());
@@ -433,9 +432,9 @@ void FillAnchors::place_read(const SiteRead& read, const vector<VisitedNode>& vi
             if (name == numeric_limits<uint32_t>::max()) {
                 name = read_names().intern(read.aln->name());
             }
-            out.push_back(FillPlacement{(uint32_t)(point - fill_points.begin()), name,
-                                        placed.alignment, (uint32_t)placed.offset, score,
-                                        placed.direction});
+            out.push_back(FillPlacement{(uint32_t)(point - fill_points.begin()),
+                                        {name, placed.alignment, placed.offset, score,
+                                         placed.direction}});
         }
     }
 }
@@ -547,8 +546,7 @@ void FillAnchors::mark_walk(const net_handle_t& site, const Traversal& walk, uin
         return;
     }
     const net_handle_t canonical_site = sites->canonical(site);
-    const auto found = std::lower_bound(holding_sites.begin(), holding_sites.end(),
-                                        canonical_site, net_before);
+    const auto found = std::ranges::lower_bound(holding_sites, canonical_site, net_before);
     if (found == holding_sites.end() || *found != canonical_site) {
         // The site holds no point.
         return;
@@ -615,14 +613,7 @@ void FillAnchors::add_anchors(AnchorCollector& anchors) {
         anchor.kind = fill_slot.kind;
         anchor.reads.reserve(j - i);
         for (size_t k = i; k < j; ++k) {
-            const FillPlacement& placement = placed_reads[k];
-            AnchorWriter::ReadRow row;
-            row.read = placement.read;
-            row.alignment = placement.alignment;
-            row.offset = placement.offset;
-            row.score = placement.score;
-            row.direction = placement.direction;
-            anchor.reads.push_back(row);
+            anchor.reads.push_back(placed_reads[k].row);
         }
         // Order the reads by everything the file writes for them, so that the file does not
         // depend on the order the threads found them in.

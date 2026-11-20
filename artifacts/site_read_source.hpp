@@ -124,13 +124,13 @@ public:
      *
      * Several threads can call `observer` at once. A window the cache dropped is passed again when
      * it is fetched again, so `observer` must pass over windows it has seen. The reads it visits
-     * add nothing to the fetch statistics, the read-start tallies or the off-panel candidates. Not
-     * safe to call while reads are being fetched.
+     * add nothing to the read-start tallies or the off-panel candidates. Not safe to call while
+     * reads are being fetched.
      *
-     * @returns false, and calls nothing, if the source does not fetch reads by window.
+     * A source that does not fetch reads by window calls nothing, which is the default.
      */
-    virtual bool set_window_observer(WindowObserver /*observer*/) const {
-        return false;
+    virtual void set_window_observer(WindowObserver /*observer*/) const {
+        // Nothing to do
     }
 
     /// Visit the alignment of every read touching the ranges, once each.
@@ -315,13 +315,12 @@ public:
     ///
     /// A query inside one window gets the window from the cache, or fetches and caches it
     /// unsummarized, as a wide site's fetch does. A query over several windows is fetched by its
-    /// ranges, and its reads come without an index of their mappings. The fetch statistics of
-    /// these queries are kept apart from those of the site queries (see `fetch_stats`).
+    /// ranges, and its reads come without an index of their mappings.
     void for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
                                  const function<void(const SiteRead&)>& iteratee) const final;
 
     /// Call `observer` with each window this source fetches whole, once it is cached.
-    bool set_window_observer(WindowObserver observer) const final;
+    void set_window_observer(WindowObserver observer) const final;
 
     /// Visit the read starts on the nodes, from tallies of each window's read starts.
     ///
@@ -395,15 +394,8 @@ public:
     /// A snapshot of the tally of a source's fetches and queries.
     using FetchStats = FetchTally<size_t>;
 
-    /// Return a snapshot of the tally of the site queries' fetches, across all threads.
-    ///
-    /// The queries of `for_each_read_uncounted`, which come after the site queries, are left out:
-    /// the tally ends when the first of them starts.
+    /// Return a snapshot of the tally of the fetches and queries so far, across all threads.
     FetchStats fetch_stats() const;
-
-    /// Return a snapshot of the tally of the fetches of `for_each_read_uncounted`, which is all 0
-    /// where it has not run.
-    FetchStats uncounted_fetch_stats() const;
 
     /// Drop every cached window and return how many reads they held.
     ///
@@ -589,12 +581,10 @@ private:
 
     /// Hand the entry's reads that touch the ranges to the caller, in the order they were fetched.
     ///
-    /// Reads are found through the entry's node index. Unless `in_stats` is false, the index
-    /// entries examined and the reads delivered are added to the fetch statistics; the window
-    /// observer's reads are not.
+    /// Reads are found through the entry's node index.
     void deliver(const CacheEntry& entry,
                  const vector<pair<nid_t, nid_t>>& ranges,
-                 const function<void(const SiteRead&)>& iteratee, bool in_stats = true) const;
+                 const function<void(const SiteRead&)>& iteratee) const;
 
     /// Hand a wide site's reads to the caller, from a fetch of its own.
     ///
@@ -697,17 +687,6 @@ private:
 
     /// The tally of the fetches and queries, which `fetch_stats` reports.
     mutable FetchTally<atomic<size_t>> counters;
-
-    /// Return a snapshot of `counters`.
-    FetchStats tally_now() const;
-
-    /// Ends the site queries' tally at the first query of `for_each_read_uncounted`.
-    mutable std::once_flag site_queries_end;
-    /// The tally of the site queries, once the first query of `for_each_read_uncounted` has
-    /// started.
-    mutable FetchStats site_query_stats;
-    /// Whether `site_query_stats` is set.
-    mutable atomic<bool> site_queries_ended{false};
 
     /// Read-start tallies by window, added when a window is first tallied and kept for the whole
     /// run.

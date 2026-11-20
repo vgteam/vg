@@ -164,8 +164,6 @@ void add_phase_set_counters(const ReadPhasingCounters& from, ReadPhasingCounters
 
 /// The fewest pairs of sites that `fit_panel_errors` fits rates to.
 constexpr size_t PANEL_FIT_MIN_PAIRS = 200;
-/// The number of bins, by distance, of the fit's table.
-constexpr size_t PANEL_FIT_BINS = 8;
 
 /// What phasing one phase set produces, gathered across the phase sets afterwards.
 struct PhaseSetResult {
@@ -936,9 +934,8 @@ void PhaseSetPhaser::vote_from_ordered(size_t t, const vector<size_t>& known,
 ///
 /// The rates are the maximum-likelihood ones under `PanelErrorModel`, on a grid: switch rates
 /// from one per 10^9 bases to one per 100, and flip rates from 10^-4 to 10^-1, a floor that keeps
-/// the panel's vote below 4 whatever the distance. With too few pairs, nothing is fitted. The
-/// fit's table bins the pairs by distance, each bin holding an equal share.
-void fit_panel_errors(vector<pair<size_t, bool>>& pairs, ReadPhasingCounters& counters) {
+/// the panel's vote below 4 whatever the distance. With too few pairs, nothing is fitted.
+void fit_panel_errors(const vector<pair<size_t, bool>>& pairs, ReadPhasingCounters& counters) {
     counters.panel_pairs = pairs.size();
     counters.panel_pairs_reversed = std::ranges::count(pairs, true, &pair<size_t, bool>::second);
     if (pairs.size() < PANEL_FIT_MIN_PAIRS) {
@@ -964,23 +961,6 @@ void fit_panel_errors(vector<pair<size_t, bool>>& pairs, ReadPhasingCounters& co
                 counters.panel = PanelErrorModel{switch_rate, flip_rate, true};
             }
         }
-    }
-
-    std::ranges::sort(pairs);
-    for (size_t bin = 0; bin < PANEL_FIT_BINS; ++bin) {
-        const size_t begin = pairs.size() * bin / PANEL_FIT_BINS;
-        const size_t end = pairs.size() * (bin + 1) / PANEL_FIT_BINS;
-        double distance = 0.0;
-        double agree = 0.0;
-        double predicted = 0.0;
-        for (size_t i = begin; i < end; ++i) {
-            distance += (double)pairs[i].first;
-            agree += pairs[i].second ? 0.0 : 1.0;
-            predicted += (1.0 + counters.panel.correlation(pairs[i].first)) / 2.0;
-        }
-        const auto count = (double)(end - begin);
-        counters.panel_fit.emplace_back(distance / count, agree / count, predicted / count,
-                                        end - begin);
     }
 }
 

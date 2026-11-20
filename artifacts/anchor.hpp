@@ -670,9 +670,6 @@ public:
     /// are being collected.
     void add(AnchorWriter::Anchor&& anchor);
 
-    /// Return the parameters `configure` set, with the counters filled in.
-    const AnchorParams& parameters() const { return params; }
-
     /// Write the anchor file, naming `sample_name`, and report the counters. Do nothing unless
     /// anchors are being collected.
     void write(const string& sample_name);

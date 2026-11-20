@@ -173,16 +173,10 @@ float fill_read_score(int32_t mapq, const FillScoreParams& params);
 struct FillPlacement {
     /// The point, as its index in `FillAnchors::points()`.
     uint32_t point = 0;
-    /// The read, as its index in read_names().
-    uint32_t read = 0;
-    /// Which alignment of the read it is; see `AnchorPlacement::alignment`.
-    uint32_t alignment = 0;
-    /// The read base before the point; see `AnchorPlacement::offset`.
-    uint32_t offset = 0;
-    /// The read's score; see `fill_read_score`.
-    float score = 0.0f;
-    /// 0 when the read crosses the point along the node's forward strand, 1 against it.
-    uint8_t direction = 0;
+    /// The read's row in the point's anchor. Its score is from `fill_read_score`, and its
+    /// direction is 0 when the read crosses the point along the node's forward strand, 1 against
+    /// it.
+    AnchorWriter::ReadRow row;
 };
 
 /**
