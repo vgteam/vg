@@ -34,10 +34,6 @@ ReadLikelihoodSnarlCaller::ReadLikelihoodSnarlCaller(const PathHandleGraph& grap
 
 ReadLikelihoodSnarlCaller::~ReadLikelihoodSnarlCaller() = default;
 
-void ReadLikelihoodSnarlCaller::set_likelihood_dump(ostream* dump_stream) {
-    this->dump_stream = dump_stream;
-}
-
 void ReadLikelihoodSnarlCaller::set_share_discount(bool discount) {
     this->share_discount = discount;
 }
@@ -182,14 +178,6 @@ ReadLikelihoodSnarlCaller::genotype_at(const MaterializedSite& site, const Ploid
     // re-genotyping read it in the rounds, and the render builds the anchors from it.
     call_info->anchor_evidence = matrix.take_anchor_evidence();
     call_info->phase_evidence = matrix.take_phase_evidence();
-
-    if (dump_stream != nullptr) {
-        stringstream site_name;
-        site_name << graph.get_id(site.start) << (graph.get_is_reverse(site.start) ? "-" : "+")
-                  << "_" << graph.get_id(site.end) << (graph.get_is_reverse(site.end) ? "-" : "+");
-#pragma omp critical (read_likelihood_dump)
-        matrix.dump(*dump_stream, site_name.str());
-    }
 
     if (matrix.num_reads() == 0) {
         // No read can tell the alleles apart here, so every genotype is equally likely. Make no

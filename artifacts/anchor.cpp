@@ -17,7 +17,6 @@
 #include <sstream>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 
 #include <omp.h>
 
@@ -41,43 +40,6 @@ void AnchorPinCounters::report(ostream& out) const {
         << " visits it more than once, " << unaligned_base.load()
         << " no read base aligned to the pin's node base, " << no_neighbour.load()
         << " nothing upstream of an entry pin" << endl;
-}
-
-void AnchorPhaseCheckCounters::report(ostream& out) const {
-    if (checked.load() == 0) {
-        return;
-    }
-    const size_t n = checked.load();
-    const size_t ok = agree.load();
-    const size_t cn = confident.load();
-    const size_t ck = confident_agree.load();
-    out << "[vg call] anchors: cross-site phase reproduces the allele partition at het "
-           "sites (held out, the split's own accuracy -- reported only when het placement "
-           "does NOT use the strand, or it would measure itself): "
-        << ok << "/" << n << " agree (" << (100.0 * (double)ok / (double)n) << "%)";
-    if (cn > 0) {
-        out << ", confident " << ck << "/" << cn << " ("
-            << (100.0 * (double)ck / (double)cn) << "%)";
-    }
-    out << ", " << no_opinion.load() << " reads with no cross-site opinion" << endl;
-}
-
-void AnchorPhaseCheckCounters::count(double lo, int slot, double phase_min) {
-    if (std::isnan(lo) || lo == 0.0) {
-        no_opinion.fetch_add(1);
-        return;
-    }
-    const bool agrees = (lo > 0.0 ? 0 : 1) == slot;
-    checked.fetch_add(1);
-    if (agrees) {
-        agree.fetch_add(1);
-    }
-    if (std::abs(lo) >= phase_min) {
-        confident.fetch_add(1);
-        if (agrees) {
-            confident_agree.fetch_add(1);
-        }
-    }
 }
 
 void AnchorCounters::report(ostream& out) const {
@@ -120,7 +82,6 @@ void AnchorCounters::report(ostream& out) const {
         }
         out << endl;
     }
-    phase_check.report(out);
 }
 
 const char* anchor_kind_name(AnchorKind kind) {
@@ -1071,81 +1032,16 @@ size_t AnchorWriter::anchor_count() const {
     return total;
 }
 
-/// Return -1, 0 or 1 as `a` is below, equal to or above `b`, with NaN below every number and
-/// equal to itself.
-static int compare_values(double a, double b) {
-    const bool a_nan = std::isnan(a);
-    const bool b_nan = std::isnan(b);
-    if (a_nan && b_nan) {
-        return 0;
-    }
-    if (a_nan) {
-        return -1;
-    }
-    if (b_nan) {
-        return 1;
-    }
-    if (a < b) {
-        return -1;
-    }
-    if (b < a) {
-        return 1;
-    }
-    return 0;
-}
-
-/**
- * Return whether anchor `a` comes before `b` on what the file writes for them besides node,
- * snarl and slot.
- *
- * That is the allele, gqn, explained, reliability, then the read rows in order (read name,
- * direction, offset, score). Two anchors equal on all of it are written identically, so their
- * order cannot show.
- */
-static bool written_before(const AnchorWriter::Anchor& a, const AnchorWriter::Anchor& b,
-                           const ReadNameTable& table) {
-    if (a.allele != b.allele) {
-        return a.allele < b.allele;
-    }
-    for (int c : {compare_values(a.gqn, b.gqn), compare_values(a.explained, b.explained),
-                  compare_values(a.reliability, b.reliability)}) {
-        if (c != 0) {
-            return c < 0;
-        }
-    }
-    if (a.reads.size() != b.reads.size()) {
-        return a.reads.size() < b.reads.size();
-    }
-    for (size_t i = 0; i < a.reads.size(); ++i) {
-        const AnchorWriter::ReadRow& x = a.reads[i];
-        const AnchorWriter::ReadRow& y = b.reads[i];
-        if (x.read != y.read && table.name(x.read) != table.name(y.read)) {
-            return table.name(x.read) < table.name(y.read);
-        }
-        if (x.direction != y.direction) {
-            return x.direction < y.direction;
-        }
-        if (x.offset != y.offset) {
-            return x.offset < y.offset;
-        }
-        if (const int c = compare_values(x.score, y.score); c != 0) {
-            return c < 0;
-        }
-    }
-    return false;
-}
-
 /**
  * Return whether anchor `a` comes before `b` in the file.
  *
  * Anchors are ordered by node ID. On one node, the anchors of sites come first, ordered by snarl
  * and slot, since two snarls can share a boundary node, and then the fill anchors, ordered by pin,
- * which the text of their IDs would not do. Anchors that agree on all of that are ordered by the
- * rest of what is written for them, so that the order cannot depend on how a parallel sort shares
- * out the work, nor on which thread collected which anchor.
+ * which the text of their IDs would not do. A site has one anchor for each slot and pin, and a node
+ * one fill anchor for each pin, so no two anchors agree on all of that, and the order cannot depend
+ * on how a parallel sort shares out the work, nor on which thread collected which anchor.
  */
-static bool file_order_before(const AnchorWriter::Anchor& a, const AnchorWriter::Anchor& b,
-                              const ReadNameTable& table) {
+static bool file_order_before(const AnchorWriter::Anchor& a, const AnchorWriter::Anchor& b) {
     if (a.node != b.node) {
         return a.node < b.node;
     }
@@ -1162,10 +1058,7 @@ static bool file_order_before(const AnchorWriter::Anchor& a, const AnchorWriter:
     if (a.slot != b.slot) {
         return a.slot < b.slot;
     }
-    if (a.pin != b.pin) {
-        return a.pin < b.pin;
-    }
-    return written_before(a, b, table);
+    return a.pin < b.pin;
 }
 
 vector<AnchorWriter::Anchor> AnchorWriter::take_sorted() {
@@ -1176,8 +1069,7 @@ vector<AnchorWriter::Anchor> AnchorWriter::take_sorted() {
         q.clear();
     }
     // Sort the reads within each anchor by read name, so that the file does not depend on thread
-    // scheduling. Do it before the anchors are sorted, so that their sort can compare whole
-    // anchors.
+    // scheduling.
     const ReadNameTable& table = read_names();
 #pragma omp parallel for schedule(dynamic, 1024)
     for (size_t i = 0; i < all.size(); ++i) {
@@ -1188,9 +1080,7 @@ vector<AnchorWriter::Anchor> AnchorWriter::take_sorted() {
             return x.offset < y.offset;
         });
     }
-    parallel_sort(all.begin(), all.end(), [&table](const Anchor& a, const Anchor& b) {
-        return file_order_before(a, b, table);
-    });
+    parallel_sort(all.begin(), all.end(), file_order_before);
     return all;
 }
 
@@ -1618,47 +1508,6 @@ void AnchorCollector::configure(string_view anchor_path, const AnchorParams& anc
     }
 }
 
-/**
- * Count, at one heterozygous site, how often each read's strand log-odds favour the slot its
- * allele put it in.
- *
- * This checks `AnchorParams::hom_split`, since at a heterozygous site the alleles show which
- * strand each read is on. Each read is counted once, though both pins of its slot hold it.
- *
- * @param strand_log_odds Called with a read name to get the read's strand log-odds, leaving the
- * site out.
- */
-/// Return whether slots 0 and 1 of a site's anchors both exist and hold different alleles.
-static bool slots_hold_two_alleles(const vector<AnchorWriter::Anchor>& anchors) {
-    std::array<int, 2> allele_of_slot{-1, -1};
-    for (const AnchorWriter::Anchor& anchor : anchors) {
-        if (anchor.slot >= 0 && anchor.slot < 2) {
-            allele_of_slot[anchor.slot] = anchor.allele;
-        }
-    }
-    return allele_of_slot[0] >= 0 && allele_of_slot[1] >= 0 && allele_of_slot[0] != allele_of_slot[1];
-}
-
-template<typename StrandLogOdds>
-static void check_phase_against_alleles(const vector<AnchorWriter::Anchor>& anchors,
-                                        double phase_min, StrandLogOdds& strand_log_odds,
-                                        AnchorPhaseCheckCounters& counters) {
-    if (!slots_hold_two_alleles(anchors)) {
-        return;
-    }
-    unordered_set<uint32_t> counted;
-    for (const AnchorWriter::Anchor& anchor : anchors) {
-        if (anchor.slot < 0 || anchor.slot > 1) {
-            continue;
-        }
-        for (const AnchorWriter::ReadRow& row : anchor.reads) {
-            if (counted.insert(row.read).second) {
-                counters.count(strand_log_odds(read_names().name(row.read)), anchor.slot, phase_min);
-            }
-        }
-    }
-}
-
 void AnchorCollector::collect(const AnchorSiteEvidence& evidence, const AnchorCall& call,
                               const string& site_name, bool is_leaf,
                               const multipass::ReadStrandTable& strands, size_t record_key) {
@@ -1701,12 +1550,6 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, const AnchorCa
     build_site_anchors(evidence, call, site_name, params, anchors,
                        (params.hom_split || params.phase_hets || params.strict_hets)
                            ? &read_strand : nullptr);
-    // Check the strand log-odds only when splitting is on, and not when the heterozygous
-    // placement itself uses them, since the check would then compare the strand with itself.
-    if (params.hom_split && !params.phase_hets && !params.strict_hets && anchors.size() >= 2) {
-        check_phase_against_alleles(anchors, params.phase_min, strand_log_odds,
-                                    params.counters->phase_check);
-    }
     for (AnchorWriter::Anchor& anchor : anchors) {
         writer->add(std::move(anchor));
     }

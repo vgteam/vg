@@ -211,9 +211,8 @@ public:
     /// Turn re-genotyping from the phase on or off (see `GenotypeRescorer`).
     ///
     /// It needs read phasing, which gives each read its strand log-odds.
-    void set_regenotype(bool on, const RegenotypeParams& params, size_t passes,
-                        const string& ledger) {
-        rescorer.configure(on, params, passes, ledger);
+    void set_regenotype(bool on, const RegenotypeParams& params, size_t passes) {
+        rescorer.configure(on, params, passes);
     }
 
     /// Set the source the reads of the sites come from.
@@ -226,10 +225,9 @@ public:
     /// Turn on off-panel detection.
     ///
     /// `reads` counts each read's substitutions as it fetches them (see
-    /// `SiteReadSource::count_edits`). With a `dump` path, every candidate is written there at the
-    /// end.
-    void set_off_panel(const SiteReadSource* reads, const string& dump, const EditCallBar& bar) {
-        off_panel.configure(reads, dump, bar);
+    /// `SiteReadSource::count_edits`).
+    void set_off_panel(const SiteReadSource* reads, const EditCallBar& bar) {
+        off_panel.configure(reads, bar);
     }
 
     /// Set where and how to write the mosaic.
@@ -478,8 +476,7 @@ private:
     /// The fill points and the reads that cross them, if fill anchors are made.
     FillAnchors fill_anchors;
 
-    /// Records what became of each off-panel candidate, and writes the dump and the summary.
-    /// Declared after the reference offsets it reads.
+    /// Records what became of each off-panel candidate, and writes the summary.
     OffPanelLedger off_panel;
 
     /// Finds each site's reference path and candidate traversals. Declared after the members it

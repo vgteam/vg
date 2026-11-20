@@ -210,9 +210,6 @@ public:
     /// writes.
     void add_header_lines(SortedVCFWriter& writer) const;
 
-    /// Write the matrix for every site to this stream as TSV. Not owned.
-    void set_likelihood_dump(ostream* dump_stream);
-
     /**
      * Scale GQ by the explained share, the fraction of reads whose best allele is a
      * called allele. On by default.
@@ -330,9 +327,6 @@ private:
 
     /// Builds the matrix of each site.
     AlleleLikelihoodCalculator& likelihood_calculator;
-
-    /// The stream to dump every site's matrix to as TSV, for development, or null.
-    ostream* dump_stream = nullptr;
 
     /// Whether GQ is scaled by the explained share. See set_share_discount.
     bool share_discount = true;

@@ -26,7 +26,6 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
     ref_paths(std::move(ref_paths)),
     genotype_snarls(genotype_snarls),
     splicer(graph, sites, phase_table),
-    off_panel(graph, this->ref_paths),
     candidates(graph, traversal_finder, this->ref_paths, allele_length_range),
     record_renderer(phase_table, read_strands, linker, anchor_collector, fill_anchors)
 {
@@ -127,7 +126,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
 
     // The reports, and the mosaic, need to know which sites have a line, so they come last.
     finalise_linkage_outputs();
-    off_panel.write(tree_genotyper.edit_nodes_after_pass());
+    off_panel.report(tree_genotyper.edit_nodes_after_pass());
     if (phase_declined.load() > 0 || quality_declined.load() > 0) {
         cerr << "[vg call] linkage: " << phase_declined.load()
              << " phases refused by the record they were rendered onto, and "

@@ -38,13 +38,12 @@ double DepthContext::ratio(const vector<int>& genotype) const {
 
 void AlleleReadLikelihoods::set_contents(size_t reads, size_t alleles, vector<double>&& rows,
                                          vector<double>&& mismap, vector<double>&& best_ln,
-                                         vector<string>&& names, size_t dropped) {
+                                         size_t dropped) {
     this->n_reads = reads;
     this->n_alleles = alleles;
     this->matrix = std::move(rows);
     this->read_mismap_prob = std::move(mismap);
     this->read_best_ln = std::move(best_ln);
-    this->read_names = std::move(names);
     this->unplaceable = dropped;
     this->effective_read_total = 0.0;
     for (double e : this->read_mismap_prob) {
@@ -318,22 +317,6 @@ vector<pair<vector<int>, double>> AlleleReadLikelihoods::score_genotypes(
     return scored;
 }
 
-void AlleleReadLikelihoods::dump(ostream& out, const string& site_name) const {
-    out << "#site\tread\tmismap_prob\tbest_ln";
-    for (size_t a = 0; a < n_alleles; ++a) {
-        out << "\tallele_" << a;
-    }
-    out << endl;
-    for (size_t r = 0; r < n_reads; ++r) {
-        out << site_name << "\t" << (read_names.empty() ? string(".") : read_names[r]) << "\t"
-            << read_mismap_prob[r] << "\t" << read_best_ln[r];
-        for (size_t a = 0; a < n_alleles; ++a) {
-            out << "\t" << rel(r, a);
-        }
-        out << endl;
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // AlleleReadLikelihoodsBuilder
 ////////////////////////////////////////////////////////////////////////////////
@@ -414,20 +397,17 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
     matrix.reserve(n_reads * n_alleles);
     vector<double> sorted_mismap;
     vector<double> sorted_best;
-    vector<string> sorted_names;
     sorted_mismap.reserve(n_reads);
     sorted_best.reserve(n_reads);
-    sorted_names.reserve(n_reads);
     for (size_t i : order) {
         matrix.insert(matrix.end(), rows[i].begin(), rows[i].end());
         sorted_mismap.push_back(mismap_probs[i]);
         sorted_best.push_back(best_lns[i]);
-        sorted_names.push_back(std::move(names[i]));
     }
 
     AlleleReadLikelihoods result;
     result.set_contents(n_reads, n_alleles, std::move(matrix), std::move(sorted_mismap),
-                        std::move(sorted_best), std::move(sorted_names), unplaceable);
+                        std::move(sorted_best), unplaceable);
     result.set_mismap_floor(min_mismap);
     if (read_length_count > 0) {
         // Set R whichever mixture is in use, since the depth term's lambda = rate * (L + R - 1)

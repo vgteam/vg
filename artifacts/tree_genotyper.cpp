@@ -398,13 +398,13 @@ void TreeGenotyper::file_staged(SiteCall& call) {
 
 /// Get the ALT part of the ID of an edit candidate's site.
 ///
-/// That is the base of a substitution, the inserted sequence of a small insertion, and the length
-/// of any other change.
+/// That is the base of a substitution, the inserted sequence of an insertion, and the length of
+/// any other change.
 static string alt_label(const EditCandidate& c) {
     if (c.kind == 'S') {
         return string(1, c.alt);
     }
-    if (c.kind == 'I' && !c.is_large()) {
+    if (c.kind == 'I') {
         return c.sequence;
     }
     return std::to_string(c.sequence.size());
@@ -448,8 +448,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit,
     const vector<Traversal>& walks = edit.alleles.walks;
     const EditCandidate& c = edit.candidate;
     EditOutcome outcome = unplaced_outcome(c, top_level ? "top" : "nested");
-    outcome.site = edit_site_id(c.node, c.offset, c.kind, alt_label(c));
-    const string& site_id = outcome.site;
+    const string site_id = edit_site_id(c.node, c.offset, c.kind, alt_label(c));
 
     // A node no reference path visits takes its parent's path, as a site off the reference does.
     size_t node_start = 0;
@@ -493,15 +492,12 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit,
     vector<int>& genotype = called.first;
     SiteScore* score = called.second.get();
     unique_ptr<SnarlCaller::CallInfo> call_info(std::move(called.second));
-    outcome.genotype = genotype;
-    outcome.gq = score != nullptr ? score->gq : 0.0;
-    outcome.depth_ratio = score != nullptr ? score->depth_ratio : -1.0;
     const bool carries_alt =
         std::any_of(genotype.begin(), genotype.end(), [](int a) { return a > 0; });
     const double max_dr = options.edit_bar.max_depth_ratio;
     if (score == nullptr || genotype.size() != (size_t)ploidy || !carries_alt
-        || outcome.gq < options.edit_bar.min_gq
-        || (max_dr > 0.0 && outcome.depth_ratio > max_dr)) {
+        || score->gq < options.edit_bar.min_gq
+        || (max_dr > 0.0 && score->depth_ratio > max_dr)) {
         // Stage nothing for a call without its ALT, a call without confidence, or a call from
         // more reads than the called genotype accounts for.
         parts.edit_outcomes->add(std::move(outcome));

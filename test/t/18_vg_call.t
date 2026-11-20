@@ -285,11 +285,12 @@ is $(grep -c -- "--anchors-fill only applies to the anchor file" rl_fill_alone.e
 vg gamsort -i rl_sorted.gam.gai sim.gam > rl_sorted.gam 2>/dev/null
 for arm in 0_1 20_1 20_4; do
     vg call x.gbz --read-likelihood --gam rl_sorted.gam --gam-index rl_sorted.gam.gai \
-        --read-window 8 --off-panel-dump rl_ix_${arm}.dump --anchors-out rl_ix_${arm}.tsv \
+        --read-window 8 --anchors-out rl_ix_${arm}.tsv \
         --anchors-fill ${arm%_*} -t ${arm#*_} > rl_ix_${arm}.vcf 2> rl_ix_${arm}.err
 done
-is "$(/usr/bin/cmp rl_ix_0_1.vcf rl_ix_20_1.vcf && /usr/bin/cmp rl_ix_0_1.dump rl_ix_20_1.dump && echo same)" \
-   "same" "fill anchors from an indexed GAM leave the VCF and the off-panel dump unchanged"
+is "$(/usr/bin/cmp rl_ix_0_1.vcf rl_ix_20_1.vcf \
+        && /usr/bin/cmp <(grep "off-panel:" rl_ix_0_1.err) <(grep "off-panel:" rl_ix_20_1.err) && echo same)" \
+   "same" "fill anchors from an indexed GAM leave the VCF and the off-panel counts unchanged"
 is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_ix_20_1.tsv | wc -l | awk '{print ($1 > 0)}') "1" \
    "fill anchors are found from an indexed GAM"
 is $(grep -c "fill anchors: reads placed from [1-9][0-9]* windows" rl_ix_20_1.err) "1" \

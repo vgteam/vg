@@ -283,9 +283,6 @@ public:
                                                       const vector<int>* group_of = nullptr,
                                                       bool with_depth = true) const;
 
-    /// Write the matrix as TSV for debugging, with one line per read.
-    void dump(ostream& out, const string& site_name) const;
-
     /**
      * Keep the anchor evidence of the site, and fill its rows from this matrix.
      *
@@ -313,8 +310,7 @@ public:
 
     /// Fill the matrix, for `AlleleReadLikelihoodsBuilder`.
     void set_contents(size_t reads, size_t alleles, vector<double>&& rows,
-                      vector<double>&& mismap, vector<double>&& best_ln,
-                      vector<string>&& names, size_t dropped);
+                      vector<double>&& mismap, vector<double>&& best_ln, size_t dropped);
 
     /// Set the floor on e_r, which `achievable_gap` gives its ideal reads.
     void set_mismap_floor(double floor) { this->mismap_floor = floor; }
@@ -362,7 +358,6 @@ private:
     bool depth_effective = true;
     double depth_weight = 0.0;
     vector<double> read_best_ln;
-    vector<string> read_names;
     size_t n_reads = 0;
     size_t n_alleles = 0;
     size_t unplaceable = 0;

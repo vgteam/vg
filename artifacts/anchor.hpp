@@ -94,36 +94,6 @@ struct AnchorPinCounters {
     void report(ostream& out) const;
 };
 
-/**
- * A tally of how often a read's strand log-odds put it on the slot its allele chose.
- *
- * At a heterozygous site the alleles show which strand each read is on, so this measures how well
- * the strand log-odds would divide a homozygous site under `AnchorParams::hom_split`. Shared across
- * threads.
- */
-struct AnchorPhaseCheckCounters {
-    /// Reads with strand log-odds, checked.
-    atomic<size_t> checked{0};
-    /// Checked reads whose strand log-odds favour their slot.
-    atomic<size_t> agree{0};
-    /// Checked reads whose strand log-odds are at least `AnchorParams::phase_min` in size.
-    atomic<size_t> confident{0};
-    /// Confident reads whose strand log-odds favour their slot.
-    atomic<size_t> confident_agree{0};
-    /// Reads with no strand log-odds, or a strand from another phase set, which were not checked.
-    atomic<size_t> no_opinion{0};
-
-    /**
-     * Count one read placed in `slot` by its allele, whose strand log-odds are `lo`.
-     *
-     * @param phase_min The size of strand log-odds that counts as confident.
-     */
-    void count(double lo, int slot, double phase_min);
-
-    /// Write the tally to a log, if any read was checked.
-    void report(ostream& out) const;
-};
-
 /// A tally of what happened to reads and sites while anchors were made. Shared across threads.
 struct AnchorCounters {
     /// How the pins were resolved.
@@ -170,9 +140,6 @@ struct AnchorCounters {
     /// Read placements that `AnchorParams::strict_hets` moved off the slot their allele match
     /// chose.
     atomic<size_t> het_strict_moved{0};
-
-    /// How often the strand log-odds agree with the alleles at heterozygous sites.
-    AnchorPhaseCheckCounters phase_check;
 
     /// Write the tally to a log.
     void report(ostream& out) const;

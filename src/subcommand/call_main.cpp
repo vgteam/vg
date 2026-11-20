@@ -657,8 +657,6 @@ void help_call(char** argv) {
          << "                            walk spells, found as edits recurring in the reads" << endl
          << "                            [on]" << endl
          << "      --no-off-panel        do not call off-panel variants" << endl
-         << "      --off-panel-dump F    write each off-panel candidate, with its read" << endl
-         << "                            counts and what became of it, to F as TSV" << endl
          << "      --off-panel-bar B     call a candidate whose ALT is on >= K fragments" << endl
          << "                            and a fraction >= F of them, at GQ >= G and a" << endl
          << "                            depth ratio (DR) <= D (D 0: no limit), with B" << endl
@@ -668,11 +666,6 @@ void help_call(char** argv) {
          << "                            tract starts with a run of >= H of one base (H 0:" << endl
          << "                            no limit; 1: no indels), with B given as K,F,H" << endl
          << "                            [7,0.25,0]" << endl
-         << "      --off-panel-svs       also call insertions and deletions of 50 bp or" << endl
-         << "                            more, from long reads' indels (the medoid read's" << endl
-         << "                            insertion as the ALT) and short reads' clips" << endl
-         << "                            (deletions only); one crossing a site is refused" << endl
-         << "                            [off]" << endl
          << "  read-based phasing (reliable heterozygous sites are joined into a phase" << endl
          << "  chain by the reads they share; other sites are phased from the chain):" << endl
          << "      --read-phasing        phase heterozygous sites with the reads that span" << endl
@@ -767,11 +760,8 @@ void help_call(char** argv) {
          << "      --min-confidence X    set FILTER to lowconf on records with GQN below X;" << endl
          << "                            0 disables it [0]" << endl
          << "  debugging and evaluation:" << endl
-         << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
          << "      --flat-mixture        weight a genotype's haplotypes equally, instead of" << endl
          << "                            by the reads each is expected to produce" << endl
-         << "      --regeno-ledger FILE  write one line for each site that re-genotyping" << endl
-         << "                            changes" << endl
          << "      --regeno-shuffle      randomize the sign of each read's strand log-odds" << endl
          << "                            before re-genotyping" << endl
          << "      --anchors-strict-hets" << endl
@@ -936,7 +926,6 @@ int main_call(int argc, char** argv) {
     // Options for the read-likelihood genotyper (--read-likelihood).
     bool read_likelihood = false;
     ReadInputOptions reads;
-    string dump_likelihoods_filename;
     bool no_mismap_term = false;
     bool no_share_quality = false;
     double depth_quality = 0.0;
@@ -950,12 +939,9 @@ int main_call(int argc, char** argv) {
     // The number of linkage passes under --regenotype. The first pass chooses the genotypes. Each
     // later pass applies a correction from the read phasing and chooses them again.
     size_t regenotype_passes = 2;
-    string regenotype_ledger;
-    // Off-panel detection, and where to write its candidates.
+    // Off-panel detection.
     bool off_panel = true;
-    string off_panel_dump;
     EditCallBar off_panel_bar;
-    bool off_panel_svs = false;
     ReadPhasingParams read_phasing_params;
     // The preset, which sets the options the command line does not give.
     string preset;
@@ -1000,7 +986,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_READ_LIKELIHOOD = 1007;
     constexpr int OPT_GAM = 1008;
     constexpr int OPT_GAF = 1009;
-    constexpr int OPT_DUMP_LIKELIHOODS = 1010;
     constexpr int OPT_NO_MISMAP_TERM = 1011;
     constexpr int OPT_READ_MIN_MAPQ = 1012;
     constexpr int OPT_GAM_INDEX = 1013;
@@ -1026,10 +1011,8 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_HP_PRIOR_RUN = 1111;
     constexpr int OPT_LINKAGE_MUTATION = 1113;
     constexpr int OPT_OFF_PANEL = 1114;
-    constexpr int OPT_OFF_PANEL_DUMP = 1115;
     constexpr int OPT_OFF_PANEL_BAR = 1116;
     constexpr int OPT_OFF_PANEL_INDELS = 1117;
-    constexpr int OPT_OFF_PANEL_SVS = 1118;
     constexpr int OPT_NO_OFF_PANEL = 1119;
     constexpr int OPT_GROUP_CANDIDATES = 1121;
     constexpr int OPT_NO_GROUP_CANDIDATES = 1122;
@@ -1057,7 +1040,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_REGENO_TEMPER = 1083;
     constexpr int OPT_REGENO_PASSES = 1084;
     constexpr int OPT_REGENO_SHUFFLE = 1085;
-    constexpr int OPT_REGENO_LEDGER = 1086;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
     constexpr int OPT_PLOIDY_BED = 1043;
     constexpr int OPT_PLOIDY_PRESET = 1120;
@@ -1141,7 +1123,6 @@ int main_call(int argc, char** argv) {
             {"no-phased", no_argument, nullptr, OPT_NO_PHASED},
             {"gam", required_argument, nullptr, OPT_GAM},
             {"gaf-reads", required_argument, nullptr, OPT_GAF},
-            {"dump-likelihoods", required_argument, nullptr, OPT_DUMP_LIKELIHOODS},
             {"no-mismap-term", no_argument, nullptr, OPT_NO_MISMAP_TERM},
             {"mismap-max", required_argument, nullptr, OPT_MISMAP_MAX},
             {"mismap-min", required_argument, nullptr, OPT_MISMAP_MIN},
@@ -1196,10 +1177,8 @@ int main_call(int argc, char** argv) {
         }}},
         {"off-panel variant calling", {"--off-panel", "the read-likelihood genotyper",
          [&] { return off_panel; }, {
-            {"off-panel-dump", required_argument, nullptr, OPT_OFF_PANEL_DUMP},
             {"off-panel-bar", required_argument, nullptr, OPT_OFF_PANEL_BAR},
             {"off-panel-indels", required_argument, nullptr, OPT_OFF_PANEL_INDELS},
-            {"off-panel-svs", no_argument, nullptr, OPT_OFF_PANEL_SVS},
         }}},
         {"the anchor file", {"--anchors-out", "the read-likelihood genotyper",
          [&] { return !anchors_out.empty(); }, {
@@ -1236,7 +1215,6 @@ int main_call(int argc, char** argv) {
             {"regeno-temper", required_argument, nullptr, OPT_REGENO_TEMPER},
             {"regeno-passes", required_argument, nullptr, OPT_REGENO_PASSES},
             {"regeno-shuffle", no_argument, nullptr, OPT_REGENO_SHUFFLE},
-            {"regeno-ledger", required_argument, nullptr, OPT_REGENO_LEDGER},
         }}},
     };
 
@@ -1444,9 +1422,6 @@ int main_call(int argc, char** argv) {
         case OPT_GAF:
             reads.gaf = require_exists(logger, optarg);
             break;
-        case OPT_DUMP_LIKELIHOODS:
-            dump_likelihoods_filename = ensure_writable(logger, optarg);
-            break;
         case OPT_NO_MISMAP_TERM:
             no_mismap_term = true;
             break;
@@ -1542,20 +1517,11 @@ int main_call(int argc, char** argv) {
         case OPT_NO_REGENO_HAPLOID:
             regenotype_params.haploid_include = false;
             break;
-        case OPT_REGENO_LEDGER:
-            regenotype_ledger = optarg;
-            break;
         case OPT_OFF_PANEL:
             off_panel = true;
             break;
         case OPT_NO_OFF_PANEL:
             off_panel = false;
-            break;
-        case OPT_OFF_PANEL_DUMP:
-            off_panel_dump = optarg;
-            break;
-        case OPT_OFF_PANEL_SVS:
-            off_panel_svs = true;
             break;
         case OPT_OFF_PANEL_BAR: {
             vector<string> parts = split_delims(optarg, ",");
@@ -2494,7 +2460,6 @@ int main_call(int argc, char** argv) {
     unique_ptr<EditAlignmentScorer> qual_scorer;
     unique_ptr<EditAlignmentScorer> plain_scorer;
     unique_ptr<AlleleLikelihoodCalculator> likelihood_calculator;
-    unique_ptr<ofstream> likelihood_dump;
     // The read-likelihood genotyper can run without a pack file if allele enumeration needs no
     // support either. GBWTTraversalFinder enumerates from haplotypes, while FlowTraversalFinder
     // needs node and edge support.
@@ -2587,15 +2552,6 @@ int main_call(int argc, char** argv) {
             }
 
             auto rl_caller = new ReadLikelihoodSnarlCaller(*graph, *likelihood_calculator);
-
-            if (!dump_likelihoods_filename.empty()) {
-                likelihood_dump = make_unique<ofstream>(dump_likelihoods_filename);
-                if (!(*likelihood_dump)) {
-                    logger.error() << "could not open " << dump_likelihoods_filename
-                                   << " for writing" << endl;
-                }
-                rl_caller->set_likelihood_dump(likelihood_dump.get());
-            }
 
             rl_caller->set_share_discount(!no_share_quality);
             rl_caller->set_depth_quality(depth_quality);
@@ -3056,14 +3012,12 @@ int main_call(int argc, char** argv) {
             if (off_panel) {
                 // The reads are counted as they are fetched, from the first site on.
                 EditCountParams count_params;
-                count_params.large_indels = off_panel_svs;
                 count_params.bar = &off_panel_bar;
                 read_source->count_edits(graph, count_params);
-                multipass_caller->set_off_panel(read_source.get(), off_panel_dump, off_panel_bar);
+                multipass_caller->set_off_panel(read_source.get(), off_panel_bar);
             }
             multipass_caller->set_read_source(read_source.get());
-            multipass_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,
-                                             regenotype_ledger);
+            multipass_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes);
         }
         // Merge similar called ALT alleles (-L/--cluster) in the records of each caller that
         // builds its records with a SiteEmitter.
@@ -3225,9 +3179,6 @@ int main_call(int argc, char** argv) {
 
     // Everything is written. Close what is still open and exit without freeing what calling built,
     // which would take minutes on a whole genome.
-    if (likelihood_dump) {
-        likelihood_dump->close();
-    }
     // The GAF emitter (-G) holds its last batch of records until it is destroyed.
     alignment_emitter.reset();
     cout.flush();

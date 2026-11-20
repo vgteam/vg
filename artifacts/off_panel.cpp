@@ -2,11 +2,8 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cstring>
-#include <limits>
 #include <string_view>
 #include <tuple>
-#include <unordered_map>
 #include <unordered_set>
 
 #include <map>
@@ -572,43 +569,6 @@ bool spelled_by_panel(const HandleGraph& graph, const EditCandidate& c) {
     return spelled_by_other_walk(graph, handles, alt);
 }
 
-/// One read's indel of `LARGE_INDEL_MIN_LENGTH` bases or more, anchored on a node the count owns.
-struct LargeRow {
-    char kind;
-    nid_t node;
-    uint32_t offset;
-    uint32_t length;
-    uint64_t fragment;
-    string inserted;
-    /// The nodes, read forward, from the anchor's to that of the first base after the tract, or
-    /// empty where the read does not reach that far.
-    vector<nid_t> walk;
-    /// The bases from the anchor to the first base after the tract, or 0 where `walk` is empty.
-    uint32_t span;
-
-    /// Order rows by kind, anchor and length, so that a cluster of one indel's rows is a run.
-    std::strong_ordering operator<=>(const LargeRow& o) const {
-        return tie(kind, node, offset, length, fragment, inserted, span, walk)
-               <=> tie(o.kind, o.node, o.offset, o.length, o.fragment, o.inserted, o.span, o.walk);
-    }
-    bool operator==(const LargeRow& o) const = default;
-};
-
-/// One read's clip of `min_clip` bases or more.
-struct ClipRow {
-    /// 'R' for a clip after the read's last aligned base, 'L' for one before its first.
-    char side;
-    /// The node of the aligned base beside the clip, read forward.
-    nid_t node;
-    /// The offset of the aligned base beside the clip on `node`.
-    uint32_t offset;
-    /// The `min_clip` clipped bases nearest the aligned bases, upper-cased.
-    string seed;
-    uint64_t fragment;
-
-    auto operator<=>(const ClipRow& o) const = default;
-};
-
 /// Return `bases` upper-cased.
 string upper(string bases) {
     for (char& b : bases) {
@@ -617,77 +577,16 @@ string upper(string bases) {
     return bases;
 }
 
-/// File the large indel `indel` of the loaded `walk` in `rows`, if its anchor lies on a node that
-/// `owns` accepts and the walk reads forward.
-template<typename Owns>
-void add_large_row(const HandleGraph& graph, const ReadWalk& walk, const WalkIndel& indel,
-                   uint64_t fragment, const Owns& owns, vector<LargeRow>& rows) {
-    const int64_t anchor = indel.at - 1;
-    const size_t i = walk.mapping_at(anchor);
-    const handle_t h = walk.handles()[i];
-    if (graph.get_is_reverse(h) || !owns(graph.get_id(h))) {
-        return;
-    }
-    LargeRow row{indel.deleted > 0 ? 'D' : 'I', graph.get_id(h),
-                 (uint32_t)(anchor - walk.node_start()[i]), indel.length(), fragment,
-                 indel.inserted, {}, 0};
-    if (const int64_t after = tract_end(indel, walk.alignment().end, walk.base_function());
-        after < walk.alignment().end && walk.walk_hash(i, walk.mapping_at(after)) != 0) {
-        for (size_t m = i; m <= walk.mapping_at(after); ++m) {
-            row.walk.push_back(graph.get_id(walk.handles()[m]));
-        }
-        row.span = (uint32_t)(after - anchor);
-    }
-    rows.push_back(std::move(row));
-}
-
-/// File the clips of the loaded `walk` of `min_clip` bases or more in `rows`, where the aligned base
-/// beside the clip is on a node the walk reads forward.
-void add_clip_rows(const HandleGraph& graph, const ReadWalk& walk, uint64_t fragment,
-                   const LargeIndelParams& params, vector<ClipRow>& rows) {
-    const WalkAlignment& w = walk.alignment();
-    if (w.blocks.empty()) {
-        return;
-    }
-    const string& sequence = walk.read().sequence();
-    if (w.clip_end >= params.min_clip) {
-        const size_t i = walk.mapping_at(w.end - 1);
-        const size_t from = w.blocks.back().read + w.blocks.back().length;
-        if (!graph.get_is_reverse(walk.handles()[i]) && from + params.min_clip <= sequence.size()) {
-            rows.emplace_back('R', graph.get_id(walk.handles()[i]),
-                              (uint32_t)(w.end - 1 - walk.node_start()[i]),
-                              upper(sequence.substr(from, params.min_clip)), fragment);
-        }
-    }
-    if (w.clip_begin >= params.min_clip) {
-        const size_t i = walk.mapping_at(w.begin);
-        const size_t to = w.blocks.front().read;
-        if (!graph.get_is_reverse(walk.handles()[i]) && to >= params.min_clip
-            && to <= sequence.size()) {
-            rows.emplace_back('L', graph.get_id(walk.handles()[i]),
-                              (uint32_t)(w.begin - walk.node_start()[i]),
-                              upper(sequence.substr(to - params.min_clip, params.min_clip)),
-                              fragment);
-        }
-    }
-}
-
-/// File the loaded read's indels whose anchors lie on nodes `owns` accepts, read forward: those
-/// up to `max_indel_length` bases in `rows`, and, unless `large_rows` is null, those of
-/// `LARGE_INDEL_MIN_LENGTH` to `large.max_length` bases in `large_rows`.
+/// File in `rows` the loaded read's indels of up to `max_indel_length` bases whose anchors lie on
+/// nodes `owns` accepts, read forward.
 template<typename Owns>
 void file_read_indels(const HandleGraph& graph, const ReadWalk& walk, uint64_t fragment,
                       const Owns& owns, const EditCountParams& params,
-                      vector<IndelObservationRow>& rows, vector<LargeRow>* large_rows) {
+                      vector<IndelObservationRow>& rows) {
     std::hash<string> sequence_hasher;
     const WalkAlignment& walked = walk.alignment();
     for (const WalkIndel& indel : walked.indels) {
         const int64_t anchor = indel.at - 1;
-        if (large_rows != nullptr && anchor >= walked.begin
-            && indel.length() >= LARGE_INDEL_MIN_LENGTH
-            && indel.length() <= params.large.max_length) {
-            add_large_row(graph, walk, indel, fragment, owns, *large_rows);
-        }
         if (anchor < walked.begin || indel.length() > params.max_indel_length) {
             continue;
         }
@@ -900,13 +799,9 @@ private:
 /// Count the short indels: those of at most `params.max_indel_length` bases, in two passes over
 /// the reads. The first finds the indels that at least `params.min_fragments` fragments carry, and
 /// the second classes what each read says about each of them with `observe_indel`.
-///
-/// Unless they are null, the first pass also files the reads' large indels in `large_rows` and
-/// their long clips in `clip_rows`, for `count_large_indel_edits`.
 vector<EditCandidate> count_indel_edits(const HandleGraph& graph, const ReadSource& for_each_read,
                                         const function<bool(nid_t)>& owns,
-                                        const EditCountParams& params,
-                                        vector<LargeRow>* large_rows, vector<ClipRow>* clip_rows) {
+                                        const EditCountParams& params) {
     std::hash<string> name_hash;
     ReadWalk walk(graph);
 
@@ -917,10 +812,7 @@ vector<EditCandidate> count_indel_edits(const HandleGraph& graph, const ReadSour
             return;
         }
         const uint64_t fragment = name_hash(aln.name());
-        file_read_indels(graph, walk, fragment, owns, params, rows, large_rows);
-        if (clip_rows != nullptr) {
-            add_clip_rows(graph, walk, fragment, params.large, *clip_rows);
-        }
+        file_read_indels(graph, walk, fragment, owns, params, rows);
     });
     if (rows.empty()) {
         return {};
@@ -944,634 +836,6 @@ vector<EditCandidate> count_indel_edits(const HandleGraph& graph, const ReadSour
     return tally.candidates(graph, params);
 }
 
-/// A large indel to count reads for: its anchor, kind, length and ALT, and the walk from its
-/// anchor's node to that of the first base after its tract, with where each node starts along it
-/// and its bases.
-struct LargeKey {
-    char kind = 'D';
-    nid_t node = 0;
-    uint32_t offset = 0;
-    uint32_t length = 0;
-    string inserted;
-    vector<nid_t> walk;
-    /// Where each node of `walk` starts along it.
-    vector<int64_t> starts;
-    /// The bases of `walk`, upper-cased.
-    string spelling;
-    /// The bases from the anchor to the first base after the tract.
-    uint32_t span = 0;
-    /// The number of fragments that found it.
-    size_t support = 0;
-    /// Whether only clips found it.
-    bool clips_only = false;
-};
-
-/// Find in `next` the node, read forward, that an unbranched walk going forward (or backward) from
-/// `at` goes on to: the end of the only edge out of `at` that way, when that node has no other edge
-/// in and is not the node `start`. False if there is none.
-bool sole_successor(const HandleGraph& graph, handle_t at, bool forward, nid_t start,
-                    handle_t& next) {
-    size_t n = 0;
-    next = at;
-    graph.follow_edges(at, !forward, [&](const handle_t& h) {
-        next = h;
-        return ++n < 2;
-    });
-    if (n != 1 || graph.get_is_reverse(next) || graph.get_id(next) == start) {
-        return false;
-    }
-    size_t in = 0;
-    graph.follow_edges(next, forward, [&](const handle_t&) { return ++in < 2; });
-    return in == 1;
-}
-
-/// Return the nodes met from `from`, read forward, going forward (or backward) along the only edge
-/// out of each node into a node with no other edge in, until they hold `limit` bases. Order them
-/// as a forward walk reads them.
-vector<handle_t> unbranched_walk(const HandleGraph& graph, handle_t from, bool forward,
-                                 size_t limit) {
-    vector<handle_t> out{from};
-    size_t total = graph.get_length(from);
-    handle_t at = from;
-    handle_t next = from;
-    while (total < limit && sole_successor(graph, at, forward, graph.get_id(from), next)) {
-        out.push_back(next);
-        total += graph.get_length(next);
-        at = next;
-    }
-    if (!forward) {
-        std::ranges::reverse(out);
-    }
-    return out;
-}
-
-/// Make in `out` the key for `indel`, given in the coordinates of the walk `nodes` read forward,
-/// once left-aligned along it. False if its tract runs off the end of the walk.
-bool make_large_key(const HandleGraph& graph, const vector<nid_t>& nodes, WalkIndel indel,
-                    size_t support, bool clips_only, LargeKey& out) {
-    string spelling;
-    vector<int64_t> starts;
-    for (nid_t id : nodes) {
-        starts.push_back((int64_t)spelling.size());
-        spelling += graph.get_sequence(graph.get_handle(id));
-    }
-    spelling = upper(std::move(spelling));
-    const function<char(int64_t)> base = [&](int64_t x) { return spelling[x]; };
-    left_align(indel, 1, base);
-    const int64_t after = tract_end(indel, (int64_t)spelling.size(), base);
-    if (after >= (int64_t)spelling.size() || indel.at < 1) {
-        return false;
-    }
-    const int64_t anchor = indel.at - 1;
-    auto node_of = [&](int64_t x) {
-        return (size_t)(std::ranges::upper_bound(starts, x) - starts.begin()) - 1;
-    };
-    const size_t first = node_of(anchor);
-    const size_t last = node_of(after);
-    out = LargeKey();
-    out.kind = indel.deleted > 0 ? 'D' : 'I';
-    out.node = nodes[first];
-    out.offset = (uint32_t)(anchor - starts[first]);
-    out.length = indel.length();
-    out.inserted = indel.inserted;
-    out.walk.assign(nodes.begin() + first, nodes.begin() + last + 1);
-    for (size_t i = first; i <= last; ++i) {
-        out.starts.push_back(starts[i] - starts[first]);
-    }
-    const int64_t end = last + 1 < starts.size() ? starts[last + 1] : (int64_t)spelling.size();
-    out.spelling = spelling.substr(starts[first], end - starts[first]);
-    out.span = (uint32_t)(after - anchor);
-    out.support = support;
-    out.clips_only = clips_only;
-    return true;
-}
-
-/// Return the sorted 8-mer codes of `bases`, for a cheap distance between two reads' insertions.
-vector<uint32_t> kmer_profile(const string& bases) {
-    vector<uint32_t> out;
-    uint32_t code = 0;
-    size_t valid = 0;
-    for (char b : bases) {
-        const char* at = strchr("ACGT", b);
-        if (b == 0 || at == nullptr) {
-            valid = 0;
-            continue;
-        }
-        code = ((code << 2) | (uint32_t)(at - "ACGT")) & 0xFFFF;
-        if (++valid >= 8) {
-            out.push_back(code);
-        }
-    }
-    std::ranges::sort(out);
-    return out;
-}
-
-/// Return the size of the symmetric multiset difference of two sorted profiles.
-size_t profile_distance(const vector<uint32_t>& a, const vector<uint32_t>& b) {
-    size_t i = 0;
-    size_t j = 0;
-    size_t shared = 0;
-    while (i < a.size() && j < b.size()) {
-        if (a[i] < b[j]) {
-            ++i;
-        } else if (b[j] < a[i]) {
-            ++j;
-        } else {
-            ++shared;
-            ++i;
-            ++j;
-        }
-    }
-    return a.size() + b.size() - 2 * shared;
-}
-
-/// Put in `difference` how far the anchor of `key` lies right of the anchor of `other`.
-///
-/// It is measured along the walk of `other` if that holds the anchor node of `key`, or else along
-/// the walk of `key` if that holds the anchor node of `other`. False if neither does.
-bool anchor_difference(const LargeKey& key, const LargeKey& other, int64_t& difference) {
-    for (size_t j = 0; j < other.walk.size(); ++j) {
-        if (other.walk[j] == key.node) {
-            difference = other.starts[j] + key.offset - (int64_t)other.offset;
-            return true;
-        }
-    }
-    for (size_t j = 0; j < key.walk.size(); ++j) {
-        if (key.walk[j] == other.node) {
-            difference = (int64_t)key.offset - (key.starts[j] + other.offset);
-            return true;
-        }
-    }
-    return false;
-}
-
-/// Return the number of distinct fragments in `f`.
-size_t distinct_fragments(vector<uint64_t> f) {
-    std::ranges::sort(f);
-    return (size_t)(std::ranges::unique(f).begin() - f.begin());
-}
-
-/// Return the index into `walked` of the medoid of the rows of `rows` it lists, all of kind
-/// `kind`: the row whose indel is nearest all the others'.
-///
-/// Insertions are compared by the k-mer profiles of their bases, and deletions by anchor and
-/// length. Ties go to the first.
-size_t medoid_of(const vector<LargeRow>& rows, const vector<size_t>& walked, char kind) {
-    vector<vector<uint32_t>> profiles;
-    if (kind == 'I') {
-        for (size_t k : walked) {
-            profiles.push_back(kmer_profile(rows[k].inserted));
-        }
-    }
-    size_t best = 0;
-    size_t best_total = numeric_limits<size_t>::max();
-    for (size_t x = 0; x < walked.size(); ++x) {
-        size_t total = 0;
-        for (size_t y = 0; y < walked.size(); ++y) {
-            const LargeRow& p = rows[walked[x]];
-            const LargeRow& q = rows[walked[y]];
-            total += kind == 'I' ? profile_distance(profiles[x], profiles[y])
-                                 : (size_t)(std::abs((int64_t)p.offset - (int64_t)q.offset)
-                                            + std::abs((int64_t)p.length - (int64_t)q.length));
-        }
-        if (total < best_total) {
-            best_total = total;
-            best = x;
-        }
-    }
-    return best;
-}
-
-/// Add to `keys` the key for one cluster of read indels, the rows `members` of `rows`, if at least
-/// `min_fragments` fragments carry it. The key is the medoid's indel, chosen among the first 40
-/// members whose reads reach the end of the tract.
-void add_cluster_key(const HandleGraph& graph, const vector<LargeRow>& rows,
-                     const vector<size_t>& members, size_t min_fragments, vector<LargeKey>& keys) {
-    vector<uint64_t> fragments;
-    vector<size_t> walked;
-    for (size_t k : members) {
-        fragments.push_back(rows[k].fragment);
-        if (!rows[k].walk.empty() && walked.size() < 40) {
-            walked.push_back(k);
-        }
-    }
-    const size_t support = distinct_fragments(std::move(fragments));
-    if (support < min_fragments || walked.empty()) {
-        return;
-    }
-    const LargeRow& medoid = rows[walked[medoid_of(rows, walked, rows[members[0]].kind)]];
-    WalkIndel indel;
-    indel.at = (int64_t)medoid.offset + 1;
-    if (medoid.kind == 'D') {
-        indel.deleted = medoid.length;
-    } else {
-        indel.inserted = medoid.inserted;
-    }
-    if (LargeKey key; make_large_key(graph, medoid.walk, indel, support, false, key)) {
-        keys.push_back(std::move(key));
-    }
-}
-
-/// Cluster the rows `rows[i, j)`, one run of anchors, by length, and add a key for each cluster
-/// to `keys`. In a cluster, each indel's length is within `length_ratio` of the next shorter one's.
-void add_length_cluster_keys(const HandleGraph& graph, const vector<LargeRow>& rows, size_t i,
-                             size_t j, const EditCountParams& params, vector<LargeKey>& keys) {
-    vector<size_t> by_length;
-    for (size_t k = i; k < j; ++k) {
-        by_length.push_back(k);
-    }
-    std::ranges::stable_sort(by_length,
-                             [&](size_t a, size_t b) { return rows[a].length < rows[b].length; });
-    const double ratio = params.large.length_ratio;
-    for (size_t a = 0; a < by_length.size();) {
-        size_t b = a + 1;
-        while (b < by_length.size()
-               && (double)rows[by_length[b]].length
-                      <= (double)rows[by_length[b - 1]].length * (1.0 + ratio)) {
-            ++b;
-        }
-        const vector<size_t> members(by_length.begin() + (int64_t)a,
-                                     by_length.begin() + (int64_t)b);
-        add_cluster_key(graph, rows, members, params.min_fragments, keys);
-        a = b;
-    }
-}
-
-/// Return keys for the reads' own large indels in `rows`, which this sorts. The rows are clustered
-/// on one node by anchor, each within `slop` of the next, then by length.
-vector<LargeKey> read_indel_keys(const HandleGraph& graph, vector<LargeRow>& rows,
-                                 const EditCountParams& params) {
-    vector<LargeKey> keys;
-    std::ranges::sort(rows);
-    for (size_t i = 0; i < rows.size();) {
-        size_t j = i + 1;
-        while (j < rows.size() && rows[j].kind == rows[i].kind && rows[j].node == rows[i].node
-               && (int64_t)rows[j].offset - (int64_t)rows[j - 1].offset <= params.large.slop) {
-            ++j;
-        }
-        add_length_cluster_keys(graph, rows, i, j, params, keys);
-        i = j;
-    }
-    return keys;
-}
-
-/// Return the index of the clip in `clips[i, j)`, one clip position sorted by seed, whose clipped
-/// bases the most fragments carry, and put that number of fragments in `support`. Ties go to the
-/// first.
-size_t commonest_seed(const vector<ClipRow>& clips, size_t i, size_t j, size_t& support) {
-    support = 0;
-    size_t best = i;
-    for (size_t k = i; k < j;) {
-        size_t l = k;
-        vector<uint64_t> fragments;
-        while (l < j && clips[l].seed == clips[k].seed) {
-            fragments.push_back(clips[l].fragment);
-            ++l;
-        }
-        if (const size_t found = distinct_fragments(std::move(fragments)); found > support) {
-            support = found;
-            best = k;
-        }
-        k = l;
-    }
-    return best;
-}
-
-/// Return the upper-cased bases of `handles`, and put their node IDs in `nodes`.
-string spell_handles(const HandleGraph& graph, const vector<handle_t>& handles,
-                     vector<nid_t>& nodes) {
-    string spelling;
-    for (const handle_t& n : handles) {
-        nodes.push_back(graph.get_id(n));
-        spelling += graph.get_sequence(n);
-    }
-    return upper(std::move(spelling));
-}
-
-/// Find the deletion that `clip` shows, its clipped bases found again along the unbranched walk
-/// from the clip's node, at least `LARGE_INDEL_MIN_LENGTH` and at most `max_clip_deletion` bases
-/// away. Put the walk's nodes in `nodes` and the deletion, in the walk's coordinates, in `indel`.
-/// False if there is none.
-bool deletion_from_clip(const HandleGraph& graph, const ClipRow& clip,
-                        const LargeIndelParams& large, vector<nid_t>& nodes, WalkIndel& indel) {
-    const handle_t h = graph.get_handle(clip.node);
-    const size_t seed = clip.seed.size();
-    const size_t reach = (size_t)large.max_clip_deletion + seed + 1;
-    if (clip.side == 'R') {
-        // The deleted bases follow the clip's base, and the seed comes after them.
-        const string spelling =
-            spell_handles(graph, unbranched_walk(graph, h, true, clip.offset + reach), nodes);
-        const size_t from = (size_t)clip.offset + 1 + LARGE_INDEL_MIN_LENGTH;
-        const size_t q = spelling.find(clip.seed, from);
-        if (q == string::npos || q - clip.offset - 1 > large.max_clip_deletion) {
-            return false;
-        }
-        indel.at = (int64_t)clip.offset + 1;
-        indel.deleted = (uint32_t)(q - clip.offset - 1);
-        return true;
-    }
-    // The deleted bases precede the clip's base, and the seed comes before them.
-    const string spelling = spell_handles(
-        graph, unbranched_walk(graph, h, false, reach + graph.get_length(h)), nodes);
-    const int64_t q = (int64_t)(spelling.size() - graph.get_length(h)) + clip.offset;
-    const int64_t last_start = q - (int64_t)LARGE_INDEL_MIN_LENGTH - (int64_t)seed;
-    if (last_start < 1) {
-        return false;
-    }
-    const size_t s = spelling.rfind(clip.seed, (size_t)last_start);
-    if (s == string::npos || s < 1 || q - (int64_t)(s + seed) > (int64_t)large.max_clip_deletion) {
-        return false;
-    }
-    indel.at = (int64_t)(s + seed);
-    indel.deleted = (uint32_t)(q - indel.at);
-    return true;
-}
-
-/// Return keys for the deletions that the clips in `clips`, which this sorts, show. Each clip
-/// position that enough fragments share gives the deletion its commonest clipped bases show.
-vector<LargeKey> clip_deletion_keys(const HandleGraph& graph, vector<ClipRow>& clips,
-                                    const EditCountParams& params) {
-    vector<LargeKey> keys;
-    std::ranges::sort(clips);
-    for (size_t i = 0; i < clips.size();) {
-        size_t j = i;
-        while (j < clips.size() && clips[j].side == clips[i].side && clips[j].node == clips[i].node
-               && clips[j].offset == clips[i].offset) {
-            ++j;
-        }
-        size_t support = 0;
-        const ClipRow& clip = clips[commonest_seed(clips, i, j, support)];
-        i = j;
-        if (support < params.min_fragments || !graph.has_node(clip.node)) {
-            continue;
-        }
-        vector<nid_t> nodes;
-        WalkIndel indel;
-        if (!deletion_from_clip(graph, clip, params.large, nodes, indel)) {
-            continue;
-        }
-        if (LargeKey key; make_large_key(graph, nodes, indel, support, true, key)) {
-            keys.push_back(std::move(key));
-        }
-    }
-    return keys;
-}
-
-/// Whether `key` makes the same change as `other`: an indel of the same kind, its anchor within
-/// `slop` of where `other`'s tract lets `other` slide, and its length within `length_ratio` of
-/// `other`'s.
-bool same_large_change(const LargeKey& key, const LargeKey& other, const LargeIndelParams& large) {
-    const int64_t room = std::max<int64_t>(
-        0, (int64_t)other.span - 1 - (other.kind == 'D' ? (int64_t)other.length : 0));
-    int64_t difference = 0;
-    return other.kind == key.kind && anchor_difference(key, other, difference)
-           && std::abs(difference) <= large.slop + room
-           && std::abs((double)key.length - (double)other.length)
-                  <= large.length_ratio * (double)other.length;
-}
-
-/// Return one key per change among `keys`, leaving out those anchored on nodes `owns` refuses,
-/// sorted by anchor. Of keys making the same change, the reads' own indels win over clips, and
-/// then the best supported wins.
-template<typename Owns>
-vector<LargeKey> distinct_large_keys(const vector<LargeKey>& keys, const Owns& owns,
-                                     const LargeIndelParams& large) {
-    vector<size_t> order(keys.size());
-    for (size_t k = 0; k < keys.size(); ++k) {
-        order[k] = k;
-    }
-    std::ranges::stable_sort(order, [&](size_t a, size_t b) {
-        return tie(keys[a].clips_only, keys[b].support) < tie(keys[b].clips_only, keys[a].support);
-    });
-    vector<LargeKey> chosen;
-    for (size_t k : order) {
-        const LargeKey& key = keys[k];
-        const bool duplicate = !owns(key.node)
-                               || std::ranges::any_of(chosen, [&](const LargeKey& other) {
-                                      return same_large_change(key, other, large);
-                                  });
-        if (!duplicate) {
-            chosen.push_back(key);
-        }
-    }
-    std::ranges::sort(chosen, [](const LargeKey& a, const LargeKey& b) {
-        return tie(a.node, a.offset, a.kind, a.length, a.inserted)
-               < tie(b.node, b.offset, b.kind, b.length, b.inserted);
-    });
-    return chosen;
-}
-
-/// A tally of what the reads say about each large indel, by fragment, as `observe_large_indel`
-/// matches them to it.
-///
-/// A deletion that no read carries whole must have reads clipped at each of its ends.
-class LargeTally {
-public:
-    /// Tally reads against `keys`, sorted by anchor, matched as `large` says.
-    LargeTally(vector<LargeKey> keys, const LargeIndelParams& large)
-        : keys(std::move(keys)), by_key(this->keys.size()), large(large) {
-        for (size_t k = 0; k < this->keys.size(); ++k) {
-            for (size_t j = 0; j < this->keys[k].walk.size(); ++j) {
-                on_node[this->keys[k].walk[j]].emplace_back(k, j);
-            }
-        }
-    }
-
-    /// Whether the read visits a node of some key's walk.
-    bool near(const Alignment& aln) const {
-        return std::ranges::any_of(aln.path().mapping(), [&](const Mapping& m) {
-            return on_node.contains(m.position().node_id());
-        });
-    }
-
-    /// Record what the loaded `walk`, from `fragment` at mapping quality `mapq`, says about each
-    /// key whose walk it visits forward, once per key.
-    void observe(const HandleGraph& graph, const ReadWalk& walk, uint64_t fragment, int32_t mapq) {
-        for (size_t k : touched) {
-            by_key[k].done = false;
-        }
-        touched.clear();
-        for (size_t i = 0; i + 1 < walk.node_start().size(); ++i) {
-            const handle_t h = walk.handles()[i];
-            auto found = on_node.find(graph.get_id(h));
-            if (found == on_node.end() || graph.get_is_reverse(h)) {
-                continue;
-            }
-            for (const auto& [k, j] : found->second) {
-                if (by_key[k].done) {
-                    continue;
-                }
-                by_key[k].done = true;
-                touched.push_back(k);
-                observe_key(graph, walk, i, k, j, fragment, mapq);
-            }
-        }
-    }
-
-    /// Return the candidates that pass the floors of `params` and that no other walk of the graph
-    /// spells.
-    vector<EditCandidate> candidates(const HandleGraph& graph, const EditCountParams& params) {
-        vector<EditCandidate> kept;
-        std::ranges::sort(seen);
-        for (size_t i = 0; i < seen.size();) {
-            const size_t k = seen[i].key;
-            size_t end = i;
-            while (end < seen.size() && seen[end].key == k) {
-                ++end;
-            }
-            EditCandidate c;
-            count_fragments(seen, i, end, c);
-            i = end;
-            const KeyTally& tally = by_key[k];
-            if (c.alt_fragments < params.min_fragments || c.fraction() < params.min_fraction) {
-                continue;
-            }
-            if (tally.whole == 0
-                && (distinct_fragments(tally.clipped_left) < large.min_fragments_per_end
-                    || distinct_fragments(tally.clipped_right) < large.min_fragments_per_end)) {
-                continue;
-            }
-            fill_candidate(c, keys[k]);
-            if (spelled_by_panel(graph, c)) {
-                continue;
-            }
-            c.mean_alt_mapq = tally.mapq_count == 0
-                                  ? 0.0f
-                                  : (float)(tally.mapq_total / (double)tally.mapq_count);
-            kept.push_back(std::move(c));
-        }
-        return kept;
-    }
-
-private:
-    /// What the reads have said about one key.
-    struct KeyTally {
-        /// The fragments with an ALT read clipped at the deletion's left end.
-        vector<uint64_t> clipped_left;
-        /// The fragments with an ALT read clipped at the deletion's right end.
-        vector<uint64_t> clipped_right;
-        /// The ALT reads that carry the indel whole.
-        size_t whole = 0;
-        double mapq_total = 0.0;
-        size_t mapq_count = 0;
-        /// Whether the current read has been matched to the key.
-        bool done = false;
-    };
-
-    /// Whether `walk` takes the walk of `key` wherever the two overlap, where its mapping `i`
-    /// is on node `j` of the key's walk.
-    static bool follows_key_walk(const HandleGraph& graph, const ReadWalk& walk, size_t i,
-                                 const LargeKey& key, size_t j) {
-        bool agrees = true;
-        for (size_t t = 0; t < key.walk.size() && agrees; ++t) {
-            const int64_t m = (int64_t)i + (int64_t)t - (int64_t)j;
-            if (m >= 0 && m + 1 < (int64_t)walk.node_start().size()) {
-                agrees = walk.handles()[m] == graph.get_handle(key.walk[t]);
-            }
-        }
-        return agrees;
-    }
-
-    /// Record what `walk` says about key number `k`, where its mapping `i` is on node `j` of the
-    /// key's walk.
-    void observe_key(const HandleGraph& graph, const ReadWalk& walk, size_t i, size_t k, size_t j,
-                     uint64_t fragment, int32_t mapq) {
-        const LargeKey& key = keys[k];
-        if (!follows_key_walk(graph, walk, i, key, j)) {
-            return;
-        }
-        const int64_t anchor = walk.node_start()[i] - key.starts[j] + key.offset;
-        WalkIndel wanted;
-        wanted.at = anchor + 1;
-        if (key.kind == 'D') {
-            wanted.deleted = key.length;
-        } else {
-            wanted.inserted = key.inserted;
-        }
-        int clip = 0;
-        const IndelObservation observed =
-            observe_large_indel(walk.alignment(), wanted, anchor + key.span, large,
-                                walk.alignment().begin, walk.alignment().end, &clip);
-        if (observed == IndelObservation::NONE) {
-            return;
-        }
-        seen.emplace_back(k, fragment, (uint8_t)observed);
-        if (observed != IndelObservation::ALT) {
-            return;
-        }
-        KeyTally& tally = by_key[k];
-        if (clip == 1) {
-            tally.clipped_left.push_back(fragment);
-        } else if (clip == 2) {
-            tally.clipped_right.push_back(fragment);
-        } else {
-            ++tally.whole;
-        }
-        tally.mapq_total += mapq;
-        ++tally.mapq_count;
-    }
-
-    /// Fill in the change `c` makes, from its key.
-    static void fill_candidate(EditCandidate& c, const LargeKey& key) {
-        c.node = key.node;
-        c.offset = key.offset;
-        c.kind = key.kind;
-        c.alt = 0;
-        c.ref = key.spelling[key.offset];
-        c.span = key.span;
-        c.sequence = key.kind == 'D' ? key.spelling.substr(key.offset + 1, key.length)
-                                     : key.inserted;
-        c.walk = key.walk;
-        for (size_t x = key.offset + 1;
-             x < key.spelling.size() && key.spelling[x] == c.sequence[0]; ++x) {
-            ++c.homopolymer;
-        }
-    }
-
-    /// The keys, sorted by anchor.
-    vector<LargeKey> keys;
-    /// The tally for each of `keys`.
-    vector<KeyTally> by_key;
-    const LargeIndelParams& large;
-    /// For each node, each key whose walk visits it, and where along the walk.
-    unordered_map<nid_t, vector<pair<size_t, size_t>>> on_node;
-    /// What each read said about each key.
-    vector<Seen> seen;
-    /// The keys the current read has been matched to.
-    vector<size_t> touched;
-};
-
-/// Count the large indels among the reads, from the rows the short indel count filed.
-///
-/// The keys come from each read's own large indels (`rows`), clustered by anchor and length with
-/// the medoid read's indel taken as the ALT, and from deletions that clips show (`clips`). Each is
-/// then counted as `observe_large_indel` matches the reads to it.
-vector<EditCandidate> count_large_indel_edits(const HandleGraph& graph,
-                                              const ReadSource& for_each_read,
-                                              const function<bool(nid_t)>& owns,
-                                              const EditCountParams& params, vector<LargeRow> rows,
-                                              vector<ClipRow> clips) {
-    vector<LargeKey> keys = read_indel_keys(graph, rows, params);
-    vector<LargeKey> from_clips = clip_deletion_keys(graph, clips, params);
-    keys.insert(keys.end(), std::make_move_iterator(from_clips.begin()),
-                std::make_move_iterator(from_clips.end()));
-    keys = distinct_large_keys(keys, owns, params.large);
-    if (keys.empty()) {
-        return {};
-    }
-
-    LargeTally tally(std::move(keys), params.large);
-    ReadWalk walk(graph);
-    std::hash<string> name_hash;
-    for_each_read([&](const Alignment& aln) {
-        if (aln.mapping_quality() < params.min_mapq || !tally.near(aln) || !walk.load(aln)) {
-            return;
-        }
-        tally.observe(graph, walk, name_hash(aln.name()), aln.mapping_quality());
-    });
-    return tally.candidates(graph, params);
-}
-
 /// A run of admitted candidates on one node whose changed bases touch or overlap, to be merged.
 struct TouchGroup {
     /// The indices of its candidates in the candidate list.
@@ -1583,8 +847,8 @@ struct TouchGroup {
     vector<nid_t> walk;
 };
 
-/// Return the groups of the candidates in `kept` that `bar` admits, large indels aside, that are
-/// worth merging, sorted by node.
+/// Return the groups of the candidates in `kept` that `bar` admits that are worth merging, sorted
+/// by node.
 ///
 /// A group is worth merging when it has more than one candidate and they are not all indels at
 /// one anchor.
@@ -1593,7 +857,7 @@ vector<TouchGroup> touching_groups(const vector<EditCandidate>& kept, const Edit
     vector<tuple<nid_t, uint32_t, uint32_t, size_t>> changes;
     for (size_t i = 0; i < kept.size(); ++i) {
         const EditCandidate& c = kept[i];
-        if (bar.admits(c) && !c.is_large()) {
+        if (bar.admits(c)) {
             const uint32_t from = c.kind == 'S' ? c.offset : c.offset + 1;
             changes.emplace_back(c.node, from, c.kind == 'S' ? from + 1 : c.offset + c.span, i);
         }
@@ -1814,19 +1078,7 @@ vector<EditCandidate> count_edits(
     const function<void(const function<void(const Alignment&)>&)>& for_each_read,
     const function<bool(nid_t)>& owns, const EditCountParams& params) {
     vector<EditCandidate> kept = count_snv_edits(graph, for_each_read, owns, params);
-    vector<LargeRow> large_rows;
-    vector<ClipRow> clip_rows;
-    vector<EditCandidate> indels =
-        count_indel_edits(graph, for_each_read, owns, params,
-                          params.large_indels ? &large_rows : nullptr,
-                          params.large_indels ? &clip_rows : nullptr);
-    if (params.large_indels) {
-        vector<EditCandidate> large = count_large_indel_edits(graph, for_each_read, owns, params,
-                                                              std::move(large_rows),
-                                                              std::move(clip_rows));
-        indels.insert(indels.end(), std::make_move_iterator(large.begin()),
-                      std::make_move_iterator(large.end()));
-    }
+    vector<EditCandidate> indels = count_indel_edits(graph, for_each_read, owns, params);
     if (!indels.empty()) {
         kept.insert(kept.end(), std::make_move_iterator(indels.begin()),
                     std::make_move_iterator(indels.end()));
@@ -2140,16 +1392,12 @@ void EditOutcomes::add(EditOutcome&& outcome) {
     by_thread.at(omp_get_thread_num()).push_back(std::move(outcome));
 }
 
-vector<EditOutcome> EditOutcomes::sorted() const {
-    vector<EditOutcome> all;
+vector<EditOutcome> EditOutcomes::all() const {
+    vector<EditOutcome> outcomes;
     for (const auto& list : by_thread) {
-        all.insert(all.end(), list.begin(), list.end());
+        outcomes.insert(outcomes.end(), list.begin(), list.end());
     }
-    std::ranges::sort(all, [](const EditOutcome& a, const EditOutcome& b) {
-        return tie(a.node, a.offset, a.kind, a.alt, a.sequence)
-               < tie(b.node, b.offset, b.kind, b.alt, b.sequence);
-    });
-    return all;
+    return outcomes;
 }
 
 void for_each_candidate_on(const vector<EditCandidate>& sorted, const vector<nid_t>& nodes,

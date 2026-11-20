@@ -224,7 +224,7 @@ Dividing by the best allele's probability does three things. We compute $\Pr(r \
 factor that depends on the read, and that factor cancels in $p_{ra}$, so it need not be computed.
 Each read's factor lies between $e_r$ and 1, so its logarithm is finite and does not underflow, for
 a read of any length. And a read's relative likelihoods can be read directly: 1 for its best allele,
-and near 0 for an allele that fits it far worse. `--dump-likelihoods` writes them.
+and near 0 for an allele that fits it far worse.
 
 ### Mixture weights
 

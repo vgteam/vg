@@ -200,9 +200,7 @@ follows one whose correction changes no site's direct call, whose linkage pass c
 genotype, or whose chosen genotypes return to those of an earlier round. Every correction that is
 applied is followed by a linkage pass, so the settled genotypes are chosen from the likelihoods
 that `GL` reports. With `--regeno-passes 1` there is one round. After it, the correction is
-computed and reported, on standard error and in the `--regeno-ledger` file, but not applied, and no
-linkage pass follows. `--regeno-ledger` writes one
-line for each site whose direct call the last correction changed.
+computed and reported on standard error, but not applied, and no linkage pass follows.
 
 ## Settling genotypes
 
@@ -795,7 +793,7 @@ alleles change: the start pin lies just after the last unchanged base before the
 just before the first unchanged base after them, an indel's whole repeat tract counting as changed.
 Where the changed bases end the site's walk, the end pin lies just after the last of them. An
 insertion with no repeat tract changes no base, and its one pin is the point where it goes.
-Off-panel changes on one node that the call bar admits, large indels aside, whose changed bases
+Off-panel changes on one node that the call bar admits whose changed bases
 touch or overlap are one site where the reads spell alleles that carry each of them and they are not
 all indels at one anchor, with ID `op<node>.<offset>.M<length>`: `offset` is its first
 changed base along the node's forward strand and `length` the bases it replaces, and its ALTs are
@@ -997,7 +995,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Allele merging](#options-that-change-the-fields) | `--cluster`, `--cluster-min-len` |
 | [Mosaic](#mosaic---mosaic-out) | `--mosaic-out`, `--mosaic-patch-gaps`, `--no-mosaic-patch-gaps`, `--no-mosaic-nested`, `--mosaic-break-unexplained` |
 | [Anchors](#assembly-anchors---anchors-out) | `--anchors-out`, `--anchors-fill`, `--anchors-reads`, `--anchors-min-gqn`, `--anchors-min-q`, `--anchors-het-only`, `--anchors-leaf-only`, `--anchors-keep-off-call`, `--anchors-end-new`, `--anchors-phase-hets`, `--no-anchors-phase-hets`, `--anchors-strict-hets`, `--anchors-hom-split`, `--split-min-q`, `--split-min-side` |
-| Debugging and evaluation | `--dump-likelihoods` (writes each read's $e_r$ and $p_{ra}$ at every site to a file, as TSV), `--regeno-shuffle` (randomises the sign of each $\Lambda_{rs}$ before re-genotyping, as a control for how much the phase contributes); `--flat-mixture` and `--anchors-strict-hets`, listed above, also serve to measure the parts they replace |
+| Debugging and evaluation | `--regeno-shuffle` (randomises the sign of each $\Lambda_{rs}$ before re-genotyping, as a control for how much the phase contributes); `--flat-mixture` and `--anchors-strict-hets`, listed above, also serve to measure the parts they replace |
 | Presets | `--preset` |
 
 ### Fixed constants
