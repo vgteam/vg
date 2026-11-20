@@ -268,11 +268,10 @@ private:
  *
  * Versions:
  *
- * * Version 9: Subchains store the number of copies of each kmer in each
+ * * Version 8: Subchains store the number of copies of each kmer in each
  *   sequence, the median bases of the walks of the sequences through the
- *   subchain, and the N bases of each walk. Only an index with subchain kmers is
- *   written as version 9, and other indexes are written as version 7. Versions 5
- *   to 7 can still be read. There is no version 8.
+ *   subchain, and the N bases of each walk. They are empty in an index built
+ *   without subchain kmers. Versions 5 to 7 can still be read.
  *
  * * Version 7: Work in progress.
  *   Compressed kmer presence matrices, with faster haplotype scoring by
@@ -327,8 +326,8 @@ public:
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 9;
-        constexpr static std::uint32_t COPIES_VERSION = 9;
+        constexpr static std::uint32_t VERSION = 8;
+        constexpr static std::uint32_t COPIES_VERSION = 8;
         constexpr static std::uint32_t COMPRESSED_VERSION = 7;
         constexpr static std::uint32_t VERSION_WITH_TAGS = 6;
         constexpr static std::uint32_t MIN_VERSION = 5;
@@ -559,14 +558,14 @@ public:
 
         /// Serializes the object to a stream in the Simple-SDS format. The copies
         /// are written only if the version has them.
-        void simple_sds_serialize(std::ostream& out, std::uint32_t version = Header::VERSION) const;
+        void simple_sds_serialize(std::ostream& out) const;
 
         /// Loads the object from a stream in the Simple-SDS format.
         /// As there is no header, the expected version must be provided.
         void simple_sds_load(std::istream& in, std::uint32_t version = Header::VERSION);
 
         /// Returns the size of the object in elements in the given version.
-        size_t simple_sds_size(std::uint32_t version = Header::VERSION) const;
+        size_t simple_sds_size() const;
     };
 
     /// Representation of a top-level chain.
@@ -594,14 +593,14 @@ public:
 
         /// Serializes the object to a stream in the Simple-SDS format in the given
         /// version.
-        void simple_sds_serialize(std::ostream& out, std::uint32_t version = Header::VERSION) const;
+        void simple_sds_serialize(std::ostream& out) const;
 
         /// Loads the object from a stream in the Simple-SDS format.
         /// As there is no header, the expected version must be provided.
         void simple_sds_load(std::istream& in, std::uint32_t version = Header::VERSION);
 
         /// Returns the size of the object in elements in the given version.
-        size_t simple_sds_size(std::uint32_t version = Header::VERSION) const;
+        size_t simple_sds_size() const;
     };
 
     /// Returns the number of weakly connected components.
@@ -639,11 +638,6 @@ public:
     /// Returns `true` if a subchain stores kmer copies, which an index built with
     /// subchain kmers does.
     bool has_copies() const;
-
-    /// Returns the version that serialization writes: `Header::VERSION` if a
-    /// subchain stores kmer copies, and otherwise the last version without them,
-    /// which earlier versions of vg can read.
-    std::uint32_t file_version() const;
 
     /// Serializes the object to a stream in the Simple-SDS format.
     /// I/O errors can be detected by checking the stream state.

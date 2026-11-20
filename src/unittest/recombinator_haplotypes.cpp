@@ -618,14 +618,14 @@ void check_same_kmers(const Haplotypes::Subchain& subchain, const Haplotypes::Su
     REQUIRE(loaded.kmers_present == subchain.kmers_present);
 }
 
-// Serializes the subchain in the version, loads it into `loaded`, and checks the size,
-// the end of the stream and the kmers.
-void check_round_trip(const Haplotypes::Subchain& subchain, Haplotypes::Subchain& loaded, std::uint32_t version) {
+// Serializes the subchain, loads it into `loaded`, and checks the size, the end of the
+// stream and the kmers.
+void check_round_trip(const Haplotypes::Subchain& subchain, Haplotypes::Subchain& loaded) {
     std::stringstream buffer;
     buffer.exceptions(std::ios::failbit | std::ios::badbit);
-    subchain.simple_sds_serialize(buffer, version);
-    REQUIRE(buffer.str().size() == subchain.simple_sds_size(version) * sizeof(sdsl::simple_sds::element_type));
-    loaded.simple_sds_load(buffer, version);
+    subchain.simple_sds_serialize(buffer);
+    REQUIRE(buffer.str().size() == subchain.simple_sds_size() * sizeof(sdsl::simple_sds::element_type));
+    loaded.simple_sds_load(buffer);
     REQUIRE(buffer.peek() == EOF);
     check_same_kmers(subchain, loaded);
 }
@@ -664,7 +664,7 @@ TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
         subchain.set_copies(copies);
         subchain.set_walk_bases(40.5, { 0, 7, 2 });
         Haplotypes::Subchain loaded;
-        check_round_trip(subchain, loaded, Haplotypes::Header::VERSION);
+        check_round_trip(subchain, loaded);
         REQUIRE(loaded.has_copies());
         for (size_t i = 0; i < subchain.num_sequences(); i++) {
             REQUIRE(loaded.get_copies(i) == copies[i]);
@@ -685,10 +685,14 @@ TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
     }
 
     SECTION("an earlier version has no copies") {
-        // Loading replaces the copies the subchain had.
+        // An earlier version ends before the copies, so the start of the current
+        // version reads as one. Loading replaces the copies the subchain had.
+        std::stringstream buffer;
+        subchain.simple_sds_serialize(buffer);
         Haplotypes::Subchain loaded = subchain;
         loaded.set_copies(copies);
-        check_round_trip(subchain, loaded, Haplotypes::Header::COMPRESSED_VERSION);
+        loaded.simple_sds_load(buffer, Haplotypes::Header::COMPRESSED_VERSION);
+        check_same_kmers(subchain, loaded);
         REQUIRE(!loaded.has_copies());
     }
 
@@ -725,48 +729,6 @@ TEST_CASE("Kmer presence must match the kmers of a subchain", "[haplotypes]") {
     subchain.simple_sds_serialize(buffer);
     Haplotypes::Subchain loaded;
     REQUIRE_THROWS_AS(loaded.simple_sds_load(buffer, Haplotypes::Header::VERSION), sdsl::simple_sds::InvalidData);
-}
-
-TEST_CASE("Haplotype index file version", "[haplotypes]") {
-    Haplotypes haplotypes;
-    haplotypes.header.top_level_chains = 1;
-    haplotypes.header.construction_jobs = 1;
-    haplotypes.chains.resize(1);
-    haplotypes.chains[0].offset = 0;
-    haplotypes.chains[0].job_id = 0;
-    haplotypes.chains[0].placeholder = 0;
-    haplotypes.chains[0].subchains.push_back(build_subchain({ "1101", "0111", "1100" }, 4));
-    haplotypes.header.total_subchains = 1;
-    haplotypes.header.total_kmers = 4;
-
-    // Serializes the haplotypes and returns the version in the file, after loading it.
-    auto round_trip = [&haplotypes]() {
-        std::stringstream buffer;
-        buffer.exceptions(std::ios::failbit | std::ios::badbit);
-        haplotypes.simple_sds_serialize(buffer);
-        std::uint32_t version = sdsl::simple_sds::load_value<Haplotypes::Header>(buffer).version;
-        buffer.seekg(0);
-        Haplotypes loaded;
-        loaded.simple_sds_load(buffer);
-        REQUIRE(buffer.peek() == EOF);
-        REQUIRE(loaded.chains.size() == 1);
-        REQUIRE(loaded.chains[0].subchains.size() == 1);
-        check_same_kmers(haplotypes.chains[0].subchains[0], loaded.chains[0].subchains[0]);
-        REQUIRE(loaded.chains[0].subchains[0].has_copies() == haplotypes.chains[0].subchains[0].has_copies());
-        return version;
-    };
-
-    SECTION("an index without copies uses the earlier version") {
-        REQUIRE(haplotypes.file_version() == Haplotypes::Header::COMPRESSED_VERSION);
-        REQUIRE(round_trip() == Haplotypes::Header::COMPRESSED_VERSION);
-    }
-
-    SECTION("an index with copies uses the current version") {
-        haplotypes.chains[0].subchains[0].set_copies({ { { 0, 2 } }, {}, { { 1, 3 } } });
-        haplotypes.chains[0].subchains[0].set_walk_bases(40.5, { 0, 7, 2 });
-        REQUIRE(haplotypes.file_version() == Haplotypes::Header::VERSION);
-        REQUIRE(round_trip() == Haplotypes::Header::VERSION);
-    }
 }
 
 //------------------------------------------------------------------------------
