@@ -160,13 +160,18 @@ int main_haplotypes(int argc, char** argv) {
     Haplotypes haplotypes;
     bool preprocess = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_preprocess);
     std::thread haplotype_loader;
+    std::string haplotype_error;
     if (!preprocess) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
             config.logger.info() << "Loading haplotype information from "
                                  << config.haplotype_input << std::endl;
         }
-        haplotype_loader = std::thread([&haplotypes, &config]() {
-            haplotypes.load_from(config.haplotype_input);
+        haplotype_loader = std::thread([&haplotypes, &haplotype_error, &config]() {
+            try {
+                sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
+            } catch (const std::runtime_error& e) {
+                haplotype_error = e.what();
+            }
         });
     }
     load_gbz(gbz, config.graph_name, config.verbosity >= Haplotypes::verbosity_basic);
@@ -176,6 +181,10 @@ int main_haplotypes(int argc, char** argv) {
         preprocess_graph(gbz, haplotypes, config);
     } else {
         haplotype_loader.join();
+        if (!haplotype_error.empty()) {
+            config.logger.error() << "cannot load haplotype information from " << config.haplotype_input
+                                  << ": " << haplotype_error << std::endl;
+        }
         require_compatible_graphs(gbz, "GBZ", haplotypes, "Haplotype Information");
     }
     bool sampling = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes);

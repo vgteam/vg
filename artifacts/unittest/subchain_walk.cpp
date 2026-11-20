@@ -1,8 +1,8 @@
 /** \file
  *
- * Unit tests for SubchainWalk in recombinator.cpp, the walk of a GBWT sequence through a
- * subchain. We check each walk against a walk written out from the paths that build the
- * GBWT.
+ * Unit tests for SubchainWalk in subchain_walk.cpp, the walk of a GBWT sequence through a
+ * subchain. Each walk over a graph of seven nodes is checked against the nodes and the
+ * sequences written out in the test.
  */
 
 #include "../../src/recombinator.hpp"
@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <limits>
 #include <map>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -112,27 +111,6 @@ struct WalkFixture {
             }
         }
         return result;
-    }
-
-    // Return the path of the next fragment of the haplotype in the orientation, if there is one.
-    std::optional<size_t> next_fragment(size_t path, bool is_reverse) const {
-        const PathSpec& from = this->paths[path];
-        if (is_reverse && from.fragment == 0) {
-            return std::nullopt;
-        }
-        size_t wanted = (is_reverse ? from.fragment - 1 : from.fragment + 1);
-        for (size_t i = 0; i < this->paths.size(); i++) {
-            if (this->paths[i].sample == from.sample && this->paths[i].fragment == wanted) {
-                return i;
-            }
-        }
-        return std::nullopt;
-    }
-
-    // Return the sequence of the node in its orientation.
-    std::string oriented_sequence(gbwt::node_type node) const {
-        const std::string& sequence = this->sequences.at(gbwt::Node::id(node));
-        return (gbwt::Node::is_reverse(node) ? reverse_complement(sequence) : sequence);
     }
 
     // Return the GBWT sequence of the path in the orientation, with its offset in the
@@ -315,6 +293,8 @@ TEST_CASE("A subchain walk follows a haplotype across its fragments", "[haplotyp
         REQUIRE(joined_walk.node_ids() == broken.node_ids());
         REQUIRE(joined(joined_walk.sequence_pieces(graph, FLANK, FLANK)) == joined(broken.sequence_pieces(graph, FLANK, FLANK)));
         REQUIRE_FALSE(joined_walk == broken);
+        // Walks that differ are ordered one way, so sequences are grouped by equal walks.
+        REQUIRE((broken < joined_walk) != (joined_walk < broken));
     }
 
     SECTION("a walk starts at the given visit to the start node") {

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 129
+plan tests 128
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -270,11 +270,10 @@ is $? 0 "diploid sampling does not depend on the number of threads"
 # 61717542, which more than one but not every haplotype visits, is all N, so the stored counts
 # differ between sequences, and validation checks that each count is stored with its
 # sequence.
-awk -F '\t' -v OFS='\t' '$1 == "S" && $2 == "61717542" { gsub(/./, "N", $3); found = 1 } { print } END { exit !found }' micb.gfa > micb_n.gfa
-is $? 0 "node 61717542 is in the graph"
-vg gbwt -G micb_n.gfa --gbz-format -g micb_n.gbz -r micb_n.ri
-vg index -j micb_n.dist micb_n.gbz
-vg haplotypes --validate --subchain-length 300 --subchain-kmers -H micb_n.hapl micb_n.gbz
+awk -F '\t' -v OFS='\t' '$1 == "S" && $2 == "61717542" { gsub(/./, "N", $3); found = 1 } { print } END { exit !found }' micb.gfa > micb_n.gfa &&
+    vg gbwt -G micb_n.gfa --gbz-format -g micb_n.gbz -r micb_n.ri &&
+    vg index -j micb_n.dist micb_n.gbz &&
+    vg haplotypes --validate --subchain-length 300 --subchain-kmers -H micb_n.hapl micb_n.gbz
 is $? 0 "the N bases of the walks are stored with their sequences"
 
 # Sampling with a gref reference. Build a gref version of the test graph; -l 1 keeps

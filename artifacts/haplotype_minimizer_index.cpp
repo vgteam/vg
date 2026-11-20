@@ -233,7 +233,9 @@ size_t HaplotypeMinimizerIndex::unique_keys() const {
         for (size_t i = 0; i < bucket.size(); i++) {
             bool same_as_previous = (i > 0 && bucket[i - 1].key == bucket[i].key);
             bool same_as_next = (i + 1 < bucket.size() && bucket[i + 1].key == bucket[i].key);
-            result += (!same_as_previous && !same_as_next);
+            if (!same_as_previous && !same_as_next) {
+                result++;
+            }
         }
     }
     return result;

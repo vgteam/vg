@@ -326,25 +326,10 @@ void KmerPresenceMatrix::score_sequences(
     for (size_t rank = 0; rank < this->get_num_sequences(); rank++) {
         if (this->is_parent(rank)) {
             parent_start = this->parent(rank) * this->num_kmers;
-            parent_score = 0.0;
-            for (size_t kmer_id = 0; kmer_id < this->num_kmers; kmer_id++) {
-                // +1 if the kmer is present and -1 if it is absent.
-                double multiplier = -1.0 + 2.0 * this->parents[parent_start + kmer_id];
-                parent_score += multiplier * kmers[kmer_id].second;
-            }
+            parent_score = this->parent_score(parent_start, kmers);
             sequence_score(rank, parent_score);
         } else {
-            ChildIterator child_iter(*this, rank);
-            double child_score = parent_score;
-            while (!child_iter.end()) {
-                size_t kmer_id = child_iter.kmer_id();
-                auto was_present = this->parents[parent_start + kmer_id];
-                // -2 if the kmer is present in the parent and +2 if it is absent.
-                double multiplier = 2.0 - 4.0 * was_present;
-                child_score += multiplier * kmers[kmer_id].second;
-                ++child_iter;
-            }
-            sequence_score(rank, child_score);
+            sequence_score(rank, this->add_child_differences(rank, parent_start, parent_score, kmers));
         }
     }
 }
@@ -352,19 +337,10 @@ void KmerPresenceMatrix::score_sequences(
 double KmerPresenceMatrix::score_sequence(
     size_t sequence, const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
 ) const {
-    // The additions that `score_sequences()` makes for the sequence, in the same order.
     size_t parent_start = this->parent(sequence) * this->num_kmers;
-    double score = 0.0;
-    for (size_t kmer_id = 0; kmer_id < this->num_kmers; kmer_id++) {
-        double multiplier = -1.0 + 2.0 * this->parents[parent_start + kmer_id];
-        score += multiplier * kmers[kmer_id].second;
-    }
+    double score = this->parent_score(parent_start, kmers);
     if (!this->is_parent(sequence)) {
-        for (ChildIterator child_iter(*this, sequence); !child_iter.end(); ++child_iter) {
-            size_t kmer_id = child_iter.kmer_id();
-            double multiplier = 2.0 - 4.0 * this->parents[parent_start + kmer_id];
-            score += multiplier * kmers[kmer_id].second;
-        }
+        score = this->add_child_differences(sequence, parent_start, score, kmers);
     }
     return score;
 }
@@ -430,19 +406,13 @@ void KmerPresenceMatrix::score_sequences(
     for (size_t rank = 0; rank < this->get_num_sequences(); rank++) {
         std::uint32_t list = plan.list_of[rank];
         if (list == ScoringPlan::PARENT) {
-            // +1 if the kmer is present and -1 if it is absent.
-            size_t parent_start = this->parent(rank) * this->num_kmers;
-            parent_score = 0.0;
-            for (size_t kmer_id = 0; kmer_id < this->num_kmers; kmer_id++) {
-                double multiplier = -1.0 + 2.0 * this->parents[parent_start + kmer_id];
-                parent_score += multiplier * kmers[kmer_id].second;
-            }
+            parent_score = this->parent_score(this->parent(rank) * this->num_kmers, kmers);
             sequence_score(rank, parent_score);
             continue;
         }
         if (!scored[list]) {
-            // The same additions as without a plan: -2 if the kmer is present in the
-            // parent and +2 if it is absent.
+            // The same additions as in `add_child_differences()`: -2 if the kmer is
+            // present in the parent and +2 if it is absent.
             double score = parent_score;
             auto [first, last] = plan.lists[list];
             for (size_t i = first; i < last; i++) {
@@ -458,6 +428,34 @@ void KmerPresenceMatrix::score_sequences(
         }
         sequence_score(rank, list_scores[list]);
     }
+}
+
+double KmerPresenceMatrix::parent_score(
+    size_t parent_start, const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
+) const {
+    double score = 0.0;
+    for (size_t kmer_id = 0; kmer_id < this->num_kmers; kmer_id++) {
+        // +1 if the kmer is present and -1 if it is absent.
+        double multiplier = -1.0 + 2.0 * this->parents[parent_start + kmer_id];
+        score += multiplier * kmers[kmer_id].second;
+    }
+    return score;
+}
+
+double KmerPresenceMatrix::add_child_differences(
+    size_t rank, size_t parent_start, double score,
+    const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
+) const {
+    ChildIterator child_iter(*this, rank);
+    while (!child_iter.end()) {
+        size_t kmer_id = child_iter.kmer_id();
+        auto was_present = this->parents[parent_start + kmer_id];
+        // -2 if the kmer is present in the parent and +2 if it is absent.
+        double multiplier = 2.0 - 4.0 * was_present;
+        score += multiplier * kmers[kmer_id].second;
+        ++child_iter;
+    }
+    return score;
 }
 
 void KmerPresenceMatrix::simple_sds_serialize(std::ostream& out) const {

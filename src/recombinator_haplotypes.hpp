@@ -144,8 +144,8 @@ public:
         constexpr static std::uint32_t PARENT = std::numeric_limits<std::uint32_t>::max();
     };
 
-    /// Returns the scoring plan of the matrix, or nothing if it would have more than
-    /// `max_differences` differences or the kmer ids do not fit in it.
+    /// Returns the scoring plan of the matrix, or nothing if the plan would have more
+    /// than `max_differences` differences or a kmer id does not fit in a plan entry.
     std::optional<ScoringPlan> scoring_plan(size_t max_differences) const;
 
     /// Scores every sequence as `score_sequences()` does, giving the same scores, with
@@ -193,6 +193,15 @@ private:
         }
         return (this->parent(rank) != this->parent(rank - 1));
     }
+
+    // Returns the score of the parent stored from `parent_start` in `parents`.
+    double parent_score(size_t parent_start, const std::vector<std::pair<kmer_classification, double>>& kmers) const;
+
+    // Returns `score` plus the score changes of the kmers in which the child sequence
+    // differs from its parent, which is stored from `parent_start` in `parents`.
+    double add_child_differences(
+        size_t rank, size_t parent_start, double score, const std::vector<std::pair<kmer_classification, double>>& kmers
+    ) const;
 
     // An iterator over all kmers in a sequence.
     // If the sequence is a parent, `child_iter` is at the end and never matches.
@@ -270,8 +279,9 @@ private:
  *
  * * Version 8: Subchains store the number of copies of each kmer in each
  *   sequence, the median bases of the walks of the sequences through the
- *   subchain, and the N bases of each walk. They are empty in an index built
- *   without subchain kmers. Versions 5 to 7 can still be read.
+ *   subchain, and the N bases of each walk. In an index built without subchain
+ *   kmers, the copies and the N bases are empty and the median is 0. Versions 5
+ *   to 7 can still be read.
  *
  * * Version 7: Work in progress.
  *   Compressed kmer presence matrices, with faster haplotype scoring by
@@ -422,11 +432,11 @@ public:
 
         /// The median bases over the walks of the sequences through the subchain
         /// (`SubchainWalk`), where the bases of a walk are those of the distinct nodes it
-        /// visits, boundary nodes included. Set in a subchain with copies, and 0 otherwise.
+        /// visits, boundary nodes included. Set when the subchain has copies, and 0 otherwise.
         double median_walk_bases = 0.0;
 
-        /// For each sequence, the N bases in its walk through the subchain. Set in a
-        /// subchain built with copies, and empty otherwise.
+        /// For each sequence, the N bases in its walk through the subchain. Set when the
+        /// subchain has copies, and empty otherwise.
         sdsl::int_vector<0> walk_n_bases = sdsl::int_vector<0>();
 
         /// Return `true` if the subchain stores the number of copies of its kmers.
@@ -556,15 +566,14 @@ public:
         /// * Information content of the kmers (disabled).
         double badness(const gbwtgraph::GBZ& gbz) const;
 
-        /// Serializes the object to a stream in the Simple-SDS format. The copies
-        /// are written only if the version has them.
+        /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
         /// Loads the object from a stream in the Simple-SDS format.
         /// As there is no header, the expected version must be provided.
         void simple_sds_load(std::istream& in, std::uint32_t version = Header::VERSION);
 
-        /// Returns the size of the object in elements in the given version.
+        /// Returns the size of the object in elements.
         size_t simple_sds_size() const;
     };
 
@@ -591,15 +600,14 @@ public:
             return this->subchains.size() == 1 && this->subchains.front().type == Subchain::full_haplotype;
         }
 
-        /// Serializes the object to a stream in the Simple-SDS format in the given
-        /// version.
+        /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
         /// Loads the object from a stream in the Simple-SDS format.
         /// As there is no header, the expected version must be provided.
         void simple_sds_load(std::istream& in, std::uint32_t version = Header::VERSION);
 
-        /// Returns the size of the object in elements in the given version.
+        /// Returns the size of the object in elements.
         size_t simple_sds_size() const;
     };
 

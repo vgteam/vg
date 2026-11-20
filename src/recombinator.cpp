@@ -682,9 +682,8 @@ struct SubchainWalks {
     const SubchainWalk& of_group(size_t group) const { return this->walks[this->groups[group].front()]; }
 };
 
-// Walk the sequences through the subchain. Like the other loops over the walks of a
-// subchain, the loop uses all threads unless the subchains themselves are being built in
-// parallel.
+// Walk each sequence through the subchain, and group the sequences with equal walks. The
+// loop uses all threads unless it is called inside a parallel region.
 SubchainWalks walk_sequences(
     const HaplotypePartitioner& partitioner, const HaplotypePartitioner::Subchain& subchain,
     const std::vector<HaplotypePartitioner::sequence_type>& sequences

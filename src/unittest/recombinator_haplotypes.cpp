@@ -650,6 +650,11 @@ TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
         for (size_t i = 0; i < subchain.num_sequences(); i++) {
             REQUIRE(subchain.get_copies(i).empty());
         }
+        // An index built without subchain kmers stores every subchain like this.
+        Haplotypes::Subchain loaded;
+        check_round_trip(subchain, loaded);
+        REQUIRE(!loaded.has_copies());
+        REQUIRE(loaded.walk_n_bases.empty());
     }
 
     SECTION("copies are listed by sequence") {
@@ -685,8 +690,9 @@ TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
     }
 
     SECTION("an earlier version has no copies") {
-        // An earlier version ends before the copies, so the start of the current
-        // version reads as one. Loading replaces the copies the subchain had.
+        // A version 7 subchain ends where version 8 starts storing the copies, so the
+        // start of a version 8 subchain loads as a version 7 subchain. Loading clears
+        // the copies the subchain had.
         std::stringstream buffer;
         subchain.simple_sds_serialize(buffer);
         Haplotypes::Subchain loaded = subchain;

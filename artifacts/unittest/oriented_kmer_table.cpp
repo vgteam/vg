@@ -1,8 +1,8 @@
 /** \file
  *
- * Unit tests for OrientedKmerTable and OrientedKmerCounts in recombinator.cpp. The table is
- * checked against a map filled from the kmer list in order, and the counts against a count
- * of every window of k bases in the pieces of a sequence.
+ * Unit tests for OrientedKmerTable and OrientedKmerCounts in subchain_walk.cpp. The table
+ * is checked against a map filled from the kmer list in order, and the counts against
+ * occurrence lists written out in the test.
  */
 
 #include "../../src/recombinator.hpp"
