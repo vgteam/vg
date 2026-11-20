@@ -183,14 +183,24 @@ int main_unitigs(int argc, char** argv) {
     }
 
     double start = gbwt::readTimer();
-    UnitigStatistics statistics;
-    vector<Tig> tigs = haplotype_unitigs(gbz.graph, config.k, gref.get(), &statistics);
+    size_t unitig_count = 0;
+    vector<Tig> tigs = haplotype_unitigs(gbz.graph, config.k, gref.get(), &unitig_count);
     if (config.progress) {
-        cerr << "[vg unitigs] " << statistics.unitigs << " unitigs, " << statistics.tigs << " tigs, "
-             << statistics.bases << " bp, " << statistics.kmers << " " << config.k << "-mers, longest "
-             << statistics.longest << " bp";
+        size_t bases = 0;
+        size_t kmers = 0;
+        size_t longest = 0;
+        size_t unanchored = 0;
+        for (const Tig& tig : tigs) {
+            bases += tig.interval.length;
+            kmers += tig.interval.length - config.k + 1;
+            longest = max(longest, tig.interval.length);
+            unanchored += (tig.placement.path == GrefIndex::NO_PATH);
+        }
+        cerr << "[vg unitigs] " << unitig_count << " unitigs, " << tigs.size() << " tigs, "
+             << bases << " bp, " << kmers << " " << config.k << "-mers, longest "
+             << longest << " bp";
         if (gref) {
-            cerr << ", " << statistics.unanchored << " unanchored";
+            cerr << ", " << unanchored << " unanchored";
         }
         cerr << " in " << (gbwt::readTimer() - start) << " s" << endl;
     }

@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 29
+plan tests 30
 
 # canonical_kmers K FASTA...: every canonical k-mer of the sequences (the smaller of the
 # k-mer and its reverse complement), one per line.  The test graphs have random sequence,
@@ -131,6 +131,16 @@ is "$(grep -c '^>.* gref_x:91-100:+:10=,gref_x:121-130:-:10=$' inv.tigs.fa)" "1"
 
 is "$(grep -c '^>.* gref_x:101-110:-:10=,gref_x:131-140:+:10=$' inv.tigs.fa)" "1" "the tig over the right junction reads the gref backwards, then forwards"
 
+# A haplotype that visits one node in both orientations, so a unitig starts and
+# ends on the same node.  Which end is canonical then turns on the offset into
+# that node, not only on the nodes the two k-mers visit.  k is 3 because the
+# turn is on a 2 bp node, and the sequence is too short and too repetitive for
+# the k-mer comparisons above.
+vg gbwt -G nesting/hairpin.gfa --gbz-format -g hp.gbz
+vg unitigs -k 3 hp.gbz > hp.tigs.fa
+
+is "$(grep -c '^ACGTAG$' hp.tigs.fa)" "1" "a unitig that starts and ends on one node is reported from the end whose first k-mer starts earlier in that node"
+
 # Long k, where no unitig can form, gives an empty cover
 vg unitigs -k 1000 snp.gbz > long.fa
 [ -s long.fa ]
@@ -141,3 +151,4 @@ rm -f ins.gbz ins.paths.fa ins.gref.vg ins.gref.gfa ins.gref.gbz ins.gref.fa ins
 rm -f snp.gref.vg snp.gref.gfa snp.gref.gbz snp.jt.fa del.gref.vg del.gref.gfa del.gref.gbz del.jt.fa
 rm -f ins.gref.paths.fa ins.plain.fa nohaps.gfa nohaps.gbz nohaps.err long.fa
 rm -f inv.gbz inv.paths.fa inv.gref.vg inv.gref.gfa inv.gref.gbz inv.gref.fa inv.tigs.fa
+rm -f hp.gbz hp.tigs.fa

@@ -25,39 +25,16 @@ struct Extension {
     gbwt::BidirectionalState state;
 };
 
-/**
- * A walk with the walk coordinate where each of its nodes starts.
- *
- * It finds the nodes that hold any stretch of the walk's bases.
- */
-struct MeasuredWalk {
-    std::vector<handle_t> walk;
-    /// Where each node of the walk starts, followed by the length of the walk.
-    std::vector<size_t> starts { 0 };
-
-    MeasuredWalk(const GBWTGraph& graph, std::vector<handle_t> handles) : walk(std::move(handles)) {
-        for (const handle_t& handle : walk) {
-            starts.push_back(starts.back() + graph.get_length(handle));
-        }
+/// Return the sort key of a k-mer, which orders k-mers by where they start and
+/// then by where they go: the GBWT node of the first node of the walk, the
+/// offset of the first base in that node, then the GBWT nodes of the rest.
+std::vector<uint64_t> kmer_key(const WalkInterval& kmer) {
+    std::vector<uint64_t> key { GBWTGraph::handle_to_node(kmer.walk.front()), kmer.offset };
+    for (size_t i = 1; i < kmer.walk.size(); i++) {
+        key.push_back(GBWTGraph::handle_to_node(kmer.walk[i]));
     }
-
-    /// Return the length of the walk.
-    size_t length() const {
-        return starts.back();
-    }
-    /// Add a node to the end of the walk.
-    void push_back(const GBWTGraph& graph, const handle_t& handle) {
-        walk.push_back(handle);
-        starts.push_back(starts.back() + graph.get_length(handle));
-    }
-    /// Return the indexes of the first node that holds bases [from, to) and of
-    /// the node after the last one.
-    std::pair<size_t, size_t> nodes(size_t from, size_t to) const {
-        size_t i = std::upper_bound(starts.begin(), starts.end(), from) - starts.begin() - 1;
-        size_t j = std::lower_bound(starts.begin(), starts.end(), to) - starts.begin();
-        return std::make_pair(i, j);
-    }
-};
+    return key;
+}
 
 /**
  * Finds the unitigs that start next to one node, in both orientations. Each
@@ -67,8 +44,8 @@ struct MeasuredWalk {
 class UnitigFinder {
 public:
     UnitigFinder(const GBWTGraph& graph, size_t k, const GrefIndex* gref,
-                 std::vector<Tig>& output, UnitigStatistics& statistics) :
-        graph(graph), k(k), gref(gref), cache(graph.get_cache()), output(output), statistics(statistics) {
+                 std::vector<Tig>& output, size_t& unitigs) :
+        graph(graph), k(k), gref(gref), cache(graph.get_cache()), output(output), unitigs(unitigs) {
     }
 
     void visit(const handle_t& handle) {
@@ -84,7 +61,8 @@ private:
     const GrefIndex* gref;
     gbwt::CachedGBWT cache;
     std::vector<Tig>& output;
-    UnitigStatistics& statistics;
+    /// Number of unitigs found, before the cutting that turns them into tigs.
+    size_t& unitigs;
 
     /// Find the one-node extensions of the state. Returns true if some
     /// occurrences cannot be extended, because their haplotype ends there.
@@ -119,8 +97,18 @@ private:
         return extend(graph.bd_find(cache, predecessor), false, extensions) || extensions.size() != 1;
     }
 
-    /// Trace the unitigs starting with a k-mer at the first base of the node.
-    void starting_at(const handle_t& handle) {
+    /**
+     * Enumerate the walks that start from the node and reach the needed
+     * length, extending one node at a time: to the right of the node, or to
+     * the left of it when backward is true.
+     *
+     * Call report(walk, length, state, extensions) on each walk that reaches
+     * the needed length. The length is the length of the walk, and the state
+     * is the GBWT state of the whole walk. The callback may use extensions as
+     * scratch space.
+     */
+    template<typename Report>
+    void for_each_walk(const handle_t& handle, bool backward, size_t needed, Report report) {
         gbwt::BidirectionalState state = graph.get_bd_state(cache, handle);
         if (state.empty()) {
             return;
@@ -136,103 +124,90 @@ private:
         while (!stack.empty()) {
             Frame frame = std::move(stack.back());
             stack.pop_back();
-            if (frame.length < k) {
-                extend(frame.state, false, extensions);
-                for (const Extension& extension : extensions) {
-                    Frame next { frame.walk, frame.length + graph.get_length(extension.handle), extension.state };
-                    next.walk.push_back(extension.handle);
-                    stack.push_back(std::move(next));
-                }
-            } else if (starts_unitig(frame.walk, frame.length, frame.state, extensions)) {
-                trace(std::move(frame.walk), 0);
+            if (frame.length >= needed) {
+                report(frame.walk, frame.length, frame.state, extensions);
+                continue;
+            }
+            extend(frame.state, backward, extensions);
+            for (const Extension& extension : extensions) {
+                Frame next { frame.walk, frame.length + graph.get_length(extension.handle), extension.state };
+                next.walk.insert(backward ? next.walk.begin() : next.walk.end(), extension.handle);
+                stack.push_back(std::move(next));
             }
         }
+    }
+
+    /// Trace the unitigs starting with a k-mer at the first base of the node.
+    void starting_at(const handle_t& handle) {
+        for_each_walk(handle, false, k, [&](std::vector<handle_t>& walk, size_t length,
+                                            const gbwt::BidirectionalState& state,
+                                            std::vector<Extension>& extensions) {
+            if (starts_unitig(walk, length, state, extensions)) {
+                trace(walk, 0);
+            }
+        });
     }
 
     /// Trace the unitigs starting with a k-mer that ends at the first base of
     /// the node and does not start at the first base of a node. Such a k-mer
     /// has a unique predecessor, which ends at the end of a node.
     void ending_at(const handle_t& handle) {
-        gbwt::BidirectionalState state = graph.get_bd_state(cache, handle);
-        if (state.empty()) {
-            return;
-        }
-        struct Frame {
-            std::vector<handle_t> walk;
-            size_t before;
-            gbwt::BidirectionalState state;
-        };
-        std::vector<Frame> stack;
-        stack.push_back({ { handle }, 0, state });
-        std::vector<Extension> extensions;
-        while (!stack.empty()) {
-            Frame frame = std::move(stack.back());
-            stack.pop_back();
-            if (frame.before < k - 1) {
-                extend(frame.state, true, extensions);
-                for (const Extension& extension : extensions) {
-                    Frame next { { extension.handle }, frame.before + graph.get_length(extension.handle), extension.state };
-                    next.walk.insert(next.walk.end(), frame.walk.begin(), frame.walk.end());
-                    stack.push_back(std::move(next));
-                }
-                continue;
-            }
-            size_t offset = frame.before - (k - 1);
+        // The k-mer ends at the first base of the node, so the walk needs k - 1
+        // bases before the node.
+        size_t node_length = graph.get_length(handle);
+        for_each_walk(handle, true, node_length + k - 1, [&](std::vector<handle_t>& walk, size_t length,
+                                                             const gbwt::BidirectionalState&,
+                                                             std::vector<Extension>& extensions) {
+            size_t offset = length - node_length - (k - 1);
             if (offset == 0) {
                 // Handled by starting_at().
-                continue;
+                return;
             }
-            std::vector<handle_t> predecessor(frame.walk.begin(), frame.walk.end() - 1);
+            std::vector<handle_t> predecessor(walk.begin(), walk.end() - 1);
             if (extend(graph.bd_find(cache, predecessor), false, extensions) || extensions.size() != 1) {
-                trace(std::move(frame.walk), offset);
+                trace(walk, offset);
             }
-        }
+        });
     }
 
     /// Return the state of the k-mer that starts at the given base of the walk.
-    gbwt::BidirectionalState state_of(const MeasuredWalk& walk, size_t kmer) const {
-        auto [from, past] = walk.nodes(kmer, kmer + k);
-        std::vector<handle_t> pattern(walk.walk.begin() + from, walk.walk.begin() + past);
-        return graph.bd_find(cache, pattern);
+    gbwt::BidirectionalState state_of(const PathSteps& walk, size_t kmer) const {
+        return graph.bd_find(cache, walk.interval(kmer, kmer + k).walk);
     }
 
     /// Trace the unitig whose first k-mer starts at the given offset of the walk,
     /// and report it if this is its canonical end.
-    void trace(std::vector<handle_t> handles, size_t first) {
-        MeasuredWalk walk(graph, std::move(handles));
+    void trace(const std::vector<handle_t>& handles, size_t first) {
+        PathSteps walk(graph, handles);
         size_t support = state_of(walk, first).size();
         size_t last = extend_to_end(walk, first);
         if (!is_canonical_end(walk, first, last)) {
             return;
         }
-        statistics.unitigs++;
-        auto [from, past] = walk.nodes(first, last + k);
-        WalkInterval unitig { std::vector<handle_t>(walk.walk.begin() + from, walk.walk.begin() + past),
-                              first - walk.starts[from], last + k - first };
-        report_tigs(unitig, support);
+        unitigs++;
+        report_tigs(walk.interval(first, last + k), support);
     }
 
     /// Extend the walk to the end of the unitig whose first k-mer starts at
     /// base first, and return where its last k-mer starts.
-    size_t extend_to_end(MeasuredWalk& walk, size_t first) const {
+    size_t extend_to_end(PathSteps& walk, size_t first) const {
         size_t last = first;
         std::vector<Extension> extensions;
         while (true) {
             // Skip to the next k-mer where the unitig can end: one that ends at the
             // end of the walk, or one whose successor starts at the start of a node.
-            size_t next = walk.length() - k;
-            if (auto node_start = std::upper_bound(walk.starts.begin(), walk.starts.end() - 1, last);
-                node_start != walk.starts.end() - 1) {
-                next = std::min(next, *node_start - 1);
-            }
-            last = next;
+            size_t after = walk.step_at(last) + 1;
+            uint64_t next_node = after < walk.steps().size() ? walk.steps()[after].start : walk.length();
+            last = std::min<size_t>(walk.length() - k, next_node - 1);
             if (last + k == walk.length()) {
                 if (extend(state_of(walk, last), false, extensions) || extensions.size() != 1) {
                     return last;
                 }
                 walk.push_back(graph, extensions.front().handle);
             }
-            if (std::binary_search(walk.starts.begin(), walk.starts.end() - 1, last + 1) &&
+            // A successor that starts at the start of a node can have another
+            // predecessor, which would end the unitig here.
+            if (walk.steps()[walk.step_at(last + 1)].start == last + 1 &&
                 (extend(state_of(walk, last + 1), true, extensions) || extensions.size() != 1)) {
                 return last;
             }
@@ -241,22 +216,12 @@ private:
     }
 
     /// Return true if we report the unitig from this end, because its first
-    /// k-mer is smaller than the reverse of its last. The first k-mer starts at
-    /// base first of the walk, and the last at base last.
-    bool is_canonical_end(const MeasuredWalk& walk, size_t first, size_t last) const {
-        auto [head_from, head_past] = walk.nodes(first, first + k);
-        auto [tail_from, tail_past] = walk.nodes(last, last + k);
-        std::vector<uint64_t> forward_key { GBWTGraph::handle_to_node(walk.walk[head_from]),
-                                            first - walk.starts[head_from] };
-        for (size_t i = head_from + 1; i < head_past; i++) {
-            forward_key.push_back(GBWTGraph::handle_to_node(walk.walk[i]));
-        }
-        std::vector<uint64_t> reverse_key { gbwt::Node::reverse(GBWTGraph::handle_to_node(walk.walk[tail_past - 1])),
-                                            walk.starts[tail_past] - (last + k) };
-        for (size_t i = tail_past - 1; i-- > tail_from;) {
-            reverse_key.push_back(gbwt::Node::reverse(GBWTGraph::handle_to_node(walk.walk[i])));
-        }
-        return !(reverse_key < forward_key);
+    /// k-mer is not larger than the reverse of its last. The first k-mer starts
+    /// at base first of the walk, and the last at base last.
+    bool is_canonical_end(const PathSteps& walk, size_t first, size_t last) const {
+        WalkInterval head = walk.interval(first, first + k);
+        WalkInterval tail = walk.interval(last, last + k).reverse(graph);
+        return !(kmer_key(tail) < kmer_key(head));
     }
 
     /// Report the tigs of the unitig. The k-mers within a run of at least k
@@ -296,15 +261,7 @@ private:
                 tig.interval = tig.interval.reverse(graph);
                 tig.placement = gref->place(tig.interval);
             }
-            if (tig.placement.path == GrefIndex::NO_PATH) {
-                statistics.unanchored++;
-            }
         }
-
-        statistics.tigs++;
-        statistics.bases += tig.interval.length;
-        statistics.kmers += tig.interval.length - k + 1;
-        statistics.longest = std::max(statistics.longest, tig.interval.length);
         output.push_back(std::move(tig));
     }
 };
@@ -314,7 +271,7 @@ private:
 //------------------------------------------------------------------------------
 
 std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefIndex* gref,
-                                   UnitigStatistics* statistics) {
+                                   size_t* unitig_count) {
     if (k < 2) {
         throw std::invalid_argument("haplotype_unitigs(): k must be at least 2");
     }
@@ -324,7 +281,7 @@ std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefI
 
     size_t threads = omp_get_max_threads();
     std::vector<std::vector<Tig>> results(threads);
-    std::vector<UnitigStatistics> thread_statistics(threads);
+    std::vector<size_t> thread_unitigs(threads, 0);
     // One finder per thread, not one per node: a finder holds a gbwt::CachedGBWT,
     // whose record cache is worth keeping warm across the nodes a thread visits.
     std::vector<std::unique_ptr<UnitigFinder>> finders(threads);
@@ -332,7 +289,7 @@ std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefI
         int thread = omp_get_thread_num();
         std::unique_ptr<UnitigFinder>& finder = finders[thread];
         if (!finder) {
-            finder.reset(new UnitigFinder(graph, k, gref, results[thread], thread_statistics[thread]));
+            finder.reset(new UnitigFinder(graph, k, gref, results[thread], thread_unitigs[thread]));
         }
         finder->visit(handle);
     }, true);
@@ -353,15 +310,10 @@ std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefI
         return a.interval.compare(b.interval) < 0;
     });
 
-    if (statistics != nullptr) {
-        *statistics = UnitigStatistics();
-        for (const UnitigStatistics& thread : thread_statistics) {
-            statistics->unitigs += thread.unitigs;
-            statistics->tigs += thread.tigs;
-            statistics->bases += thread.bases;
-            statistics->kmers += thread.kmers;
-            statistics->longest = std::max(statistics->longest, thread.longest);
-            statistics->unanchored += thread.unanchored;
+    if (unitig_count != nullptr) {
+        *unitig_count = 0;
+        for (size_t found : thread_unitigs) {
+            *unitig_count += found;
         }
     }
     return tigs;

@@ -46,25 +46,19 @@ struct Tig {
     GrefPlacement placement;
 };
 
-struct UnitigStatistics {
-    size_t unitigs = 0;
-    size_t tigs = 0;
-    size_t bases = 0;
-    size_t kmers = 0;
-    size_t longest = 0;
-    size_t unanchored = 0;
-};
-
 /**
  * Find the haplotype unitigs of order k (k >= 2) in the graph, which must have
  * a bidirectional GBWT. With a gref, leave out the k-mers that lie along a gref
  * path, and cut the unitigs into the tigs between them. Each tig is reported
  * once, in the orientation with the most bases on forward gref strands. Uses
  * OpenMP threads.
+ *
+ * @param unitig_count If not null, receives the number of unitigs found,
+ * before the cutting that turns them into the returned tigs.
  */
 std::vector<Tig> haplotype_unitigs(const gbwtgraph::GBWTGraph& graph, size_t k,
                                    const GrefIndex* gref = nullptr,
-                                   UnitigStatistics* statistics = nullptr);
+                                   size_t* unitig_count = nullptr);
 
 }
 

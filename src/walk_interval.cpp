@@ -213,27 +213,32 @@ void for_each_path_start(const gbwt::GBWT& index,
 
 PathSteps::PathSteps(const GBWTGraph& graph, gbwt::size_type path_id) {
     for (gbwt::node_type node : graph.index->extract(gbwt::Path::encode(path_id, false))) {
-        handle_t handle = GBWTGraph::node_to_handle(node);
-        step_list.push_back({ path_length, handle });
-        path_length += graph.get_length(handle);
+        this->push_back(graph, GBWTGraph::node_to_handle(node));
     }
 }
 
-namespace {
-
-/// Return the index of the step that holds the given path coordinate.
-size_t step_at(const std::vector<PathSteps::Step>& steps, uint64_t coord) {
-    auto after = std::upper_bound(steps.begin(), steps.end(), coord, [](uint64_t c, const PathSteps::Step& step) {
-        return c < step.start;
-    });
-    return after - steps.begin() - 1;
+PathSteps::PathSteps(const GBWTGraph& graph, const std::vector<handle_t>& walk) {
+    step_list.reserve(walk.size());
+    for (const handle_t& handle : walk) {
+        this->push_back(graph, handle);
+    }
 }
 
+void PathSteps::push_back(const GBWTGraph& graph, const handle_t& handle) {
+    step_list.push_back({ total_length, handle });
+    total_length += graph.get_length(handle);
+}
+
+size_t PathSteps::step_at(uint64_t coord) const {
+    auto after = std::upper_bound(step_list.begin(), step_list.end(), coord, [](uint64_t c, const Step& step) {
+        return c < step.start;
+    });
+    return after - step_list.begin() - 1;
 }
 
 WalkInterval PathSteps::interval(uint64_t start, uint64_t end) const {
-    size_t first = step_at(step_list, start);
-    size_t last = step_at(step_list, end - 1);
+    size_t first = this->step_at(start);
+    size_t last = this->step_at(end - 1);
     WalkInterval result;
     for (size_t step = first; step <= last; step++) {
         result.walk.push_back(step_list[step].handle);
@@ -244,7 +249,7 @@ WalkInterval PathSteps::interval(uint64_t start, uint64_t end) const {
 }
 
 char PathSteps::base(const GBWTGraph& graph, uint64_t coord) const {
-    const Step& step = step_list[step_at(step_list, coord)];
+    const Step& step = step_list[this->step_at(coord)];
     return graph.get_sequence_view(step.handle)[coord - step.start];
 }
 
