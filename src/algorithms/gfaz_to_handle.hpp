@@ -47,12 +47,26 @@ private:
     vector<PendingRGFAVisit> pending_rgfa_visits;
     unordered_map<string, int64_t> rgfa_path_ranks;
 
+    /// GFAz numbers segments 1..N in file order and refers to them by number
+    /// everywhere. This holds the graph node ID of each segment number, once
+    /// some segment has had a name other than its number. While it is empty,
+    /// segment numbers are node IDs.
+    vector<nid_t> segment_node_ids;
+
+    /// Get the graph node ID for a GFAz segment number.
+    nid_t node_id_for(uint32_t segment) const;
+
+    /// Assign the node ID for the next segment from its GFA name, the same
+    /// way a text GFA with that name would get it.
+    nid_t assign_node_id(uint32_t segment, const string& name);
+
     void prepare_decode();
     void finish_decode();
 
     void on_header(const string& header_line) override;
-    void on_segment(uint32_t id, const string& sequence,
-                    const gfaz::GfaTagList& tags) override;
+    void on_named_segment(uint32_t segment, const string& name,
+                          const string& sequence,
+                          const gfaz::GfaTagList& tags) override;
     void on_link(uint32_t from_id, bool from_is_reverse,
                  uint32_t to_id, bool to_is_reverse,
                  const string& overlap,
@@ -65,9 +79,10 @@ private:
                  int64_t sequence_end,
                  const vector<gfaz::NodeId>& visits) override;
 
-    /// Translate a vector of GFAz node IDs into a function that produces vg-style
-    /// rank, id, orientation visit calls.
-    static visit_source_t make_visit_source(const vector<gfaz::NodeId>& visits);
+    /// Translate a vector of oriented GFAz segment numbers into a function
+    /// that produces vg-style rank, id, orientation visit calls. The function
+    /// must not outlive the parser.
+    visit_source_t make_visit_source(const vector<gfaz::NodeId>& visits) const;
 
     /// Wrap a function in a handler for GFADuplicatePathError that reports
     /// that a line of the given type is being skipped.

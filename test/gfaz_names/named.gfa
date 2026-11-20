@@ -1,0 +1,13 @@
+H	VN:Z:1.1
+S	s1	GATT
+S	s2	A
+S	s3	C
+S	s4	ACA
+S	end	GG
+L	s1	+	s2	+	0M
+L	s1	+	s3	+	0M
+L	s2	+	s4	+	0M
+L	s3	+	s4	+	0M
+L	s4	+	end	+	0M
+P	ref	s1+,s2+,s4+,end+	*
+W	sample	1	chr1	0	10	>s1>s3>s4>end
