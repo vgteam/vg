@@ -762,11 +762,6 @@ void help_call(char** argv) {
          << "  debugging and evaluation:" << endl
          << "      --flat-mixture        weight a genotype's haplotypes equally, instead of" << endl
          << "                            by the reads each is expected to produce" << endl
-         << "      --regeno-shuffle      randomize the sign of each read's strand log-odds" << endl
-         << "                            before re-genotyping" << endl
-         << "      --anchors-strict-hets" << endl
-         << "                            place reads at a heterozygous site by the sign of" << endl
-         << "                            their strand log-odds alone, ignoring allele match" << endl
          << "GAF options:" << endl
          << "  -G, --gaf                 output GAF genotypes instead of VCF" << endl
          << "  -T, --traversals          output all candidate traversals in GAF" << endl
@@ -1000,7 +995,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_ANCHORS_HOM_SPLIT = 1094;
     constexpr int OPT_ANCHORS_PHASE_HETS = 1102;
     constexpr int OPT_NO_ANCHORS_PHASE_HETS = 1103;
-    constexpr int OPT_ANCHORS_STRICT_HETS = 1104;
     constexpr int OPT_ANCHORS_PHASE_MIN = 1095;
     constexpr int OPT_ANCHORS_PHASE_MIN_SIDE = 1096;
     constexpr int OPT_NO_OPTIMAL_PAIRING = 1093;
@@ -1039,7 +1033,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_NO_REGENO_HAPLOID = 1090;
     constexpr int OPT_REGENO_TEMPER = 1083;
     constexpr int OPT_REGENO_PASSES = 1084;
-    constexpr int OPT_REGENO_SHUFFLE = 1085;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
     constexpr int OPT_PLOIDY_BED = 1043;
     constexpr int OPT_PLOIDY_PRESET = 1120;
@@ -1186,7 +1179,6 @@ int main_call(int argc, char** argv) {
             {"anchors-hom-split", no_argument, nullptr, OPT_ANCHORS_HOM_SPLIT},
             {"anchors-phase-hets", no_argument, nullptr, OPT_ANCHORS_PHASE_HETS},
             {"no-anchors-phase-hets", no_argument, nullptr, OPT_NO_ANCHORS_PHASE_HETS},
-            {"anchors-strict-hets", no_argument, nullptr, OPT_ANCHORS_STRICT_HETS},
             {"split-min-q", required_argument, nullptr, OPT_ANCHORS_PHASE_MIN},
             {"split-min-side", required_argument, nullptr, OPT_ANCHORS_PHASE_MIN_SIDE},
             {"anchors-het-only", no_argument, nullptr, OPT_ANCHORS_HET_ONLY},
@@ -1214,7 +1206,6 @@ int main_call(int argc, char** argv) {
             {"no-regeno-haploid", no_argument, nullptr, OPT_NO_REGENO_HAPLOID},
             {"regeno-temper", required_argument, nullptr, OPT_REGENO_TEMPER},
             {"regeno-passes", required_argument, nullptr, OPT_REGENO_PASSES},
-            {"regeno-shuffle", no_argument, nullptr, OPT_REGENO_SHUFFLE},
         }}},
     };
 
@@ -1502,9 +1493,6 @@ int main_call(int argc, char** argv) {
                 logger.error() << "--regeno-passes must be between 1 and 20" << endl;
             }
             break;
-        case OPT_REGENO_SHUFFLE:
-            regenotype_params.shuffle = true;
-            break;
         case OPT_REGENO_CEILING:
             regenotype_params.ceiling = parse<double>(optarg);
             if (regenotype_params.ceiling <= 0.0 || regenotype_params.ceiling > 1.0) {
@@ -1624,9 +1612,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_ANCHORS_PHASE_HETS:
             anchor_params.phase_hets = false;
-            break;
-        case OPT_ANCHORS_STRICT_HETS:
-            anchor_params.strict_hets = true;
             break;
         case OPT_ANCHORS_PHASE_MIN:
             anchor_params.phase_min = parse<double>(optarg);
@@ -2823,10 +2808,9 @@ int main_call(int argc, char** argv) {
     }
     // Placing heterozygous reads by phase is on by default, and has no effect without read
     // phasing, so we only refuse it when it was asked for.
-    if ((anchor_params.phase_hets || anchor_params.strict_hets) && (is_explicit("anchors-phase-hets") || is_explicit("anchors-strict-hets"))
-        && !read_phasing) {
-        cerr << "error [vg call]: --anchors-phase-hets / --anchors-strict-hets need --read-phasing,"
-             << " which gives each read the strand log-odds they use" << endl;
+    if (anchor_params.phase_hets && is_explicit("anchors-phase-hets") && !read_phasing) {
+        cerr << "error [vg call]: --anchors-phase-hets needs --read-phasing,"
+             << " which gives each read the strand log-odds it uses" << endl;
         return 1;
     }
     // -A already calls every nested snarl as a snarl of its own, so with nested calling each would

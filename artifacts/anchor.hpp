@@ -137,9 +137,6 @@ struct AnchorCounters {
     ///
     /// Reads with no strand log-odds, or with a strand from another phase set, are left out.
     atomic<size_t> het_phase_tilted{0};
-    /// Read placements that `AnchorParams::strict_hets` moved off the slot their allele match
-    /// chose.
-    atomic<size_t> het_strict_moved{0};
 
     /// Write the tally to a log.
     void report(ostream& out) const;
@@ -357,13 +354,6 @@ struct AnchorParams {
     /// confident, so they are no longer an independent check on it.
     bool phase_hets = true;
 
-    /// Whether to choose a read's slot at a heterozygous site by the sign of its strand log-odds
-    /// alone, ignoring the allele match.
-    ///
-    /// This is a comparison for `phase_hets`. A read with no strand log-odds keeps the slot of its
-    /// allele match, so both rules place the same reads.
-    bool strict_hets = false;
-
     /// The spacing, in bases, of the fill points placed inside runs of nodes with no branch, or 0
     /// for no fill anchors (see `FillAnchors`).
     size_t fill_spacing = 0;
@@ -551,11 +541,10 @@ struct AnchorCall {
  * `read_strand`, indexed like `evidence.reads`, holds each read's tempered strand log-odds with
  * this site left out. A positive value favours slot 0, 0 means the read has none, and NaN means
  * its strand is from another phase set, or from more than one (see `read_strand_usable`). It
- * changes the slot choice in three cases:
+ * changes the slot choice in two cases:
  *
  * - At a heterozygous site under `params.phase_hets` (the default), the disfavoured slot's v_i
  *   is multiplied by exp(-|log-odds|), as `phase_aware_correction` weights it.
- * - Under `params.strict_hets`, the sign alone chooses a heterozygous site's slot.
  * - Under `params.hom_split`, a diploid homozygous site with enough confidently placed reads on
  *   each strand gets two slots, and the sign divides its reads between them. A read with no
  *   log-odds goes by a hash of its name, and a read whose log-odds are NaN is dropped.

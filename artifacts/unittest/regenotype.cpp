@@ -9,7 +9,7 @@
 /// At a heterozygous genotype, the correction uses whichever order of the two alleles on the
 /// strands fits the reads better. So a `Lambda` whose sign is wrong at every site gives the same
 /// corrected likelihoods as the right one. A `Lambda` wired backwards at some sites would look
-/// like a run with `RegenotypeParams::shuffle` on. These tests are what check the sign of
+/// like a `Lambda` with its sign chosen at random. These tests are what check the sign of
 /// `Lambda`.
 
 #include <cmath>

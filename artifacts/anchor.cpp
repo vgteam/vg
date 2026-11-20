@@ -75,12 +75,7 @@ void AnchorCounters::report(ostream& out) const {
     }
     if (het_phase_tilted.load() > 0) {
         out << "[vg call] anchors: " << het_phase_tilted.load()
-            << " read placements at heterozygous sites used the read's cross-site strand";
-        if (het_strict_moved.load() > 0) {
-            out << " (--anchors-strict-hets, which moved " << het_strict_moved.load()
-                << " of them off the slot the allele match alone would have chosen)";
-        }
-        out << endl;
+            << " read placements at heterozygous sites used the read's cross-site strand" << endl;
     }
 }
 
@@ -625,11 +620,10 @@ static std::optional<SlotChoice> choose_split_slot(const AnchorSiteEvidence& evi
  * Choose the slot of a read from its allele match, tilted by its strand log-odds as `params` say.
  *
  * Under `params.phase_hets` the disfavoured slot's weight is multiplied by exp(-|strand|). This
- * gives the weights `phase_aware_correction` uses in re-genotyping, without overflow. Under
- * `params.strict_hets` the sign of `strand` alone chooses. Whichever rule picks the slot, the
- * read's confidence comes from the untilted responsibilities. The confidence feeds the
- * reliability, which measures whether the site's own reads tell its alleles apart, so the strand
- * log-odds must not enter it.
+ * gives the weights `phase_aware_correction` uses in re-genotyping, without overflow. The read's
+ * confidence comes from the untilted responsibilities. The confidence feeds the reliability, which
+ * measures whether the site's own reads tell its alleles apart, so the strand log-odds must not
+ * enter it.
  *
  * @param strand The read's strand log-odds, or 0 where they cannot be used here.
  */
@@ -642,7 +636,7 @@ static SlotChoice choose_allele_slot(const AnchorSiteEvidence& evidence, size_t 
     // The slot whose weight is tilted down, or none, and the factor applied to it.
     size_t disfavoured = slot_allele.size();
     double tilt = 1.0;
-    if (params.phase_hets && !params.strict_hets && has_opinion) {
+    if (params.phase_hets && has_opinion) {
         tilt = std::exp(-std::abs(strand));
         disfavoured = strand > 0.0 ? 1 : 0;
         ++counters.het_phase_tilted;
@@ -665,16 +659,6 @@ static SlotChoice choose_allele_slot(const AnchorSiteEvidence& evidence, size_t 
             choice.resp = plain;
             choice.slot = i;
         }
-    }
-    if (params.strict_hets && has_opinion) {
-        const size_t want = strand > 0.0 ? 0 : 1;
-        if (want != choice.slot) {
-            ++counters.het_strict_moved;
-        }
-        choice.slot = want;
-        choice.resp = (1.0 - mismap) * weight[want]
-                      * (double)evidence.rel_at(r, (size_t)slot_allele[want]);
-        ++counters.het_phase_tilted;
     }
     return choice;
 }
@@ -1264,13 +1248,7 @@ static void write_header(ostream& out, const string& graph_name, const string& s
     // with different rules can be told apart.
     //   allele  -- the site's own allele match alone (`phase_hets` off)
     //   tilt    -- the allele match, weighted by the read's strand log-odds
-    //   strand  -- the sign of the strand log-odds alone (`strict_hets`)
-    const char* het_placement = "allele";
-    if (params.strict_hets) {
-        het_placement = "strand";
-    } else if (params.phase_hets) {
-        het_placement = "tilt";
-    }
+    const char* het_placement = params.phase_hets ? "tilt" : "allele";
     // What was filtered out, so a consumer seeing no anchor at a site it expected one at can tell a
     // threshold from an absence. Written whether or not the defaults were changed.
     out << "#filters\tmin-reads=" << params.min_reads << " min-gqn=" << params.min_gqn
@@ -1535,11 +1513,11 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, const AnchorCa
     // Each read's strand log-odds, leaving out this site.
     vector<double> read_strand;
     // Fill it only where `build_site_anchors` reads it: at a diploid homozygote that may be split,
-    // or at a heterozygous site with `phase_hets` or `strict_hets` on. `build_site_anchors` checks
-    // the length of the vector, so an empty one is ignored.
+    // or at a heterozygous site with `phase_hets` on. `build_site_anchors` checks the length of the
+    // vector, so an empty one is ignored.
     const bool splittable_hom = genotype.size() == 2 && genotype[0] == genotype[1];
-    if (const bool tiltable_het = (params.phase_hets || params.strict_hets)
-                                  && genotype.size() == 2 && genotype[0] != genotype[1];
+    if (const bool tiltable_het = params.phase_hets && genotype.size() == 2
+                                  && genotype[0] != genotype[1];
         (params.hom_split && splittable_hom) || tiltable_het) {
         read_strand.reserve(evidence.reads.size());
         for (const AnchorRead& read : evidence.reads) {
@@ -1548,8 +1526,7 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, const AnchorCa
     }
     vector<AnchorWriter::Anchor> anchors;
     build_site_anchors(evidence, call, site_name, params, anchors,
-                       (params.hom_split || params.phase_hets || params.strict_hets)
-                           ? &read_strand : nullptr);
+                       (params.hom_split || params.phase_hets) ? &read_strand : nullptr);
     for (AnchorWriter::Anchor& anchor : anchors) {
         writer->add(std::move(anchor));
     }

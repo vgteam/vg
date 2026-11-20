@@ -848,8 +848,7 @@ fitted in the same way from the final phase.
   phasing orients the two runs as the reads would. At a site in no run, $y_{rs}$ comes from the
   read's whole sum over its other sites of the phase set, whatever their runs. The read's anchor
   confidence is still computed from the $x_{ra}$. `--no-anchors-phase-hets` chooses the slot from
-  the $x_{ra}$ alone. `--anchors-strict-hets` chooses it from the sign of $y_{rs}$ alone, slot 0 for
-  a positive sign, and a read whose $y_{rs}$ is 0 then keeps the slot its $x_{ra}$ give.
+  the $x_{ra}$ alone.
 - `--anchors-hom-split`, which needs `--read-phasing`, divides the reads of a diploid site that is
   not phaseable between two slots by the sign of their $y_{rs}$. A site is split only when, for each
   sign, at least `--split-min-side` reads have a $y_{rs}$ of that sign and of absolute value at
@@ -994,8 +993,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Quality fields](#options-that-change-the-fields) | `--no-share-quality`, `--depth-quality`, `--min-confidence` |
 | [Allele merging](#options-that-change-the-fields) | `--cluster`, `--cluster-min-len` |
 | [Mosaic](#mosaic---mosaic-out) | `--mosaic-out`, `--mosaic-patch-gaps`, `--no-mosaic-patch-gaps`, `--no-mosaic-nested`, `--mosaic-break-unexplained` |
-| [Anchors](#assembly-anchors---anchors-out) | `--anchors-out`, `--anchors-fill`, `--anchors-reads`, `--anchors-min-gqn`, `--anchors-min-q`, `--anchors-het-only`, `--anchors-leaf-only`, `--anchors-keep-off-call`, `--anchors-end-new`, `--anchors-phase-hets`, `--no-anchors-phase-hets`, `--anchors-strict-hets`, `--anchors-hom-split`, `--split-min-q`, `--split-min-side` |
-| Debugging and evaluation | `--regeno-shuffle` (randomises the sign of each $\Lambda_{rs}$ before re-genotyping, as a control for how much the phase contributes); `--flat-mixture` and `--anchors-strict-hets`, listed above, also serve to measure the parts they replace |
+| [Anchors](#assembly-anchors---anchors-out) | `--anchors-out`, `--anchors-fill`, `--anchors-reads`, `--anchors-min-gqn`, `--anchors-min-q`, `--anchors-het-only`, `--anchors-leaf-only`, `--anchors-keep-off-call`, `--anchors-end-new`, `--anchors-phase-hets`, `--no-anchors-phase-hets`, `--anchors-hom-split`, `--split-min-q`, `--split-min-side` |
 | Presets | `--preset` |
 
 ### Fixed constants

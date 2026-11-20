@@ -182,12 +182,6 @@ struct RegenotypeParams {
     /// Each bin holds the larger of this and a `fit_bins`-th of the observations, except the last,
     /// which holds the remainder.
     size_t fit_min_per_bin = 200;
-    /// Whether to randomise the sign of each read's Lambda, for testing.
-    ///
-    /// This removes the phase information and keeps |Lambda|. The temper is fitted before the
-    /// signs are randomised, so the control tests a correction of the same strength with no phase
-    /// information in it.
-    bool shuffle = false;
 };
 
 /**

@@ -423,12 +423,6 @@ SiteStrandTable site_strands(const PhaseReadEvidence& ev, const StrandModel& str
         const bool has_own = mine != own.end();
         ReadStrand& strand = reads.of_read[r];
         strand = read_strand(found->second, site.run, has_own, has_own ? mine->second : 0.0);
-        if (strands.params.shuffle) {
-            // Take the sign from the read key, keeping |Lambda|, so that the phase information is
-            // removed deterministically.
-            const double size = fabs(strand.log_odds);
-            strand.log_odds = (ev.read_key[r] & 1ULL) ? -size : size;
-        }
         reads.any = reads.any || has_strand(strand.log_odds);
     }
     return reads;

@@ -162,12 +162,10 @@ TEST_CASE("A pure insertion and a pure deletion each give one block", "[symbolic
     auto ins = symbolic_diff(plain({}), plain({7, 8}));
     REQUIRE(ins.size() == 1);
     REQUIRE(ins[0] == DiffBlock{0, 0, 0, 2});
-    REQUIRE(ins[0].ref_empty());
 
     auto del = symbolic_diff(plain({7, 8}), plain({}));
     REQUIRE(del.size() == 1);
     REQUIRE(del[0] == DiffBlock{0, 2, 0, 0});
-    REQUIRE(del[0].alt_empty());
 }
 
 TEST_CASE("An interior insertion is one block between two matched runs", "[symbolic_diff]") {
@@ -292,8 +290,6 @@ TEST_CASE("A haplotype that deletes a chain has no crossing of it, though the re
         }
     }
     REQUIRE(crossings == 0);
-    // The alt side of the block is empty, which is the same fact stated a third way.
-    REQUIRE(blocks[0].alt_empty());
 }
 
 TEST_CASE("A haplotype crossing a chain inside a difference block does carry it in the block",

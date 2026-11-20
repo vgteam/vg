@@ -84,11 +84,6 @@ struct DiffBlock {
     int alt_begin = 0;
     int alt_end = 0;
 
-    /// Return true if the block covers no reference steps.
-    bool ref_empty() const { return ref_end == ref_begin; }
-    /// Return true if the block covers no alt steps.
-    bool alt_empty() const { return alt_end == alt_begin; }
-
     bool operator==(const DiffBlock& o) const = default;
 
     /// Print the block in a readable form.
