@@ -6,7 +6,6 @@
 #include <omp.h>
 
 #include <algorithm>
-#include <compare>
 #include <cstdlib>
 #include <deque>
 #include <iostream>
@@ -39,13 +38,7 @@ size_t bucket_of(code_type key) {
     return key >> (64 - BUCKET_BITS);
 }
 
-/// A minimizer key and an encoded gbwtgraph::Position where it occurs.
-struct Occurrence {
-    code_type key;
-    code_type position;
-
-    auto operator<=>(const Occurrence&) const = default;
-};
+using Occurrence = HaplotypeMinimizerIndex::Occurrence;
 
 /**
  * A thread's store of the minimizer occurrences it found, with one bin for each bucket
@@ -182,6 +175,7 @@ std::vector<Occurrence> take_bucket(std::vector<OccurrenceBins>& bins, size_t bu
         thread_bins.take(bucket, result);
     }
     gbwt::removeDuplicates(result, false);
+    result.shrink_to_fit();
     return result;
 }
 
@@ -207,58 +201,39 @@ HaplotypeMinimizerIndex::HaplotypeMinimizerIndex(const gbwtgraph::GBZ& gbz, size
     // A thread that builds a bucket reads only the bins of that bucket, so the buckets are built in
     // parallel without a lock.
     #pragma omp parallel for schedule(dynamic, 1)
-    for (size_t bucket_id = 0; bucket_id < BUCKETS; bucket_id++) {
-        std::vector<Occurrence> occurrences = take_bucket(bins, bucket_id);
-        // The bucket is built in a local object and moved into place, so threads building
-        // neighbouring buckets do not write to the same cache line.
-        Bucket bucket;
-        bucket.keys.reserve(distinct_keys(occurrences));
-        bucket.positions.reserve(occurrences.size());
-        for (const Occurrence& occurrence : occurrences) {
-            bucket.append(occurrence.key, occurrence.position);
-        }
-        this->buckets[bucket_id] = std::move(bucket);
+    for (size_t bucket = 0; bucket < BUCKETS; bucket++) {
+        this->buckets[bucket] = take_bucket(bins, bucket);
     }
 }
 
-std::span<const code_type> HaplotypeMinimizerIndex::Bucket::find(code_type key) const {
-    auto iter = std::ranges::lower_bound(this->keys, key, {}, &Entry::key);
-    if (iter == this->keys.end() || iter->key != key) {
-        return {};
-    }
-    size_t start = (iter == this->keys.begin() ? 0 : (iter - 1)->end);
-    return std::span<const code_type>(this->positions.data() + start, iter->end - start);
-}
-
-std::span<const code_type> HaplotypeMinimizerIndex::positions(code_type key) const {
-    return this->buckets[bucket_of(key)].find(key);
+std::span<const HaplotypeMinimizerIndex::Occurrence> HaplotypeMinimizerIndex::occurrences(code_type key) const {
+    auto range = std::ranges::equal_range(this->buckets[bucket_of(key)], key, {}, &Occurrence::key);
+    return std::span<const Occurrence>(range.begin(), range.end());
 }
 
 size_t HaplotypeMinimizerIndex::size() const {
     size_t result = 0;
-    for (const Bucket& bucket : this->buckets) {
-        result += bucket.keys.size();
+    for (const std::vector<Occurrence>& bucket : this->buckets) {
+        result += distinct_keys(bucket);
     }
     return result;
 }
 
 size_t HaplotypeMinimizerIndex::number_of_values() const {
     size_t result = 0;
-    for (const Bucket& bucket : this->buckets) {
-        result += bucket.positions.size();
+    for (const std::vector<Occurrence>& bucket : this->buckets) {
+        result += bucket.size();
     }
     return result;
 }
 
 size_t HaplotypeMinimizerIndex::unique_keys() const {
     size_t result = 0;
-    for (const Bucket& bucket : this->buckets) {
-        size_t start = 0;
-        for (const Bucket::Entry& entry : bucket.keys) {
-            if (entry.end - start == 1) {
-                result++;
-            }
-            start = entry.end;
+    for (const std::vector<Occurrence>& bucket : this->buckets) {
+        for (size_t i = 0; i < bucket.size(); i++) {
+            bool same_as_previous = (i > 0 && bucket[i - 1].key == bucket[i].key);
+            bool same_as_next = (i + 1 < bucket.size() && bucket[i + 1].key == bucket[i].key);
+            result += (!same_as_previous && !same_as_next);
         }
     }
     return result;

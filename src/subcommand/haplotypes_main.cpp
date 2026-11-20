@@ -154,25 +154,19 @@ int main_haplotypes(int argc, char** argv) {
     // Parse the arguments.
     HaplotypesConfig config(argc, argv, max_threads);
 
-    // Load the graph. Haplotype information from a file loads on another thread
-    // at the same time.
-    double load_start = gbwt::readTimer();
+    // Load the graph. Haplotype information from a file loads on another thread at
+    // the same time.
     gbwtgraph::GBZ gbz;
     Haplotypes haplotypes;
     bool preprocess = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_preprocess);
     std::thread haplotype_loader;
-    std::string haplotype_error;
     if (!preprocess) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
             config.logger.info() << "Loading haplotype information from "
                                  << config.haplotype_input << std::endl;
         }
-        haplotype_loader = std::thread([&haplotypes, &haplotype_error, &config]() {
-            try {
-                sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
-            } catch (const std::runtime_error& e) {
-                haplotype_error = e.what();
-            }
+        haplotype_loader = std::thread([&haplotypes, &config]() {
+            haplotypes.load_from(config.haplotype_input);
         });
     }
     load_gbz(gbz, config.graph_name, config.verbosity >= Haplotypes::verbosity_basic);
@@ -182,14 +176,6 @@ int main_haplotypes(int argc, char** argv) {
         preprocess_graph(gbz, haplotypes, config);
     } else {
         haplotype_loader.join();
-        if (!haplotype_error.empty()) {
-            config.logger.error() << "cannot load haplotype information from " << config.haplotype_input
-                                  << ": " << haplotype_error << std::endl;
-        }
-        if (config.verbosity >= Haplotypes::verbosity_basic) {
-            double seconds = gbwt::readTimer() - load_start;
-            config.logger.info() << "Loaded the graph and the haplotype information in " << seconds << " seconds" << std::endl;
-        }
         require_compatible_graphs(gbz, "GBZ", haplotypes, "Haplotype Information");
     }
     bool sampling = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes);
@@ -1406,9 +1392,6 @@ void validate_walk_bases(const Logger& logger,
                          const gbwtgraph::GBWTGraph& graph,
                          const gbwt::FragmentMap& fragment_map,
                          size_t chain_id, size_t subchain_id) {
-    if (!subchain.has_walk_bases()) {
-        validate_error_subchain(logger, chain_id, subchain_id, "the subchain has copies but no walk bases");
-    }
     gbwt::CachedGBWT cache(*(graph.index));
     std::vector<size_t> walk_bases;
     for (size_t i = 0; i < subchain.num_sequences(); i++) {

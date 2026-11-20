@@ -461,7 +461,7 @@ public:
     ClippedScores(
         const std::vector<std::vector<std::uint64_t>>& rows, const std::vector<std::vector<size_t>>& groups,
         const std::vector<size_t>& counts, const CountTable& table
-    ) : num_groups(groups.size()), single(groups.size(), 0.0), shared(groups.size() * (groups.size() + 1) / 2, 0.0), missing(groups.size(), 0.0) {
+    ) : num_groups(groups.size()), single(groups.size(), 0.0), shared(groups.size() * groups.size(), 0.0), missing(groups.size(), 0.0) {
         // The first and second differences of the log-likelihood in copies for each
         // kmer. Ignored kmers contribute nothing.
         size_t J = counts.size();
@@ -495,7 +495,7 @@ public:
     double operator()(size_t g, size_t h) const {
         size_t a = std::min(g, h);
         size_t b = std::max(g, h);
-        return this->base + this->single[g] + this->single[h] + this->shared[this->pair_index(a, b)]
+        return this->base + this->single[g] + this->single[h] + this->shared[a * this->num_groups + b]
             + this->common - this->missing[g] - this->missing[h];
     }
 
@@ -504,14 +504,8 @@ private:
     double base = 0.0;
     double common = 0.0;
     std::vector<double> single;
-    // The pairs (g, h) with g <= h, ordered by g and then by h.
     std::vector<double> shared;
     std::vector<double> missing;
-
-    // Return the index of the pair (g, h) with g <= h in `shared`.
-    size_t pair_index(size_t g, size_t h) const {
-        return g * (2 * this->num_groups - g + 1) / 2 + (h - g);
-    }
 
     // Add a kmer with the given differences, carried by the carriers.
     void add_kmer(const std::vector<size_t>& carriers, const std::vector<size_t>& others, double first, double second) {
@@ -525,10 +519,9 @@ private:
                 this->missing[g] += second;
             }
         }
-        // The groups are listed in increasing order.
         for (size_t x = 0; x < listed.size(); x++) {
             for (size_t y = x; y < listed.size(); y++) {
-                this->shared[this->pair_index(listed[x], listed[y])] += second;
+                this->shared[listed[x] * this->num_groups + listed[y]] += second;
             }
         }
     }
@@ -537,33 +530,23 @@ private:
 // Return the first `CANDIDATES` groups to appear in the best `CANDIDATE_PAIRS` pairs.
 // Ties are broken by the order of the pairs (g, h) with g <= h.
 std::vector<size_t> choose_candidates(const ClippedScores& clipped, size_t num_groups) {
-    // The best pairs as (score, (g, h)), kept in a heap whose top is the worst of them.
-    // The order is total, so the best pairs and their order are the same as with sorting
-    // all pairs.
-    using ranked_pair = std::pair<double, std::pair<size_t, size_t>>;
-    auto better = [](const ranked_pair& a, const ranked_pair& b) {
-        return (a.first > b.first || (a.first == b.first && a.second < b.second));
-    };
-    std::vector<ranked_pair> best;
-    best.reserve(CANDIDATE_PAIRS);
+    std::vector<std::pair<double, size_t>> ranked;
+    std::vector<std::pair<size_t, size_t>> pair_of;
     for (size_t g = 0; g < num_groups; g++) {
         for (size_t h = g; h < num_groups; h++) {
-            ranked_pair pair(clipped(g, h), { g, h });
-            if (best.size() < CANDIDATE_PAIRS) {
-                best.push_back(pair);
-                std::ranges::push_heap(best, better);
-            } else if (better(pair, best.front())) {
-                std::ranges::pop_heap(best, better);
-                best.back() = pair;
-                std::ranges::push_heap(best, better);
-            }
+            ranked.emplace_back(clipped(g, h), pair_of.size());
+            pair_of.emplace_back(g, h);
         }
     }
-    std::ranges::sort(best, better);
+    size_t top = std::min(CANDIDATE_PAIRS, ranked.size());
+    std::ranges::partial_sort(ranked, ranked.begin() + top,
+        [](const std::pair<double, size_t>& a, const std::pair<double, size_t>& b) {
+            return (a.first > b.first || (a.first == b.first && a.second < b.second));
+        });
     std::vector<size_t> candidates;
     std::vector<bool> is_candidate(num_groups, false);
-    for (const auto& [score, pair] : best) {
-        auto [g, h] = pair;
+    for (size_t k = 0; k < top; k++) {
+        auto [g, h] = pair_of[ranked[k].second];
         for (size_t group : { g, h }) {
             if (!is_candidate[group]) {
                 is_candidate[group] = true;

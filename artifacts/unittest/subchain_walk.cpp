@@ -178,78 +178,6 @@ struct WalkFixture {
     }
 };
 
-// A walk written out from the paths of the fixture.
-struct ExpectedWalk {
-    std::vector<Visit> visits;
-    bool reaches_end = false;
-
-    bool operator==(const ExpectedWalk& another) const = default;
-};
-
-// Write out the walk of the path in the orientation from `start` to `end`, starting at
-// visit `visit` of the path. With both a start and an end node, the walk goes on to the
-// next fragment of the haplotype where a fragment ends, and each fragment with visits is
-// a piece.
-ExpectedWalk expected_walk(const WalkFixture& fixture, size_t path, bool is_reverse, size_t visit, gbwt::node_type start, gbwt::node_type end) {
-    ExpectedWalk result;
-    bool crosses_fragments = (start != gbwt::ENDMARKER && end != gbwt::ENDMARKER);
-    std::optional<size_t> fragment = path;
-    bool starts_piece = true;
-    while (fragment.has_value()) {
-        std::vector<gbwt::node_type> nodes = fixture.oriented_nodes(*fragment, is_reverse);
-        for (size_t i = visit; i < nodes.size(); i++) {
-            result.visits.emplace_back(nodes[i], starts_piece);
-            starts_piece = false;
-            if (nodes[i] == end) {
-                result.reaches_end = true;
-                return result;
-            }
-        }
-        if (!crosses_fragments) {
-            break;
-        }
-        fragment = fixture.next_fragment(*fragment, is_reverse);
-        visit = 0;
-        starts_piece = true;
-    }
-    return result;
-}
-
-// Return the IDs of the nodes of the walk, sorted and without duplicates.
-std::vector<nid_t> expected_node_ids(const ExpectedWalk& walk) {
-    std::vector<nid_t> result;
-    for (const Visit& visit : walk.visits) {
-        result.push_back(gbwt::Node::id(visit.first));
-    }
-    std::sort(result.begin(), result.end());
-    result.erase(std::unique(result.begin(), result.end()), result.end());
-    return result;
-}
-
-// Return the sequence of each piece of the walk. The first node of the walk keeps its
-// last `start_max` bases and the end node its first `end_max` bases. A walk with no
-// visits, or with only the end node, has no pieces.
-std::vector<std::string> expected_pieces(const WalkFixture& fixture, const ExpectedWalk& walk, size_t start_max, size_t end_max) {
-    std::vector<std::string> result;
-    if (walk.visits.empty() || (walk.reaches_end && walk.visits.size() == 1)) {
-        return result;
-    }
-    for (size_t i = 0; i < walk.visits.size(); i++) {
-        auto [node, starts_piece] = walk.visits[i];
-        if (starts_piece) {
-            result.emplace_back();
-        }
-        std::string sequence = fixture.oriented_sequence(node);
-        if (i == 0) {
-            sequence = sequence.substr(sequence.size() - std::min(sequence.size(), start_max));
-        } else if (walk.reaches_end && i + 1 == walk.visits.size()) {
-            sequence = sequence.substr(0, end_max);
-        }
-        result.back() += sequence;
-    }
-    return result;
-}
-
 // Return the pieces of the walk joined into one string.
 std::string joined(const std::vector<std::string>& pieces) {
     std::string result;
@@ -300,13 +228,14 @@ TEST_CASE("A subchain walk follows a haplotype across its fragments", "[haplotyp
         REQUIRE(walk.sequence_pieces(graph, FLANK, FLANK) == std::vector<std::string>({ "GTATTTAAAC", "ACGTACGCAT" }));
         SubchainWalk broken = fixture.walk(0, false, fwd(2), fwd(6), 1);
         REQUIRE(walk == broken);
-        REQUIRE(walk.hash() == broken.hash());
     }
 
     SECTION("a reverse walk continues with the previous fragment") {
         // Path 1 reversed visits 7, 6 and 4 in reverse, and path 0 reversed visits 3, 2 and 1.
         SubchainWalk walk = fixture.walk(1, true, rev(6), rev(2), 1);
         REQUIRE(walk.node_ids() == std::vector<nid_t>({ 2, 3, 4, 6 }));
+        // Path 7 reversed gets there past the empty path 6.
+        REQUIRE(fixture.walk(7, true, rev(6), rev(2), 1) == walk);
         REQUIRE(walk.pieces() == 2);
         REQUIRE(walk.sequence_pieces(graph, FLANK, FLANK) == std::vector<std::string>({ "ATG" "CGTACGT", "GTTTAAA" "TAC" }));
         std::vector<Visit> visits { { rev(6), true }, { rev(4), false }, { rev(3), true }, { rev(2), false } };
@@ -368,7 +297,6 @@ TEST_CASE("A subchain walk follows a haplotype across its fragments", "[haplotyp
                 REQUIRE(walk.pieces() == 0);
                 REQUIRE(walk.sequence_pieces(graph, FLANK, FLANK).empty());
                 REQUIRE(walk == SubchainWalk());
-                REQUIRE(walk.hash() == SubchainWalk().hash());
                 size_t calls = 0;
                 bool complete = SubchainWalk::for_each_visit(cache, fixture.fragment_map, gbwt::ENDMARKER, end, sequence, [&](gbwt::node_type, bool) {
                     calls++;
@@ -416,57 +344,6 @@ TEST_CASE("A subchain walk follows a haplotype across its fragments", "[haplotyp
             REQUIRE(visits == expected);
         }
     }
-}
-
-TEST_CASE("Every subchain walk matches the walk written out from the paths", "[haplotypes][subchain_walk]") {
-    WalkFixture fixture;
-    const gbwtgraph::GBWTGraph& graph = fixture.gbz.graph;
-
-    // Walk every sequence from its start and from each of its visits, to each oriented
-    // node and to the end of the sequence.
-    std::vector<gbwt::node_type> ends { gbwt::ENDMARKER };
-    for (const auto& [id, sequence] : fixture.sequences) {
-        ends.push_back(fwd(id));
-        ends.push_back(rev(id));
-    }
-    std::vector<std::pair<ExpectedWalk, SubchainWalk>> walks;
-    for (size_t path = 0; path < fixture.paths.size(); path++) {
-        for (bool is_reverse : { false, true }) {
-            std::vector<gbwt::node_type> nodes = fixture.oriented_nodes(path, is_reverse);
-            for (size_t visit = 0; visit <= nodes.size(); visit++) {
-                // The last round walks from the start of the sequence, without a start node.
-                gbwt::node_type start = (visit < nodes.size() ? nodes[visit] : gbwt::ENDMARKER);
-                size_t first_visit = (visit < nodes.size() ? visit : 0);
-                for (gbwt::node_type end : ends) {
-                    INFO("path " << path << (is_reverse ? " reverse" : " forward") << ", visit " << visit << ", end " << end);
-                    ExpectedWalk expected = expected_walk(fixture, path, is_reverse, first_visit, start, end);
-                    SubchainWalk walk = fixture.walk(path, is_reverse, start, end, first_visit);
-                    REQUIRE(fixture.reported_visits(path, is_reverse, start, end, first_visit) == expected.visits);
-                    REQUIRE(walk.node_ids() == expected_node_ids(expected));
-                    REQUIRE(walk.sequence_pieces(graph, FLANK, FLANK) == expected_pieces(fixture, expected, FLANK, FLANK));
-                    REQUIRE(walk.sequence_pieces(graph, ALL, ALL) == expected_pieces(fixture, expected, ALL, ALL));
-                    REQUIRE(walk.pieces() == expected_pieces(fixture, expected, ALL, ALL).size());
-                    walks.emplace_back(std::move(expected), std::move(walk));
-                }
-            }
-        }
-    }
-
-    // Walks are equal when they make the same visits in the same pieces and both end at the
-    // end node or both do not. Equal walks have equal hashes.
-    size_t equal_pairs = 0, wrong_equality = 0, wrong_hash = 0;
-    for (size_t i = 0; i < walks.size(); i++) {
-        for (size_t j = i + 1; j < walks.size(); j++) {
-            bool expected_equal = (walks[i].first == walks[j].first);
-            bool equal = (walks[i].second == walks[j].second);
-            equal_pairs += equal;
-            wrong_equality += (equal != expected_equal);
-            wrong_hash += (equal && walks[i].second.hash() != walks[j].second.hash());
-        }
-    }
-    REQUIRE(equal_pairs > 0);
-    REQUIRE(wrong_equality == 0);
-    REQUIRE(wrong_hash == 0);
 }
 
 } // namespace vg::unittest

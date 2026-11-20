@@ -6,6 +6,7 @@
 #include "algorithms/component.hpp"
 #include "algorithms/extract_subchain.hpp"
 #include "hash_map.hpp"
+#include "utility.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -59,21 +60,6 @@ bool is_gref_path(const gbwt::FullPathName& path_name) {
     }
     return GrefCover::is_gref_derived(path_name.sample_name);
 }
-
-namespace {
-
-// Return the positions of the costs from the largest cost to the smallest, with equal
-// costs in their original order. Tasks run in this order spread their work best over
-// the threads.
-template<class Cost>
-std::vector<size_t> largest_first(const std::vector<Cost>& costs) {
-    std::vector<size_t> order(costs.size());
-    std::iota(order.begin(), order.end(), size_t(0));
-    std::ranges::stable_sort(order, [&costs](size_t a, size_t b) { return costs[a] > costs[b]; });
-    return order;
-}
-
-} // anonymous namespace
 
 //------------------------------------------------------------------------------
 
@@ -229,8 +215,8 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
 
     // Build the subchains of all chains as one set of tasks, each of which writes its own
     // subchain, so the order of the tasks does not change the result. The largest tasks
-    // go first. A task larger than half of the share of a thread uses all threads by
-    // itself, one such task at a time, so that it does not hold back the others.
+    // go first. A task larger than half of the share of a thread runs before the others,
+    // outside a parallel region, so that the loops inside it use all threads.
     std::vector<std::pair<size_t, size_t>> tasks; // (chain, subchain)
     for (size_t chain_id = 0; chain_id < to_process.size(); chain_id++) {
         result.chains[chain_id].subchains.resize(to_process[chain_id].size());
@@ -261,13 +247,13 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
         costs[task] = double(sequences.size()) * double(bases + 1);
     }
     double total_cost = std::accumulate(costs.begin(), costs.end(), 0.0);
-    std::vector<size_t> order = largest_first(costs);
-    std::vector<FragmentCounts> fragments(result.components());
-    auto run_task = [&](size_t task, bool parallel, FragmentCounts& chain_fragments) {
+    std::vector<size_t> order = sort_permutation(costs.begin(), costs.end(), std::greater<>());
+    std::vector<FragmentCounts> task_fragments(tasks.size());
+    auto run_task = [&](size_t task) {
         auto [chain_id, subchain_id] = tasks[task];
         auto& [subchain, sequences] = to_process[chain_id][subchain_id];
         try {
-            this->build_subchain(subchain, sequences, result.chains[chain_id].subchains[subchain_id], parameters, parallel, chain_fragments);
+            task_fragments[task] = this->build_subchain(subchain, sequences, result.chains[chain_id].subchains[subchain_id], parameters);
         } catch (const std::runtime_error& e) {
             std::cerr << "error: [chain " << chain_id << ", subchain " << subchain_id << "]: " << e.what() << std::endl;
             std::exit(EXIT_FAILURE);
@@ -279,8 +265,7 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     size_t first_small = 0;
     double large_start = gbwt::readTimer();
     while (threads > 1 && first_small < order.size() && costs[order[first_small]] > large) {
-        size_t task = order[first_small];
-        run_task(task, true, fragments[tasks[task].first]);
+        run_task(order[first_small]);
         first_small++;
     }
     if (first_small > 0 && this->verbosity >= Haplotypes::verbosity_detailed) {
@@ -288,11 +273,11 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     }
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t i = first_small; i < order.size(); i++) {
-        size_t task = order[i];
-        FragmentCounts task_fragments;
-        run_task(task, false, task_fragments);
-        #pragma omp critical (partition_fragments)
-        fragments[tasks[task].first].add(task_fragments);
+        run_task(order[i]);
+    }
+    std::vector<FragmentCounts> fragments(result.components());
+    for (size_t task = 0; task < tasks.size(); task++) {
+        fragments[tasks[task].first].add(task_fragments[task]);
     }
 
     // Statistics for each chain and job.
@@ -644,145 +629,18 @@ std::vector<HaplotypePartitioner::sequence_type> HaplotypePartitioner::get_seque
 
 //------------------------------------------------------------------------------
 
-SubchainWalk::SubchainWalk(
-    const gbwt::CachedGBWT& index, const gbwt::FragmentMap& fragment_map,
-    gbwt::node_type start, gbwt::node_type end, Haplotypes::sequence_type sequence
-) {
-    for_each_visit(index, fragment_map, start, end, sequence, [&](gbwt::node_type node, bool starts_piece) {
-        if (starts_piece) {
-            this->piece_starts.push_back(static_cast<std::uint32_t>(this->visits.size()));
-        }
-        this->visits.push_back(node);
-        this->reaches_end = (node == end);
-        return true;
-    });
-}
-
-bool SubchainWalk::for_each_visit(
-    const gbwt::CachedGBWT& index, const gbwt::FragmentMap& fragment_map,
-    gbwt::node_type start, gbwt::node_type end, Haplotypes::sequence_type sequence,
-    const std::function<bool(gbwt::node_type, bool)>& visit
-) {
-    bool single_fragment = (start == gbwt::ENDMARKER || end == gbwt::ENDMARKER);
-    gbwt::size_type sequence_id = sequence.first;
-    gbwt::edge_type pos = (start != gbwt::ENDMARKER ? gbwt::edge_type(start, sequence.second) : index.start(sequence_id));
-    if (pos == gbwt::invalid_edge() || pos.first == gbwt::ENDMARKER) {
-        return true;
-    }
-    bool starts_piece = true;
-    while (true) {
-        if (!visit(pos.first, starts_piece)) {
-            return false;
-        }
-        if (pos.first == end) {
-            return true;
-        }
-        starts_piece = false;
-        pos = index.LF(pos);
-        if (pos.first != gbwt::ENDMARKER) {
-            continue;
-        }
-        if (single_fragment) {
-            return true;
-        }
-        // Continue with the next fragment of the haplotype that is not empty.
-        while (pos.first == gbwt::ENDMARKER) {
-            sequence_id = fragment_map.oriented_next(sequence_id);
-            if (sequence_id == gbwt::invalid_sequence()) {
-                return true;
-            }
-            pos = index.start(sequence_id);
-        }
-        starts_piece = true;
-    }
-}
-
-std::vector<nid_t> SubchainWalk::node_ids() const {
-    std::vector<nid_t> result;
-    result.reserve(this->visits.size());
-    for (gbwt::node_type node : this->visits) {
-        result.push_back(gbwt::Node::id(node));
-    }
-    gbwt::removeDuplicates(result, false);
-    return result;
-}
-
-bool SubchainWalk::has_sequence() const {
-    return !this->visits.empty() && !(this->reaches_end && this->visits.size() == 1);
-}
-
-std::vector<std::string> SubchainWalk::sequence_pieces(const gbwtgraph::GBWTGraph& graph, size_t start_max, size_t end_max) const {
-    std::vector<std::string> result;
-    if (!this->has_sequence()) {
-        return result;
-    }
-    for (size_t piece = 0; piece < this->piece_starts.size(); piece++) {
-        result.emplace_back();
-        size_t limit = (piece + 1 < this->piece_starts.size() ? this->piece_starts[piece + 1] : this->visits.size());
-        for (size_t i = this->piece_starts[piece]; i < limit; i++) {
-            std::string_view view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(this->visits[i]));
-            if (i == 0) {
-                size_t offset = (view.size() > start_max ? view.size() - start_max : 0);
-                result.back().append(view.data() + offset, view.size() - offset);
-            } else if (this->reaches_end && i + 1 == this->visits.size()) {
-                result.back().append(view.data(), std::min(view.size(), end_max));
-            } else {
-                result.back().append(view.data(), view.size());
-            }
-        }
-    }
-    return result;
-}
-
-size_t SubchainWalk::pieces() const {
-    return (this->has_sequence() ? this->piece_starts.size() : 0);
-}
-
-size_t SubchainWalk::hash() const {
-    size_t result = std::hash<size_t>()(this->visits.size()) ^ (this->reaches_end ? 0x9E3779B97F4A7C15 : 0);
-    for (gbwt::node_type node : this->visits) {
-        result = (result ^ std::hash<gbwt::node_type>()(node)) * 0x100000001B3;
-    }
-    for (std::uint32_t piece_start : this->piece_starts) {
-        result = (result ^ std::hash<std::uint32_t>()(piece_start)) * 0x100000001B3;
-    }
-    return result;
-}
-
 namespace {
 
-// A memo of the length and the number of N bases of each node it is asked about, which
-// reads the sequence of a node only once.
-class NodeBaseCounts {
-public:
-    explicit NodeBaseCounts(const gbwtgraph::GBZ& gbz) : gbz(gbz) {}
-
-    // Return the length and the number of N bases of the node.
-    std::pair<size_t, size_t> operator()(nid_t node) {
-        auto [iter, inserted] = this->counts.try_emplace(node);
-        if (inserted) {
-            std::string_view view = this->gbz.graph.get_sequence_view(this->gbz.graph.get_handle(node));
-            iter->second.first = view.size();
-            iter->second.second = static_cast<size_t>(std::ranges::count(view, 'N') + std::ranges::count(view, 'n'));
-        }
-        return iter->second;
+// Return the total length and the total number of N bases of the nodes.
+std::pair<size_t, size_t> node_bases(const gbwtgraph::GBWTGraph& graph, const std::vector<nid_t>& nodes) {
+    std::pair<size_t, size_t> result(0, 0);
+    for (nid_t node : nodes) {
+        std::string_view view = graph.get_sequence_view(graph.get_handle(node));
+        result.first += view.size();
+        result.second += static_cast<size_t>(std::ranges::count(view, 'N') + std::ranges::count(view, 'n'));
     }
-
-    // Return the total length and the total number of N bases of the nodes.
-    std::pair<size_t, size_t> totals(const std::vector<nid_t>& nodes) {
-        std::pair<size_t, size_t> result(0, 0);
-        for (nid_t node : nodes) {
-            auto [length, n_bases] = (*this)(node);
-            result.first += length;
-            result.second += n_bases;
-        }
-        return result;
-    }
-
-private:
-    const gbwtgraph::GBZ& gbz;
-    std::unordered_map<nid_t, std::pair<size_t, size_t>> counts;
-};
+    return result;
+}
 
 // Return the median of the values, or 0 if there are none. Sorts the values.
 double median_of(std::vector<size_t>& values) {
@@ -811,55 +669,48 @@ std::vector<size_t> stored_order(const std::vector<Haplotypes::sequence_type>& s
     return result;
 }
 
-// The walks of the sequences crossing a subchain. Sequences with equal walks share one,
-// because they have the same kmers.
-struct DistinctWalks {
-    // The distinct walks, in the order of the first sequence with each.
+// The walks of the sequences crossing a subchain. Sequences with equal walks have the
+// same kmers, so they are grouped, and the kmers of a group are found once.
+struct SubchainWalks {
+    // The walk of each sequence.
     std::vector<SubchainWalk> walks;
 
-    // For each sequence, its walk.
-    std::vector<size_t> walk_of;
+    // The groups of sequences with equal walks, in the order of their first sequences.
+    std::vector<std::vector<size_t>> groups;
 
-    // For each walk, the sequences with it, in order.
-    std::vector<std::vector<size_t>> members;
+    // Return the walk of the group.
+    const SubchainWalk& of_group(size_t group) const { return this->walks[this->groups[group].front()]; }
 };
 
-// Walk the sequences through the subchain, using the threads if `parallel` is set.
-DistinctWalks walk_sequences(
+// Walk the sequences through the subchain. Like the other loops over the walks of a
+// subchain, the loop uses all threads unless the subchains themselves are being built in
+// parallel.
+SubchainWalks walk_sequences(
     const HaplotypePartitioner& partitioner, const HaplotypePartitioner::Subchain& subchain,
-    const std::vector<HaplotypePartitioner::sequence_type>& sequences, bool parallel
+    const std::vector<HaplotypePartitioner::sequence_type>& sequences
 ) {
     gbwt::node_type start = gbwtgraph::GBWTGraph::handle_to_node(subchain.start);
     gbwt::node_type end = gbwtgraph::GBWTGraph::handle_to_node(subchain.end);
-    std::vector<SubchainWalk> all(sequences.size());
-    std::vector<size_t> hashes(sequences.size());
-    #pragma omp parallel if(parallel)
+    SubchainWalks result;
+    result.walks.resize(sequences.size());
+    #pragma omp parallel if(!omp_in_parallel())
     {
         gbwt::CachedGBWT cache(partitioner.gbz.index);
         #pragma omp for schedule(dynamic, 1)
         for (size_t i = 0; i < sequences.size(); i++) {
-            all[i] = SubchainWalk(cache, partitioner.fragment_map, start, end, sequences[i]);
-            hashes[i] = all[i].hash();
+            result.walks[i] = SubchainWalk(cache, partitioner.fragment_map, start, end, sequences[i]);
         }
     }
 
-    DistinctWalks result;
-    result.walk_of.resize(sequences.size());
-    std::unordered_map<size_t, std::vector<size_t>> by_hash;
+    // The group of each walk, by the first sequence with the walk.
+    auto walk_less = [&result](size_t a, size_t b) { return result.walks[a] < result.walks[b]; };
+    std::map<size_t, size_t, decltype(walk_less)> group_of(walk_less);
     for (size_t i = 0; i < sequences.size(); i++) {
-        std::vector<size_t>& same_hash = by_hash[hashes[i]];
-        auto found = std::ranges::find_if(same_hash, [&](size_t walk) { return result.walks[walk] == all[i]; });
-        size_t walk = 0;
-        if (found != same_hash.end()) {
-            walk = *found;
-        } else {
-            walk = result.walks.size();
-            same_hash.push_back(walk);
-            result.walks.push_back(std::move(all[i]));
-            result.members.emplace_back();
+        size_t group = group_of.try_emplace(i, result.groups.size()).first->second;
+        if (group == result.groups.size()) {
+            result.groups.emplace_back();
         }
-        result.walk_of[i] = walk;
-        result.members[walk].push_back(i);
+        result.groups[group].push_back(i);
     }
     return result;
 }
@@ -894,13 +745,13 @@ std::vector<HaplotypePartitioner::kmer_type> take_unique_minimizers(
 }
 
 /*
-  Take the sorted set of kmers present in each walk, and the walks of a set of
-  sequences. Build the `kmers`, `kmer_counts`, `sequences`, and `kmers_present` fields
+  Take the sorted set of kmers present in each group of sequences with equal walks.
+  Build the `kmers`, `kmer_counts`, `sequences`, and `kmers_present` fields
   in the subchain, which are assumed to be empty. A kmer is informative if some
   sequences lack it.
 */
 void present_kmers(
-    const std::vector<std::vector<HaplotypePartitioner::kmer_type>>& kmers_by_walk, const DistinctWalks& walks,
+    const std::vector<std::vector<HaplotypePartitioner::kmer_type>>& kmers_by_group, const std::vector<std::vector<size_t>>& groups,
     const std::vector<Haplotypes::sequence_type>& sequences,
     Haplotypes::Subchain& subchain
 ) {
@@ -908,22 +759,22 @@ void present_kmers(
     // with each.
     size_t max_count = 0;
     std::vector<std::vector<HaplotypePartitioner::kmer_type>::const_iterator> iterators;
-    for (const auto& kmers : kmers_by_walk) {
+    for (const auto& kmers : kmers_by_group) {
         iterators.push_back(kmers.begin());
     }
     std::vector<size_t> kmer_counts;
     while (true) {
         HaplotypePartitioner::kmer_type min_value = std::numeric_limits<HaplotypePartitioner::kmer_type>::max();
         size_t count = 0;
-        for (size_t w = 0; w < kmers_by_walk.size(); w++) {
-            if (iterators[w] == kmers_by_walk[w].end()) {
+        for (size_t w = 0; w < kmers_by_group.size(); w++) {
+            if (iterators[w] == kmers_by_group[w].end()) {
                 continue;
             }
             if (*iterators[w] < min_value) {
                 min_value = *iterators[w];
-                count = walks.members[w].size();
+                count = groups[w].size();
             } else if (*iterators[w] == min_value) {
-                count += walks.members[w].size();
+                count += groups[w].size();
             }
         }
         if (count == 0) {
@@ -935,8 +786,8 @@ void present_kmers(
             kmer_counts.push_back(count);
             max_count = std::max(max_count, count);
         }
-        for (size_t w = 0; w < kmers_by_walk.size(); w++) {
-            if (iterators[w] != kmers_by_walk[w].end() && *iterators[w] == min_value) {
+        for (size_t w = 0; w < kmers_by_group.size(); w++) {
+            if (iterators[w] != kmers_by_group[w].end() && *iterators[w] == min_value) {
                 ++iterators[w];
             }
         }
@@ -949,14 +800,14 @@ void present_kmers(
     // Second pass: Build the kmer presence matrix and record the new order of the sequences.
     size_t num_kmers = subchain.kmers.size();
     sdsl::bit_vector buffer(sequences.size() * num_kmers, 0);
-    for (size_t w = 0; w < kmers_by_walk.size(); w++) {
-        auto iter = kmers_by_walk[w].begin();
+    for (size_t w = 0; w < kmers_by_group.size(); w++) {
+        auto iter = kmers_by_group[w].begin();
         for (size_t kmer_id = 0; kmer_id < num_kmers; kmer_id++) {
-            while (iter != kmers_by_walk[w].end() && *iter < subchain.kmers[kmer_id]) {
+            while (iter != kmers_by_group[w].end() && *iter < subchain.kmers[kmer_id]) {
                 ++iter;
             }
-            if (iter != kmers_by_walk[w].end() && *iter == subchain.kmers[kmer_id]) {
-                for (size_t sequence_id : walks.members[w]) {
+            if (iter != kmers_by_group[w].end() && *iter == subchain.kmers[kmer_id]) {
+                for (size_t sequence_id : groups[w]) {
                     buffer[sequence_id * num_kmers + kmer_id] = 1;
                 }
                 ++iter;
@@ -967,58 +818,6 @@ void present_kmers(
 }
 
 } // anonymous namespace
-
-OrientedKmerTable::OrientedKmerTable(const std::vector<Haplotypes::Subchain::kmer_type>& kmers, size_t k) {
-    size_t bits = std::max(size_t(sdsl::bits::length(std::max(4 * kmers.size(), size_t(1)) - 1)), size_t(1));
-    this->keys.assign(size_t(1) << bits, EMPTY);
-    this->positions.assign(this->keys.size(), NONE);
-    this->mask = this->keys.size() - 1;
-    this->shift = 64 - bits;
-    auto insert = [this](Haplotypes::Subchain::kmer_type kmer, std::uint32_t position) {
-        size_t i = this->slot(kmer);
-        while (this->keys[i] != EMPTY && this->keys[i] != kmer) {
-            i = (i + 1) & this->mask;
-        }
-        this->keys[i] = kmer;
-        this->positions[i] = position;
-    };
-    for (size_t i = 0; i < kmers.size(); i++) {
-        auto position = static_cast<std::uint32_t>(i);
-        insert(kmers[i], position);
-        insert(gbwtgraph::Key64(kmers[i]).reverse_complement(k).get_key(), position);
-    }
-}
-
-void OrientedKmerCounts::count(const std::vector<std::string>& pieces, const OrientedKmerTable& positions, size_t k) {
-    for (std::uint32_t position : this->occurring_positions) {
-        this->counts[position] = 0;
-    }
-    this->occurring_positions.clear();
-    for (const std::string& piece : pieces) {
-        gbwtgraph::Key64 key;
-        size_t valid_chars = 0;
-        for (char c : piece) {
-            key.forward(k, static_cast<unsigned char>(c), valid_chars);
-            if (valid_chars < k) {
-                continue;
-            }
-            if (std::uint32_t position = positions.find(key.get_key()); position != OrientedKmerTable::NONE) {
-                if (this->counts[position]++ == 0) {
-                    this->occurring_positions.push_back(position);
-                }
-            }
-        }
-    }
-}
-
-std::vector<std::pair<std::uint32_t, std::uint32_t>> OrientedKmerCounts::occurrence_list() const {
-    std::vector<std::pair<std::uint32_t, std::uint32_t>> result;
-    result.reserve(this->occurring_positions.size());
-    for (std::uint32_t position : this->occurring_positions) {
-        result.emplace_back(position, this->counts[position]);
-    }
-    return result;
-}
 
 namespace {
 
@@ -1130,113 +929,89 @@ private:
 };
 
 // Return the kmers that occur in the graph only on the nodes, sorted. A kmer that the
-// minimizer index does not contain is not returned. Uses the threads if `parallel` is set.
+// minimizer index does not contain is not returned.
 std::vector<HaplotypePartitioner::kmer_type> kmers_on_nodes(
     const HaplotypePartitioner::minimizer_index_type& minimizer_index,
-    const std::vector<HaplotypePartitioner::kmer_type>& kmers, const hash_set<nid_t>& nodes, bool parallel
+    const std::vector<HaplotypePartitioner::kmer_type>& kmers, const hash_set<nid_t>& nodes
 ) {
-    // Each thread collects its kmers, without a lock that the other tasks would also wait for.
-    std::vector<std::vector<HaplotypePartitioner::kmer_type>> thread_kmers;
-    #pragma omp parallel if(parallel)
-    {
-        #pragma omp single
-        thread_kmers.resize(omp_get_num_threads());
-        std::vector<HaplotypePartitioner::kmer_type>& own_kmers = thread_kmers[omp_get_thread_num()];
-        #pragma omp for schedule(dynamic, 1024)
-        for (size_t i = 0; i < kmers.size(); i++) {
-            std::span<const HaplotypeMinimizerIndex::code_type> occurrences = minimizer_index.positions(kmers[i]);
-            bool own = !occurrences.empty();
-            for (size_t j = 0; own && j < occurrences.size(); j++) {
-                own = nodes.contains(gbwtgraph::Position(occurrences[j]).id());
-            }
-            if (own) {
-                own_kmers.push_back(kmers[i]);
-            }
-        }
+    std::vector<char> on_nodes(kmers.size(), 0);
+    #pragma omp parallel for schedule(dynamic, 1024) if(!omp_in_parallel())
+    for (size_t i = 0; i < kmers.size(); i++) {
+        auto occurrences = minimizer_index.occurrences(kmers[i]);
+        on_nodes[i] = !occurrences.empty() && std::ranges::all_of(occurrences, [&nodes](const HaplotypeMinimizerIndex::Occurrence& occurrence) {
+            return nodes.contains(gbwtgraph::Position(occurrence.position).id());
+        });
     }
-    std::vector<HaplotypePartitioner::kmer_type> result = std::move(thread_kmers.front());
-    for (size_t thread = 1; thread < thread_kmers.size(); thread++) {
-        result.insert(result.end(), thread_kmers[thread].begin(), thread_kmers[thread].end());
+    std::vector<HaplotypePartitioner::kmer_type> result;
+    for (size_t i = 0; i < kmers.size(); i++) {
+        if (on_nodes[i]) {
+            result.push_back(kmers[i]);
+        }
     }
     std::ranges::sort(result);
     return result;
 }
 
 // Set the kmers of the output subchain to the minimizers in the walks with a single
-// occurrence in the graph, and their presence in the sequences. Uses the threads if
-// `parallel` is set.
+// occurrence in the graph, and their presence in the sequences.
 void build_unique_kmers(
-    const HaplotypePartitioner& partitioner, const DistinctWalks& walks,
+    const HaplotypePartitioner& partitioner, const SubchainWalks& walks,
     const std::vector<HaplotypePartitioner::sequence_type>& sequences, size_t start_max,
-    Haplotypes::Subchain& output, bool parallel
+    Haplotypes::Subchain& output
 ) {
     size_t k = partitioner.minimizer_index.k();
-    std::vector<std::vector<HaplotypePartitioner::kmer_type>> kmers_by_walk(walks.walks.size());
-    #pragma omp parallel if(parallel)
+    std::vector<std::vector<HaplotypePartitioner::kmer_type>> kmers_by_group(walks.groups.size());
+    #pragma omp parallel if(!omp_in_parallel())
     {
         vg::hash_map<HaplotypePartitioner::kmer_type, size_t> kmer_cache;
         #pragma omp for schedule(dynamic, 1)
-        for (size_t w = 0; w < walks.walks.size(); w++) {
-            kmers_by_walk[w] = take_unique_minimizers(
-                walks.walks[w].sequence_pieces(partitioner.gbz.graph, start_max, k - 1), partitioner.minimizer_index, kmer_cache
+        for (size_t group = 0; group < walks.groups.size(); group++) {
+            kmers_by_group[group] = take_unique_minimizers(
+                walks.of_group(group).sequence_pieces(partitioner.gbz.graph, start_max, k - 1), partitioner.minimizer_index, kmer_cache
             );
         }
     }
-    present_kmers(kmers_by_walk, walks, sequences, output);
+    present_kmers(kmers_by_group, walks.groups, sequences, output);
 }
 
 // Set the subchain kmers, their presence in the sequences, their copies, and the bases
 // of the walks in the output subchain (`HaplotypePartitioner::Parameters::subchain_kmers`).
-// Uses the threads if `parallel` is set.
 void build_subchain_kmers(
-    const HaplotypePartitioner& partitioner, const DistinctWalks& walks,
+    const HaplotypePartitioner& partitioner, const SubchainWalks& walks,
     const std::vector<HaplotypePartitioner::sequence_type>& sequences, size_t start_max,
-    Haplotypes::Subchain& output, bool parallel
+    Haplotypes::Subchain& output
 ) {
+    const gbwtgraph::GBWTGraph& graph = partitioner.gbz.graph;
     size_t k = partitioner.minimizer_index.k();
-    size_t num_walks = walks.walks.size();
+    size_t num_groups = walks.groups.size();
 
     // The nodes the walks visit, the bases of each walk, and the distinct minimizers.
-    // Each thread collects its own nodes and minimizers, without a lock that the other
-    // tasks would also wait for.
-    std::vector<size_t> walk_bases(num_walks);
-    std::vector<size_t> walk_n_bases(num_walks);
-    std::vector<hash_set<nid_t>> thread_nodes;
-    std::vector<hash_set<HaplotypePartitioner::kmer_type>> thread_minimizers;
-    #pragma omp parallel if(parallel)
-    {
-        #pragma omp single
-        {
-            thread_nodes.resize(omp_get_num_threads());
-            thread_minimizers.resize(omp_get_num_threads());
-        }
-        NodeBaseCounts node_bases(partitioner.gbz);
+    // Each thread collects into sets of its own, which are merged afterwards.
+    std::vector<std::pair<size_t, size_t>> group_bases(num_groups);
+    std::vector<hash_set<nid_t>> thread_nodes(omp_get_max_threads());
+    std::vector<hash_set<HaplotypePartitioner::kmer_type>> thread_minimizers(omp_get_max_threads());
+    #pragma omp parallel for schedule(dynamic, 1) if(!omp_in_parallel())
+    for (size_t group = 0; group < num_groups; group++) {
         hash_set<nid_t>& own_nodes = thread_nodes[omp_get_thread_num()];
         hash_set<HaplotypePartitioner::kmer_type>& own_minimizers = thread_minimizers[omp_get_thread_num()];
-        #pragma omp for schedule(dynamic, 1)
-        for (size_t w = 0; w < num_walks; w++) {
-            std::vector<nid_t> walk_nodes = walks.walks[w].node_ids();
-            std::tie(walk_bases[w], walk_n_bases[w]) = node_bases.totals(walk_nodes);
-            own_nodes.insert(walk_nodes.begin(), walk_nodes.end());
-            for (const std::string& piece : walks.walks[w].sequence_pieces(partitioner.gbz.graph, start_max, k - 1)) {
-                for (const auto& minimizer : partitioner.minimizer_index.minimizers(piece)) {
-                    own_minimizers.insert(minimizer.key.get_key());
-                }
+        std::vector<nid_t> walk_nodes = walks.of_group(group).node_ids();
+        group_bases[group] = node_bases(graph, walk_nodes);
+        own_nodes.insert(walk_nodes.begin(), walk_nodes.end());
+        for (const std::string& piece : walks.of_group(group).sequence_pieces(graph, start_max, k - 1)) {
+            for (const auto& minimizer : partitioner.minimizer_index.minimizers(piece)) {
+                own_minimizers.insert(minimizer.key.get_key());
             }
         }
     }
-    hash_set<nid_t> nodes = std::move(thread_nodes.front());
-    hash_set<HaplotypePartitioner::kmer_type> distinct = std::move(thread_minimizers.front());
     for (size_t thread = 1; thread < thread_nodes.size(); thread++) {
-        nodes.insert(thread_nodes[thread].begin(), thread_nodes[thread].end());
-        distinct.insert(thread_minimizers[thread].begin(), thread_minimizers[thread].end());
+        thread_nodes[0].insert(thread_nodes[thread].begin(), thread_nodes[thread].end());
+        thread_minimizers[0].insert(thread_minimizers[thread].begin(), thread_minimizers[thread].end());
     }
+    std::vector<HaplotypePartitioner::kmer_type> kept = kmers_on_nodes(
+        partitioner.minimizer_index, { thread_minimizers[0].begin(), thread_minimizers[0].end() }, thread_nodes[0]
+    );
     thread_nodes.clear();
     thread_minimizers.clear();
-    std::vector<HaplotypePartitioner::kmer_type> minimizers(distinct.begin(), distinct.end());
-    distinct = hash_set<HaplotypePartitioner::kmer_type>();
-    std::vector<HaplotypePartitioner::kmer_type> kept = kmers_on_nodes(partitioner.minimizer_index, minimizers, nodes, parallel);
-    minimizers = std::vector<HaplotypePartitioner::kmer_type>();
 
     // Count the occurrences of the kept kmers in each walk, in both orientations, and
     // add them to the tally for each sequence with the walk. Additions to the tally
@@ -1245,28 +1020,33 @@ void build_subchain_kmers(
     OrientedKmerTable positions(kept, k);
     KmerCopyTally tally(sequences.size(), kept.size());
     std::mutex tally_mutex;
-    #pragma omp parallel if(parallel)
+    #pragma omp parallel if(!omp_in_parallel())
     {
         OrientedKmerCounts occurrences(kept.size());
         #pragma omp for schedule(dynamic, 1)
-        for (size_t w = 0; w < num_walks; w++) {
-            occurrences.count(walks.walks[w].sequence_pieces(partitioner.gbz.graph, start_max, k - 1), positions, k);
+        for (size_t group = 0; group < num_groups; group++) {
+            occurrences.count(walks.of_group(group).sequence_pieces(graph, start_max, k - 1), positions, k);
             std::vector<std::pair<std::uint32_t, std::uint32_t>> walk_occurrences = occurrences.occurrence_list();
             std::lock_guard<std::mutex> lock(tally_mutex);
-            for (size_t sequence : walks.members[w]) {
+            for (size_t sequence : walks.groups[group]) {
                 tally.add(sequence, walk_occurrences);
             }
         }
     }
     std::vector<size_t> order = tally.write(kept, sequences, output);
 
-    std::vector<size_t> bases;
-    for (size_t walk : walks.walk_of) {
-        bases.push_back(walk_bases[walk]);
+    // The bases of the walk of each sequence, and its N bases in the order the subchain
+    // stores the sequences.
+    std::vector<size_t> bases(sequences.size());
+    std::vector<size_t> n_bases(sequences.size());
+    for (size_t group = 0; group < num_groups; group++) {
+        for (size_t sequence : walks.groups[group]) {
+            std::tie(bases[sequence], n_bases[sequence]) = group_bases[group];
+        }
     }
     std::vector<size_t> stored_n_bases;
-    for (size_t i : order) {
-        stored_n_bases.push_back(walk_n_bases[walks.walk_of[i]]);
+    for (size_t sequence : order) {
+        stored_n_bases.push_back(n_bases[sequence]);
     }
     output.set_walk_bases(median_of(bases), stored_n_bases);
 }
@@ -1338,39 +1118,36 @@ HaplotypePartitioner::chain_subchains(const gbwtgraph::TopLevelChain& chain, con
     return result;
 }
 
-void HaplotypePartitioner::build_subchain(
+HaplotypePartitioner::FragmentCounts HaplotypePartitioner::build_subchain(
     const Subchain& subchain, const std::vector<sequence_type>& sequences, Haplotypes::Subchain& output,
-    const Parameters& parameters, bool parallel, FragmentCounts& fragments
+    const Parameters& parameters
 ) const {
     output.type = subchain.type;
     output.start = gbwtgraph::GBWTGraph::handle_to_node(subchain.start);
     output.end = gbwtgraph::GBWTGraph::handle_to_node(subchain.end);
     output.placeholder = 0;
 
-    DistinctWalks walks = walk_sequences(*this, subchain, sequences, parallel);
+    SubchainWalks walks = walk_sequences(*this, subchain, sequences);
     // Every kmer must have a base past a boundary node, so the walks keep only the last
     // k - 1 bases of the start node and the first k - 1 bases of the end node.
     size_t start_max = (subchain.has_start() ? this->minimizer_index.k() - 1 : std::numeric_limits<size_t>::max());
     if (parameters.subchain_kmers && subchain.type != Haplotypes::Subchain::full_haplotype) {
-        build_subchain_kmers(*this, walks, sequences, start_max, output, parallel);
+        build_subchain_kmers(*this, walks, sequences, start_max, output);
     } else {
-        build_unique_kmers(*this, walks, sequences, start_max, output, parallel);
+        build_unique_kmers(*this, walks, sequences, start_max, output);
     }
 
-    if (subchain.type == Haplotypes::Subchain::full_haplotype) {
-        return;
-    }
-    bool fragmented = false;
-    for (size_t walk : walks.walk_of) {
-        if (size_t pieces = walks.walks[walk].pieces(); pieces > 1) {
-            fragmented = true;
-            fragments.sequences++;
-            fragments.additional += pieces - 1;
+    FragmentCounts fragments;
+    if (subchain.type != Haplotypes::Subchain::full_haplotype) {
+        for (const SubchainWalk& walk : walks.walks) {
+            if (size_t pieces = walk.pieces(); pieces > 1) {
+                fragments.subchains = 1;
+                fragments.sequences++;
+                fragments.additional += pieces - 1;
+            }
         }
     }
-    if (fragmented) {
-        fragments.subchains++;
-    }
+    return fragments;
 }
 
 //------------------------------------------------------------------------------
@@ -2541,20 +2318,19 @@ pair_model::Candidates model_candidates(
         haplotype_ids[i] = (std::uint64_t(name.sample) << 32) | std::uint64_t(static_cast<std::uint32_t>(name.phase));
     }
 
-    // The bases of the walks: stored in the subchain if it has them, and walked otherwise.
+    // The bases of the walks: stored in a subchain with copies, and walked otherwise.
     double median_length = subchain.median_walk_bases;
     std::vector<size_t> n_bases(n, 0);
-    if (subchain.has_walk_bases()) {
+    if (subchain.has_copies()) {
         for (size_t i = 0; i < n; i++) {
             n_bases[i] = subchain.walk_n_bases[i];
         }
     } else {
         gbwt::CachedGBWT cache(gbz.index);
-        NodeBaseCounts node_bases(gbz);
         std::vector<size_t> length(n, 0);
         for (size_t i = 0; i < n; i++) {
-            std::tie(length[i], n_bases[i]) = node_bases.totals(
-                SubchainWalk(cache, fragment_map, subchain.start, subchain.end, subchain.get_sequence(i)).node_ids()
+            std::tie(length[i], n_bases[i]) = node_bases(
+                gbz.graph, SubchainWalk(cache, fragment_map, subchain.start, subchain.end, subchain.get_sequence(i)).node_ids()
             );
         }
         median_length = median_of(length);
@@ -2588,29 +2364,11 @@ std::vector<std::vector<std::pair<size_t, size_t>>> Recombinator::model_pairs(
         }
     }
 
-    // Fit the count model to the counts of the kmers in those chains. Each thread counts
-    // some subchains, and the counts are integers, so their sum does not depend on the
-    // order.
-    std::vector<std::pair<size_t, size_t>> model_subchains;
-    for (size_t chain_id : chains) {
-        for (size_t subchain_id = 0; subchain_id < this->haplotypes.chains[chain_id].subchains.size(); subchain_id++) {
-            model_subchains.emplace_back(chain_id, subchain_id);
-        }
-    }
+    // Fit the count model to the counts of the kmers in those chains.
     std::vector<double> histogram(pair_model::CountModel::MAX_COUNT + 1, 0.0);
-    #pragma omp parallel
-    {
-        std::vector<double> thread_histogram(histogram.size(), 0.0);
-        #pragma omp for schedule(dynamic, 256) nowait
-        for (size_t i = 0; i < model_subchains.size(); i++) {
-            const auto& [chain_id, subchain_id] = model_subchains[i];
-            add_to_histogram(
-                thread_histogram, this->haplotypes.chains[chain_id].subchains[subchain_id], kmer_counts, this->haplotypes.k(), parameters
-            );
-        }
-        #pragma omp critical (model_histogram)
-        for (size_t count = 0; count < histogram.size(); count++) {
-            histogram[count] += thread_histogram[count];
+    for (size_t chain_id : chains) {
+        for (const Haplotypes::Subchain& subchain : this->haplotypes.chains[chain_id].subchains) {
+            add_to_histogram(histogram, subchain, kmer_counts, this->haplotypes.k(), parameters);
         }
     }
     pair_model::CountModel count_model = pair_model::CountModel::fit(histogram, coverage);
@@ -2624,46 +2382,20 @@ std::vector<std::vector<std::pair<size_t, size_t>>> Recombinator::model_pairs(
         std::cerr << " (" << (gbwt::readTimer() - start) << " seconds)" << std::endl;
     }
 
-    // Find the candidates in the subchains of all chains as one set of tasks: the chains
-    // in order, and the subchains of a chain largest first. The task that finishes the
-    // last subchain of a chain takes the Viterbi path of the chain and frees its
-    // candidates, so a chain does not wait for the previous one.
-    std::vector<std::pair<size_t, size_t>> tasks; // (offset in `chains`, subchain)
-    std::vector<size_t> remaining(chains.size());
-    std::vector<std::vector<pair_model::Candidates>> candidates(chains.size());
-    for (size_t c = 0; c < chains.size(); c++) {
-        const Haplotypes::TopLevelChain& chain = this->haplotypes.chains[chains[c]];
-        std::vector<size_t> costs;
-        for (const Haplotypes::Subchain& subchain : chain.subchains) {
-            costs.push_back(subchain.num_sequences() * subchain.num_kmers());
-        }
-        for (size_t subchain_id : largest_first(costs)) {
-            tasks.emplace_back(c, subchain_id);
-        }
-        remaining[c] = chain.subchains.size();
-        candidates[c].resize(chain.subchains.size());
-    }
+    // Find the candidates in the subchains of each chain in parallel, and take the Viterbi path.
     std::vector<std::vector<std::pair<size_t, size_t>>> result(this->haplotypes.chains.size());
-    #pragma omp parallel for schedule(dynamic, 1)
-    for (size_t task = 0; task < tasks.size(); task++) {
-        auto [c, subchain_id] = tasks[task];
-        size_t chain_id = chains[c];
-        candidates[c][subchain_id] = model_candidates(
-            this->gbz, this->haplotypes.chains[chain_id].subchains[subchain_id], kmer_counts, table, this->fragment_map,
-            this->haplotypes.k(), parameters
-        );
-        // The atomic update also makes the candidates of the other tasks visible.
-        size_t left = 0;
-        #pragma omp atomic capture seq_cst
-        left = --remaining[c];
-        if (left == 0) {
-            std::vector<std::pair<size_t, size_t>> path = pair_model::viterbi(candidates[c], MODEL_TAU, MODEL_RHO);
-            result[chain_id] = pair_model::choose_sequences(candidates[c], path);
-            candidates[c] = std::vector<pair_model::Candidates>();
-        }
-    }
     size_t total = 0;
     for (size_t chain_id : chains) {
+        const Haplotypes::TopLevelChain& chain = this->haplotypes.chains[chain_id];
+        std::vector<pair_model::Candidates> candidates(chain.subchains.size());
+        #pragma omp parallel for schedule(dynamic, 1)
+        for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
+            candidates[subchain_id] = model_candidates(
+                this->gbz, chain.subchains[subchain_id], kmer_counts, table, this->fragment_map, this->haplotypes.k(), parameters
+            );
+        }
+        std::vector<std::pair<size_t, size_t>> path = pair_model::viterbi(candidates, MODEL_TAU, MODEL_RHO);
+        result[chain_id] = pair_model::choose_sequences(candidates, path);
         total += result[chain_id].size();
     }
     if (this->verbosity >= Haplotypes::verbosity_basic) {
@@ -2756,7 +2488,7 @@ public:
         const gbwtgraph::GBZ& gbz, const Haplotypes::Subchain& subchain, const gbwt::FragmentMap& fragment_map,
         const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmer_types,
         const Recombinator::Parameters& parameters
-    ) : subchain(subchain), fragment_map(fragment_map), node_bases(gbz), parameters(parameters),
+    ) : graph(gbz.graph), subchain(subchain), fragment_map(fragment_map), parameters(parameters),
         escape(parameters.has_new_bp_limit() && parameters.bp_escape > 0.0),
         candidate_nodes((parameters.has_new_bp_limit() || parameters.has_n_base_limit()) ? subchain.num_sequences() : 0),
         words((subchain.num_kmers() + 63) / 64) {
@@ -2800,14 +2532,12 @@ public:
     }
 
 private:
+    const gbwtgraph::GBWTGraph& graph;
     const Haplotypes::Subchain& subchain;
     const gbwt::FragmentMap& fragment_map;
 
     // For walking the candidates through the subchain, with a limit.
     std::optional<gbwt::CachedGBWT> cache;
-
-    // Finds the lengths and the N bases of the nodes.
-    NodeBaseCounts node_bases;
 
     const Recombinator::Parameters& parameters;
 
@@ -2874,7 +2604,7 @@ private:
         if (const std::optional<std::vector<nid_t>>& nodes = this->candidate_nodes[seq_offset]; nodes) {
             for (nid_t node : *nodes) {
                 if (this->selected_nodes.find(node) == this->selected_nodes.end()) {
-                    new_bp += this->node_bases(node).first;
+                    new_bp += this->graph.get_length(this->graph.get_handle(node));
                 }
             }
             return !too_many(new_bp);
@@ -2887,7 +2617,7 @@ private:
                 nid_t id = gbwt::Node::id(node);
                 nodes.push_back(id);
                 if (seen.insert(id).second && this->selected_nodes.find(id) == this->selected_nodes.end()) {
-                    new_bp += this->node_bases(id).first;
+                    new_bp += this->graph.get_length(this->graph.get_handle(id));
                 }
                 return !too_many(new_bp);
             }
@@ -2901,10 +2631,10 @@ private:
     }
 
     bool within_n_limit(size_t seq_offset) {
-        if (this->subchain.has_walk_bases()) {
+        if (this->subchain.has_copies()) {
             return (this->subchain.walk_n_bases[seq_offset] <= this->parameters.max_n_bp);
         }
-        return (this->node_bases.totals(this->nodes_of(seq_offset)).second <= this->parameters.max_n_bp);
+        return (node_bases(this->graph, this->nodes_of(seq_offset)).second <= this->parameters.max_n_bp);
     }
 };
 
@@ -3174,7 +2904,7 @@ std::vector<std::vector<Recombinator::SubchainSelection>> Recombinator::select_i
     }
 
     double start = gbwt::readTimer();
-    std::vector<size_t> order = largest_first(costs);
+    std::vector<size_t> order = sort_permutation(costs.begin(), costs.end(), std::greater<>());
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t i = 0; i < order.size(); i++) {
         auto [chain_id, subchain_id] = tasks[order[i]];
@@ -3314,8 +3044,8 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
 
             // Finally extend the haplotypes with the selected and matched sequences. They
             // share a cache of the GBWT records of the subchain.
-            bool is_last_subchain = (subchain_id + 1 == chain.subchains.size());
             gbwt::CachedGBWT cache(this->gbz.index);
+            bool is_last_subchain = (subchain_id + 1 == chain.subchains.size());
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
                 size_t selected = haplotype_to_selected[haplotype];
                 size_t seq_offset = selected_haplotypes[selected].first;

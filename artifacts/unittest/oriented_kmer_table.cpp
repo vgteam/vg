@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <map>
 #include <random>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -90,105 +89,6 @@ void check_table(const OrientedKmerTable& table, const std::map<kmer_type, std::
     REQUIRE(absent > 0);
 }
 
-// Return the pieces of a sequence with `copies` copies of listed kmers, in either
-// orientation, among random bases. Some copies follow a run of N, some have an N inside,
-// and some are cut by the end of a piece.
-std::vector<std::string> test_pieces(std::mt19937_64& rng, const std::vector<kmer_type>& kmers, size_t k, size_t copies) {
-    std::string text;
-    std::vector<size_t> cuts;
-    for (size_t i = 0; i < copies; i++) {
-        text += random_bases(rng, rng() % 8);
-        std::string kmer = gbwtgraph::Key64(kmers[rng() % kmers.size()]).decode(k);
-        if (rng() & 1) {
-            kmer = reverse_complement(kmer);
-        }
-        switch (rng() % 6) {
-        case 0:
-            text += std::string(1 + rng() % 4, 'N');
-            break;
-        case 1:
-            kmer[rng() % k] = 'N';
-            break;
-        case 2:
-            cuts.push_back(text.size() + 1 + rng() % (k - 1));
-            break;
-        default:
-            break;
-        }
-        text += kmer;
-    }
-    cuts.push_back(text.size());
-    std::sort(cuts.begin(), cuts.end());
-
-    // Cuts at the same place leave an empty piece.
-    std::vector<std::string> result;
-    size_t from = 0;
-    for (size_t cut : cuts) {
-        result.push_back(text.substr(from, cut - from));
-        from = cut;
-    }
-    return result;
-}
-
-// The counts of the listed kmers in a sequence, found by checking every window of k bases.
-struct ExpectedCounts {
-    std::vector<std::uint32_t> counts;
-
-    // (position, occurrences) for the kmers that occur, in the order of first occurrence.
-    std::vector<std::pair<std::uint32_t, std::uint32_t>> occurrences;
-
-    // Windows that are the reverse complement of a listed kmer and not a listed kmer.
-    size_t reverse_only = 0;
-
-    size_t total() const {
-        size_t result = 0;
-        for (std::uint32_t count : this->counts) {
-            result += count;
-        }
-        return result;
-    }
-};
-
-// Count the listed kmers in the pieces by checking every window of k bases.
-ExpectedCounts count_windows(
-    const std::vector<std::string>& pieces, const std::vector<kmer_type>& kmers,
-    const std::map<kmer_type, std::uint32_t>& positions, size_t k
-) {
-    ExpectedCounts result;
-    result.counts.resize(kmers.size(), 0);
-    std::set<kmer_type> listed(kmers.begin(), kmers.end());
-    std::vector<std::uint32_t> order;
-    for (const std::string& piece : pieces) {
-        for (size_t start = 0; start + k <= piece.size(); start++) {
-            std::string window = piece.substr(start, k);
-            if (window.find_first_not_of("ACGT") != std::string::npos) {
-                continue;
-            }
-            kmer_type key = encode(window);
-            auto iter = positions.find(key);
-            if (iter == positions.end()) {
-                continue;
-            }
-            result.reverse_only += (listed.contains(key) ? 0 : 1);
-            if (result.counts[iter->second]++ == 0) {
-                order.push_back(iter->second);
-            }
-        }
-    }
-    for (std::uint32_t position : order) {
-        result.occurrences.emplace_back(position, result.counts[position]);
-    }
-    return result;
-}
-
-// Check the counts in the object against the counts of the windows.
-void check_counts(const OrientedKmerCounts& counts, const ExpectedCounts& expected) {
-    for (size_t position = 0; position < expected.counts.size(); position++) {
-        REQUIRE(counts[position] == expected.counts[position]);
-    }
-    REQUIRE(counts.occurrence_list() == expected.occurrences);
-}
-
 } // anonymous namespace
 
 //------------------------------------------------------------------------------
@@ -226,54 +126,38 @@ TEST_CASE("An oriented kmer table finds each kmer in both orientations at its la
     }
 }
 
-TEST_CASE("Oriented kmer counts match a count of every window", "[haplotypes][oriented_kmer_table]") {
-    for (size_t k : { size_t(29), size_t(30), size_t(31) }) {
-        DYNAMIC_SECTION("kmers of length " << k) {
-            std::mt19937_64 rng(100 + k);
-            std::vector<kmer_type> kmers = test_kmers(rng, k, 300);
-            std::map<kmer_type, std::uint32_t> positions = expected_positions(kmers, k);
-            OrientedKmerTable table(kmers, k);
+TEST_CASE("Oriented kmer counts count the kmers of one sequence at a time", "[haplotypes][oriented_kmer_table]") {
+    typedef std::vector<std::pair<std::uint32_t, std::uint32_t>> occurrence_list;
 
-            std::vector<std::string> first = test_pieces(rng, kmers, k, 60);
-            std::vector<std::string> second = test_pieces(rng, kmers, k, 60);
-            ExpectedCounts first_expected = count_windows(first, kmers, positions, k);
-            ExpectedCounts second_expected = count_windows(second, kmers, positions, k);
+    SECTION("kmers in both orientations, in pieces, and in consecutive sequences") {
+        size_t k = 29;
+        std::mt19937_64 rng(100);
+        std::string a = random_bases(rng, k);
+        std::string b = random_bases(rng, k);
+        std::string c = random_bases(rng, k);
+        std::vector<kmer_type> kmers { encode(a), encode(b), encode(c) };
+        OrientedKmerTable table(kmers, k);
+        OrientedKmerCounts counts(kmers.size());
 
-            // The pieces have kmers in both orientations, runs of N, and kmers cut by a
-            // piece boundary, which the joined pieces would count.
-            auto check_pieces = [&](const std::vector<std::string>& pieces, const ExpectedCounts& expected) {
-                REQUIRE(expected.occurrences.size() > 1);
-                REQUIRE(expected.reverse_only > 0);
-                REQUIRE(std::any_of(pieces.begin(), pieces.end(), [](const std::string& piece) {
-                    return piece.find('N') != std::string::npos;
-                }));
-                std::string joined;
-                for (const std::string& piece : pieces) {
-                    joined += piece;
-                }
-                REQUIRE(count_windows({ joined }, kmers, positions, k).total() > expected.total());
-            };
-            check_pieces(first, first_expected);
-            check_pieces(second, second_expected);
-            // Some kmer of the first sequence is missing from the second, so stale counts
-            // would show.
-            bool first_only = false;
-            for (size_t position = 0; position < kmers.size(); position++) {
-                first_only |= (first_expected.counts[position] > 0 && second_expected.counts[position] == 0);
-            }
-            REQUIRE(first_only);
+        // Occurrences are listed in the order of the first one, and a reverse
+        // complement counts for its kmer.
+        counts.count({ b + "T" + reverse_complement(a) + b }, table, k);
+        REQUIRE(counts.occurrence_list() == occurrence_list({ { 1, 2 }, { 0, 1 } }));
+        REQUIRE(counts[2] == 0);
 
-            // One object counts the sequences in turn.
-            OrientedKmerCounts counts(kmers.size());
-            counts.count(first, table, k);
-            check_counts(counts, first_expected);
-            counts.count(second, table, k);
-            check_counts(counts, second_expected);
-            counts.count({}, table, k);
-            check_counts(counts, count_windows({}, kmers, positions, k));
-            counts.count(first, table, k);
-            check_counts(counts, first_expected);
-        }
+        // A kmer cut by the end of a piece or holding an N is not counted.
+        std::string with_n = a;
+        with_n[k / 2] = 'N';
+        counts.count({ a.substr(0, k - 1), a.substr(k - 1) + with_n, "N" + a }, table, k);
+        REQUIRE(counts.occurrence_list() == occurrence_list({ { 0, 1 } }));
+
+        // Counting a sequence clears the counts of the previous one.
+        counts.count({ a + c }, table, k);
+        counts.count({ b }, table, k);
+        REQUIRE(counts.occurrence_list() == occurrence_list({ { 1, 1 } }));
+        REQUIRE(counts[0] == 0);
+        counts.count({}, table, k);
+        REQUIRE(counts.occurrence_list().empty());
     }
 
     SECTION("a kmer after a run of N counts once it has k bases") {

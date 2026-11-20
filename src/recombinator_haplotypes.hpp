@@ -144,8 +144,8 @@ public:
         constexpr static std::uint32_t PARENT = std::numeric_limits<std::uint32_t>::max();
     };
 
-    /// Returns the scoring plan of the matrix, or nothing if its differences would take
-    /// more than `max_differences` entries or its kmer ids do not fit in the entries.
+    /// Returns the scoring plan of the matrix, or nothing if it would have more than
+    /// `max_differences` differences or the kmer ids do not fit in it.
     std::optional<ScoringPlan> scoring_plan(size_t max_differences) const;
 
     /// Scores every sequence as `score_sequences()` does, giving the same scores, with
@@ -193,15 +193,6 @@ private:
         }
         return (this->parent(rank) != this->parent(rank - 1));
     }
-
-    // Returns the score of the parent stored from `parent_start` in `parents`.
-    double parent_score(size_t parent_start, const std::vector<std::pair<kmer_classification, double>>& kmers) const;
-
-    // Returns `score` plus the score changes of the kmers in which the child sequence
-    // differs from its parent, which is stored from `parent_start` in `parents`.
-    double add_child_differences(
-        size_t rank, size_t parent_start, double score, const std::vector<std::pair<kmer_classification, double>>& kmers
-    ) const;
 
     // An iterator over all kmers in a sequence.
     // If the sequence is a parent, `child_iter` is at the end and never matches.
@@ -277,13 +268,11 @@ private:
  *
  * Versions:
  *
- * * Version 9: Every subchain stores the median bases of the walks of its
- *   sequences and the N bases of each walk, which are 0 and empty in a subchain
- *   without copies. Only an index with subchain kmers is written as version 9,
- *   and other indexes are written as version 7. Versions 5 to 8 can still be read.
- *
- * * Version 8: Subchains store the number of copies of each kmer in each
- *   sequence.
+ * * Version 9: Subchains store the number of copies of each kmer in each
+ *   sequence, the median bases of the walks of the sequences through the
+ *   subchain, and the N bases of each walk. Only an index with subchain kmers is
+ *   written as version 9, and other indexes are written as version 7. Versions 5
+ *   to 7 can still be read. There is no version 8.
  *
  * * Version 7: Work in progress.
  *   Compressed kmer presence matrices, with faster haplotype scoring by
@@ -339,8 +328,7 @@ public:
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
         constexpr static std::uint32_t VERSION = 9;
-        constexpr static std::uint32_t WALK_BASES_VERSION = 9;
-        constexpr static std::uint32_t COPIES_VERSION = 8;
+        constexpr static std::uint32_t COPIES_VERSION = 9;
         constexpr static std::uint32_t COMPRESSED_VERSION = 7;
         constexpr static std::uint32_t VERSION_WITH_TAGS = 6;
         constexpr static std::uint32_t MIN_VERSION = 5;
@@ -435,8 +423,7 @@ public:
 
         /// The median bases over the walks of the sequences through the subchain
         /// (`SubchainWalk`), where the bases of a walk are those of the distinct nodes it
-        /// visits, boundary nodes included. Set in a subchain built with copies, and 0
-        /// otherwise.
+        /// visits, boundary nodes included. Set in a subchain with copies, and 0 otherwise.
         double median_walk_bases = 0.0;
 
         /// For each sequence, the N bases in its walk through the subchain. Set in a
@@ -445,10 +432,6 @@ public:
 
         /// Return `true` if the subchain stores the number of copies of its kmers.
         bool has_copies() const { return !this->copy_offsets.empty(); }
-
-        /// Return `true` if the subchain stores the median bases and the N bases of the
-        /// walks of its sequences.
-        bool has_walk_bases() const { return this->has_copies() && this->walk_n_bases.size() == this->sequences.size(); }
 
         /// Set the median bases of the walks and the N bases of each walk, in the order
         /// of the sequences. Throws `std::invalid_argument` unless there are N bases for

@@ -49,16 +49,16 @@ size_t random_length(std::mt19937_64& rng, size_t low, size_t high) {
     return low + rng() % (high - low + 1);
 }
 
-// Add the nodes of a chain of bubbles to the graph. Shared node i has ID 4i + 1, and the alleles
-// of bubble i have IDs 4i + 2 and 4i + 3, followed by shared node i + 1.
+// Return a GBZ graph of a chain of bubbles with haplotypes that choose random alleles. Shared
+// node i has ID 3i + 1, and the alleles of bubble i have IDs 3i + 2 and 3i + 3.
 //
 // A sequence repeated in every 20th shared node makes some long minimizers occur at several
-// positions. Shared node 300 has N bases.
-//
-// Return, for each bubble, whether haplotypes may skip its alleles.
-std::vector<bool> add_bubble_chain(gbwtgraph::NaiveGraph& graph, std::mt19937_64& rng) {
+// positions, and shared node 300 has N bases. Haplotypes 1 and 3 visit the chain in reverse,
+// and haplotype 4 covers only shared nodes 200 to 800.
+gbwtgraph::GBZ bubble_chain_graph() {
+    std::mt19937_64 rng(42);
+    gbwtgraph::NaiveGraph graph;
     std::string repeat = random_sequence(rng, 60);
-    std::vector<bool> skippable(BUBBLES, false);
     for (size_t i = 0; i <= BUBBLES; i++) {
         std::string shared = random_sequence(rng, random_length(rng, 20, 120));
         if (i % 20 == 7) {
@@ -67,52 +67,27 @@ std::vector<bool> add_bubble_chain(gbwtgraph::NaiveGraph& graph, std::mt19937_64
         if (i == 300) {
             shared += "NNNNN" + random_sequence(rng, 10);
         }
-        graph.create_node(4 * i + 1, shared);
+        graph.create_node(3 * i + 1, shared);
         if (i < BUBBLES) {
-            graph.create_node(4 * i + 2, random_sequence(rng, random_length(rng, 1, 20)));
-            graph.create_node(4 * i + 3, random_sequence(rng, random_length(rng, 1, 20)));
-            skippable[i] = (rng() % 4 == 0);
+            graph.create_node(3 * i + 2, random_sequence(rng, random_length(rng, 1, 20)));
+            graph.create_node(3 * i + 3, random_sequence(rng, random_length(rng, 1, 20)));
         }
     }
-    return skippable;
-}
-
-// Return the walk of a haplotype through the chain of bubbles, with a random allele in each.
-//
-// Haplotypes 1 and 3 visit the chain in reverse. Haplotype 4 covers only shared nodes 200 to
-// 800. Haplotype 5 visits shared nodes 100 to 110 twice.
-gbwt::vector_type haplotype_walk(size_t haplotype, const std::vector<bool>& skippable, std::mt19937_64& rng) {
-    size_t first = (haplotype == 4 ? 200 : 0);
-    size_t last = (haplotype == 4 ? 800 : BUBBLES);
-    gbwt::vector_type walk;
-    for (size_t i = first; i < last; i++) {
-        walk.push_back(forward(4 * i + 1));
-        if (haplotype == 5 && i == 110) {
-            for (size_t j = 100; j <= 110; j++) {
-                walk.push_back(forward(4 * j + 1));
-            }
-        }
-        size_t allele = rng() % (skippable[i] ? 3 : 2);
-        if (allele < 2) {
-            walk.push_back(forward(4 * i + 2 + allele));
-        }
-    }
-    walk.push_back(forward(4 * last + 1));
-    if (haplotype == 1 || haplotype == 3) {
-        gbwt::reversePath(walk);
-    }
-    return walk;
-}
-
-// Return a GBZ graph of a chain of bubbles with haplotypes that choose random alleles.
-gbwtgraph::GBZ bubble_chain_graph() {
-    std::mt19937_64 rng(42);
-    gbwtgraph::NaiveGraph graph;
-    std::vector<bool> skippable = add_bubble_chain(graph, rng);
 
     std::vector<gbwt::vector_type> walks;
     for (size_t haplotype = 0; haplotype < HAPLOTYPES; haplotype++) {
-        walks.push_back(haplotype_walk(haplotype, skippable, rng));
+        size_t first = (haplotype == 4 ? 200 : 0);
+        size_t last = (haplotype == 4 ? 800 : BUBBLES);
+        gbwt::vector_type walk;
+        for (size_t i = first; i < last; i++) {
+            walk.push_back(forward(3 * i + 1));
+            walk.push_back(forward(3 * i + 2 + rng() % 2));
+        }
+        walk.push_back(forward(3 * last + 1));
+        if (haplotype == 1 || haplotype == 3) {
+            gbwt::reversePath(walk);
+        }
+        walks.push_back(walk);
     }
     gbwt::GBWT index = get_gbwt(walks);
     index.addMetadata();
@@ -155,8 +130,8 @@ std::vector<gbwtgraph::Position> positions_in(const gbwtgraph_index_type& index,
 // Return the positions of the key in the haplotype minimizer index, decoded.
 std::vector<gbwtgraph::Position> positions_in(const HaplotypeMinimizerIndex& index, key_type key) {
     std::vector<gbwtgraph::Position> result;
-    for (HaplotypeMinimizerIndex::code_type position : index.positions(key.get_key())) {
-        result.push_back(gbwtgraph::Position(position));
+    for (const HaplotypeMinimizerIndex::Occurrence& occurrence : index.occurrences(key.get_key())) {
+        result.push_back(gbwtgraph::Position(occurrence.position));
     }
     return result;
 }
@@ -209,7 +184,7 @@ TEST_CASE("The haplotype minimizer index reports no positions for an absent key"
     auto absent = expected.minimizers(std::string(39, 'A')).front();
     REQUIRE(expected.count(absent) == 0);
     REQUIRE(index.count(absent.key.get_key()) == 0);
-    REQUIRE(index.positions(absent.key.get_key()).empty());
+    REQUIRE(index.occurrences(absent.key.get_key()).empty());
 }
 
 }
