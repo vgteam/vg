@@ -4,8 +4,8 @@
 /**
  * \file walk_interval.hpp
  *
- * Stretches of sequence along walks in a GBWTGraph, and the paths of its GBWT
- * as walks with coordinates.
+ * Stretches of sequence along walks in a GBWTGraph, and walks with the
+ * coordinate where each of their steps starts.
  */
 
 #include <gbwtgraph/gbwtgraph.h>
@@ -93,33 +93,41 @@ void for_each_path_start(const gbwt::GBWT& index,
                          const std::function<void(gbwt::size_type, const std::string&, uint64_t)>& visit);
 
 /**
- * The steps of one GBWT path, with the path coordinate where each starts.
+ * The steps of a walk, with the coordinate where each starts.
  *
- * It finds the walk interval of any stretch of the path.
+ * A coordinate is a number of bases from the start of the walk. The walk finds
+ * the step at any coordinate, and the walk interval of any stretch of bases.
  */
 class PathSteps {
 public:
     struct Step {
-        /// Path coordinate of the first base on the step.
+        /// Coordinate of the first base on the step.
         uint64_t start;
-        /// The handle the path visits.
+        /// The handle the walk visits.
         handlegraph::handle_t handle;
     };
 
-    /// Extract the path with this GBWT path ID from the graph's GBWT.
+    /// Take the walk of the GBWT path with this path ID.
     PathSteps(const gbwtgraph::GBWTGraph& graph, gbwt::size_type path_id);
+    /// Take the given walk.
+    PathSteps(const gbwtgraph::GBWTGraph& graph, const std::vector<handlegraph::handle_t>& walk);
 
     const std::vector<Step>& steps() const { return step_list; }
-    /// Return the length of the path.
-    uint64_t length() const { return path_length; }
-    /// Return bases [start, end) of the path. Requires start < end <= length().
+    /// Return the length of the walk.
+    uint64_t length() const { return total_length; }
+    /// Return the index of the step that holds the given coordinate.
+    /// Requires coord < length().
+    size_t step_at(uint64_t coord) const;
+    /// Return bases [start, end) of the walk. Requires start < end <= length().
     WalkInterval interval(uint64_t start, uint64_t end) const;
-    /// Return the base at the given path coordinate, as the path reads it.
+    /// Return the base at the given coordinate, as the walk reads it.
     char base(const gbwtgraph::GBWTGraph& graph, uint64_t coord) const;
+    /// Add a node to the end of the walk.
+    void push_back(const gbwtgraph::GBWTGraph& graph, const handlegraph::handle_t& handle);
 
 private:
     std::vector<Step> step_list;
-    uint64_t path_length = 0;
+    uint64_t total_length = 0;
 };
 
 }
