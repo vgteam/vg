@@ -48,16 +48,16 @@ jobs:
        
       - name: Install packages
         # We don't use artemnovichkov/action-homebrew because that's for Linux.
-        # We want to uninstall everything we don't need in order to prevent linking
+        # We uninstall everything we don't need in order to prevent linking
         # conflicts with existing/outdated packages, which we can't resolve
         # because there's no way to tell Homebrew to force-link when installing
-        # from a Brewfile. But we can't because that seesm to want to *install* OpenSSL 1.1.
+        # from a Brewfile.
         # We also update Protobuf to make sure we have 3.21.3+
         # to avoid problems with ABI changes with/without -DNDEBUG.
         # And we update libomp to make extra sure it will be picked up by the compiler.
         run: |
-          echo "Not cleaning" && \
-          echo Skip brew bundle cleanup --force && \
+          echo "Removing unlisted packages" && \
+          brew bundle cleanup --force && \
           echo "Installing" && \
           brew bundle install --verbose && \
           echo "Updating" && \
