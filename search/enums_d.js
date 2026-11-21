@@ -1,8 +1,9 @@
 var searchData=
 [
-  ['scoring_5fmodel_5ft_15239',['scoring_model_t',['../structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfa',1,'vg::Recombinator::Parameters']]],
-  ['snarltype_15240',['SnarlType',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97',1,'vg']]],
-  ['splicestrand_15241',['SpliceStrand',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccd',1,'vg::MultipathMapper']]],
-  ['state_15242',['State',['../classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85',1,'vg::Funnel::State()'],['../classvg_1_1ZipCodeTree_1_1distance__iterator.html#aa62eb94739c4b9145d7d72c0818fdb9b',1,'vg::ZipCodeTree::distance_iterator::State()']]],
-  ['subchain_5ft_15243',['subchain_t',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbde',1,'vg::Haplotypes::Subchain']]]
+  ['scoring_5fmodel_5ft_15443',['scoring_model_t',['../structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfa',1,'vg::Recombinator::Parameters']]],
+  ['snarltype_15444',['SnarlType',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97',1,'vg']]],
+  ['splicestrand_15445',['SpliceStrand',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccd',1,'vg::MultipathMapper']]],
+  ['state_15446',['State',['../classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85',1,'vg::Funnel::State()'],['../classvg_1_1ZipCodeTree_1_1distance__iterator.html#aa62eb94739c4b9145d7d72c0818fdb9b',1,'vg::ZipCodeTree::distance_iterator::State()']]],
+  ['status_15447',['Status',['../structvg_1_1HaplotypeSurjectionResult.html#a928d2b6c39d38991acc181bbb4464b67',1,'vg::HaplotypeSurjectionResult']]],
+  ['subchain_5ft_15448',['subchain_t',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbde',1,'vg::Haplotypes::Subchain']]]
 ];

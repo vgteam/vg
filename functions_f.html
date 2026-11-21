@@ -155,11 +155,11 @@ $(function() {
 , <a class="el" href="classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56">vg::VGset</a>
 , <a class="el" href="structxg_1_1temp__file_1_1Handler.html#ad61c52d26a2feddf0770d74d4ff65754">xg::temp_file::Handler</a>
 </li>
-<li>FILES_PER_MERGE
-: <a class="el" href="structvg_1_1GAFSorterParameters.html#a62e992227ab2baa52c687759e87ee15d">vg::GAFSorterParameters</a>
-</li>
 <li>files_per_merge
 : <a class="el" href="structvg_1_1GAFSorterParameters.html#af4885f4981fd975ca42402eebb5045d0">vg::GAFSorterParameters</a>
+</li>
+<li>FILES_PER_MERGE
+: <a class="el" href="structvg_1_1GAFSorterParameters.html#a62e992227ab2baa52c687759e87ee15d">vg::GAFSorterParameters</a>
 </li>
 <li>fill_buffer()
 : <a class="el" href="classvg_1_1VcfBuffer.html#afff803310f8c3bca9788b30ebba8450f">vg::VcfBuffer</a>
@@ -192,7 +192,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#aec100b14b027d294e2a0aaaaad3b4abd">vg::io::ProtobufIterator&lt; T &gt;</a>
 </li>
 <li>filter()
-: <a class="el" href="classvg_1_1ReadFilter.html#a36c3ff48009706f3853bddd02a98de9c">vg::ReadFilter&lt; Read &gt;</a>
+: <a class="el" href="classvg_1_1ReadFilter.html#a1fb619abfe77d0b02cc7f8aa4ad47af5">vg::ReadFilter&lt; Read &gt;</a>
 </li>
 <li>filter_alignment()
 : <a class="el" href="classvg_1_1ReadFilter.html#a1398f727931b41bfff0d9e058f442ebc">vg::ReadFilter&lt; Read &gt;</a>
@@ -359,6 +359,9 @@ $(function() {
 <li>find_seeds()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a8e760f140ec23f170d4a6643fa44ce58">vg::MinimizerMapper</a>
 </li>
+<li>find_snarl_boundaries
+: <a class="el" href="structvg_1_1GiraffeEngineConfig.html#a49b623b3222112fffbf253a091414fd4">vg::GiraffeEngineConfig</a>
+</li>
 <li>find_snarls()
 : <a class="el" href="classvg_1_1CactusSnarlFinder.html#a3060bcff3b01e21176f17ebb74d31452">vg::CactusSnarlFinder</a>
 , <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html#a3b6820315dc0a0a15fcd61076f87fcf7">vg::HandleGraphSnarlFinder</a>
@@ -395,8 +398,8 @@ $(function() {
 </li>
 <li>find_traversals()
 : <a class="el" href="classvg_1_1ExhaustiveTraversalFinder.html#a47d24a43aef54ca51318b8ae89e51328">vg::ExhaustiveTraversalFinder</a>
-, <a class="el" href="classvg_1_1FlowTraversalFinder.html#a3a98435210220ec4c041594095e9ba5a">vg::FlowTraversalFinder</a>
-, <a class="el" href="classvg_1_1GBWTTraversalFinder.html#a51629578949a646918048fb07744b3f3">vg::GBWTTraversalFinder</a>
+, <a class="el" href="classvg_1_1FlowTraversalFinder.html#a3bf6dff88b07d23e8877ed263d951d40">vg::FlowTraversalFinder</a>
+, <a class="el" href="classvg_1_1GBWTTraversalFinder.html#a3f4f3f644df9755b387bab551451827d">vg::GBWTTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathBasedTraversalFinder.html#af58be82fdbce530b2662a6329e08bd77">vg::PathBasedTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathRestrictedTraversalFinder.html#a78b03570bd5d59d3c870bbd192eae685">vg::PathRestrictedTraversalFinder</a>
 , <a class="el" href="classvg_1_1PathTraversalFinder.html#a3da29145d1ed82d950bdeb895d3b3bf4">vg::PathTraversalFinder</a>
@@ -441,6 +444,9 @@ $(function() {
 </li>
 <li>first_alignment
 : <a class="el" href="structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9ab088f3cfa83ae97113bb1d55511153e6">vg::Counts</a>
+</li>
+<li>first_mapping
+: <a class="el" href="structvg_1_1HaplotypeSegment.html#ab92b7052f4923ce9cf5ab6cf748eae96">vg::HaplotypeSegment</a>
 </li>
 <li>first_mapping_quality_approx()
 : <a class="el" href="classvg_1_1MappingQualityCalculator.html#a09eba39ac9359a28732eed682ac52b64">vg::MappingQualityCalculator</a>
@@ -491,6 +497,7 @@ $(function() {
 : <a class="el" href="classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#af37976fbc4774d7cc444a7839b65c849">handlegraph::algorithms::SubHandleGraph</a>
 , <a class="el" href="classhandlegraph_1_1HandleGraph.html#aaa3f94ae7e884408ef6e8ca8fd45c7d7">handlegraph::HandleGraph</a>
 , <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#afd6553c0f17bb766c59ed2234fa2d13e">handlegraph::SnarlDecomposition</a>
+, <a class="el" href="classvg_1_1AnchorBackedPositionGraph.html#a3a9fe824445ba6aa28943f25f80464d1">vg::AnchorBackedPositionGraph</a>
 , <a class="el" href="classvg_1_1DagifiedGraph.html#a570cd39e720ecbaadb6ff49ae3f0e23e">vg::DagifiedGraph</a>
 , <a class="el" href="classvg_1_1DozeuPinningOverlay.html#aa28af0d1bfc6cc3952bec3904b688e7a">vg::DozeuPinningOverlay</a>
 , <a class="el" href="classvg_1_1IdentityOverlay.html#a34ea51454cdd3a12d73992563f514f02">vg::IdentityOverlay</a>
@@ -549,12 +556,16 @@ $(function() {
 <li>flush_self()
 : <a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#ad9f92e40584b24a5f1ff20750826bfe7">vg::io::BlockedGzipOutputStream</a>
 </li>
+<li>follow()
+: <a class="el" href="classvg_1_1HaplotypeAssigner.html#acc0afb943876a2629deadd016d859b62">vg::HaplotypeAssigner</a>
+</li>
 <li>follow_edges()
 : <a class="el" href="classhandlegraph_1_1HandleGraph.html#a4d21f30e62ad0b0c5919b2fe95e6f8aa">handlegraph::HandleGraph</a>
 </li>
 <li>follow_edges_impl()
 : <a class="el" href="classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#a5b89d8a4c29cf73a906761257c3f18d0">handlegraph::algorithms::SubHandleGraph</a>
 , <a class="el" href="classhandlegraph_1_1HandleGraph.html#a89bbc118fe1e8e1acb162c14be33e8b5">handlegraph::HandleGraph</a>
+, <a class="el" href="classvg_1_1AnchorBackedPositionGraph.html#a5c129b4871734b3e64576c5ba6956dee">vg::AnchorBackedPositionGraph</a>
 , <a class="el" href="classvg_1_1DagifiedGraph.html#a1ef9323238f5c634e37a1901fe70cac7">vg::DagifiedGraph</a>
 , <a class="el" href="classvg_1_1DozeuPinningOverlay.html#a8e496a98643c334cd90fb6c637b44a7f">vg::DozeuPinningOverlay</a>
 , <a class="el" href="classvg_1_1IdentityOverlay.html#aeee6d38137e8e42da91d3217c04eb19e">vg::IdentityOverlay</a>
@@ -639,6 +650,7 @@ $(function() {
 <li>for_each_handle_impl()
 : <a class="el" href="classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#a62f7884d8f69c4c32304722bf5a7ee8c">handlegraph::algorithms::SubHandleGraph</a>
 , <a class="el" href="classhandlegraph_1_1HandleGraph.html#af48ba081fcb810267dc50e3a3e7ad391">handlegraph::HandleGraph</a>
+, <a class="el" href="classvg_1_1AnchorBackedPositionGraph.html#ae015a1f2b80d7ff912b49d3598f212a8">vg::AnchorBackedPositionGraph</a>
 , <a class="el" href="classvg_1_1DagifiedGraph.html#af93a535f9e600f583795c7192b16a5af">vg::DagifiedGraph</a>
 , <a class="el" href="classvg_1_1DozeuPinningOverlay.html#a8433f3777f985ff1307c8f907b7a51d0">vg::DozeuPinningOverlay</a>
 , <a class="el" href="classvg_1_1IdentityOverlay.html#ac1eddf95e1828bc39e4422d6fa10f64e">vg::IdentityOverlay</a>
@@ -691,7 +703,7 @@ $(function() {
 : <a class="el" href="structvg_1_1DozeuInterface_1_1OrderedGraph.html#a1e63b71aba9a614f17b497908c638797">vg::DozeuInterface::OrderedGraph</a>
 </li>
 <li>for_each_node()
-: <a class="el" href="classvg_1_1VG.html#af585f2161de09403d197e05fbcfb9a07">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#a23b34b164590c0537bf704dd1b816760">vg::VG</a>
 </li>
 <li>for_each_node_parallel()
 : <a class="el" href="classvg_1_1VG.html#a39790d52fe4c09804086d58164258fcf">vg::VG</a>
@@ -705,6 +717,7 @@ $(function() {
 <li>for_each_path_handle_impl()
 : <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a79f48793555f6be311f6df6603324e7b">handlegraph::PathHandleGraph</a>
 , <a class="el" href="classhandlegraph_1_1PathMetadata.html#a8cd1fd8be6b3cd868fc7124181407bd0">handlegraph::PathMetadata</a>
+, <a class="el" href="classvg_1_1AnchorBackedPositionGraph.html#a34d414374d69a69170359092964b7dea">vg::AnchorBackedPositionGraph</a>
 , <a class="el" href="classvg_1_1MemoizingGraph.html#a37322d14220aeea194062380da0cc943">vg::MemoizingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraphOverlay.html#aad99a886a4ea032b781d57c5af6b9e2a">vg::PathSubgraphOverlay</a>
 , <a class="el" href="classvg_1_1VG.html#a527e1ab441e93f73902b7a02b29c1bd6">vg::VG</a>
@@ -717,10 +730,10 @@ $(function() {
 : <a class="el" href="classhandlegraph_1_1PathMetadata.html#af040579085f8d49fcb6733e1f9cc8c27">handlegraph::PathMetadata</a>
 </li>
 <li>for_each_path_of_sample()
-: <a class="el" href="classhandlegraph_1_1PathMetadata.html#a01becc6f1373c256aebdb41cab2e1e2a">handlegraph::PathMetadata</a>
+: <a class="el" href="classhandlegraph_1_1PathMetadata.html#addc702cbc6ab38aca615547ecb8b0d5f">handlegraph::PathMetadata</a>
 </li>
 <li>for_each_path_of_sense()
-: <a class="el" href="classhandlegraph_1_1PathMetadata.html#a288ea0a14faf5618c7d229a821b9dc74">handlegraph::PathMetadata</a>
+: <a class="el" href="classhandlegraph_1_1PathMetadata.html#a7afd82569e409e86b4bcdafe8d39cc86">handlegraph::PathMetadata</a>
 </li>
 <li>for_each_postorder()
 : <a class="el" href="structvg_1_1Tree.html#af5981fac59c0b2549cc0f70b98b675d2">vg::Tree&lt; T &gt;</a>
@@ -772,6 +785,7 @@ $(function() {
 <li>for_each_step_on_handle_impl()
 : <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a2bbdf56b268001c629cf000f5bd8bb9a">handlegraph::PathHandleGraph</a>
 , <a class="el" href="classhandlegraph_1_1PathMetadata.html#a25e78685ad8a987422d9bf6c131c854f">handlegraph::PathMetadata</a>
+, <a class="el" href="classvg_1_1AnchorBackedPositionGraph.html#ae8187d911ffe91b4b5b6e7a29e85e74d">vg::AnchorBackedPositionGraph</a>
 , <a class="el" href="classvg_1_1MemoizingGraph.html#aeff170a12e414f058e658317060798b4">vg::MemoizingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraphOverlay.html#a9e042a3f29d7182fa8510dd46c259b41">vg::PathSubgraphOverlay</a>
 , <a class="el" href="classvg_1_1VG.html#a68b4c3665812b5be48d01677367382fd">vg::VG</a>

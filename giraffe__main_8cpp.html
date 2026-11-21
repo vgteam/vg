@@ -68,6 +68,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
+<a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">giraffe_main.cpp File Reference</div>  </div>
@@ -89,6 +90,7 @@ $(function() {
 <code>#include &lt;mutex&gt;</code><br />
 <code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="options_8hpp.html">options.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="giraffe__options_8hpp.html">giraffe_options.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarl__seed__clusterer_8hpp.html">../snarl_seed_clusterer.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="mapper_8hpp.html">../mapper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="annotation_8hpp.html">../annotation.hpp</a>&quot;</code><br />
@@ -116,6 +118,13 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Options struct for scoring-related parameters. Defaults are in <a class="el" href="aligner_8hpp.html">aligner.hpp</a>.  <a href="structScoringOptions.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacevg_1_1subcommand"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1subcommand.html">vg::subcommand</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ada042c5c5040b9b72848655d3dc5fcf8">strip_suffixes</a> (std::string filename, const std::vector&lt; std::string &gt; &amp;suffixes)</td></tr>
@@ -123,6 +132,17 @@ Functions</h2></td></tr>
 <tr class="memitem:ace1dc75acf7b63d46da02d63bad753bb"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:ace1dc75acf7b63d46da02d63bad753bb"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ace1dc75acf7b63d46da02d63bad753bb">enforce_min_max</a> (const T &amp;low, const std::string &amp;low_option, const T &amp;high, const std::string &amp;high_option)</td></tr>
 <tr class="separator:ace1dc75acf7b63d46da02d63bad753bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:add4134d17c9a8e89af697c569e6fe194"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1subcommand.html#add4134d17c9a8e89af697c569e6fe194">vg::subcommand::giraffe_preset_names</a> ()</td></tr>
+<tr class="memdesc:add4134d17c9a8e89af697c569e6fe194"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the names of vg giraffe's parameter presets.  <a href="namespacevg_1_1subcommand.html#add4134d17c9a8e89af697c569e6fe194">More...</a><br /></td></tr>
+<tr class="separator:add4134d17c9a8e89af697c569e6fe194"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac4fcb59ef18a644322d5ac5fb2449b93"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html">GroupedOptionGroup</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1subcommand.html#ac4fcb59ef18a644322d5ac5fb2449b93">vg::subcommand::make_giraffe_parser</a> (const <a class="el" href="structvg_1_1subcommand_1_1GiraffeParameters.html">GiraffeParameters</a> &amp;params)</td></tr>
+<tr class="separator:ac4fcb59ef18a644322d5ac5fb2449b93"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7c5d38ca3a0a03628aa73956cc34949"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1subcommand.html#af7c5d38ca3a0a03628aa73956cc34949">vg::subcommand::giraffe_preset_maps_long_reads</a> (const std::string &amp;preset)</td></tr>
+<tr class="separator:af7c5d38ca3a0a03628aa73956cc34949"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a39ab03c1e97b8720414cc655f1ab9d1a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1subcommand.html#a39ab03c1e97b8720414cc655f1ab9d1a">vg::subcommand::giraffe_rec_mode</a> (const gbwtgraph::DefaultMinimizerIndex &amp;minimizer_index, bool map_long_reads, std::optional&lt; bool &gt; rec_mode)</td></tr>
+<tr class="separator:a39ab03c1e97b8720414cc655f1ab9d1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a765caf969c4d2240b149d3235de1358a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1subcommand.html#a765caf969c4d2240b149d3235de1358a">vg::subcommand::set_up_giraffe_mapper</a> (<a class="el" href="structvg_1_1subcommand_1_1GroupedOptionGroup.html">GroupedOptionGroup</a> &amp;parser, bool use_rec_mode, <a class="el" href="classvg_1_1MinimizerMapper.html">MinimizerMapper</a> &amp;mapper)</td></tr>
+<tr class="separator:a765caf969c4d2240b149d3235de1358a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a76be7c70b1d9b71b69fee36f89fed23d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a76be7c70b1d9b71b69fee36f89fed23d">apply_haplotype_sampling_preset</a> (std::string_view preset_name, <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger)</td></tr>
 <tr class="separator:a76be7c70b1d9b71b69fee36f89fed23d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa6d5c2140d259252f3cad8b7bf6b4b1a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#aa6d5c2140d259252f3cad8b7bf6b4b1a">help_giraffe</a> (char **argv, const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;parser, const std::map&lt; std::string, <a class="el" href="structvg_1_1subcommand_1_1Preset.html">Preset</a> &gt; &amp;presets, bool full_help)</td></tr>

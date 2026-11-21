@@ -1,10 +1,10 @@
 var searchData=
 [
-  ['pairtype_15231',['PairType',['../classvg_1_1MinimizerMapper.html#a0d3a83b4fd5b97837515c2d9600dcc66',1,'vg::MinimizerMapper']]],
-  ['path_5fcover_5fmode_15232',['path_cover_mode',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1',1,'GBWTConfig']]],
-  ['pathsense_15233',['PathSense',['../namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c',1,'handlegraph']]],
-  ['payloadtype_15234',['PayloadType',['../structvg_1_1MinimizerIndexParameters.html#a21cc917a589512f60d762bda527ba878',1,'vg::MinimizerIndexParameters']]],
-  ['preset_5ft_15235',['preset_t',['../structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6',1,'vg::Recombinator::Parameters']]],
-  ['problem_15236',['Problem',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9',1,'vg::AlignmentValidity']]],
-  ['pruningmode_15237',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]]
+  ['pairtype_15435',['PairType',['../classvg_1_1MinimizerMapper.html#a0d3a83b4fd5b97837515c2d9600dcc66',1,'vg::MinimizerMapper']]],
+  ['path_5fcover_5fmode_15436',['path_cover_mode',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1',1,'GBWTConfig']]],
+  ['pathsense_15437',['PathSense',['../namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c',1,'handlegraph']]],
+  ['payloadtype_15438',['PayloadType',['../structvg_1_1MinimizerIndexParameters.html#a21cc917a589512f60d762bda527ba878',1,'vg::MinimizerIndexParameters']]],
+  ['preset_5ft_15439',['preset_t',['../structvg_1_1Recombinator_1_1Parameters.html#a0633995f784710cfc0799d65c4dbf6b6',1,'vg::Recombinator::Parameters']]],
+  ['problem_15440',['Problem',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9',1,'vg::AlignmentValidity']]],
+  ['pruningmode_15441',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]]
 ];
