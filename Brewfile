@@ -26,6 +26,6 @@ brew "cmake"
 brew "boost"
 brew "pybind11"
 brew "pandoc"
-brew "openssl"
+brew "openssl@3"
 tap "brewsci/bio"
 brew "brewsci/bio/kmc", trusted: true
