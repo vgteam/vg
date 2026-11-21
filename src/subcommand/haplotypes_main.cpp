@@ -1208,6 +1208,10 @@ std::vector<std::string> get_haplotype(
     // Initial node with three cases (from start, suffix of a long `from`, short `from`).
     if (from == gbwt::ENDMARKER) {
         pos = graph.index->start(sequence.first);
+        if (pos.first == to) {
+            // A prefix of a sequence that starts at the end node has no kmers.
+            return haplotype;
+        }
         std::string_view view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
         haplotype.back().append(view.data(), view.size());
     } else {
@@ -1331,17 +1335,30 @@ void validate_chain(const Logger& logger,
             }
         }
 
-        // Sequences: prefixes and suffixes.
+        // Sequences: prefixes and suffixes. These are all sequences at the boundary node, or, at an open chain
+        // end, those whose prefix (suffix) stays outside the boundary.
         if (subchain.type == Haplotypes::Subchain::prefix || subchain.type == Haplotypes::Subchain::suffix) {
+            bool is_prefix = (subchain.type == Haplotypes::Subchain::prefix);
             gbwt::node_type node = (subchain.has_start() ? subchain.start : subchain.end);
             std::vector<gbwt::size_type> da = r_index.decompressDA(node);
-            if (subchain.num_sequences() != da.size()) {
-                std::string message = expected_got(da.size(), subchain.num_sequences()) + " sequences (prefix / suffix)";
-                validate_error_subchain(logger, chain_id, subchain_id, message);
-            }
             vg::hash_set<Haplotypes::sequence_type> truth;
-            for (size_t i = 0; i < da.size(); i++) {
-                truth.insert({ da[i], i });
+            if (subchain.num_sequences() == da.size()) {
+                for (size_t i = 0; i < da.size(); i++) {
+                    truth.insert({ da[i], i });
+                }
+            } else {
+                // Only an open chain end leaves out sequences.
+                vg::hash_set<nid_t> open_end = open_end_nodes(graph, gbwtgraph::GBWTGraph::node_to_handle(node), is_prefix);
+                for (size_t i = 0; i < da.size(); i++) {
+                    if (within_open_end(*(graph.index), open_end, da[i], node, i, is_prefix)) {
+                        truth.insert({ da[i], i });
+                    }
+                }
+                if (subchain.num_sequences() != truth.size()) {
+                    std::string message = "expected " + std::to_string(da.size()) + " (or " + std::to_string(truth.size())
+                        + " for an open chain end), got " + std::to_string(subchain.num_sequences()) + " sequences (prefix / suffix)";
+                    validate_error_subchain(logger, chain_id, subchain_id, message);
+                }
             }
             for (size_t i = 0; i < subchain.num_sequences(); i++) {
                 if (truth.find(subchain.sequences[i]) == truth.end()) {
