@@ -28,7 +28,7 @@ struct HeldEdit {
     EditCandidate candidate;
 };
 
-/// Make the outcome of a candidate for the dump, saying where it was placed, or why it was not.
+/// Make the outcome of a candidate, saying where it was placed, or why it was not.
 EditOutcome unplaced_outcome(const EditCandidate& c, const string& why);
 
 /**

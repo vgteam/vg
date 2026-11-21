@@ -46,19 +46,23 @@ vector<int> PhaseTable::phase_ordered_genotype(size_t record_key,
 }
 
 int PhaseTable::haploid_slot(size_t record_key, const vector<int>& genotype) const {
+    return max(0, nested_strand(record_key, genotype));
+}
+
+int PhaseTable::nested_strand(size_t record_key, const vector<int>& genotype) const {
     if (genotype.size() != 1) {
-        return 0;
+        return -1;
     }
     const auto found = render_phases.find(record_key);
     if (found == render_phases.end() || found->second.ploidy != 1
         || found->second.nested_strand < 0) {
         // A haploid site with no nested strand is on a haploid locus, such as chrY, and has
         // just one strand.
-        return 0;
+        return -1;
     }
     // A phase of another allele is ignored, as `SiteEmitter::emit` ignores it.
     if (found->second.trav_first != genotype[0]) {
-        return 0;
+        return -1;
     }
     return (int)found->second.nested_strand;
 }

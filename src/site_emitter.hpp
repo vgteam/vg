@@ -96,10 +96,12 @@ public:
      *
      * @param alleles Spells the site's traversals.
      * @param write_fields Writes the genotyper's fields once the alleles are numbered.
+     * @param has_line If not null, set to whether the site got a line, as `on_site_done` is told.
      * @return false only if the writer refused a line the site wanted.
      */
     bool emit(const PathPositionHandleGraph& graph, const CalledSite& site,
-              const allele_source_t& alleles, const field_writer_t& write_fields);
+              const allele_source_t& alleles, const field_writer_t& write_fields,
+              bool* has_line = nullptr);
 
 protected:
     /// Return whether traversal `trav`, which is not the reference traversal, should be treated
@@ -170,9 +172,10 @@ private:
     /// Send a built record to the writer, unless `write_blocks` splits the site, and report the
     /// site to `on_site_done`.
     ///
+    /// @param has_line Set to whether the site got a line, as `on_site_done` is told.
     /// @return false only if the writer refused a line the site wanted.
     bool file_record(const PathPositionHandleGraph& graph, const CalledSite& site,
-                     SiteRecord& record);
+                     SiteRecord& record, bool& has_line);
 };
 
 }

@@ -1,7 +1,5 @@
 #include <algorithm>
-#include <fstream>
 #include <limits>
-#include <sstream>
 
 #include <omp.h>
 
@@ -18,6 +16,9 @@ struct SitePhase {
     ///
     /// A read's strand is usable only at sites of the phase set it was found in.
     size_t phase_set = NO_PHASE_SET;
+    /// The run of read phasing (see `PhaseSite::run`) that the site's order is in, or, for a nested
+    /// chain at ploidy 1, that its strand is named in, or `NO_RUN`.
+    size_t run = NO_RUN;
     /// The traversal on strand 0 at a diploid site, or -1 where the phase gives no order.
     int strand0_allele = -1;
     /// For a nested chain at ploidy 1, +1 if it is on strand 0 of its phase set and -1 if it is on
@@ -54,71 +55,44 @@ unordered_map<size_t, SitePhase> collect_site_phases(
     }
     for (const PhaseSite& ps : phase_sites) {
         phases[ps.record_key].phase_site = &ps;
+        phases[ps.record_key].run = ps.run;
     }
     return phases;
 }
 
-/// Find the genotype with the highest likelihood, or null for no genotypes.
-///
-/// The first of tied genotypes, in map order, wins.
-pair<const vector<int>*, double> best_genotype(const map<vector<int>, double>& gl) {
-    const vector<int>* best = nullptr;
-    double best_ll = -numeric_limits<double>::infinity();
-    for (const auto& [genotype, ll] : gl) {
-        if (ll > best_ll) {
-            best_ll = ll;
-            best = &genotype;
+/**
+ * Give each nested chain at ploidy 1 in `phases` the run its strand is named in.
+ *
+ * Its strand is one of its parent's two, so it is named in the run of the parent's order. A
+ * parent at ploidy 1 has the strand of its own parent, so we go up through such parents to the
+ * first site that is not one, and take its run, which is `NO_RUN` if it has no read evidence.
+ */
+void set_haploid_runs(unordered_map<size_t, SitePhase>& phases, StagedSiteTable& staged) {
+    unordered_map<size_t, size_t> parent_of;
+    staged.for_each([&parent_of](const StagedSite& rec) {
+        if (rec.placement.level > 0) {
+            parent_of[rec.record_key] = rec.placement.parent_record_key;
         }
-    }
-    return {best, best_ll};
-}
-
-/// Spell a genotype as unphased VCF GT, as `0/1`, or `.` for null.
-string spell_genotype(const vector<int>* genotype) {
-    if (genotype == nullptr) {
-        return ".";
-    }
-    string out;
-    for (size_t i = 0; i < genotype->size(); ++i) {
-        if (i) {
-            out += "/";
-        }
-        out += std::to_string((*genotype)[i]);
-    }
-    return out;
-}
-
-/// One row of the ledger file, with the fields it is sorted by.
-struct LedgerRow {
-    string contig;
-    size_t position;
-    /// The site's ID, which orders rows at the same position.
-    string snarl;
-    /// The tab-separated row, without a newline.
-    string text;
-};
-
-/// Open the ledger file at `path` and write its header, or exit if it cannot be written.
-void open_ledger(ofstream& ledger, const string& path, double temper) {
-    ledger.open(path);
-    if (!ledger) {
-        cerr << "error [vg call]: cannot write --regeno-ledger " << path << endl;
-        exit(1);
-    }
-    ledger << "#regeno-ledger-version\t1" << endl;
-    ledger << "#temper\t" << temper << endl;
-    ledger << "#snarl\tcontig\tposition\tploidy\tcalled\tproposed\tdelta_ln\treads" << endl;
-}
-
-/// Write `rows` to the ledger sorted by position, so the file does not depend on threading.
-void write_ledger(ofstream& ledger, vector<LedgerRow>& rows) {
-    std::ranges::sort(rows, [](const LedgerRow& x, const LedgerRow& y) {
-        if (x.contig != y.contig) return x.contig < y.contig;
-        if (x.position != y.position) return x.position < y.position;
-        return x.snarl < y.snarl;
     });
-    for (const LedgerRow& row : rows) {
-        ledger << row.text << endl;
+    // The run of the first site enclosing `key` that is not a haploid chain, which names the
+    // chain's strand.
+    auto enclosing_run = [&parent_of, &phases](size_t key) {
+        for (auto parent = parent_of.find(key); parent != parent_of.end();
+             parent = parent_of.find(parent->second)) {
+            const auto above = phases.find(parent->second);
+            if (above == phases.end()) {
+                return NO_RUN;
+            }
+            if (above->second.haploid_strand == 0) {
+                return above->second.run;
+            }
+        }
+        return NO_RUN;
+    };
+    for (auto& [key, phase] : phases) {
+        if (phase.haploid_strand != 0) {
+            phase.run = enclosing_run(key);
+        }
     }
 }
 
@@ -140,32 +114,27 @@ void restore_direct_pass(SiteScore& score, const ReadLikelihoodSnarlCaller& geno
 
 /// The inputs of one round of correction, shared by every site.
 struct CorrectionRound {
-    /// The summed strand log-odds of each read.
-    const LambdaTable& lambda;
+    /// What the round knows about each read's strand.
+    const StrandModel& strands;
     /// What the phase says about each site.
     const unordered_map<size_t, SitePhase>& site_phases;
     /// The record keys of the sites whose strands read phasing swapped.
     const unordered_set<size_t>& phase_flips;
     /// The genotyper that recomputes GQ.
     const ReadLikelihoodSnarlCaller& genotyper;
-    const RegenotypeParams& params;
-    /// The calibration of every read's strand log-odds.
-    StrandCalibration calibration;
     /// Whether the corrected likelihoods replace each site's own.
     ///
     /// When false, they are computed and counted, and then thrown away. `genotype_lls` is what
     /// GL and QUAL are written from, so correcting it in place would change them while the
     /// genotypes stood still.
     bool keep;
-    /// Whether to make a ledger row for each site whose best genotype changes.
-    bool want_ledger;
 };
 
 /**
  * A worker that corrects sites' genotype likelihoods for one round, on one thread.
  *
- * It tallies the sites it corrects in its own counters, the sites whose best genotype changed,
- * and their ledger rows, for merging once every worker is done.
+ * It tallies the sites it corrects in its own counters, and the sites whose best genotype
+ * changed, for merging once every worker is done.
  */
 class SiteCorrector {
 public:
@@ -178,8 +147,6 @@ public:
     RegenotypeCounters counters;
     /// The number of sites whose best genotype the correction changed.
     size_t moved = 0;
-    /// A ledger row for each site whose best genotype changed, if the round wants them.
-    vector<LedgerRow> ledger_rows;
 
 private:
     /// Correct the likelihoods at the other ploidy too, since the linkage pass can move a chain
@@ -217,10 +184,6 @@ void SiteCorrector::correct(StagedSite& rec) {
         site_own_log_odds(*phase.phase_site, round.phase_flips.contains(rec.record_key), own);
     }
 
-    map<vector<int>, double> before;
-    if (round.want_ledger) {
-        before = score->genotype_lls;
-    }
     map<vector<int>, double> scratch;
     if (round.keep) {
         restore_direct_pass(*score, round.genotyper);
@@ -230,11 +193,10 @@ void SiteCorrector::correct(StagedSite& rec) {
     map<vector<int>, double>& target = round.keep ? score->genotype_lls : scratch;
     const bool site_moved =
         phase.haploid_strand != 0
-            ? haploid_inclusion_correction(*pe, round.lambda, phase.phase_set, own,
-                                           round.calibration, phase.haploid_strand, round.params,
-                                           target, counters)
-            : phase_aware_correction(*pe, round.lambda, phase.phase_set, phase.strand0_allele, own,
-                                     round.calibration, round.params, target, counters);
+            ? haploid_inclusion_correction(*pe, round.strands, RunKey {phase.phase_set, phase.run},
+                                           phase.haploid_strand, own, target, counters)
+            : phase_aware_correction(*pe, round.strands, RunKey {phase.phase_set, phase.run},
+                                     phase.strand0_allele, own, target, counters);
     if (round.keep && site_moved) {
         // Recompute GQ from the corrected likelihoods. GQI and GQN stay, because the achievable
         // gap of GQN assumes the site's own mixture weights, not per-read ones.
@@ -243,20 +205,8 @@ void SiteCorrector::correct(StagedSite& rec) {
     if (round.keep && score->alt_ploidy_info != nullptr) {
         correct_other_ploidy(*score->alt_ploidy_info, *pe, phase);
     }
-    if (!site_moved) {
-        return;
-    }
-    ++moved;
-    if (round.want_ledger) {
-        const auto [called, called_ll] = best_genotype(before);
-        const auto [proposed, proposed_ll] = best_genotype(target);
-        std::ostringstream row;
-        row << rec.id << "\t" << rec.reference.path_name << "\t"
-            << rec.reference.offset << "\t" << rec.ploidy << "\t" << spell_genotype(called) << "\t"
-            << spell_genotype(proposed) << "\t" << (proposed_ll - called_ll) << "\t"
-            << pe->num_reads();
-        ledger_rows.emplace_back(rec.reference.path_name, (size_t)rec.reference.offset, rec.id,
-                                 row.str());
+    if (site_moved) {
+        ++moved;
     }
 }
 
@@ -264,21 +214,18 @@ void SiteCorrector::correct_other_ploidy(SiteScore& alt, const PhaseReadEvidence
                                          const SitePhase& phase) {
     restore_direct_pass(alt, round.genotyper);
     RegenotypeCounters ignored;
-    if (phase_aware_correction(evidence, round.lambda, phase.phase_set, phase.strand0_allele, own,
-                               round.calibration, round.params, alt.genotype_lls,
-                               ignored)) {
+    if (phase_aware_correction(evidence, round.strands, RunKey {phase.phase_set, phase.run},
+                               phase.strand0_allele, own, alt.genotype_lls, ignored)) {
         round.genotyper.recompute_gq(alt);
     }
 }
 
 }
 
-void GenotypeRescorer::configure(bool enable, const RegenotypeParams& settings, size_t passes,
-                                 std::string_view ledger) {
+void GenotypeRescorer::configure(bool enable, const RegenotypeParams& settings, size_t passes) {
     on = enable;
     regenotype_params = settings;
     max_passes = passes;
-    ledger_path = ledger;
 }
 
 void GenotypeRescorer::set_site_reader(SiteReader site_reader) {
@@ -321,25 +268,21 @@ bool GenotypeRescorer::rescore(
     LambdaTable lambda;
     accumulate_lambda(phase_sites, phase_flips, lambda, counters);
 
-    const unordered_map<size_t, SitePhase> site_phases = collect_site_phases(
+    unordered_map<size_t, SitePhase> site_phases = collect_site_phases(
         calls, phase_sites, phase_set_id, regenotype_params.haploid_include);
+    set_haploid_runs(site_phases, staged);
 
     const StrandCalibration calibration = choose_calibration(phase_sites, phase_flips, lambda);
     fit.keep(counters);
-
-    ofstream ledger;
-    const bool want_ledger = !ledger_path.empty();
-    if (want_ledger) {
-        open_ledger(ledger, ledger_path, calibration.temper);
-    }
 
     // Only the read-likelihood genotyper makes the scores corrected here.
     const ReadLikelihoodSnarlCaller* genotyper = reader.genotyper;
     size_t moved = 0;
     if (genotyper != nullptr) {
-        const CorrectionRound round {lambda, site_phases, phase_flips, *genotyper,
-                                     regenotype_params, calibration, max_passes >= 2,
-                                     want_ledger};
+        const StrandModel model {lambda, calibration, strands.run_correlations(),
+                                 regenotype_params};
+        const CorrectionRound round {model, site_phases, phase_flips, *genotyper,
+                                     max_passes >= 2};
         // Stride the records across one worker per queue, and merge the workers in queue order.
         const vector<StagedSite*> all_records = staged.in_order();
         const size_t n_queues = max<size_t>(1, staged.queue_count());
@@ -350,14 +293,9 @@ bool GenotypeRescorer::rescore(
                 workers[qi].correct(*all_records[ri]);
             }
         }
-        vector<LedgerRow> rows;
         for (SiteCorrector& worker : workers) {
             merge_counters(worker.counters, counters);
             moved += worker.moved;
-            std::ranges::move(worker.ledger_rows, std::back_inserter(rows));
-        }
-        if (ledger.is_open()) {
-            write_ledger(ledger, rows);
         }
     }
 
@@ -375,11 +313,13 @@ void GenotypeRescorer::report(const StrandCalibration& calibration, bool show_ca
          << c.sites_corrected << " of " << c.sites_considered << " sites corrected, "
          << c.sites_would_move << " would move (" << c.moved_hom_to_het << " hom->het, "
          << c.moved_het_to_hom << " het->hom, " << c.moved_het_to_het << " het->het), "
-         << c.order_reversed << " where the reads prefer the other order" << endl;
+         << c.order_reversed << " where the reads prefer the other order, "
+         << c.sites_split_runs << " whose reads were scored in more than one group by run" << endl;
     if (regenotype_params.haploid_include) {
         cerr << "[vg call] re-genotyping: " << c.haploid_sites
              << " nested haploid chains weighted by whether the reads belong to their strand, "
-             << c.haploid_would_move << " would move" << endl;
+             << c.haploid_would_move << " would move, " << c.haploid_split_runs
+             << " whose reads were scored in more than one group by run" << endl;
     }
     if (show_calibration && !c.fit_count.empty()) {
         cerr << "[vg call] re-genotyping calibration, |Lambda| / observed / predicted / n:";

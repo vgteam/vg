@@ -15,8 +15,7 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
                                  SortedVCFWriter& output, const string& sample_name,
                                  SiteTraversalFinder& traversal_finder,
                                  ReferencePathTable ref_paths, bool genotype_snarls,
-                                 const pair<size_t, size_t>& allele_length_range, bool top_down,
-                                 bool star_allele) :
+                                 const pair<size_t, size_t>& allele_length_range) :
     graph(graph),
     snarl_caller(genotyper),
     sites(decomposition, graph),
@@ -26,12 +25,9 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
     sample_name(sample_name),
     ref_paths(std::move(ref_paths)),
     genotype_snarls(genotype_snarls),
-    top_down(top_down),
-    star_allele(star_allele),
     splicer(graph, sites, phase_table),
-    off_panel(graph, this->ref_paths),
     candidates(graph, traversal_finder, this->ref_paths, allele_length_range),
-    record_renderer(phase_table, read_strands, linker, anchor_collector)
+    record_renderer(phase_table, read_strands, linker, anchor_collector, fill_anchors)
 {
     site_emitter.genotype_snarls = genotype_snarls;
     // Every call info this caller writes is the read-likelihood genotyper's, which writes GL in
@@ -70,10 +66,25 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
         TreeGenotyper::Options{
             .nested_calling = nested_calling,
             .off_reference = off_reference_nesting,
-            .top_down = top_down,
-            .star_allele = star_allele,
+            .group_candidates = group_candidates,
             .edit_bar = off_panel.bar(),
         });
+
+    // Place the fill points before the direct pass, and have the read source pass each window it
+    // fetches whole to the fill anchors, which place the reads crossing that window's points while
+    // the window is in memory. The fill windows must be the source's windows, or
+    // `resolve_window_reads` takes none of them; `snarl_batch_window` is the source's window (see
+    // `set_snarl_batching`). The observer adds nothing to the source's tallies of read starts or to
+    // its off-panel candidates, so it cannot change a genotype.
+    const size_t fill_window = snarl_batch_window > 0 ? snarl_batch_window : FILL_READ_WINDOW;
+    const bool fill_reads = fill_anchors.is_enabled() && read_source != nullptr;
+    if (fill_reads) {
+        fill_anchors.place_points(graph, fill_window);
+        read_source->set_window_observer(
+            [this](nid_t first, nid_t last, const SiteReadSource::WindowReads& reads) {
+                fill_anchors.resolve_window_reads(first, last, reads);
+            });
+    }
 
     // The direct pass.
     walker.walk(recurse_type, snarl_batch_window, show_progress,
@@ -86,6 +97,16 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     if (show_progress) {
         report_descent_instrumentation();
     }
+    if (fill_reads) {
+        // No fetch is running between the passes, so the observer can be removed. Then place the
+        // reads at the fill points of the windows the direct pass never fetched whole, while the
+        // read source is open. No pass after the direct pass reads reads, and this query adds
+        // nothing to the source's tallies of read starts or to its off-panel candidates, so it
+        // cannot change a genotype.
+        read_source->set_window_observer(nullptr);
+        fill_anchors.place(sites);
+        fill_anchors.resolve_reads(*read_source);
+    }
     after_direct_pass();
 
     // Round 1's linkage pass, then read phasing and any further rounds, then the render.
@@ -93,12 +114,19 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     phase_and_regenotype();
     render_retained_records();
     // Anchors are collected while records are built, so they are written afterwards. Does nothing
-    // unless anchors are on.
+    // unless anchors are on. The render marked the called walks across the fill points, so the
+    // fill anchors are made now.
+    if (fill_anchors.is_enabled()) {
+        fill_anchors.add_anchors(anchor_collector);
+    }
     anchor_collector.write(sample_name);
+    if (fill_anchors.is_enabled() && anchor_collector.is_enabled()) {
+        fill_anchors.report(cerr);
+    }
 
     // The reports, and the mosaic, need to know which sites have a line, so they come last.
     finalise_linkage_outputs();
-    off_panel.write(tree_genotyper.edit_nodes_after_pass());
+    off_panel.report(tree_genotyper.edit_nodes_after_pass());
     if (phase_declined.load() > 0 || quality_declined.load() > 0) {
         cerr << "[vg call] linkage: " << phase_declined.load()
              << " phases refused by the record they were rendered onto, and "
@@ -223,7 +251,8 @@ const StagedSite& MultiPassCaller::rendered_site(const CalledSite& site) const {
     return *rendered_sites.at(record_key_of(*site.id));
 }
 
-void MultiPassCaller::write_site(StagedSite& site, const vector<int>& genotype) {
+RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
+                                                           const vector<int>& genotype) {
     if (nested_calling) {
         block_records.count_site(site.children, site.alleles.walks, site.alleles.ref_allele);
     }
@@ -238,6 +267,8 @@ void MultiPassCaller::write_site(StagedSite& site, const vector<int>& genotype) 
         own_steps = site.alleles.all_step_sequences(graph);
     }
     const AlleleSequences& steps = site.spliced ? site.spliced->sequences : own_steps;
+    RecordRenderer::WrittenAlleles written;
+    bool has_line = false;
     site_emitter.emit(
         graph,
         CalledSite{
@@ -260,13 +291,16 @@ void MultiPassCaller::write_site(StagedSite& site, const vector<int>& genotype) 
         // so they are told apart by index rather than by walk.
         [&](const vector<int>& allele_traversals, const vector<int>& vcf_genotype,
             vcflib::Variant& record) {
+            written = {allele_traversals, vcf_genotype};
             snarl_caller.write_vcf_fields(allele_traversals, vcf_genotype, site.call_info.get(),
                                           sample_name, record);
             if (sites.is_edit(site.net)) {
                 record.infoFlags["OP"] = true;
             }
-        });
+        },
+        &has_line);
     site.spliced.reset();
+    return has_line ? written : RecordRenderer::WrittenAlleles();
 }
 
 void MultiPassCaller::finish_moved_record(vcflib::Variant& record) {
@@ -457,7 +491,7 @@ void MultiPassCaller::render_retained_records() {
     phase_table.freeze_for_render(emit_phasing);
     record_renderer.render(
         staged_sites,
-        [&](StagedSite& site, const vector<int>& genotype) { write_site(site, genotype); },
+        [&](StagedSite& site, const vector<int>& genotype) { return write_site(site, genotype); },
         show_progress,
         [&]() {
             splicer.index(staged_sites, emit_phasing);

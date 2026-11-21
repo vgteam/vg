@@ -17,7 +17,6 @@
 #include <sstream>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 
 #include <omp.h>
 
@@ -41,43 +40,6 @@ void AnchorPinCounters::report(ostream& out) const {
         << " visits it more than once, " << unaligned_base.load()
         << " no read base aligned to the pin's node base, " << no_neighbour.load()
         << " nothing upstream of an entry pin" << endl;
-}
-
-void AnchorPhaseCheckCounters::report(ostream& out) const {
-    if (checked.load() == 0) {
-        return;
-    }
-    const size_t n = checked.load();
-    const size_t ok = agree.load();
-    const size_t cn = confident.load();
-    const size_t ck = confident_agree.load();
-    out << "[vg call] anchors: cross-site phase reproduces the allele partition at het "
-           "sites (held out, the split's own accuracy -- reported only when het placement "
-           "does NOT use the strand, or it would measure itself): "
-        << ok << "/" << n << " agree (" << (100.0 * (double)ok / (double)n) << "%)";
-    if (cn > 0) {
-        out << ", confident " << ck << "/" << cn << " ("
-            << (100.0 * (double)ck / (double)cn) << "%)";
-    }
-    out << ", " << no_opinion.load() << " reads with no cross-site opinion" << endl;
-}
-
-void AnchorPhaseCheckCounters::count(double lo, int slot, double phase_min) {
-    if (std::isnan(lo) || lo == 0.0) {
-        no_opinion.fetch_add(1);
-        return;
-    }
-    const bool agrees = (lo > 0.0 ? 0 : 1) == slot;
-    checked.fetch_add(1);
-    if (agrees) {
-        agree.fetch_add(1);
-    }
-    if (std::abs(lo) >= phase_min) {
-        confident.fetch_add(1);
-        if (agrees) {
-            confident_agree.fetch_add(1);
-        }
-    }
 }
 
 void AnchorCounters::report(ostream& out) const {
@@ -113,14 +75,28 @@ void AnchorCounters::report(ostream& out) const {
     }
     if (het_phase_tilted.load() > 0) {
         out << "[vg call] anchors: " << het_phase_tilted.load()
-            << " read placements at heterozygous sites used the read's cross-site strand";
-        if (het_strict_moved.load() > 0) {
-            out << " (--anchors-strict-hets, which moved " << het_strict_moved.load()
-                << " of them off the slot the allele match alone would have chosen)";
-        }
-        out << endl;
+            << " read placements at heterozygous sites used the read's cross-site strand" << endl;
     }
-    phase_check.report(out);
+}
+
+const char* anchor_kind_name(AnchorKind kind) {
+    switch (kind) {
+    case AnchorKind::het:
+        return "het";
+    case AnchorKind::hom:
+        return "hom";
+    case AnchorKind::hom_split:
+        return "hom-split";
+    case AnchorKind::haploid:
+        return "haploid";
+    case AnchorKind::fill_shared:
+        return "fill-shared";
+    case AnchorKind::fill_strand:
+        return "fill-strand";
+    case AnchorKind::fill_off_call:
+        return "fill-off-call";
+    }
+    return "?";
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -644,11 +620,10 @@ static std::optional<SlotChoice> choose_split_slot(const AnchorSiteEvidence& evi
  * Choose the slot of a read from its allele match, tilted by its strand log-odds as `params` say.
  *
  * Under `params.phase_hets` the disfavoured slot's weight is multiplied by exp(-|strand|). This
- * gives the weights `phase_aware_correction` uses in re-genotyping, without overflow. Under
- * `params.strict_hets` the sign of `strand` alone chooses. Whichever rule picks the slot, the
- * read's confidence comes from the untilted responsibilities. The confidence feeds the
- * reliability, which measures whether the site's own reads tell its alleles apart, so the strand
- * log-odds must not enter it.
+ * gives the weights `phase_aware_correction` uses in re-genotyping, without overflow. The read's
+ * confidence comes from the untilted responsibilities. The confidence feeds the reliability, which
+ * measures whether the site's own reads tell its alleles apart, so the strand log-odds must not
+ * enter it.
  *
  * @param strand The read's strand log-odds, or 0 where they cannot be used here.
  */
@@ -661,7 +636,7 @@ static SlotChoice choose_allele_slot(const AnchorSiteEvidence& evidence, size_t 
     // The slot whose weight is tilted down, or none, and the factor applied to it.
     size_t disfavoured = slot_allele.size();
     double tilt = 1.0;
-    if (params.phase_hets && !params.strict_hets && has_opinion) {
+    if (params.phase_hets && has_opinion) {
         tilt = std::exp(-std::abs(strand));
         disfavoured = strand > 0.0 ? 1 : 0;
         ++counters.het_phase_tilted;
@@ -684,16 +659,6 @@ static SlotChoice choose_allele_slot(const AnchorSiteEvidence& evidence, size_t 
             choice.resp = plain;
             choice.slot = i;
         }
-    }
-    if (params.strict_hets && has_opinion) {
-        const size_t want = strand > 0.0 ? 0 : 1;
-        if (want != choice.slot) {
-            ++counters.het_strict_moved;
-        }
-        choice.slot = want;
-        choice.resp = (1.0 - mismap) * weight[want]
-                      * (double)evidence.rel_at(r, (size_t)slot_allele[want]);
-        ++counters.het_phase_tilted;
     }
     return choice;
 }
@@ -921,6 +886,18 @@ static vector<SlotAnchors> make_slot_anchors(const AnchorSiteEvidence& evidence,
     return slots;
 }
 
+/// Return the kind of the anchors of a site whose called alleles are `genotype`, in which
+/// `phase_split` says whether a homozygote was divided by strand.
+static AnchorKind site_anchor_kind(const vector<int>& genotype, bool phase_split) {
+    if (genotype.size() == 1) {
+        return AnchorKind::haploid;
+    }
+    if (phase_split) {
+        return AnchorKind::hom_split;
+    }
+    return all_alleles_equal(genotype) ? AnchorKind::hom : AnchorKind::het;
+}
+
 void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& call,
                         string_view snarl_id, const AnchorParams& params,
                         vector<AnchorWriter::Anchor>& out,
@@ -971,7 +948,8 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& ca
     site_anchor.snarl = snarl_id;
     site_anchor.gqn = gqn;
     site_anchor.explained = call.explained;
-    site_anchor.edit = evidence.inside_node;
+    site_anchor.source = evidence.inside_node ? PinSource::off_panel : PinSource::snarl;
+    site_anchor.kind = site_anchor_kind(genotype, phase_split);
     vector<SlotAnchors> slots = make_slot_anchors(evidence, slot_allele, base_slot, site_anchor);
 
     count_shared_names(evidence.reads, counters);
@@ -1001,6 +979,23 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& ca
     }
 }
 
+AnchorSiteEvidence pool_written_alleles(const AnchorSiteEvidence& evidence,
+                                        const vector<pair<int, int>>& written_as) {
+    AnchorSiteEvidence pooled = evidence;
+    const size_t n = pooled.n_alleles;
+    for (const auto& [from, to] : written_as) {
+        if (from == to || from < 0 || to < 0 || (size_t)from >= n || (size_t)to >= n) {
+            continue;
+        }
+        for (size_t r = 0; r < pooled.reads.size(); ++r) {
+            float* row = pooled.rel.data() + r * n;
+            row[to] += row[from];
+            row[from] = 0.0f;
+        }
+    }
+    return pooled;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Writer
 ////////////////////////////////////////////////////////////////////////////////
@@ -1021,68 +1016,33 @@ size_t AnchorWriter::anchor_count() const {
     return total;
 }
 
-/// Return -1, 0 or 1 as `a` is below, equal to or above `b`, with NaN below every number and
-/// equal to itself.
-static int compare_values(double a, double b) {
-    const bool a_nan = std::isnan(a);
-    const bool b_nan = std::isnan(b);
-    if (a_nan && b_nan) {
-        return 0;
-    }
-    if (a_nan) {
-        return -1;
-    }
-    if (b_nan) {
-        return 1;
-    }
-    if (a < b) {
-        return -1;
-    }
-    if (b < a) {
-        return 1;
-    }
-    return 0;
-}
-
 /**
- * Return whether anchor `a` comes before `b` on what the file writes for them besides node,
- * snarl and slot.
+ * Return whether anchor `a` comes before `b` in the file.
  *
- * That is the allele, gqn, explained, reliability, then the read rows in order (read name,
- * direction, offset, score). Two anchors equal on all of it are written identically, so their
- * order cannot show.
+ * Anchors are ordered by node ID. On one node, the anchors of sites come first, ordered by snarl
+ * and slot, since two snarls can share a boundary node, and then the fill anchors, ordered by pin,
+ * which the text of their IDs would not do. A site has one anchor for each slot and pin, and a node
+ * one fill anchor for each pin, so no two anchors agree on all of that, and the order cannot depend
+ * on how a parallel sort shares out the work, nor on which thread collected which anchor.
  */
-static bool written_before(const AnchorWriter::Anchor& a, const AnchorWriter::Anchor& b,
-                           const ReadNameTable& table) {
-    if (a.allele != b.allele) {
-        return a.allele < b.allele;
+static bool file_order_before(const AnchorWriter::Anchor& a, const AnchorWriter::Anchor& b) {
+    if (a.node != b.node) {
+        return a.node < b.node;
     }
-    for (int c : {compare_values(a.gqn, b.gqn), compare_values(a.explained, b.explained),
-                  compare_values(a.reliability, b.reliability)}) {
-        if (c != 0) {
-            return c < 0;
-        }
+    const bool a_fill = a.source == PinSource::fill;
+    if (const bool b_fill = b.source == PinSource::fill; a_fill != b_fill) {
+        return b_fill;
     }
-    if (a.reads.size() != b.reads.size()) {
-        return a.reads.size() < b.reads.size();
+    if (a_fill && a.pin != b.pin) {
+        return a.pin < b.pin;
     }
-    for (size_t i = 0; i < a.reads.size(); ++i) {
-        const AnchorWriter::ReadRow& x = a.reads[i];
-        const AnchorWriter::ReadRow& y = b.reads[i];
-        if (x.read != y.read && table.name(x.read) != table.name(y.read)) {
-            return table.name(x.read) < table.name(y.read);
-        }
-        if (x.direction != y.direction) {
-            return x.direction < y.direction;
-        }
-        if (x.offset != y.offset) {
-            return x.offset < y.offset;
-        }
-        if (const int c = compare_values(x.score, y.score); c != 0) {
-            return c < 0;
-        }
+    if (a.snarl != b.snarl) {
+        return a.snarl < b.snarl;
     }
-    return false;
+    if (a.slot != b.slot) {
+        return a.slot < b.slot;
+    }
+    return a.pin < b.pin;
 }
 
 vector<AnchorWriter::Anchor> AnchorWriter::take_sorted() {
@@ -1093,8 +1053,7 @@ vector<AnchorWriter::Anchor> AnchorWriter::take_sorted() {
         q.clear();
     }
     // Sort the reads within each anchor by read name, so that the file does not depend on thread
-    // scheduling. Do it before the anchors are sorted, so that their sort can compare whole
-    // anchors.
+    // scheduling.
     const ReadNameTable& table = read_names();
 #pragma omp parallel for schedule(dynamic, 1024)
     for (size_t i = 0; i < all.size(); ++i) {
@@ -1105,25 +1064,7 @@ vector<AnchorWriter::Anchor> AnchorWriter::take_sorted() {
             return x.offset < y.offset;
         });
     }
-    // Order the anchors by node ID, then by snarl and slot, since two snarls can share a boundary
-    // node. Order anchors that agree on node, snarl and slot by the rest of what is written for
-    // them, so that the order cannot depend on how the parallel sort shares out the work, nor on
-    // which thread collected which anchor.
-    parallel_sort(all.begin(), all.end(), [&table](const Anchor& a, const Anchor& b) {
-        if (a.node != b.node) {
-            return a.node < b.node;
-        }
-        if (a.snarl != b.snarl) {
-            return a.snarl < b.snarl;
-        }
-        if (a.slot != b.slot) {
-            return a.slot < b.slot;
-        }
-        if (a.pin != b.pin) {
-            return a.pin < b.pin;
-        }
-        return written_before(a, b, table);
-    });
+    parallel_sort(all.begin(), all.end(), file_order_before);
     return all;
 }
 
@@ -1145,54 +1086,82 @@ struct ReadPointHash {
     }
 };
 
+/// Whether each read point is held by an anchor, by the point.
+using HeldPoints = unordered_map<ReadPoint, bool, ReadPointHash>;
+
 /**
- * Remove read rows from off-panel anchors so that no point of a read alignment is in two
- * anchors, then remove the off-panel anchors left with too few reads.
+ * Remove from each anchor of `source`, in file order, the reads whose points `held` says are held,
+ * and return how many were removed.
  *
- * In file order, an off-panel anchor leaves out a read whose point a snarl's anchor holds, or an
- * earlier off-panel anchor kept. Snarl anchors are not checked against one another. Two snarls'
- * pins face into their own snarls, so no read crosses one point at both.
+ * An anchor left with at least `min_reads` reads then holds its reads' points.
+ */
+static size_t leave_out_held_reads(vector<AnchorWriter::Anchor>& all, PinSource source,
+                                   size_t min_reads, HeldPoints& held) {
+    size_t left_out = 0;
+    for (AnchorWriter::Anchor& a : all) {
+        if (a.source != source) {
+            continue;
+        }
+        left_out += std::erase_if(a.reads, [&held](const AnchorWriter::ReadRow& r) {
+            return held[point_of(r)];
+        });
+        if (a.reads.size() < min_reads) {
+            continue;
+        }
+        for (const AnchorWriter::ReadRow& r : a.reads) {
+            held[point_of(r)] = true;
+        }
+    }
+    return left_out;
+}
+
+/**
+ * Remove read rows from off-panel and fill anchors so that no point of a read alignment is in two
+ * anchors, then remove the off-panel and fill anchors left with too few reads.
+ *
+ * A snarl's anchor keeps every read. Then, in file order, an off-panel anchor leaves out a read
+ * whose point a snarl's anchor holds, or an earlier off-panel anchor kept. Last, in file order, a
+ * fill anchor leaves out a read whose point a snarl's anchor or a kept off-panel anchor holds, or
+ * an earlier fill anchor kept. Snarl anchors are not checked against one another. Two snarls' pins
+ * face into their own snarls, so no read crosses one point at both.
  *
  * @param tally Where the read rows and anchors left out are counted.
  */
 static void leave_out_held_points(vector<AnchorWriter::Anchor>& all, size_t min_reads,
                                   AnchorWriter::Tally& tally) {
-    // Who holds each point of an off-panel anchor: 0 for no anchor yet, 1 for a snarl's anchor,
-    // and 2 for an off-panel anchor that was kept.
-    unordered_map<ReadPoint, uint8_t, ReadPointHash> held(1024);
+    // Whether each point of an off-panel or fill anchor is held: by a snarl's anchor, or by an
+    // off-panel or fill anchor that was kept.
+    HeldPoints held(1024);
     for (const AnchorWriter::Anchor& a : all) {
-        if (!a.edit) {
+        if (a.source == PinSource::snarl) {
             continue;
         }
         for (const AnchorWriter::ReadRow& r : a.reads) {
-            held.try_emplace(point_of(r), 0);
+            held.try_emplace(point_of(r), false);
         }
     }
     for (const AnchorWriter::Anchor& a : all) {
-        if (a.edit || held.empty()) {
+        if (a.source != PinSource::snarl || held.empty()) {
             continue;
         }
         for (const AnchorWriter::ReadRow& r : a.reads) {
             if (auto found = held.find(point_of(r)); found != held.end()) {
-                found->second = 1;
+                found->second = true;
             }
         }
     }
-    tally.placements_left_out = 0;
-    for (AnchorWriter::Anchor& a : all) {
-        if (!a.edit) {
-            continue;
+    // Leave out the held reads of the off-panel anchors, then of the fill anchors, so that a fill
+    // anchor gives way to an off-panel anchor written after it.
+    tally.placements_left_out = leave_out_held_reads(all, PinSource::off_panel, min_reads, held);
+    tally.fill_placements_left_out = leave_out_held_reads(all, PinSource::fill, min_reads, held);
+    tally.anchors_left_out = 0;
+    tally.fill_anchors_left_out = 0;
+    std::erase_if(all, [min_reads, &tally](const AnchorWriter::Anchor& a) {
+        if (a.source == PinSource::snarl || a.reads.size() >= min_reads) {
+            return false;
         }
-        tally.placements_left_out +=
-            std::erase_if(a.reads, [&held](const AnchorWriter::ReadRow& r) { return held[point_of(r)] != 0; });
-        if (a.reads.size() >= min_reads) {
-            for (const AnchorWriter::ReadRow& r : a.reads) {
-                held[point_of(r)] = 2;
-            }
-        }
-    }
-    tally.anchors_left_out = std::erase_if(all, [min_reads](const AnchorWriter::Anchor& a) {
-        return a.edit && a.reads.size() < min_reads;
+        ++(a.source == PinSource::fill ? tally.fill_anchors_left_out : tally.anchors_left_out);
+        return true;
     });
 }
 
@@ -1265,7 +1234,7 @@ static void write_header(ostream& out, const string& graph_name, const string& s
                          const string& reads_source, double mismap_min, const AnchorParams& params,
                          const FileReadTable& table) {
     // The format version, raised whenever the columns or their meaning change.
-    out << "#anchors-version\t9\n";
+    out << "#anchors-version\t10\n";
     // Which vg wrote the file, since values can change between versions of vg while the format
     // version does not. Consumers skip unknown '#' lines.
     out << "#vg-version\t" << Version::get_version() << "\n";
@@ -1279,13 +1248,7 @@ static void write_header(ostream& out, const string& graph_name, const string& s
     // with different rules can be told apart.
     //   allele  -- the site's own allele match alone (`phase_hets` off)
     //   tilt    -- the allele match, weighted by the read's strand log-odds
-    //   strand  -- the sign of the strand log-odds alone (`strict_hets`)
-    const char* het_placement = "allele";
-    if (params.strict_hets) {
-        het_placement = "strand";
-    } else if (params.phase_hets) {
-        het_placement = "tilt";
-    }
+    const char* het_placement = params.phase_hets ? "tilt" : "allele";
     // What was filtered out, so a consumer seeing no anchor at a site it expected one at can tell a
     // threshold from an absence. Written whether or not the defaults were changed.
     out << "#filters\tmin-reads=" << params.min_reads << " min-gqn=" << params.min_gqn
@@ -1293,7 +1256,7 @@ static void write_header(ostream& out, const string& graph_name, const string& s
         << " off-call=" << (params.keep_off_call ? "kept" : "dropped")
         << " end-pin-min-new=" << params.end_pin_min_new
         << " hom-split=" << (params.hom_split ? "on" : "off")
-        << " het-placement=" << het_placement << "\n";
+        << " het-placement=" << het_placement << " fill=" << params.fill_spacing << "\n";
     if (params.hom_split) {
         // The two slots of a split homozygous site look like a heterozygote's, except that their
         // `allele` column is equal, so the header says that splitting was on.
@@ -1327,13 +1290,18 @@ static void write_header(ostream& out, const string& graph_name, const string& s
            "name one gap twice, once for each alignment.\n";
     out << "#note\tslot indexes the settled PHASED pair, so slot i is field i of that snarl's GT in "
         << "the VCF -- slot 0 the left allele, slot 1 the right. A homozygous site collapses to one "
-        << "slot holding every read, and carries no haplotype information to join on\n";
+        << "slot holding every read, and carries no haplotype information to join on. A site is "
+        << "homozygous when its GT is: two called traversals that spell one sequence are one VCF "
+        << "allele, and their reads are pooled. Alleles that -L merges as similar, which INFO/MAT "
+        << "marks, are not pooled\n";
     out << "#note\ta nested HAPLOID site also holds one slot, but it is a haplotype: the chain is "
         << "on one strand of a diploid locus because the parent's other allele deletes it. Its slot "
         << "is the strand, matching the non-'.' field of the site's a|. or .|a GT. From v5 -- v4 "
         << "wrote 0 for both strands\n";
     out << "#note\tallele is the index into the site's candidate traversal set, which is NOT the "
-        << "VCF ALT number: the ALT list is chosen after anchors are built. Use slot to join to GT\n";
+        << "VCF ALT number. At a site with a line it is the traversal the slot's VCF allele is "
+        << "spelled from, so a called traversal that is symbolically the reference is written as "
+        << "the reference traversal. Use slot to join to GT\n";
     out << "#note\tgqn is SIGNED in [-1,1] and matches the VCF's GQN, including on the records the "
            "linkage layer moved: negative means linkage called against the reads, which is the "
            "population that carries a 37.8% false-positive rate against 8.6% overall. `.` means the "
@@ -1374,7 +1342,38 @@ static void write_header(ostream& out, const string& graph_name, const string& s
            "op<node>.<offset>.M<length>: offset is its first changed base along the node's forward "
            "strand, length the bases it replaces, and its ALTs are what the reads spell there. "
            "From v9\n";
-    out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\treliability\tpin\n";
+    out << "#note\ta fill anchor, with snarl column fill<node>.<pin>, pins a point chosen from the "
+           "graph alone. A unitig is a longest run of nodes joined end to end with no branch. Inside "
+           "each unitig longer than the fill spacing K (fill=K in #filters, 0 for no fill anchors), "
+           "ceil(L/K)-1 points divide its length L evenly, and a point that falls between two nodes "
+           "moves forward into the next node. A fill anchor holds, in its one slot, the reads placed "
+           "at its point: a read is placed where it visits the node once, aligns a read base to the "
+           "node base before the point along the node's forward strand, and has a read base on the "
+           "point's other side outside its soft clips.\n";
+    out << "#note\ta fill anchor's slot and kind come from the called walks of the deciding site: "
+           "the innermost site holding the point that has a called genotype, passing over a nested "
+           "chain whose strand is not known. Where no site holds the point, where both of the "
+           "sample's strands cross it, or where the site's genotype is homozygous or in a region of "
+           "ploidy 1, the slot is 0 and the kind fill-shared. Where only one strand's called walk "
+           "crosses it, the slot is that strand and the kind fill-strand. Where no called walk of "
+           "the deciding site crosses it, or no site holding it has a called genotype, the slot is "
+           "0 and the kind fill-off-call.\n";
+    out << "#note\ta fill-strand slot is a field of the deciding site's phased GT, as a site "
+           "anchor's slot is. The row does not name that site, so the slot names a haplotype only "
+           "where a reader finds the site, from the snarl decomposition, and it is phased.\n";
+    out << "#note\ta fill anchor leaves out a read whose point a snarl's or an off-panel anchor "
+           "holds, or a fill anchor written before it, and is written only if at least min-reads "
+           "reads remain.\n";
+    out << "#note\ta fill anchor writes . for allele, gqn, explained and reliability, which belong "
+           "to sites. Its R rows read along the node's forward strand: strand 0 means the read "
+           "crosses the point in the direction of the node's forward strand. Their score is the "
+           "phred-scaled mismapping probability of the read, clamped as at a site.\n";
+    out << "#note\tkind is het (one strand of a genotype with two different alleles), hom (the one "
+           "slot of a homozygous genotype, holding every read), hom-split (one strand of a "
+           "homozygous genotype whose reads were divided by their strand log-odds), haploid (the "
+           "one slot of a genotype of one allele: a nested haploid chain, or a region of ploidy 1), "
+           "or one of the fill anchor kinds fill-shared, fill-strand and fill-off-call.\n";
+    out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\treliability\tpin\tkind\n";
     out << "#H\tR\tread_id\tstrand\toffset\tscore\n";
     for (size_t i = 0; i < table.names.size(); ++i) {
         out << "#read\t" << i << "\t" << table.names[i] << "\n";
@@ -1383,19 +1382,31 @@ static void write_header(ostream& out, const string& graph_name, const string& s
 
 /// Write an anchor's A row and its R rows, to a stream set to fixed-point notation.
 static void format_anchor(ostream& os, const AnchorWriter::Anchor& a, const vector<uint32_t>& row_of) {
-    os << "A\t" << a.node << "\t" << a.snarl << "\t" << a.slot << "\t" << a.allele << "\t";
+    os << "A\t" << a.node << "\t" << a.snarl << "\t" << a.slot << "\t";
+    if (a.allele < 0) {
+        os << ".";
+    } else {
+        os << a.allele;
+    }
+    os << "\t";
     if (std::isnan(a.gqn)) {
         os << ".";
     } else {
         os << std::setprecision(3) << a.gqn;
     }
-    os << "\t" << std::setprecision(3) << a.explained << "\t";
+    os << "\t";
+    if (std::isnan(a.explained)) {
+        os << ".";
+    } else {
+        os << std::setprecision(3) << a.explained;
+    }
+    os << "\t";
     if (a.reliability < 0.0) {
         os << ".";
     } else {
         os << std::setprecision(2) << a.reliability;
     }
-    os << "\t" << a.pin << "\n";
+    os << "\t" << a.pin << "\t" << anchor_kind_name(a.kind) << "\n";
     for (const AnchorWriter::ReadRow& r : a.reads) {
         os << "R\t" << row_of[r.read] << "\t" << (int)r.direction << "\t" << r.offset << "\t"
            << std::setprecision(1) << r.score << "\n";
@@ -1442,8 +1453,10 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     leave_out_held_points(all, params.min_reads, written);
     written.anchors_written = all.size();
     written.placements_written = 0;
+    written.written_by_kind.fill(0);
     for (const Anchor& a : all) {
         written.placements_written += a.reads.size();
+        ++written.written_by_kind[(size_t)a.kind];
     }
     const FileReadTable table = build_file_read_table(all);
 
@@ -1470,47 +1483,6 @@ void AnchorCollector::configure(string_view anchor_path, const AnchorParams& anc
     if (!path.empty()) {
         // Make one queue per OpenMP thread, since the passes that fill it are parallel.
         writer = make_unique<AnchorWriter>((size_t)max(1, get_thread_count()));
-    }
-}
-
-/**
- * Count, at one heterozygous site, how often each read's strand log-odds favour the slot its
- * allele put it in.
- *
- * This checks `AnchorParams::hom_split`, since at a heterozygous site the alleles show which
- * strand each read is on. Each read is counted once, though both pins of its slot hold it.
- *
- * @param strand_log_odds Called with a read name to get the read's strand log-odds, leaving the
- * site out.
- */
-/// Return whether slots 0 and 1 of a site's anchors both exist and hold different alleles.
-static bool slots_hold_two_alleles(const vector<AnchorWriter::Anchor>& anchors) {
-    std::array<int, 2> allele_of_slot{-1, -1};
-    for (const AnchorWriter::Anchor& anchor : anchors) {
-        if (anchor.slot >= 0 && anchor.slot < 2) {
-            allele_of_slot[anchor.slot] = anchor.allele;
-        }
-    }
-    return allele_of_slot[0] >= 0 && allele_of_slot[1] >= 0 && allele_of_slot[0] != allele_of_slot[1];
-}
-
-template<typename StrandLogOdds>
-static void check_phase_against_alleles(const vector<AnchorWriter::Anchor>& anchors,
-                                        double phase_min, StrandLogOdds& strand_log_odds,
-                                        AnchorPhaseCheckCounters& counters) {
-    if (!slots_hold_two_alleles(anchors)) {
-        return;
-    }
-    unordered_set<uint32_t> counted;
-    for (const AnchorWriter::Anchor& anchor : anchors) {
-        if (anchor.slot < 0 || anchor.slot > 1) {
-            continue;
-        }
-        for (const AnchorWriter::ReadRow& row : anchor.reads) {
-            if (counted.insert(row.read).second) {
-                counters.count(strand_log_odds(read_names().name(row.read)), anchor.slot, phase_min);
-            }
-        }
     }
 }
 
@@ -1541,11 +1513,11 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, const AnchorCa
     // Each read's strand log-odds, leaving out this site.
     vector<double> read_strand;
     // Fill it only where `build_site_anchors` reads it: at a diploid homozygote that may be split,
-    // or at a heterozygous site with `phase_hets` or `strict_hets` on. `build_site_anchors` checks
-    // the length of the vector, so an empty one is ignored.
+    // or at a heterozygous site with `phase_hets` on. `build_site_anchors` checks the length of the
+    // vector, so an empty one is ignored.
     const bool splittable_hom = genotype.size() == 2 && genotype[0] == genotype[1];
-    if (const bool tiltable_het = (params.phase_hets || params.strict_hets)
-                                  && genotype.size() == 2 && genotype[0] != genotype[1];
+    if (const bool tiltable_het = params.phase_hets && genotype.size() == 2
+                                  && genotype[0] != genotype[1];
         (params.hom_split && splittable_hom) || tiltable_het) {
         read_strand.reserve(evidence.reads.size());
         for (const AnchorRead& read : evidence.reads) {
@@ -1554,17 +1526,17 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, const AnchorCa
     }
     vector<AnchorWriter::Anchor> anchors;
     build_site_anchors(evidence, call, site_name, params, anchors,
-                       (params.hom_split || params.phase_hets || params.strict_hets)
-                           ? &read_strand : nullptr);
-    // Check the strand log-odds only when splitting is on, and not when the heterozygous
-    // placement itself uses them, since the check would then compare the strand with itself.
-    if (params.hom_split && !params.phase_hets && !params.strict_hets && anchors.size() >= 2) {
-        check_phase_against_alleles(anchors, params.phase_min, strand_log_odds,
-                                    params.counters->phase_check);
-    }
+                       (params.hom_split || params.phase_hets) ? &read_strand : nullptr);
     for (AnchorWriter::Anchor& anchor : anchors) {
         writer->add(std::move(anchor));
     }
+}
+
+void AnchorCollector::add(AnchorWriter::Anchor&& anchor) {
+    if (path.empty() || writer == nullptr) {
+        return;
+    }
+    writer->add(std::move(anchor));
 }
 
 void AnchorCollector::write(const string& sample_name) {
@@ -1579,6 +1551,19 @@ void AnchorCollector::write(const string& sample_name) {
          << writer->tally().placements_left_out << " off-panel read placements left out because a "
          << "snarl's anchor or an earlier off-panel anchor holds the same read point, and then "
          << writer->tally().anchors_left_out << " off-panel anchors below the minimum reads" << endl;
+    if (params.fill_spacing > 0) {
+        const AnchorWriter::Tally& tally = writer->tally();
+        cerr << "[vg call] fill anchors: " << tally.fill_placements_left_out
+             << " read placements left out because a snarl's, an off-panel or an earlier fill "
+             << "anchor holds the same read point, and then " << tally.fill_anchors_left_out
+             << " fill anchors below the minimum reads" << endl;
+        cerr << "[vg call] anchors written by kind:";
+        for (size_t k = 0; k < ANCHOR_KIND_COUNT; ++k) {
+            cerr << (k == 0 ? " " : ", ") << anchor_kind_name((AnchorKind)k) << " "
+                 << tally.written_by_kind[k];
+        }
+        cerr << endl;
+    }
     if (params.counters != nullptr) {
         params.counters->report(cerr);
     }

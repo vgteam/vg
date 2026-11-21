@@ -3,7 +3,6 @@
 
 #include <functional>
 #include <string>
-#include <string_view>
 
 #include "regenotype.hpp"
 #include "phase_table.hpp"
@@ -27,11 +26,8 @@ public:
      *
      * @param passes The most linkage passes. With 1, the correction is computed and reported
      * but not applied.
-     * @param ledger The file to write one line to for each site whose best genotype the
-     * correction changes, or empty for none.
      */
-    void configure(bool enable, const RegenotypeParams& settings, size_t passes,
-                   std::string_view ledger);
+    void configure(bool enable, const RegenotypeParams& settings, size_t passes);
 
     /// Set where to find the genotyper, which recomputes GQ. Call this before `rescore()`.
     void set_site_reader(SiteReader site_reader);
@@ -87,8 +83,6 @@ private:
     RegenotypeParams regenotype_params;
     /// The most linkage passes.
     size_t max_passes = 2;
-    /// The ledger file, or empty for none.
-    string ledger_path;
     /// Finds the genotyper that recomputes GQ.
     SiteReader reader;
     /// What the last `rescore()` did.
