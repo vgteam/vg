@@ -7,7 +7,9 @@
 #include "catch.hpp"
 
 #include "../recombinator_haplotypes.hpp"
+#include "../../artifacts/diploid_pair_scorer.hpp"
 
+#include <cmath>
 #include <random>
 #include <sstream>
 #include <string>
@@ -128,9 +130,22 @@ KmerPresenceMatrix::kmer_classification kmer_class(size_t kmer_id) {
 }
 
 // Arbitrary integer weights for the kmers. Integers are exact in `double`, so we can
-// compare the scores for equality even though the matrix may sum them in another order.
+// compare the scores with sums from the rows even though the matrix may sum them in
+// another order.
 double kmer_weight(size_t kmer_id) {
     return static_cast<double>(kmer_id % 7) - 3.0;
+}
+
+// Arbitrary weights of mixed signs and magnitudes, whose sums depend on the order of the
+// additions.
+std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> rounding_kmers(size_t num_kmers) {
+    std::mt19937_64 rng(num_kmers + 1);
+    std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> result;
+    for (size_t j = 0; j < num_kmers; j++) {
+        double magnitude = std::ldexp(1.0 + double(rng() % 1000) / 999.0, int(rng() % 20) - 10);
+        result.emplace_back(kmer_class(j), (rng() % 2 == 0 ? magnitude : -magnitude));
+    }
+    return result;
 }
 
 // Checks `KmerPresenceMatrix` queries and iterators agains the original rows.
@@ -179,6 +194,21 @@ void check_queries(
         }
     }
 
+    // The presence of the kmers in a single sequence as 64-bit words.
+    for (size_t i = 0; i < rows.size(); i++) {
+        std::vector<std::uint64_t> row;
+        matrix.presence_row(i, row);
+        REQUIRE(row.size() == (num_kmers + 63) / 64);
+        for (size_t j = 0; j < num_kmers; j++) {
+            bool bit = (row[j / 64] >> (j % 64)) & 1;
+            bool expected = (rows[i][j] == '1');
+            if (bit != expected) {
+                std::cerr << name << ": wrong presence row bit for kmer " << j << " in sequence " << i << std::endl;
+            }
+            REQUIRE(bit == expected);
+        }
+    }
+
     // Out-of-range sequences do not produce any calls.
     {
         size_t calls = 0;
@@ -189,27 +219,38 @@ void check_queries(
     // Kmers with arbitrary classifications and scores.
     std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmers;
     for (size_t j = 0; j < num_kmers; j++) {
-        kmers.emplace_back(kmer_class(j), kmer_weight(j));
+        // The class also depends on the word of the kmer, so that the kmers at the
+        // same place in different words have different classes.
+        kmers.emplace_back(kmer_class(j + j / 64), kmer_weight(j));
     }
 
-    // Iterating over pairs of sequences and computing their diploid scores.
-    for (size_t i = 0; i < rows.size(); i++) {
-        for (size_t j = i; j < rows.size(); j++) {
-            std::int64_t score = matrix.diploid_score(i, j, kmers);
-            std::int64_t expected_score = 0;
-            for (size_t kmer_id = 0; kmer_id < num_kmers; kmer_id++) {
-                std::int64_t num_present = (rows[i][kmer_id] == '1') + (rows[j][kmer_id] == '1');
-                if (kmers[kmer_id].first == KmerPresenceMatrix::absent) {
-                    expected_score += 1 - num_present;
-                } else if (kmers[kmer_id].first == KmerPresenceMatrix::heterozygous) {
-                    if (num_present == 1) {
-                        expected_score += 1;
+    // Scoring pairs of sequences as the two haplotypes of a diploid sample, with the
+    // sequences as candidates in reverse order.
+    {
+        Haplotypes::Subchain subchain;
+        subchain.kmers_present = matrix;
+        std::vector<size_t> candidates;
+        for (size_t i = rows.size(); i > 0; i--) {
+            candidates.push_back(i - 1);
+        }
+        DiploidPairScorer scorer(subchain, candidates, kmers);
+        for (size_t i = 0; i < candidates.size(); i++) {
+            for (size_t j = i; j < candidates.size(); j++) {
+                std::int64_t expected_score = 0;
+                for (size_t kmer_id = 0; kmer_id < num_kmers; kmer_id++) {
+                    std::int64_t num_present = (rows[candidates[i]][kmer_id] == '1') + (rows[candidates[j]][kmer_id] == '1');
+                    if (kmers[kmer_id].first == KmerPresenceMatrix::absent) {
+                        expected_score += 1 - num_present;
+                    } else if (kmers[kmer_id].first == KmerPresenceMatrix::heterozygous) {
+                        if (num_present == 1) {
+                            expected_score += 1;
+                        }
+                    } else if (kmers[kmer_id].first == KmerPresenceMatrix::present) {
+                        expected_score += num_present - 1;
                     }
-                } else if (kmers[kmer_id].first == KmerPresenceMatrix::present) {
-                    expected_score += num_present - 1;
                 }
+                REQUIRE(scorer.score(i, j) == expected_score);
             }
-            REQUIRE(score == expected_score);
         }
     }
 
@@ -235,6 +276,32 @@ void check_queries(
                 std::cerr << name << ": wrong score for sequence " << i << std::endl;
             }
             REQUIRE(scores[i] == expected);
+        }
+    }
+
+    // Scoring with a plan makes the same additions in the same order as scoring without
+    // one, so the scores are equal with weights that round.
+    {
+        auto weights = rounding_kmers(num_kmers);
+        std::vector<double> scores(rows.size(), 0.0);
+        matrix.score_sequences(weights, [&](size_t sequence, double score) {
+            scores[sequence] = score;
+        });
+        for (size_t i = 0; i < rows.size(); i++) {
+            REQUIRE(matrix.score_sequence(i, weights) == scores[i]);
+        }
+        std::optional<KmerPresenceMatrix::ScoringPlan> plan = matrix.scoring_plan(std::numeric_limits<size_t>::max());
+        REQUIRE(plan.has_value());
+        std::vector<double> planned(rows.size(), 0.0);
+        matrix.score_sequences(weights, *plan, [&](size_t sequence, double score) {
+            planned[sequence] = score;
+        });
+        REQUIRE(planned == scores);
+
+        // A plan is made only within its limit on the differences.
+        REQUIRE(matrix.scoring_plan(plan->differences.size()).has_value());
+        if (!plan->differences.empty()) {
+            REQUIRE(!matrix.scoring_plan(plan->differences.size() - 1).has_value());
         }
     }
 }
@@ -536,6 +603,138 @@ TEST_CASE("Scoring the haplotypes in a subchain", "[haplotypes]") {
         );
         REQUIRE(calls == 0);
     }
+}
+
+//------------------------------------------------------------------------------
+
+namespace {
+
+void check_same_kmers(const Haplotypes::Subchain& subchain, const Haplotypes::Subchain& loaded) {
+    REQUIRE(loaded.type == subchain.type);
+    REQUIRE(loaded.start == subchain.start);
+    REQUIRE(loaded.end == subchain.end);
+    REQUIRE(loaded.kmers == subchain.kmers);
+    REQUIRE(loaded.sequences == subchain.sequences);
+    REQUIRE(loaded.kmers_present == subchain.kmers_present);
+}
+
+// Serializes the subchain, loads it into `loaded`, and checks the size, the end of the
+// stream and the kmers.
+void check_round_trip(const Haplotypes::Subchain& subchain, Haplotypes::Subchain& loaded) {
+    std::stringstream buffer;
+    buffer.exceptions(std::ios::failbit | std::ios::badbit);
+    subchain.simple_sds_serialize(buffer);
+    REQUIRE(buffer.str().size() == subchain.simple_sds_size() * sizeof(sdsl::simple_sds::element_type));
+    loaded.simple_sds_load(buffer);
+    REQUIRE(buffer.peek() == EOF);
+    check_same_kmers(subchain, loaded);
+}
+
+} // anonymous namespace
+
+TEST_CASE("Kmer copies in a subchain", "[haplotypes]") {
+    std::vector<std::string> matrix {
+        "1101",
+        "0111",
+        "1100"
+    };
+    Haplotypes::Subchain subchain = build_subchain(matrix, 4);
+    std::vector<Haplotypes::Subchain::kmer_copies_type> copies {
+        { { 0, 2 }, { 3, 5 } },
+        {},
+        { { 1, 3 } }
+    };
+
+    SECTION("a subchain without copies") {
+        REQUIRE(!subchain.has_copies());
+        for (size_t i = 0; i < subchain.num_sequences(); i++) {
+            REQUIRE(subchain.get_copies(i).empty());
+        }
+        // An index built without subchain kmers stores every subchain like this.
+        Haplotypes::Subchain loaded;
+        check_round_trip(subchain, loaded);
+        REQUIRE(!loaded.has_copies());
+        REQUIRE(loaded.walk_n_bases.empty());
+    }
+
+    SECTION("copies are listed by sequence") {
+        subchain.set_copies(copies);
+        REQUIRE(subchain.has_copies());
+        for (size_t i = 0; i < subchain.num_sequences(); i++) {
+            REQUIRE(subchain.get_copies(i) == copies[i]);
+        }
+    }
+
+    SECTION("serialization") {
+        subchain.set_copies(copies);
+        subchain.set_walk_bases(40.5, { 0, 7, 2 });
+        Haplotypes::Subchain loaded;
+        check_round_trip(subchain, loaded);
+        REQUIRE(loaded.has_copies());
+        for (size_t i = 0; i < subchain.num_sequences(); i++) {
+            REQUIRE(loaded.get_copies(i) == copies[i]);
+        }
+        REQUIRE(loaded.median_walk_bases == 40.5);
+        REQUIRE(loaded.walk_n_bases == subchain.walk_n_bases);
+    }
+
+    SECTION("N bases must be given for every walk") {
+        subchain.set_copies(copies);
+        REQUIRE_THROWS_AS(subchain.set_walk_bases(40.5, { 0, 7 }), std::invalid_argument);
+        // A file with N bases for some walks only is invalid.
+        subchain.walk_n_bases = sdsl::int_vector<0>(2, 0, 3);
+        std::stringstream buffer;
+        subchain.simple_sds_serialize(buffer);
+        Haplotypes::Subchain loaded;
+        REQUIRE_THROWS_AS(loaded.simple_sds_load(buffer, Haplotypes::Header::VERSION), sdsl::simple_sds::InvalidData);
+    }
+
+    SECTION("an earlier version has no copies") {
+        // A version 7 subchain ends where version 8 starts storing the copies, so the
+        // start of a version 8 subchain loads as a version 7 subchain. Loading clears
+        // the copies the subchain had.
+        std::stringstream buffer;
+        subchain.simple_sds_serialize(buffer);
+        Haplotypes::Subchain loaded = subchain;
+        loaded.set_copies(copies);
+        loaded.simple_sds_load(buffer, Haplotypes::Header::COMPRESSED_VERSION);
+        check_same_kmers(subchain, loaded);
+        REQUIRE(!loaded.has_copies());
+    }
+
+    SECTION("copies that do not match the sequences are invalid") {
+        // Each case breaks one of the conditions: copies for each sequence, as many
+        // values as kmers, the last offset, offsets that do not decrease, kmer ids of
+        // the subchain, kmer ids in increasing order, and the range of the values.
+        std::vector<Haplotypes::Subchain> invalid(8, subchain);
+        invalid[0].set_copies({ { { 0, 2 } }, {} });
+        invalid[1].set_copies(copies);
+        invalid[1].copy_values.resize(invalid[1].copy_kmers.size() - 1);
+        invalid[2].set_copies(copies);
+        invalid[2].copy_offsets[subchain.num_sequences()] = invalid[2].copy_kmers.size() - 1;
+        invalid[3].set_copies(copies);
+        invalid[3].copy_offsets[1] = 3;
+        invalid[4].set_copies({ { { 4, 2 } }, {}, {} });
+        invalid[5].set_copies({ { { 3, 2 }, { 0, 2 } }, {}, {} });
+        invalid[6].set_copies({ { { 0, 1 } }, {}, {} });
+        invalid[7].set_copies({ { { 0, Haplotypes::Subchain::MAX_COPIES + 1 } }, {}, {} });
+        for (const Haplotypes::Subchain& broken : invalid) {
+            std::stringstream buffer;
+            broken.simple_sds_serialize(buffer);
+            Haplotypes::Subchain loaded;
+            REQUIRE_THROWS_AS(loaded.simple_sds_load(buffer, Haplotypes::Header::VERSION), sdsl::simple_sds::InvalidData);
+        }
+    }
+}
+
+TEST_CASE("Kmer presence must match the kmers of a subchain", "[haplotypes]") {
+    Haplotypes::Subchain subchain = build_subchain({ "1101", "0111", "1100" }, 4);
+    subchain.kmers.push_back(subchain.kmers.back() + 1);
+    subchain.kmer_counts.resize(subchain.kmers.size());
+    std::stringstream buffer;
+    subchain.simple_sds_serialize(buffer);
+    Haplotypes::Subchain loaded;
+    REQUIRE_THROWS_AS(loaded.simple_sds_load(buffer, Haplotypes::Header::VERSION), sdsl::simple_sds::InvalidData);
 }
 
 //------------------------------------------------------------------------------

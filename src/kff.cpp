@@ -213,63 +213,146 @@ std::vector<uint8_t> kff_reverse_complement(const uint8_t* kmer, size_t k, const
 
 //------------------------------------------------------------------------------
 
+namespace {
+
+// Return the value of a variable that the latest variable section of the file
+// sets. Throw `std::runtime_error` if it does not set it.
+uint64_t kff_variable(const Kff_file& file, const std::string& name) {
+    auto found = file.global_vars.find(name);
+    if (found == file.global_vars.end()) {
+        throw std::runtime_error("ParallelKFFReader: file " + file.filename + " does not set variable " + name);
+    }
+    return found->second;
+}
+
+} // anonymous namespace
+
 ParallelKFFReader::ParallelKFFReader(const std::string& filename) :
-    reader(filename)
+    file(filename, "r")
 {
-    this->k = this->reader.get_var("k");
+    // The variables that the first block section uses come before it.
+    this->open_next_section();
+
+    this->k = kff_variable(this->file, "k");
     if (this->k > gbwtgraph::Key64::KMER_MAX_LENGTH) {
         throw std::runtime_error("ParallelKFFReader: file " + filename + " contains " + std::to_string(this->k) +
             "-mers; cannot use k > " + std::to_string(gbwtgraph::Key64::KMER_MAX_LENGTH));
     }
 
-    this->max_kmers_per_block = this->reader.get_var("max");
-    this->data_bytes = this->reader.get_var("data_size");
+    this->max_kmers_per_block = kff_variable(this->file, "max");
+    this->data_bytes = kff_variable(this->file, "data_size");
+    this->block_buffer.resize(kff_bytes(this->max_kmers_per_block + this->k - 1));
+    this->data_buffer.resize(this->max_kmers_per_block * this->data_bytes);
 
-    std::uint8_t* buf = this->reader.get_encoding();
     for (size_t i = 0; i < 4; i++) {
-        this->encoding[i] = buf[i];
+        this->encoding[i] = this->file.encoding[i];
     }
     this->recoding = kff_recoding(this->encoding);
+    this->trivial_encoding = kff_is_trivial(this->encoding);
+}
+
+void ParallelKFFReader::open_next_section() {
+    this->section.reset();
+    while (this->section == nullptr && this->file.tellp() < this->file.end_position) {
+        char type = this->file.read_section_type();
+        if (type == 'v') {
+            // Opening the section reads its variables into `file.global_vars`.
+            Section_GV variables(&this->file);
+        } else if (type == 'i') {
+            Section_Index index(&this->file);
+            index.close();
+        } else {
+            this->section.reset(Block_section_reader::construct_section(&this->file));
+            if (this->section == nullptr) {
+                throw std::runtime_error("ParallelKFFReader: file " + this->file.filename +
+                    " has a section of unknown type " + std::string(1, type));
+            }
+        }
+    }
+}
+
+Block_section_reader* ParallelKFFReader::next_section() {
+    while (this->section != nullptr && this->section->remaining_blocks == 0) {
+        this->open_next_section();
+    }
+    // The buffers are sized for the first section, so a section that does not match it
+    // is never read. The check is made on every call, so every later call fails too.
+    if (this->section != nullptr && (this->section->k != this->k || this->section->data_size != this->data_bytes ||
+        this->section->max > this->max_kmers_per_block)) {
+        throw std::runtime_error("ParallelKFFReader: file " + this->file.filename +
+            " has sections with different kmer lengths, count sizes, or block lengths");
+    }
+    return this->section.get();
+}
+
+bool ParallelKFFReader::has_single_kmer_records(const Block_section_reader& blocks) {
+    // A raw section stores the number of kmers in a block only if a block can
+    // hold more than one kmer. Otherwise a block is the packed kmer followed by
+    // its count.
+    return (blocks.max == 1 && dynamic_cast<const Section_Raw*>(&blocks) != nullptr);
+}
+
+std::pair<ParallelKFFReader::kmer_type, size_t> ParallelKFFReader::decode_single(const uint8_t* block, const uint8_t* data) const {
+    kmer_type kmer = (this->trivial_encoding ? kff_recode_trivial(block, this->k, kff_bytes(this->k)) : kff_recode(block, this->k, this->recoding));
+    return { kmer, kff_parse(data, this->data_bytes) };
+}
+
+void ParallelKFFReader::read_block(Block_section_reader& from, std::vector<std::pair<kmer_type, size_t>>& result, size_t space) {
+    size_t block_size = from.read_compacted_sequence(this->block_buffer.data(), this->data_buffer.data());
+    if (block_size == 1) {
+        result.push_back(this->decode_single(this->block_buffer.data(), this->data_buffer.data()));
+        return;
+    }
+    std::vector<kmer_type> kmers = kff_recode(this->block_buffer.data(), block_size, this->k, this->recoding);
+    for (size_t i = 0; i < kmers.size(); i++) {
+        std::pair<kmer_type, size_t> kmer(kmers[i], kff_parse(this->data_buffer.data() + i * this->data_bytes, this->data_bytes));
+        if (i < space) {
+            result.push_back(kmer);
+        } else {
+            this->buffer.push_back(kmer);
+        }
+    }
 }
 
 std::vector<std::pair<ParallelKFFReader::kmer_type, size_t>> ParallelKFFReader::read(size_t n) {
     std::vector<std::pair<kmer_type, size_t>> result;
     result.reserve(n);
 
-    std::lock_guard<std::mutex> lock(this->mtx);
-
-    while (!this->buffer.empty() && result.size() < n) {
-        result.push_back(this->buffer.front());
-        this->buffer.pop_front();
-    }
-    if (result.size() >= n) {
-        return result;
-    }
-
-    // Because we read kmers by blocks, we have to preallocate the buffers.
-    uint8_t* block = new uint8_t[kff_bytes(this->max_kmers_per_block + this->k - 1)];
-    uint8_t* data = new uint8_t[this->max_kmers_per_block * this->data_bytes];
+    // Single-kmer blocks are copied from the file under the lock and decoded
+    // after it. Allocate the space for them before taking the lock.
     size_t kmer_bytes = kff_bytes(this->k);
-    bool trivial_encoding(kff_is_trivial(this->encoding));
-    while (this->reader.has_next() && result.size() < n) {
-        size_t block_size = this->reader.next_block(block, data);
-        if (block_size > 1) {
-            std::vector<kmer_type> kmers = kff_recode(block, block_size, this->k, this->recoding);
-            for (size_t i = 0; i < block_size; i++) {
-                std::pair<kmer_type, size_t> kmer(kmers[i], kff_parse(data + i * data_bytes, data_bytes));
-                if (result.size() < n) {
-                    result.push_back(kmer);
-                } else {
-                    buffer.push_back(kmer);
-                }
+    size_t record_bytes = kmer_bytes + this->data_bytes;
+    std::unique_ptr<uint8_t[]> records(new uint8_t[n * record_bytes]);
+    size_t num_records = 0;
+
+    {
+        std::scoped_lock lock(this->mtx);
+
+        while (!this->buffer.empty() && result.size() < n) {
+            result.push_back(this->buffer.front());
+            this->buffer.pop_front();
+        }
+
+        Block_section_reader* current = this->next_section();
+        while (current != nullptr && result.size() + num_records < n) {
+            size_t space = n - result.size() - num_records;
+            if (has_single_kmer_records(*current)) {
+                // The blocks are fixed-size records, so a run of them is one read.
+                size_t run = std::min(static_cast<size_t>(current->remaining_blocks), space);
+                this->file.read(records.get() + num_records * record_bytes, run * record_bytes);
+                current->remaining_blocks -= run;
+                num_records += run;
+            } else {
+                this->read_block(*current, result, space);
             }
-        } else {
-            kmer_type kmer = (trivial_encoding ? kff_recode_trivial(block, this->k, kmer_bytes) : kff_recode(block, this->k, this->recoding));
-            result.push_back({ kmer, kff_parse(data, data_bytes) });
+            current = this->next_section();
         }
     }
-    delete[] block; block = nullptr;
-    delete[] data; data = nullptr;
+
+    for (size_t i = 0; i < num_records; i++) {
+        const uint8_t* record = records.get() + i * record_bytes;
+        result.push_back(this->decode_single(record, record + kmer_bytes));
+    }
 
     return result;
 }

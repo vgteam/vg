@@ -9,6 +9,7 @@
 
 #include "../hash_map.hpp"
 #include "../recombinator.hpp"
+#include "../utility.hpp"
 #include "../algorithms/extract_subchain.hpp"
 
 #include <cmath>
@@ -127,6 +128,7 @@ struct HaplotypesConfig {
     // Other parameters.
     size_t threads = haplotypes_defaults::threads();
     bool validate = false;
+    bool model_preset = false; // The model preset needs an index with subchain kmers.
 
     HaplotypesConfig(int argc, char** argv, size_t max_threads);
 };
@@ -152,21 +154,42 @@ int main_haplotypes(int argc, char** argv) {
     // Parse the arguments.
     HaplotypesConfig config(argc, argv, max_threads);
 
-    // Load the graph.
+    // Load the graph. Haplotype information from a file loads on another thread at
+    // the same time.
     gbwtgraph::GBZ gbz;
-    load_gbz(gbz, config.graph_name, config.verbosity >= Haplotypes::verbosity_basic);
-
-    // Generate or load haplotype information.
     Haplotypes haplotypes;
-    if (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_preprocess) {
-        preprocess_graph(gbz, haplotypes, config);
-    } else {
+    bool preprocess = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_preprocess);
+    std::thread haplotype_loader;
+    std::string haplotype_error;
+    if (!preprocess) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
-            config.logger.info() << "Loading haplotype information from " 
+            config.logger.info() << "Loading haplotype information from "
                                  << config.haplotype_input << std::endl;
         }
-        haplotypes.load_from(config.haplotype_input);
+        haplotype_loader = std::thread([&haplotypes, &haplotype_error, &config]() {
+            try {
+                sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
+            } catch (const std::runtime_error& e) {
+                haplotype_error = e.what();
+            }
+        });
+    }
+    load_gbz(gbz, config.graph_name, config.verbosity >= Haplotypes::verbosity_basic);
+
+    // Generate haplotype information, or wait for it to load.
+    if (preprocess) {
+        preprocess_graph(gbz, haplotypes, config);
+    } else {
+        haplotype_loader.join();
+        if (!haplotype_error.empty()) {
+            config.logger.error() << "cannot load haplotype information from " << config.haplotype_input
+                                  << ": " << haplotype_error << std::endl;
+        }
         require_compatible_graphs(gbz, "GBZ", haplotypes, "Haplotype Information");
+    }
+    bool sampling = (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes);
+    if (sampling && config.model_preset && !haplotypes.has_copies()) {
+        config.logger.error() << "the model preset needs haplotype information built with --subchain-kmers" << std::endl;
     }
 
     // Save haplotype information if necessary.
@@ -178,7 +201,7 @@ int main_haplotypes(int argc, char** argv) {
     }
 
     // Sample the haplotypes.
-    if (config.mode == HaplotypesConfig::mode_sample_graph || config.mode == HaplotypesConfig::mode_sample_haplotypes) {
+    if (sampling) {
         // Update reference samples if necessary.
         if (!config.reference_samples.empty()) {
             set_reference_samples(gbz, config);
@@ -241,6 +264,8 @@ void help_haplotypes(char** argv, bool developer_options) {
                                              << "[" << haplotypes_defaults::subchain_length() << "]" << std::endl;
     std::cerr << "      --linear-structure       extend subchains to avoid haplotypes" << std::endl;
     std::cerr << "                               visiting them multiple times" << std::endl;
+    std::cerr << "      --subchain-kmers         use minimizers that occur only in the subchain," << std::endl;
+    std::cerr << "                               and store their copies in each haplotype" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
     std::cerr << "      --preset STR             preset X (use as the first sampling option)" << std::endl;
@@ -256,6 +281,25 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "      --absent-score F         score absent kmers -F/+F "
                                              << "[" << haplotypes_defaults::absent()  << "]" << std::endl;
     std::cerr << "      --ignore-homopolymers N  ignore homopolymers of length N or more " << std::endl;
+    std::cerr << "      --continuity-bonus F     add F to the score of a panel haplotype that a" << std::endl;
+    std::cerr << "                               generated haplotype took in the previous" << std::endl;
+    std::cerr << "                               subchain [0]" << std::endl;
+    std::cerr << "      --max-new-bp N           after the first haplotype in a subchain, take a" << std::endl;
+    std::cerr << "                               haplotype only if its nodes not visited by the" << std::endl;
+    std::cerr << "                               haplotypes already taken have at most N bp" << std::endl;
+    std::cerr << "                               [no limit]" << std::endl;
+    std::cerr << "      --bp-escape F            also take a haplotype over --max-new-bp if it" << std::endl;
+    std::cerr << "                               adds a kmer from the reads per F bp of new nodes" << std::endl;
+    std::cerr << "                               (0: never) [0]" << std::endl;
+    std::cerr << "      --max-n-bp N             take a haplotype only if its nodes in the" << std::endl;
+    std::cerr << "                               subchain have at most N unknown (N) bases" << std::endl;
+    std::cerr << "                               [no limit]" << std::endl;
+    std::cerr << "      --similar-threading      when a generated haplotype cannot continue with" << std::endl;
+    std::cerr << "                               its panel haplotype, give it the unused" << std::endl;
+    std::cerr << "                               selection with the most similar kmers" << std::endl;
+    std::cerr << "      --model-pair             take the first two haplotypes in each subchain" << std::endl;
+    std::cerr << "                               from a kmer count model and a hidden Markov" << std::endl;
+    std::cerr << "                               model over pairs of haplotypes" << std::endl;
     std::cerr << "      --haploid-scoring        use a scoring model without heterozygous kmers" << std::endl;
     std::cerr << "      --diploid-sampling       choose the best pair from the sampled haplotypes" << std::endl;
     std::cerr << "      --extra-fragments        select all candidates in bad subchains" << std::endl;
@@ -306,6 +350,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_WINDOW_LENGTH = 1201;
     constexpr int OPT_SUBCHAIN_LENGTH = 1202;
     constexpr int OPT_LINEAR_STRUCTURE = 1203;
+    constexpr int OPT_SUBCHAIN_KMERS = 1204;
     constexpr int OPT_PRESET = 1300;
     constexpr int OPT_COVERAGE = 1301;
     constexpr int OPT_NUM_HAPLOTYPES = 1302;
@@ -327,6 +372,12 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_EXCLUDE_CONTIG = 1318;
     constexpr int OPT_WRAP = 1319;
     constexpr int OPT_MIN_GREF_LEN = 1320;
+    constexpr int OPT_CONTINUITY_BONUS = 1321;
+    constexpr int OPT_MAX_NEW_BP = 1322;
+    constexpr int OPT_BP_ESCAPE = 1323;
+    constexpr int OPT_MAX_N_BP = 1324;
+    constexpr int OPT_SIMILAR_THREADING = 1325;
+    constexpr int OPT_MODEL_PAIR = 1326;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
     constexpr int OPT_DENSITY = 1600;
@@ -343,6 +394,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
         { "subchain-length", required_argument, 0, OPT_SUBCHAIN_LENGTH },
         { "linear-structure", no_argument, 0, OPT_LINEAR_STRUCTURE },
+        { "subchain-kmers", no_argument, 0, OPT_SUBCHAIN_KMERS },
         { "preset", required_argument, 0, OPT_PRESET },
         { "coverage", required_argument, 0, OPT_COVERAGE },
         { "num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES },
@@ -350,6 +402,12 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
         { "ignore-homopolymers", required_argument, 0, OPT_IGNORE_HOMOPOLYMERS },
+        { "continuity-bonus", required_argument, 0, OPT_CONTINUITY_BONUS },
+        { "max-new-bp", required_argument, 0, OPT_MAX_NEW_BP },
+        { "bp-escape", required_argument, 0, OPT_BP_ESCAPE },
+        { "max-n-bp", required_argument, 0, OPT_MAX_N_BP },
+        { "similar-threading", no_argument, 0, OPT_SIMILAR_THREADING },
+        { "model-pair", no_argument, 0, OPT_MODEL_PAIR },
         { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "extra-fragments", no_argument, 0, OPT_EXTRA_FRAGMENTS },
@@ -426,12 +484,16 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         case OPT_LINEAR_STRUCTURE:
             this->partitioner_parameters.linear_structure = true;
             break;
+        case OPT_SUBCHAIN_KMERS:
+            this->partitioner_parameters.subchain_kmers = true;
+            break;
 
         case OPT_PRESET:
             {
                 auto preset = Recombinator::Parameters::parse_preset(optarg);
                 if (preset) {
                     this->recombinator_parameters = Recombinator::Parameters(*preset);
+                    this->model_preset = (*preset == Recombinator::Parameters::preset_model);
                     num_haplotypes_set = true;
                 } else {
                     this->logger.error() << "unknown preset: " << optarg << std::endl;
@@ -471,6 +533,30 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             if (this->recombinator_parameters.ignore_homopolymers <= 1) {
                 this->logger.error() << "ignore homopolymers must be greater than 1" << std::endl;
             }
+            break;
+        case OPT_CONTINUITY_BONUS:
+            this->recombinator_parameters.continuity_bonus = parse<double>(optarg);
+            if (this->recombinator_parameters.continuity_bonus < 0.0) {
+                this->logger.error() << "continuity bonus must be non-negative" << std::endl;
+            }
+            break;
+        case OPT_MAX_NEW_BP:
+            this->recombinator_parameters.max_new_bp = parse<size_t>(optarg);
+            break;
+        case OPT_BP_ESCAPE:
+            this->recombinator_parameters.bp_escape = parse<double>(optarg);
+            if (this->recombinator_parameters.bp_escape < 0.0) {
+                this->logger.error() << "bp escape must be non-negative" << std::endl;
+            }
+            break;
+        case OPT_MAX_N_BP:
+            this->recombinator_parameters.max_n_bp = parse<size_t>(optarg);
+            break;
+        case OPT_SIMILAR_THREADING:
+            this->recombinator_parameters.similar_threading = true;
+            break;
+        case OPT_MODEL_PAIR:
+            this->recombinator_parameters.model_pair = true;
             break;
         case OPT_HAPLOID_SCORING:
             this->recombinator_parameters.haploid_scoring = true;
@@ -534,7 +620,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             }
             break;
         case 't':
-            set_thread_count(logger, optarg);
+            this->threads = set_thread_count(logger, optarg, static_cast<int>(max_threads));
             break;
 
         case OPT_VALIDATE:
@@ -635,14 +721,15 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         config.logger.info() << "Building minimizer index" << std::endl;
     }
-    MinimizerIndexParameters params;
-    params.k = config.k;
-    params.w_or_s = config.w;
-    params.progress = (config.verbosity >= Haplotypes::verbosity_detailed);
-    HaplotypePartitioner::minimizer_index_type minimizer_index = build_minimizer_index(gbz, nullptr, nullptr, params);
+    HaplotypePartitioner::minimizer_index_type minimizer_index(gbz, config.k, config.w);
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - minimizer;
         config.logger.info() << "Built the minimizer index in " << seconds << " seconds" << std::endl;
+    }
+    if (config.verbosity >= Haplotypes::verbosity_detailed) {
+        config.logger.info() << "Minimizer index: " << minimizer_index.size() << " keys ("
+                             << minimizer_index.unique_keys() << " unique), "
+                             << minimizer_index.number_of_values() << " occurrences" << std::endl;
     }
 
     // R-index.
@@ -1248,6 +1335,98 @@ std::vector<std::string> get_haplotype(
     return haplotype;
 }
 
+// Return the copies of each kmer of the subchain that the subchain stores for the sequence.
+std::vector<size_t> stored_copies(const Haplotypes::Subchain& subchain, size_t seq_offset) {
+    std::vector<size_t> copies(subchain.num_kmers(), 0);
+    subchain.for_each_kmer(seq_offset, [&copies](size_t j, bool is_present) {
+        copies[j] = (is_present ? 1 : 0);
+    });
+    for (auto [j, value] : subchain.get_copies(seq_offset)) {
+        copies[j] = value;
+    }
+    return copies;
+}
+
+// Validate the kmers of a subchain in an index built with subchain kmers. A kmer is
+// present in a sequence if it occurs in the sequence in either orientation, and the
+// stored copies are the number of occurrences, up to the maximum. Some sequences must
+// have different copies of each kmer.
+void validate_subchain_kmers(const Logger& logger,
+                             const Haplotypes::Subchain& subchain,
+                             const gbwtgraph::GBWTGraph& graph,
+                             const gbwt::FragmentMap& fragment_map,
+                             size_t k, size_t chain_id, size_t subchain_id) {
+    vg::OrientedKmerTable positions(subchain.kmers, k);
+    std::vector<size_t> sequences_with_kmer(subchain.num_kmers(), 0);
+    std::vector<size_t> first_copies;
+    std::vector<bool> informative(subchain.num_kmers(), false);
+    vg::OrientedKmerCounts occurrences(subchain.num_kmers());
+    for (size_t i = 0; i < subchain.num_sequences(); i++) {
+        std::vector<std::string> haplotype = get_haplotype(
+            graph, fragment_map, subchain.sequences[i], subchain.start, subchain.end, k
+        );
+        occurrences.count(haplotype, positions, k);
+        std::vector<size_t> copies = stored_copies(subchain, i);
+        for (size_t j = 0; j < subchain.num_kmers(); j++) {
+            if (size_t expected = std::min(size_t(occurrences[j]), Haplotypes::Subchain::MAX_COPIES); copies[j] != expected) {
+                std::string message = "kmer " + std::to_string(j) + ": " + expected_got(expected, copies[j]) + " copies";
+                validate_error_sequence(logger, chain_id, subchain_id, i, message);
+            }
+            if (occurrences[j] > 0) {
+                sequences_with_kmer[j]++;
+            }
+            if (i > 0 && copies[j] != first_copies[j]) {
+                informative[j] = true;
+            }
+        }
+        if (i == 0) {
+            first_copies = copies;
+        }
+    }
+    for (size_t j = 0; j < subchain.num_kmers(); j++) {
+        if (sequences_with_kmer[j] != subchain.kmer_counts[j]) {
+            std::string message = "kmer " + std::to_string(j) + ": " + expected_got(sequences_with_kmer[j], size_t(subchain.kmer_counts[j])) + " sequences";
+            validate_error_subchain(logger, chain_id, subchain_id, message);
+        }
+        if (!informative[j]) {
+            validate_error_subchain(logger, chain_id, subchain_id, "kmer " + std::to_string(j) + ": every sequence has the same copies");
+        }
+    }
+}
+
+// Validate the bases of the walks that an index built with subchain kmers stores: the
+// N bases of each walk and the median bases over the walks must be those of new walks.
+void validate_walk_bases(const Logger& logger,
+                         const Haplotypes::Subchain& subchain,
+                         const gbwtgraph::GBWTGraph& graph,
+                         const gbwt::FragmentMap& fragment_map,
+                         size_t chain_id, size_t subchain_id) {
+    gbwt::CachedGBWT cache(*(graph.index));
+    std::vector<size_t> walk_bases;
+    for (size_t i = 0; i < subchain.num_sequences(); i++) {
+        size_t bases = 0;
+        size_t n_bases = 0;
+        for (nid_t node : vg::SubchainWalk(cache, fragment_map, subchain.start, subchain.end, subchain.get_sequence(i)).node_ids()) {
+            std::string_view view = graph.get_sequence_view(graph.get_handle(node));
+            bases += view.size();
+            n_bases += static_cast<size_t>(std::ranges::count(view, 'N') + std::ranges::count(view, 'n'));
+        }
+        if (n_bases != subchain.walk_n_bases[i]) {
+            validate_error_sequence(logger, chain_id, subchain_id, i, "walk: " + expected_got(n_bases, size_t(subchain.walk_n_bases[i])) + " N bases");
+        }
+        walk_bases.push_back(bases);
+    }
+    std::ranges::sort(walk_bases);
+    size_t n = walk_bases.size();
+    double median = 0.0;
+    if (n > 0) {
+        median = (n % 2 == 1 ? double(walk_bases[n / 2]) : 0.5 * (double(walk_bases[n / 2 - 1]) + double(walk_bases[n / 2])));
+    }
+    if (median != subchain.median_walk_bases) {
+        validate_error_subchain(logger, chain_id, subchain_id, "walks: " + expected_got(median, subchain.median_walk_bases) + " median bases");
+    }
+}
+
 void validate_chain(const Logger& logger,
                     const Haplotypes::TopLevelChain& chain,
                     const gbwtgraph::GBWTGraph& graph,
@@ -1359,7 +1538,10 @@ void validate_chain(const Logger& logger,
         }
 
         // Kmers.
-        if (subchain.type != Haplotypes::Subchain::full_haplotype) {
+        if (subchain.has_copies()) {
+            validate_subchain_kmers(logger, subchain, graph, fragment_map, minimizer_index.k(), chain_id, subchain_id);
+            validate_walk_bases(logger, subchain, graph, fragment_map, chain_id, subchain_id);
+        } else if (subchain.type != Haplotypes::Subchain::full_haplotype) {
             vg::hash_set<Haplotypes::Subchain::kmer_type> all_kmers;
             for (size_t i = 0; i < subchain.num_kmers(); i++) {
                 all_kmers.insert(subchain.kmers[i]);
@@ -1379,7 +1561,7 @@ void validate_chain(const Logger& logger,
                 for (const std::string& sequence : haplotype) {
                     auto minimizers = minimizer_index.minimizers(sequence);
                     for (auto& minimizer : minimizers) {
-                        if (minimizer_index.count(minimizer) == 1) {
+                        if (minimizer_index.count(minimizer.key.get_key()) == 1) {
                             unique_minimizers[minimizer.key.get_key()] = false;
                         }
                     }

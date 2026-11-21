@@ -6,6 +6,7 @@
  */
 
 #include <deque>
+#include <memory>
 #include <mutex>
 
 #include <kff_io.hpp>
@@ -77,7 +78,14 @@ inline gbwtgraph::Key64::value_type minimizer_reverse_complement(gbwtgraph::Key6
 //------------------------------------------------------------------------------
 
 /**
- * A wrapper over `Kff_reader` that allows reading kmers safely from multiple threads.
+ * A reader of the kmers and their counts in a KFF file that many threads can
+ * call at once.
+ *
+ * The threads take turns reading the file. A raw section whose blocks hold one
+ * kmer each, which is what KMC writes, stores its blocks as fixed-size records,
+ * so a thread reads a run of them with one read of the file. It decodes the
+ * run after letting the next thread read. Other blocks are read and decoded
+ * one at a time while the thread holds the file.
  */
 class ParallelKFFReader {
 public:
@@ -87,19 +95,13 @@ public:
     /// file cannot be opened or the data is unacceptable.
     ParallelKFFReader(const std::string& filename);
 
-    /// Reads the next `n` kmers and counts from the file. This can be called safely
-    /// from multiple threads. If the returned vector contains fewer than `n` kmers
-    /// this indicates that the reader has reached the end of the file.
+    /// Reads the next `n` kmers and counts from the file, in no particular order.
+    /// This can be called safely from multiple threads. If the returned vector
+    /// contains fewer than `n` kmers this indicates that the reader has reached
+    /// the end of the file. Throws `std::runtime_error` if a section has a
+    /// different kmer length or count size from the first section, or longer
+    /// blocks.
     std::vector<std::pair<kmer_type, size_t>> read(size_t n);
-
-    /// KFF reader.
-    Kff_reader reader;
-
-    /// Buffer from unused kmers from the latest block.
-    std::deque<std::pair<kmer_type, size_t>> buffer;
-
-    /// Mutex for accessing `reader` and `buffer`.
-    std::mutex mtx;
 
     /// Length of the kmers.
     size_t k;
@@ -117,6 +119,52 @@ public:
     kff_recoding_t recoding;
 
 private:
+    /// The file, positioned at the next block or section.
+    Kff_file file;
+
+    /// The open section of blocks, or null at the end of the file. It may have no
+    /// blocks left; `next_section()` moves past such sections.
+    std::unique_ptr<Block_section_reader> section;
+
+    /// Kmers decoded from the latest block but not returned yet.
+    std::deque<std::pair<kmer_type, size_t>> buffer;
+
+    /// Mutex for accessing `file`, `section` and `buffer`.
+    std::mutex mtx;
+
+    /// Is the encoding the one that the minimizer index uses?
+    bool trivial_encoding;
+
+    /// Space for the packed sequence of a block of the longest length, used
+    /// under the lock.
+    std::vector<uint8_t> block_buffer;
+
+    /// Space for the counts of a block of the longest length, used under the
+    /// lock.
+    std::vector<uint8_t> data_buffer;
+
+    /// Reads the variable and index sections up to the next section of blocks,
+    /// and opens that section. Leaves `section` null at the end of the file.
+    /// Throws `std::runtime_error` if a section has an unknown type.
+    void open_next_section();
+
+    /// Returns the section holding the next block, or null at the end of the
+    /// file. Throws `std::runtime_error` if the section has a different kmer
+    /// length or count size from the first section, or longer blocks.
+    Block_section_reader* next_section();
+
+    /// Returns `true` if the blocks of the section are records of one kmer and
+    /// its count, with no length field.
+    static bool has_single_kmer_records(const Block_section_reader& blocks);
+
+    /// Reads the next block of a section that `has_single_kmer_records()`
+    /// rejects. Appends its first `space` kmers to `result` and the rest to
+    /// `buffer`. Call this under the lock.
+    void read_block(Block_section_reader& from, std::vector<std::pair<kmer_type, size_t>>& result, size_t space);
+
+    /// Decodes the kmer and the count of a block with one kmer.
+    std::pair<kmer_type, size_t> decode_single(const uint8_t* block, const uint8_t* data) const;
+
     ParallelKFFReader(const ParallelKFFReader&) = delete;
     ParallelKFFReader& operator= (const ParallelKFFReader&) = delete;
 };
