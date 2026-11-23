@@ -154,6 +154,27 @@ optional<string> AlleleSplicer::reference_sequence(const StagedSite& site) const
     return resolved_sequence(site, trav, 0, false, true);
 }
 
+/// Return the changes `changes` to the steps of `walk`, as changes to the steps of `walk` read
+/// from its end to its start.
+static vector<AlleleEdit> turned_changes(const HandleGraph& graph, const Traversal& walk,
+                                         const vector<AlleleEdit>& changes) {
+    vector<AlleleEdit> turned;
+    turned.reserve(changes.size());
+    for (const AlleleEdit& change : changes) {
+        if (change.step >= walk.size()) {
+            continue;
+        }
+        const size_t length = graph.get_length(walk[change.step]);
+        if (change.at + change.removed > length) {
+            continue;
+        }
+        turned.push_back(AlleleEdit{walk.size() - 1 - change.step,
+                                    length - change.at - change.removed, change.removed,
+                                    reverse_complement(change.added)});
+    }
+    return turned;
+}
+
 bool AlleleSplicer::chosen_replacement(const StagedSite& child, int strand, bool haploid,
                                        bool reference, const Traversal& parent_walk,
                                        const unordered_map<nid_t, int>& first_visit,
@@ -188,6 +209,7 @@ bool AlleleSplicer::chosen_replacement(const StagedSite& child, int strand, bool
         rep.walk = child.alleles.walks[child_trav];
         if (!child.alleles.spelled_by_walk(child_trav)) {
             rep.steps = child.alleles.step_sequences(graph, child_trav);
+            rep.changes = child.alleles.edits[child_trav];
         } else {
             rep.steps.clear();
             for (const handle_t& h : rep.walk) {
@@ -226,6 +248,7 @@ bool AlleleSplicer::chosen_replacement(const StagedSite& child, int strand, bool
     }
     if (turned) {
         // Read the child's allele the way the parent's walk reads it.
+        rep.changes = turned_changes(graph, rep.walk, rep.changes);
         std::ranges::reverse(rep.walk);
         std::ranges::reverse(rep.steps);
         for (size_t i = 0; i < rep.walk.size(); ++i) {
@@ -239,33 +262,58 @@ bool AlleleSplicer::chosen_replacement(const StagedSite& child, int strand, bool
 bool AlleleSplicer::splice_routes(const Traversal& parent_walk, const StepSequences* own,
                                   const vector<Replacement>& routes, Traversal& walk,
                                   StepSequences& steps) const {
+    // The bases the parent's allele has at visit `at` of its walk.
+    auto parent_step = [&](int at) {
+        return own != nullptr ? own->at(at) : graph.get_sequence(parent_walk[at]);
+    };
     bool changed = false;
     size_t r = 0;
+    // The visits the last spliced route covers, or none.
+    int last_begin = -1;
+    int last_end = -1;
     for (int i = 0; i < (int)parent_walk.size();) {
-        if (r < routes.size() && routes[r].begin < i) {
-            // Skip a route that overlaps one already spliced.
-            ++r;
+        if (r == routes.size() || routes[r].begin > i) {
+            walk.push_back(parent_walk[i]);
+            steps.push_back(parent_step(i));
+            ++i;
             continue;
         }
-        if (r < routes.size() && routes[r].begin == i) {
-            // Replace the parent's route through the child with the child's allele.
-            const Replacement& rep = routes[r];
-            bool same = rep.end - rep.begin == (int)rep.walk.size();
-            for (int k = 0; same && k < (int)rep.walk.size(); ++k) {
-                same = parent_walk[rep.begin + k] == rep.walk[k]
-                       && rep.steps[k] == (own != nullptr ? own->at(rep.begin + k)
-                                                          : graph.get_sequence(rep.walk[k]));
+        const Replacement& rep = routes[r];
+        ++r;
+        // The number of visits at the start of the route that are spelled already.
+        int spelled = 0;
+        if (rep.begin < i) {
+            // Two sites that follow each other in a chain share a bound node, so the route of
+            // the second begins on the last visit of the route of the first. That visit is
+            // spelled once, with the bases of whichever of the two routes changes them.
+            const bool follows = rep.begin == last_end - 1 && rep.begin > last_begin
+                                 && rep.end > last_end && rep.walk.front() == walk.back();
+            if (!follows) {
+                // Skip a route that overlaps one already spliced.
+                continue;
             }
-            changed = changed || !same;
-            walk.insert(walk.end(), rep.walk.begin(), rep.walk.end());
-            steps.insert(steps.end(), rep.steps.begin(), rep.steps.end());
-            i = rep.end;
-            ++r;
-            continue;
+            const string shared = parent_step(rep.begin);
+            if (rep.steps.front() != shared) {
+                if (steps.back() != shared && steps.back() != rep.steps.front()) {
+                    // The two routes change the bases of the visit in different ways.
+                    continue;
+                }
+                steps.back() = rep.steps.front();
+            }
+            spelled = 1;
         }
-        walk.push_back(parent_walk[i]);
-        steps.push_back(own != nullptr ? own->at(i) : graph.get_sequence(parent_walk[i]));
-        ++i;
+        // Replace the parent's route through the child with the child's allele.
+        bool same = rep.end - rep.begin == (int)rep.walk.size();
+        for (int k = 0; same && k < (int)rep.walk.size(); ++k) {
+            same = parent_walk[rep.begin + k] == rep.walk[k]
+                   && rep.steps[k] == parent_step(rep.begin + k);
+        }
+        changed = changed || !same;
+        walk.insert(walk.end(), rep.walk.begin() + spelled, rep.walk.end());
+        steps.insert(steps.end(), rep.steps.begin() + spelled, rep.steps.end());
+        last_begin = rep.begin;
+        last_end = rep.end;
+        i = rep.end;
     }
     return changed;
 }
@@ -299,12 +347,24 @@ vector<AlleleSplicer::StepEdit> AlleleSplicer::step_edits_of(const vector<Replac
             turned_steps.push_back(reverse_complement(edit.steps[k]));
         }
         const StepSequences* child_steps = &edit.steps;
+        bool turned = false;
         size_t i = find_on_walk(graph, walk, edit.walk);
         if (i == walk.size()) {
             child_steps = &turned_steps;
+            turned = true;
             i = find_on_walk(graph, walk, turned_walk);
         }
         if (i == walk.size()) {
+            continue;
+        }
+        if (!edit.changes.empty()) {
+            // The allele's own changes, at their own offsets. Finding them again from the step
+            // sequences can move a change along a repeat, onto the bases another change removes.
+            for (AlleleEdit& change : turned ? turned_changes(graph, edit.walk, edit.changes)
+                                             : vector<AlleleEdit>(edit.changes)) {
+                step_edits.push_back(StepEdit{i + change.step, change.at, change.removed,
+                                              std::move(change.added), edit.key});
+            }
             continue;
         }
         for (size_t k = 0; k < edit.walk.size(); ++k) {

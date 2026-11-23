@@ -117,6 +117,10 @@ private:
         /// Whether the child lies inside nodes, so that its allele changes the bases of the
         /// parent's steps rather than replacing them.
         bool inside_node;
+        /// The changes the child's allele makes to the steps of `walk`, where `steps` are the
+        /// allele's own step sequences. Empty where its walk spells it, or a site under the
+        /// child changed `steps`.
+        vector<AlleleEdit> changes;
         /// The record key of the child.
         size_t key;
     };
@@ -155,7 +159,11 @@ private:
     /// Spell `parent_walk` into `walk` and `steps`, with each of `routes` in place of the visits
     /// it covers.
     ///
-    /// A route that overlaps one before it is skipped.
+    /// A route that begins on the last visit of the route before it, as the route of a site
+    /// does when the site before it in its chain shares a bound node with it, is spliced from its
+    /// second visit on. The shared visit takes the bases of whichever of the two routes changes
+    /// them. Any other route that overlaps one before it is skipped, and so is one that changes
+    /// the bases of the shared visit in another way than the route before it.
     ///
     /// @param own The step sequences of the parent's allele, or null if its walk spells it.
     /// @param routes Sorted by where they begin.
@@ -166,8 +174,11 @@ private:
 
     /// Find the changes that children inside nodes make to the steps of the spliced walk `walk`.
     ///
-    /// Each child changes the bases its allele differs from its nodes in, where `walk` first
-    /// visits its first node and then the rest of its walk, read the way `walk` reads them.
+    /// Each child makes its changes where `walk` first visits its first node and then the rest
+    /// of its walk, read the way `walk` reads them. They are the changes its allele has
+    /// (`Replacement::changes`), at their own offsets, so that two changes to one node that
+    /// touch no base in common are both made. A child with none of those changes the bases its
+    /// step sequences differ from its nodes in.
     vector<StepEdit> step_edits_of(const vector<Replacement>& edits, const Traversal& walk) const;
 
     /// Make the edits to the sequences of the steps, right to left within each step.
