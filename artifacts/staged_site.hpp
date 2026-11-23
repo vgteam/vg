@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "block_records.hpp"
@@ -265,6 +266,23 @@ public:
 
     /// Visit every staged site, dropped or not, one at a time, in the order of `in_order`.
     void for_each(const function<void(StagedSite&)>& visit);
+
+    /**
+     * Remove the sites whose record keys are in `keys`, and every gathered nested site under a
+     * site with one of those keys, at any depth, dropped or not.
+     *
+     * A key need not be staged: the nested sites whose parent it names are removed all the
+     * same. This moves the sites that stay, so no pointer to a staged site and no index in
+     * `nested()` survives it.
+     *
+     * Never call this during a pass, or before the first linkage pass has gathered the nested
+     * sites.
+     *
+     * @param removed Called on each site before it is removed.
+     * @return The number of sites removed.
+     */
+    size_t remove_with_nested(const unordered_set<size_t>& keys,
+                              const function<void(const StagedSite&)>& removed);
 
     /// The counts of sites that `hand_off` held back.
     struct HandOff {
