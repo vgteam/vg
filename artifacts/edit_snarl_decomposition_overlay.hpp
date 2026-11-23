@@ -36,9 +36,18 @@ using handlegraph::SnarlDecomposition;
  * An edit is none of the kinds of element `SnarlDecomposition` knows: `is_snarl`, `is_chain`,
  * `is_node`, `is_sentinel` and `is_root` are all false for it, and `is_edit` is true.
  *
- * Edits can only be added, and are never changed, so no net handle is ever invalidated.
+ * A merged site is the other kind of site the overlay adds: a run of neighbouring sites of one
+ * chain, taken as one site. Like a snarl, it starts after the last base of its start node and ends
+ * before the first base of its end node. Its parent is the lowest element that holds both nodes,
+ * which is the chain of the sites it is made of. That element lists it after its own children
+ * and among its edits, in the order they were added, and still lists the sites the merged site
+ * is made of. A merged site has no children and no net edges of its own. `is_merged_site` is
+ * true for it, and `is_edit`, like the predicates of `SnarlDecomposition`, is false.
  *
- * Several threads may add edits and read the overlay at once. Reading an edit through its net
+ * Edits and merged sites can only be added, and are never changed, so no net handle is ever
+ * invalidated.
+ *
+ * Several threads may add edits and merged sites and read the overlay at once. Reading an edit through its net
  * handle takes no lock. Listing an element's children takes a lock, and lists the edits added
  * before the listing began. It may or may not list an edit another thread adds during it.
  *
@@ -78,8 +87,19 @@ public:
     /// Return true if `net` is an edit.
     bool is_edit(const net_handle_t& net) const;
 
+    /**
+     * Add a merged site, and return its net handle, which reads it start to end.
+     *
+     * @param start The node the site starts after, oriented to read into the site.
+     * @param end The node the site ends before, oriented to read out of the site.
+     */
+    net_handle_t add_merged_site(const handle_t& start, const handle_t& end);
+
+    /// Return true if `net` is a merged site.
+    bool is_merged_site(const net_handle_t& net) const;
+
     ////////////////////////////////////////////////////////////////////////////////////////////////
-    // Bounds of sites, for snarls and edits
+    // Bounds of sites, for snarls, edits and merged sites
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
@@ -87,7 +107,8 @@ public:
      *
      * The site is read the way `site` traverses it. For a snarl, this is the start node.
      *
-     * @pre `site` is a start-to-end or end-to-start traversal of a snarl, or an edit.
+     * @pre `site` is a start-to-end or end-to-start traversal of a snarl, an edit, or a merged
+     * site.
      */
     handle_t get_site_start(const net_handle_t& site) const;
 
@@ -97,20 +118,22 @@ public:
     /**
      * Get the number of bases of `get_site_start(site)` that come before the start boundary.
      *
-     * For a snarl, the boundary is the inward side of its start node, so this is that node's
-     * length.
+     * For a snarl or a merged site, the boundary is the inward side of its start node, so this
+     * is that node's length.
      */
     size_t get_site_start_offset(const net_handle_t& site) const;
 
     /**
      * Get the number of bases of `get_site_end(site)` that come before the end boundary.
      *
-     * For a snarl, the boundary is the inward side of its end node, so this is 0.
+     * For a snarl or a merged site, the boundary is the inward side of its end node, so this is
+     * 0.
      */
     size_t get_site_end_offset(const net_handle_t& site) const;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
-    // SnarlDecomposition, passed through to the inner decomposition except for edits
+    // SnarlDecomposition, passed through to the inner decomposition except for edits and merged
+    // sites, which the comments below call edits alike
     //
     // Each converts net handles of the inner decomposition to and from the overlay's, going in and
     // coming out, including those it gives to an iteratee.
@@ -139,7 +162,7 @@ public:
                                       const net_handle_t& traversal_end) const override;
 
 protected:
-    /// List the inner decomposition's children of `traversal`, then its edits.
+    /// List the inner decomposition's children of `traversal`, then its edits and merged sites.
     bool for_each_child_impl(const net_handle_t& traversal,
                              const std::function<bool(const net_handle_t&)>& iteratee) const override;
     /// An edit has two traversals: start to end and end to start.
@@ -159,7 +182,12 @@ private:
         size_t end_offset;
         /// The overlay's canonical net handle for the element the edit is a child of.
         net_handle_t parent;
+        /// Whether this is a merged site, and not an edit.
+        bool merged;
     };
+
+    /// Return true if `net` is an edit or a merged site: a site this overlay added.
+    bool is_added(const net_handle_t& net) const;
 
     /// Get the edit `net`, read the way `net` reads.
     ///
@@ -176,10 +204,10 @@ private:
     /// The graph that `inner` decomposes.
     const HandleGraph& graph;
 
-    /// The edits, by number.
+    /// The edits and the merged sites, by number.
     GrowOnlyArray<Edit> edits;
-    /// The numbers of the edits that are children of each element, by the overlay's canonical net
-    /// handle for the element, in the order they were added.
+    /// The numbers of the edits and merged sites that are children of each element, by the
+    /// overlay's canonical net handle for the element, in the order they were added.
     unordered_map<net_handle_t, vector<size_t>> children_of;
     /// Guards `children_of`.
     mutable std::mutex children_mutex;

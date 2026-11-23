@@ -141,6 +141,49 @@ TEST_CASE("An edit across nodes is a child of the lowest element holding them",
     });
 }
 
+TEST_CASE("A merged site has a snarl's bounds, and is listed after its chain's own children",
+          "[edit_snarl_decomposition_overlay]") {
+    NestedGraph nested;
+    on_both(nested, [&](const SnarlDecomposition&, EditSnarlDecompositionOverlay& overlay) {
+        const net_handle_t middle = find_snarl(overlay, nested.graph, 2, 7);
+        const net_handle_t chain = overlay.canonical(overlay.get_parent(middle));
+        const vector<net_handle_t> before = children(overlay, chain);
+        const net_handle_t merged = overlay.add_merged_site(nested.handle(2), nested.handle(7));
+
+        REQUIRE(overlay.is_merged_site(merged));
+        REQUIRE(!overlay.is_edit(merged));
+        REQUIRE(!overlay.is_snarl(merged));
+        REQUIRE(!overlay.is_chain(merged));
+        REQUIRE(!overlay.is_merged_site(middle));
+        // It starts after its start node and ends before its end node.
+        REQUIRE(overlay.get_site_start(merged) == nested.handle(2));
+        REQUIRE(overlay.get_site_start_offset(merged)
+                == nested.graph.get_length(nested.handle(2)));
+        REQUIRE(overlay.get_site_end(merged) == nested.handle(7));
+        REQUIRE(overlay.get_site_end_offset(merged) == 0);
+        // Its parent is the chain of its bound nodes, which lists it after what it listed
+        // before.
+        REQUIRE(overlay.get_parent(merged) == chain);
+        vector<net_handle_t> after = children(overlay, chain);
+        REQUIRE(after.back() == merged);
+        after.pop_back();
+        REQUIRE(after == before);
+        REQUIRE(children(overlay, merged).empty());
+        // Read the other way, its bounds are swapped and flipped.
+        const net_handle_t turned = overlay.flip(merged);
+        REQUIRE(overlay.is_merged_site(turned));
+        REQUIRE(overlay.get_site_start(turned) == nested.graph.flip(nested.handle(7)));
+        REQUIRE(overlay.get_site_end(turned) == nested.graph.flip(nested.handle(2)));
+        REQUIRE(overlay.get_site_start_offset(turned)
+                == nested.graph.get_length(nested.handle(7)));
+        REQUIRE(overlay.canonical(turned) == merged);
+        // An edit added after it is still an edit.
+        const net_handle_t edit = overlay.add_edit(nested.handle(2), 0, nested.handle(2), 1);
+        REQUIRE(overlay.is_edit(edit));
+        REQUIRE(!overlay.is_merged_site(edit));
+    });
+}
+
 TEST_CASE("A snarl's bounds are its boundary nodes' inward sides",
           "[edit_snarl_decomposition_overlay]") {
     NestedGraph nested;

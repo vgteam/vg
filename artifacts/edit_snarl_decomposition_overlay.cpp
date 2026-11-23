@@ -70,7 +70,7 @@ EditSnarlDecompositionOverlay::edit_of(const net_handle_t& net) const {
     }
     return Edit{graph.flip(edit.end), graph.get_length(edit.end) - edit.end_offset,
                 graph.flip(edit.start), graph.get_length(edit.start) - edit.start_offset,
-                edit.parent};
+                edit.parent, edit.merged};
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -109,15 +109,34 @@ net_handle_t EditSnarlDecompositionOverlay::add_edit(const handle_t& start, size
                                     "end of its node");
     }
     const size_t number =
-        edits.emplace_back(Edit{start, start_offset, end, end_offset, lowest_holder(start, end)});
+        edits.emplace_back(Edit{start, start_offset, end, end_offset, lowest_holder(start, end),
+                                false});
     // Taking the lock after the edit is in place lets a thread that lists it read it.
     std::scoped_lock lock(children_mutex);
     children_of[edits[number].parent].push_back(number);
     return edit_net(number, false);
 }
 
-bool EditSnarlDecompositionOverlay::is_edit(const net_handle_t& net) const {
+net_handle_t EditSnarlDecompositionOverlay::add_merged_site(const handle_t& start,
+                                                            const handle_t& end) {
+    const size_t number = edits.emplace_back(
+        Edit{start, graph.get_length(start), end, 0, lowest_holder(start, end), true});
+    // Taking the lock after the site is in place lets a thread that lists it read it.
+    std::scoped_lock lock(children_mutex);
+    children_of[edits[number].parent].push_back(number);
+    return edit_net(number, false);
+}
+
+bool EditSnarlDecompositionOverlay::is_added(const net_handle_t& net) const {
     return (handlegraph::as_integer(net) & EDIT_BIT) != 0;
+}
+
+bool EditSnarlDecompositionOverlay::is_edit(const net_handle_t& net) const {
+    return is_added(net) && !edits[edit_number(net)].merged;
+}
+
+bool EditSnarlDecompositionOverlay::is_merged_site(const net_handle_t& net) const {
+    return is_added(net) && edits[edit_number(net)].merged;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,7 +144,7 @@ bool EditSnarlDecompositionOverlay::is_edit(const net_handle_t& net) const {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 handle_t EditSnarlDecompositionOverlay::get_site_start(const net_handle_t& site) const {
-    if (is_edit(site)) {
+    if (is_added(site)) {
         return edit_of(site).start;
     }
     // get_bound() ignores the traversal, so read the bound the traversal starts from.
@@ -137,7 +156,7 @@ handle_t EditSnarlDecompositionOverlay::get_site_start(const net_handle_t& site)
 }
 
 handle_t EditSnarlDecompositionOverlay::get_site_end(const net_handle_t& site) const {
-    if (is_edit(site)) {
+    if (is_added(site)) {
         return edit_of(site).end;
     }
     const net_handle_t inner_site = to_inner(site);
@@ -148,14 +167,14 @@ handle_t EditSnarlDecompositionOverlay::get_site_end(const net_handle_t& site) c
 }
 
 size_t EditSnarlDecompositionOverlay::get_site_start_offset(const net_handle_t& site) const {
-    if (is_edit(site)) {
+    if (is_added(site)) {
         return edit_of(site).start_offset;
     }
     return graph.get_length(get_site_start(site));
 }
 
 size_t EditSnarlDecompositionOverlay::get_site_end_offset(const net_handle_t& site) const {
-    if (is_edit(site)) {
+    if (is_added(site)) {
         return edit_of(site).end_offset;
     }
     return 0;
@@ -170,23 +189,23 @@ net_handle_t EditSnarlDecompositionOverlay::get_root() const {
 }
 
 bool EditSnarlDecompositionOverlay::is_root(const net_handle_t& net) const {
-    return !is_edit(net) && inner.is_root(to_inner(net));
+    return !is_added(net) && inner.is_root(to_inner(net));
 }
 
 bool EditSnarlDecompositionOverlay::is_snarl(const net_handle_t& net) const {
-    return !is_edit(net) && inner.is_snarl(to_inner(net));
+    return !is_added(net) && inner.is_snarl(to_inner(net));
 }
 
 bool EditSnarlDecompositionOverlay::is_chain(const net_handle_t& net) const {
-    return !is_edit(net) && inner.is_chain(to_inner(net));
+    return !is_added(net) && inner.is_chain(to_inner(net));
 }
 
 bool EditSnarlDecompositionOverlay::is_node(const net_handle_t& net) const {
-    return !is_edit(net) && inner.is_node(to_inner(net));
+    return !is_added(net) && inner.is_node(to_inner(net));
 }
 
 bool EditSnarlDecompositionOverlay::is_sentinel(const net_handle_t& net) const {
-    return !is_edit(net) && inner.is_sentinel(to_inner(net));
+    return !is_added(net) && inner.is_sentinel(to_inner(net));
 }
 
 net_handle_t EditSnarlDecompositionOverlay::get_net(const handle_t& handle,
@@ -196,14 +215,14 @@ net_handle_t EditSnarlDecompositionOverlay::get_net(const handle_t& handle,
 
 handle_t EditSnarlDecompositionOverlay::get_handle(const net_handle_t& net,
                                                    const HandleGraph* node_graph) const {
-    if (is_edit(net)) {
-        throw std::logic_error("EditSnarlDecompositionOverlay: get_handle on an edit");
+    if (is_added(net)) {
+        throw std::logic_error("EditSnarlDecompositionOverlay: get_handle on an edit or a merged site");
     }
     return inner.get_handle(to_inner(net), node_graph);
 }
 
 net_handle_t EditSnarlDecompositionOverlay::get_parent(const net_handle_t& child) const {
-    if (is_edit(child)) {
+    if (is_added(child)) {
         return edit_of(child).parent;
     }
     return from_inner(inner.get_parent(to_inner(child)));
@@ -211,21 +230,21 @@ net_handle_t EditSnarlDecompositionOverlay::get_parent(const net_handle_t& child
 
 net_handle_t EditSnarlDecompositionOverlay::get_bound(const net_handle_t& snarl, bool get_end,
                                                       bool face_in) const {
-    if (is_edit(snarl)) {
-        throw std::logic_error("EditSnarlDecompositionOverlay: get_bound on an edit");
+    if (is_added(snarl)) {
+        throw std::logic_error("EditSnarlDecompositionOverlay: get_bound on an edit or a merged site");
     }
     return from_inner(inner.get_bound(to_inner(snarl), get_end, face_in));
 }
 
 net_handle_t EditSnarlDecompositionOverlay::flip(const net_handle_t& net) const {
-    if (is_edit(net)) {
+    if (is_added(net)) {
         return edit_net(edit_number(net), !edit_is_reverse(net));
     }
     return from_inner(inner.flip(to_inner(net)));
 }
 
 net_handle_t EditSnarlDecompositionOverlay::canonical(const net_handle_t& net) const {
-    if (is_edit(net)) {
+    if (is_added(net)) {
         return edit_net(edit_number(net), false);
     }
     return from_inner(inner.canonical(to_inner(net)));
@@ -233,7 +252,7 @@ net_handle_t EditSnarlDecompositionOverlay::canonical(const net_handle_t& net) c
 
 SnarlDecomposition::endpoint_t
 EditSnarlDecompositionOverlay::starts_at(const net_handle_t& traversal) const {
-    if (is_edit(traversal)) {
+    if (is_added(traversal)) {
         return edit_is_reverse(traversal) ? END : START;
     }
     return inner.starts_at(to_inner(traversal));
@@ -241,7 +260,7 @@ EditSnarlDecompositionOverlay::starts_at(const net_handle_t& traversal) const {
 
 SnarlDecomposition::endpoint_t
 EditSnarlDecompositionOverlay::ends_at(const net_handle_t& traversal) const {
-    if (is_edit(traversal)) {
+    if (is_added(traversal)) {
         return edit_is_reverse(traversal) ? START : END;
     }
     return inner.ends_at(to_inner(traversal));
@@ -249,16 +268,16 @@ EditSnarlDecompositionOverlay::ends_at(const net_handle_t& traversal) const {
 
 net_handle_t EditSnarlDecompositionOverlay::get_parent_traversal(
     const net_handle_t& traversal_start, const net_handle_t& traversal_end) const {
-    if (is_edit(traversal_start) || is_edit(traversal_end)) {
-        throw std::logic_error("EditSnarlDecompositionOverlay: get_parent_traversal on an edit");
+    if (is_added(traversal_start) || is_added(traversal_end)) {
+        throw std::logic_error("EditSnarlDecompositionOverlay: get_parent_traversal on an edit or a merged site");
     }
     return from_inner(inner.get_parent_traversal(to_inner(traversal_start), to_inner(traversal_end)));
 }
 
 bool EditSnarlDecompositionOverlay::for_each_child_impl(
     const net_handle_t& traversal, const std::function<bool(const net_handle_t&)>& iteratee) const {
-    if (is_edit(traversal)) {
-        // An edit has no children.
+    if (is_added(traversal)) {
+        // Neither an edit nor a merged site has children.
         return true;
     }
     // A node has no children in the inner decomposition, which may refuse to be asked.
@@ -282,7 +301,7 @@ bool EditSnarlDecompositionOverlay::for_each_child_impl(
 
 bool EditSnarlDecompositionOverlay::for_each_traversal_impl(
     const net_handle_t& item, const std::function<bool(const net_handle_t&)>& iteratee) const {
-    if (is_edit(item)) {
+    if (is_added(item)) {
         return iteratee(edit_net(edit_number(item), false))
                && iteratee(edit_net(edit_number(item), true));
     }
@@ -294,8 +313,8 @@ bool EditSnarlDecompositionOverlay::for_each_traversal_impl(
 bool EditSnarlDecompositionOverlay::follow_net_edges_impl(
     const net_handle_t& here, const HandleGraph* node_graph, bool go_left,
     const std::function<bool(const net_handle_t&)>& iteratee) const {
-    if (is_edit(here)) {
-        // An edit is not a step of any chain, so no net edges lead from it.
+    if (is_added(here)) {
+        // Neither an edit nor a merged site is a step of a chain, so no net edges lead from it.
         return true;
     }
     return inner.follow_net_edges(to_inner(here), node_graph, go_left,
