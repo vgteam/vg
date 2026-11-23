@@ -96,6 +96,8 @@ void write_alignment_to_file(const Alignment& aln, const string& filename);
 /// 'M' (the default) to roll them into matches, or 'X' to mark mismatches as a
 /// different operation.
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar, char mismatch_operation = 'M');
+/// Return a CIGAR as a string. Adjacent operations of the same
+/// type are merged. The CIGAR must not be empty.
 string cigar_string(const vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 
@@ -325,6 +327,10 @@ int softclip_end(const Alignment& alignment);
 int softclip_trim(Alignment& alignment);
 int query_overlap(const Alignment& aln1, const Alignment& aln2);
 int edit_count(const Alignment& alignment);
+/// Count the matched, mismatched, inserted and deleted bases in an Alignment's
+/// edits. A softclip counts as inserted bases.
+void count_edit_bases(const Alignment& aln, uint64_t& matches, uint64_t& mismatches,
+                      uint64_t& inserted, uint64_t& deleted);
 size_t to_length_after_pos(const Alignment& aln, const Position& pos);
 size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);
