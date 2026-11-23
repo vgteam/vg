@@ -376,9 +376,9 @@ public:
     /// Determine if a VCF file is phased or not
     static bool vcf_is_phased(const string& filepath);
     
-    /// Determine if a file of reads, possibly gzipped, is FASTA rather than
-    /// FASTQ, from the first character of its first record. Fails if the file
-    /// cannot be read or starts with neither '>' nor '@'.
+    /// Return true if a reads file, possibly gzipped, is FASTA, and false if
+    /// it is FASTQ. Look only at the first character of the file. Exit with an
+    /// error if that character is neither '>' nor '@', or there is none.
     static bool reads_are_fasta(const string& filepath);
 
     /// Determine if a GFA has haplotypes as W-lines

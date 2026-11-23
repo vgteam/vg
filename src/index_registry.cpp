@@ -4418,8 +4418,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // Create a temp directory for kmc intermediate files.
         string tmp_dir = temp_file::create_directory();
 
-        // KMC reads FASTQ unless told otherwise, and takes one format for all
-        // its inputs, while the "FASTQ" index may hold FASTA too.
+        // Find the format of the reads to tell KMC. The "FASTQ" index can hold
+        // FASTA files too. KMC takes one format for all its inputs.
         bool reads_are_fasta = IndexRegistry::reads_are_fasta(fastq_filenames.front());
         for (const string& fq : fastq_filenames) {
             if (IndexRegistry::reads_are_fasta(fq) != reads_are_fasta) {
@@ -4486,8 +4486,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             "-m128",
             "-okff",
             "-hp",
-            // KMC's -fa format drops sequence lines after the first, so use
-            // -fm, which reads FASTA with records over any number of lines.
+            // KMC's -fa format counts almost nothing from FASTA records that
+            // wrap over several lines. Its -fm format reads them whole.
             reads_are_fasta ? "-fm" : "-fq"
         };
 
