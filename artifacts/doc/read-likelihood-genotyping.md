@@ -511,6 +511,62 @@ it, would repeat that ALT, so they are not written. The chain is still genotyped
 the panel, and its sites get anchors. Each linkage pass decides again, from the parent's chosen
 genotype, whether a block spells the chain out.
 
+#### Flat records
+
+`--flatten-records`, off by default, writes each top-level site as the base-level differences of
+its called strands from its reference, and writes no records for the sites nested in it. It needs
+`--phased`, and cannot be combined with `--genotype-snarls`. Only the records change: the
+genotypes, the phase, the anchors and the mosaic are what they are without it.
+
+A strand's **resolved sequence** is the allele the strand carries at the site, spelled from the
+site's start boundary node through its end boundary node, with each nested site spelled by the
+allele that strand carries there, at every depth, off-panel edit sites included. The site's
+**resolved reference** is its reference allele with each nested site at its own reference allele,
+which is the reference path through the site. vg aligns each strand's resolved sequence to the
+resolved reference, end to end, at the least cost: 4 for a mismatch, and for a gap of $L$ bases the
+lesser of $6 + 2L$ and $24 + L$. It then moves each gap as far left as it goes within the site.
+
+Each maximal run of alignment columns that are not matches is a **difference**, and the records are
+cut from the differences:
+
+- A run of mismatches is one record (an MNP where it is longer than one base).
+- A gap is one record, with the reference base before it at the start of REF and of each ALT. A gap
+  with mismatches touching it is one record that covers both.
+- Differences of the two strands that share a reference base, counting the base before a gap, are
+  one record. Each strand is spelled over that record's reference bases, and strands that spell the
+  same bases share an allele. So a difference on both strands is `1|1`, a difference on one strand
+  is `1|0` or `0|1`, and two different ones at the same place are one record with two ALTs and GT
+  `1|2`.
+
+`POS` is the position of the record's first reference base on the reference path, as in every other
+record: the site's first base plus the record's offset in the resolved reference. The `GT` lists
+the strands in the order of the site's phase. It is phased, with the site's `PS`, where the site's
+own GT is phased, and is otherwise written with `/` and no `PS`. A site whose strands both spell
+the resolved reference writes nothing.
+
+The other fields follow the [block records](#block-records). The ID is the site's ID followed by
+`_` and the record's index, and `INFO/SB` gives the index and the number of flat records the site
+writes. `QUAL`, `FILTER`, `DP`, `DR`, `BL`, `GQ`, `GQI`, `GQN` and `GP` are the top-level site's,
+repeated on each record, and `AD` and `GL` are copied from the site record through the site allele
+each strand carries. A difference that comes from a nested site therefore carries the top-level
+site's evidence, not the nested site's. `INFO/FL` marks a flat record. `INFO/AT` is `.` for each
+allele, since no walk of the graph spells a flat allele.
+
+A site is written as it is without `--flatten-records`, and so are the sites nested in it, where it
+has no strands to spell (it has no genotype or no phase, or the strands of its phase do not carry
+the genotype that is written), where a gap at the site's first base has no reference base before
+it, or where the
+aligner reaches its limit. The aligner fills a band of the alignment matrix and widens it until it
+can show that the alignment costs the least, and gives up when the band would hold more than
+$2^{27}$ cells, or the proof more than $2^{30}$. The run reports on stderr, in lines starting
+`[vg call] flatten:`, the sites and lines written, the nested sites left without a line, and the
+sites not flattened, by reason.
+
+With the environment variable `VG_CHECK_FLAT_RECORDS` set, vg checks every flattened site as it
+writes it: it puts the site's flat records back into the resolved reference, taking for each strand
+the allele its GT entry names, and compares the result with the strand's resolved sequence. A
+`[vg call] flatten check:` line reports the sites checked and the sites that failed.
+
 ### VCF fields
 
 | Field | Meaning |
@@ -527,7 +583,8 @@ genotype, whether a block spells the chain out.
 | `DR` | the **depth ratio**: the site's effective read count over the expected read count of the genotype the record is written with (see [Depth term inputs](read-likelihood-direct-genotyping.md#depth-term-inputs)) |
 | `BL` | mean over reads of each read's best log-likelihood score at the site, $\max_a \ell_{ra}$, in nats (see [Relative likelihood](read-likelihood-direct-genotyping.md#relative-likelihood)) |
 | `FORMAT/PS` | the phase set |
-| `INFO/SB` | not strand bias: on a block record, its index counting from 0 among the site's block records, and the number of block records the site writes (see [Reporting each difference once](#reporting-each-difference-once)) |
+| `INFO/SB` | not strand bias: on a block record, its index counting from 0 among the site's block records, and the number of block records the site writes (see [Reporting each difference once](#reporting-each-difference-once)); likewise on a [flat record](#flat-records) |
+| `INFO/FL` | the record is a [flat record](#flat-records), written with `--flatten-records` |
 | `FILTER=noreads` | the site had no reads, so no genotype is called (`GT` is `./.`). Such a record is written only with `--genotype-snarls`, which also writes reference calls |
 | `FILTER=lowconf` | `GQN` is below `--min-confidence`, when that is above 0 |
 
@@ -1059,7 +1116,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Mixture weights](read-likelihood-direct-genotyping.md#mixture-weights) | `--flat-mixture` |
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
-| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
+| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--flatten-records`, `--no-off-ref-nesting` |
 | [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
 | [Phasing](#phasing) | `--phased`, `--no-phased`, `--read-phasing`, `--no-read-phasing`, `--phase-min-q`, `--phase-coherence`, `--phase-coh-rounds`, `--phase-break`, `--phase-relink`, `--phase-hang`, `--phase-prior`, `--phase-cap` |
 | [Re-genotyping](#re-genotyping-from-the-phase) | `--regenotype`, `--no-regenotype`, `--regeno-temper`, `--regeno-ceiling`, `--regeno-passes`, `--regeno-haploid`, `--no-regeno-haploid`, `--regeno-ledger` |

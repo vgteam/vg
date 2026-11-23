@@ -1,6 +1,7 @@
 #ifndef VG_ALLELE_SPLICER_HPP_INCLUDED
 #define VG_ALLELE_SPLICER_HPP_INCLUDED
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -58,6 +59,11 @@ public:
 
     /// Return true if any staged site is indexed under the site with record key `record_key`.
     bool has_children(size_t record_key) const;
+
+    /// Visit every staged site indexed under the site with record key `record_key`, at any
+    /// depth, parents before the sites under them.
+    void for_each_under(size_t record_key,
+                        const function<void(const StagedSite&)>& visit) const;
 
     /// Fill `out` with the alleles the record of `site` spells.
     ///

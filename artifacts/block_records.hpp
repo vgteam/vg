@@ -9,6 +9,7 @@
 
 #include "../src/handle.hpp"
 #include "../src/snarls.hpp"
+#include "string_aligner.hpp"
 #include "symbolic_allele.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 #include "vcf_record.hpp"
@@ -54,6 +55,74 @@ struct AtomizeCounters {
     std::atomic<size_t> child_inlined{0};
     /// Sites `BlockRecordWriter::write` declined, by reason.
     std::array<std::atomic<size_t>, (size_t)AtomizeRefusal::Count> refuse{};
+};
+
+/// One place where a strand of a site differs from the site's resolved reference: a longest run
+/// of columns of their alignment that are not matches.
+struct FlatDifference {
+    /// The offset in the reference of the first base the strand replaces.
+    size_t ref_begin;
+    /// The offset in the reference after the last base the strand replaces, which is `ref_begin`
+    /// where the strand only inserts bases.
+    size_t ref_end;
+    /// The bases the strand has in their place, which are none where it only deletes bases.
+    string alt;
+
+    /// Return whether a record of the difference alone needs the reference base before it, as VCF
+    /// requires where the reference or the strand has no bases.
+    bool needs_anchor() const { return ref_begin == ref_end || alt.empty(); }
+};
+
+/// One strand of a site, aligned base by base to the site's resolved reference.
+struct FlatStrand {
+    /// The traversal of the site that the strand carries. The strand's flat records take their
+    /// AD and GL from the site allele of this traversal.
+    int trav;
+    /// The strand's resolved sequence (see `AlleleSplicer::strand_sequence`).
+    string sequence;
+    /// Where the strand differs from the reference, in reference order. No two touch.
+    vector<FlatDifference> differences;
+};
+
+/// The strands of a site's phase, in order, aligned to the site's resolved reference. Flat
+/// records are cut from it (see `BlockRecordWriter::write_flat`).
+struct FlatSite {
+    /// The resolved reference (see `AlleleSplicer::reference_sequence`).
+    string reference;
+    /// The strands, strand 0 first.
+    vector<FlatStrand> strands;
+};
+
+/// Why a site is not written as flat records, so that it and the sites nested in it are written
+/// as they are without `--flatten-records`. The value indexes `FlatCounters::refuse` and the
+/// report's list of reasons.
+enum class FlatRefusal : size_t {
+    NoGenotype,
+    NoPhase,
+    PhaseDiffers,
+    ReferenceDiffers,
+    AlignerLimit,
+    NoAnchorBase,
+    /// The number of reasons.
+    Count
+};
+
+/// Counters for flat records, for the report.
+struct FlatCounters {
+    /// Sites written as flat records.
+    std::atomic<size_t> sites{0};
+    /// Flat records written.
+    std::atomic<size_t> lines{0};
+    /// Sites whose strands all spell the resolved reference, which write nothing.
+    std::atomic<size_t> reference_sites{0};
+    /// Nested sites with no line because the flat records of an enclosing site spell them.
+    std::atomic<size_t> withheld{0};
+    /// Sites whose flat records were checked against their strands.
+    std::atomic<size_t> checked{0};
+    /// Checked sites whose flat records do not spell their strands.
+    std::atomic<size_t> check_failed{0};
+    /// Sites not written as flat records, by reason.
+    std::array<std::atomic<size_t>, (size_t)FlatRefusal::Count> refuse{};
 };
 
 /**
@@ -151,6 +220,68 @@ public:
               const function<bool(vcflib::Variant&, size_t)>& add_line,
               const AlleleSequences* sequences = nullptr) const;
 
+    /// Set the costs and limits of the aligner that `align_flat` uses.
+    void set_flat_aligner(const StringAlignerParams& params) { flat_aligner = params; }
+
+    /// Set whether `write_flat` checks each site's records with `flat_records_spell` and counts
+    /// the result for the report.
+    void set_flat_check(bool on) { flat_check = on; }
+
+    /**
+     * Align each strand of a site to the site's resolved reference `reference`.
+     *
+     * `strands` gives, for each strand of the site's phase in order, the traversal it carries and
+     * its resolved sequence. Each strand is aligned at the least cost (see `align_global`), and
+     * its gaps are moved as far left as they go without leaving the first base of the site.
+     *
+     * @return Nothing, counting why, if the aligner reaches its limit, or if a difference that
+     * needs the reference base before it starts at the first base of the site.
+     */
+    optional<FlatSite> align_flat(string reference, vector<pair<int, string>> strands) const;
+
+    /// Count a site that is not written as flat records for `reason`.
+    void count_flat_refusal(FlatRefusal reason) const { ++flat_counters.refuse[(size_t)reason]; }
+
+    /// Count `sites` nested sites left without a line because the flat records of an enclosing
+    /// site spell them.
+    void count_flat_withheld(size_t sites) const { flat_counters.withheld += sites; }
+
+    /**
+     * Write a site as flat records, giving each to `add_line` with its index, and return the
+     * number of lines `add_line` accepted.
+     *
+     * A flat record covers the differences from the resolved reference of `flat` that share a
+     * reference base, counting the base before a difference that needs it. A difference is a
+     * longest run of bases a strand does not match: a run of mismatches is one record, and so
+     * is a gap, with the reference base before it, or a gap with the mismatches that touch it.
+     * Each strand is spelled over the record's reference bases, and the strands that spell the
+     * same bases share an allele, so a difference on both strands is homozygous, and two
+     * different ones over the same bases make one record with two ALTs. The GT lists the
+     * strands in order. A site whose strands all spell the reference writes nothing.
+     *
+     * A record is placed by its offset in the reference from `record.unflattened_position`. It
+     * copies every field of `record`, the finished site record, that it does not redefine, as a
+     * block record does: it takes the ID of the site with its index appended, INFO/SB, the
+     * site's PS where the site's GT is phased, and AD and GL through the site allele of each
+     * strand's traversal. It has INFO/FL, and "." as the AT of each allele, since no walk
+     * spells its alleles.
+     */
+    int write_flat(const PathPositionHandleGraph& graph, const FlatSite& flat,
+                   const string& sample_name, const NodeTranslation* translation,
+                   const SiteRecord& record, GLLayout gl_layout,
+                   const function<bool(vcflib::Variant&, size_t)>& add_line) const;
+
+    /**
+     * Return whether `records`, in position order, spell every strand of `flat`.
+     *
+     * Each strand is rebuilt from the reference of `flat`, whose first base is at position
+     * `first_position`, by putting in place of the REF of each record the allele that the GT of
+     * `sample_name` gives the strand. The entries of a GT are taken as the strands in order,
+     * whichever separator it has.
+     */
+    static bool flat_records_spell(const FlatSite& flat, const vector<vcflib::Variant>& records,
+                                   int64_t first_position, const string& sample_name);
+
     /// Print the counters to stderr. Print nothing when no site was counted.
     void report() const;
 
@@ -167,6 +298,15 @@ private:
     bool enabled = false;
     /// What the writer has done, for the report.
     mutable AtomizeCounters counters;
+    /// The costs and limits of the aligner that `align_flat` uses.
+    StringAlignerParams flat_aligner;
+    /// Whether `write_flat` checks the records it writes.
+    bool flat_check = false;
+    /// What the writer has done with flat records, for the report.
+    mutable FlatCounters flat_counters;
+
+    /// Print the counters of flat records to stderr, if any site was counted.
+    void report_flat() const;
 };
 
 }

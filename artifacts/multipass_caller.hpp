@@ -166,6 +166,22 @@ public:
     /// each called strand, instead of one record per site.
     void set_atomize_blocks(bool on) { block_records.set_enabled(on); }
 
+    /**
+     * Set whether each top-level site is written as flat records: the base-level differences of
+     * each of its strands, with the called alleles of the sites nested in it spliced in, from
+     * its reference allele (see `BlockRecordWriter::write_flat`). The sites nested in it then
+     * get no lines of their own. Only the records change: the phase, the anchors and the mosaic
+     * are what they are with this off. Off by default.
+     *
+     * A site whose strands cannot be aligned to its reference is written as it is with this
+     * off, and so are the sites nested in it.
+     *
+     * With the environment variable `VG_CHECK_FLAT_RECORDS` set, the flat records of each site
+     * are put back into its reference and compared with its strands, and the report counts the
+     * sites checked and the sites that failed.
+     */
+    void set_flatten_records(bool on);
+
     /// File each site in the linkage model while calling, so that it can choose the genotypes
     /// afterwards.
     ///
@@ -259,6 +275,7 @@ private:
         bool same_as_reference(const CalledSite& site, int trav) override;
         int64_t phase(const CalledSite& site, const vector<int>& genotype,
                       const map<int, int>& trav_to_allele, string& gt) override;
+        bool withholds_record(const CalledSite& site) override;
         int write_blocks(const PathPositionHandleGraph& graph, const CalledSite& site,
                          const SiteRecord& record) override;
         void finish_record(const CalledSite& site, vcflib::Variant& record) override;
@@ -275,6 +292,39 @@ private:
     /// Write the records of a staged site at `genotype`, during the render, and return how they
     /// numbered its alleles, or nothing where the site got no line.
     RecordRenderer::WrittenAlleles write_site(StagedSite& site, const vector<int>& genotype);
+
+    /// Return whether the records `site` has without `--flatten-records` are kept out of the
+    /// output: those of a site written as flat records, and of a site nested in one.
+    ///
+    /// Such a site is still rendered, with its lines dropped, so that the linkage model, the
+    /// anchors and the mosaic are told what they are told without `--flatten-records`.
+    bool withholds_lines(const StagedSite& site) const {
+        return site.flat.has_value() || flat_withheld.contains(site.record_key);
+    }
+
+    /// Return whether `site` is one that `--flatten-records` writes as flat records: a site
+    /// staged as top level.
+    bool is_flat_root(const StagedSite& site) const {
+        return flatten_records && site.placement.parent_record_key == 0;
+    }
+
+    /**
+     * Align the strands of `site`, whose chosen genotype is `genotype`, to its resolved
+     * reference, for its flat records.
+     *
+     * @return Nothing, counting why, if the site has no strands that carry `genotype`, its
+     * resolved reference is not its reference allele, or the strands cannot be aligned.
+     */
+    optional<FlatSite> flat_site_of(const StagedSite& site, const vector<int>& genotype) const;
+
+    /**
+     * Decide, before any record is written, which top-level sites with sites nested in them are
+     * written as flat records, and so which nested sites get no line.
+     *
+     * A nested site's line is left out only once the site above it is known to align, so this
+     * aligns each such top-level site and keeps the alignment in `StagedSite::flat`.
+     */
+    void plan_flat_records();
 
     /// Give `record` the quality fields of its chosen genotype, if the linkage model moved its
     /// site's genotype (see ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).
@@ -435,6 +485,11 @@ private:
     /// Spells the alleles of each site with the chosen alleles of the sites under it, from
     /// `phase_table`.
     AlleleSplicer splicer;
+    /// Whether each top-level site is written as flat records (see `set_flatten_records`).
+    bool flatten_records = false;
+    /// The record keys of the nested sites in the render queues whose lines are kept out of the
+    /// output, because the flat records of the top-level site above them spell them.
+    unordered_set<size_t> flat_withheld;
 
     /// Which allele each panel haplotype carries at a site. Empty without the linkage model.
     PanelLookup panel_lookup;

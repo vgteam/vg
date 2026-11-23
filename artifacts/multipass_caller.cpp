@@ -1,4 +1,5 @@
 #include <atomic>
+#include <cstdlib>
 #include <fstream>
 #include <limits>
 
@@ -202,6 +203,18 @@ int MultiPassCaller::StagedSiteEmitter::write_blocks(const PathPositionHandleGra
                                                      const CalledSite& site,
                                                      const SiteRecord& record) {
     const StagedSite& staged = caller.rendered_site(site);
+    if (staged.flat) {
+        // The flat records stand in for the site's record or blocks.
+        caller.block_records.write_flat(
+            graph, *staged.flat, output.sample_name(), output.translation(), record, gl_layout,
+            [this](vcflib::Variant& line, size_t block) {
+                caller.finish_moved_record(line);
+                return output.add_variant(line, block);
+            });
+    }
+    // A site whose lines are kept out is still cut into blocks, so that it is reported as it is
+    // without flat records.
+    const bool withheld = caller.withholds_lines(staged);
     // The blocks spell the alleles the site record spells: the spliced ones, if the site has
     // them, or else its own, by their step sequences where they have them.
     AlleleSequences own_steps;
@@ -212,11 +225,15 @@ int MultiPassCaller::StagedSiteEmitter::write_blocks(const PathPositionHandleGra
         graph, staged.children, staged.spliced ? staged.spliced->travs : staged.alleles.walks,
         site.genotype, site.ref_trav_idx, output.sample_name(), output.translation(), record,
         gl_layout, genotype_snarls,
-        [this](vcflib::Variant& line, size_t block) {
+        [this, withheld](vcflib::Variant& line, size_t block) {
             caller.finish_moved_record(line);
-            return output.add_variant(line, block);
+            return withheld || output.add_variant(line, block);
         },
         staged.spliced ? &staged.spliced->sequences : &own_steps);
+}
+
+bool MultiPassCaller::StagedSiteEmitter::withholds_record(const CalledSite& site) {
+    return caller.withholds_lines(caller.rendered_site(site));
 }
 
 void MultiPassCaller::StagedSiteEmitter::finish_record(const CalledSite&, vcflib::Variant& record) {
@@ -251,8 +268,88 @@ const StagedSite& MultiPassCaller::rendered_site(const CalledSite& site) const {
     return *rendered_sites.at(record_key_of(*site.id));
 }
 
+void MultiPassCaller::set_flatten_records(bool on) {
+    flatten_records = on;
+    block_records.set_flat_check(on && getenv("VG_CHECK_FLAT_RECORDS") != nullptr);
+}
+
+optional<FlatSite> MultiPassCaller::flat_site_of(const StagedSite& site,
+                                                 const vector<int>& genotype) const {
+    // The strands are those of the site's phase, which must carry the chosen genotype.
+    const LinkageCollector::PhaseCall* phase = phase_table.rendered(site.record_key);
+    if (genotype.empty() || phase == nullptr) {
+        block_records.count_flat_refusal(genotype.empty() ? FlatRefusal::NoGenotype
+                                                          : FlatRefusal::NoPhase);
+        return std::nullopt;
+    }
+    vector<pair<int, string>> strands;
+    vector<int> carried;
+    if (phase->ploidy == genotype.size()) {
+        for (int strand = 0; strand < (int)genotype.size(); ++strand) {
+            const optional<int> trav = splicer.strand_traversal(site, strand);
+            optional<string> sequence = splicer.strand_sequence(site, strand);
+            if (!trav || !sequence) {
+                break;
+            }
+            carried.push_back(*trav);
+            strands.emplace_back(*trav, std::move(*sequence));
+        }
+    }
+    vector<int> chosen = genotype;
+    std::ranges::sort(chosen);
+    std::ranges::sort(carried);
+    if (carried != chosen) {
+        block_records.count_flat_refusal(FlatRefusal::PhaseDiffers);
+        return std::nullopt;
+    }
+    // A record is placed by its offset from the first base of the site's reference allele, so
+    // the resolved reference must be that allele.
+    optional<string> reference = splicer.reference_sequence(site);
+    if (!reference || *reference != site.alleles.sequence(graph, site.alleles.ref_allele)) {
+        block_records.count_flat_refusal(FlatRefusal::ReferenceDiffers);
+        return std::nullopt;
+    }
+    return block_records.align_flat(std::move(*reference), std::move(strands));
+}
+
+void MultiPassCaller::plan_flat_records() {
+    flat_withheld.clear();
+    if (!flatten_records) {
+        return;
+    }
+    // The nested sites under the flat sites of each queue.
+    vector<vector<size_t>> under(staged_sites.queue_count());
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t q = 0; q < staged_sites.queue_count(); ++q) {
+        for (StagedSite& site : staged_sites.queue(q)) {
+            if (!is_flat_root(site) || !splicer.has_children(site.record_key)) {
+                continue;
+            }
+            site.flat = flat_site_of(site, linker.chosen_genotype(site));
+            if (site.flat) {
+                splicer.for_each_under(site.record_key, [&](const StagedSite& nested) {
+                    under[q].push_back(nested.record_key);
+                });
+            }
+        }
+    }
+    for (const vector<size_t>& keys : under) {
+        for (const size_t key : keys) {
+            // Only a site in a render queue has a line to leave out.
+            if (rendered_sites.contains(key)) {
+                flat_withheld.insert(key);
+            }
+        }
+    }
+    block_records.count_flat_withheld(flat_withheld.size());
+}
+
 RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
                                                            const vector<int>& genotype) {
+    if (is_flat_root(site) && !site.flat && !splicer.has_children(site.record_key)) {
+        // A site with sites nested in it was aligned before any record was written.
+        site.flat = flat_site_of(site, genotype);
+    }
     if (nested_calling) {
         block_records.count_site(site.children, site.alleles.walks, site.alleles.ref_allele);
     }
@@ -300,6 +397,7 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
         },
         &has_line);
     site.spliced.reset();
+    site.flat.reset();
     return has_line ? written : RecordRenderer::WrittenAlleles();
 }
 
@@ -344,6 +442,18 @@ static const char* const SB_HEADER_LINE =
     "must group by the snarl's ID first and count each snarl once. Records without "
     "SB are unaffected: they are the only record their snarl emitted.\">";
 
+/// The header line of INFO/FL.
+static const char* const FL_HEADER_LINE =
+    "##INFO=<ID=FL,Number=0,Type=Flag,Description=\"Flat record (--flatten-records): a "
+    "base-level difference between the strands of a top-level site and the site's reference "
+    "allele, where each strand is spelled with the called alleles of the sites nested in the "
+    "site, which have no records of their own. A run of mismatches is one record, and so is a "
+    "gap, with the reference base before it; differences of the two strands that share a "
+    "reference base are one record. The ID is the site's ID with _ and the record's index "
+    "(INFO/SB) appended. AT is . for each allele, since no walk of the graph spells them. QUAL "
+    "and the FORMAT fields other than GT are the top-level site's, repeated on each of its "
+    "records, with AD and GL taken through the site allele each strand carries\">";
+
 void MultiPassCaller::add_header_lines() {
     if (emit_phasing) {
         // FORMAT/PS is the VCF phase set, which phasing tools read. It is unrelated to INFO/PS,
@@ -360,8 +470,11 @@ void MultiPassCaller::add_header_lines() {
     if (off_panel.is_enabled()) {
         output.add_info_line(OP_HEADER_LINE);
     }
-    if (block_records.is_enabled()) {
+    if (block_records.is_enabled() || flatten_records) {
         output.add_info_line(SB_HEADER_LINE);
+    }
+    if (flatten_records) {
+        output.add_info_line(FL_HEADER_LINE);
     }
 }
 
@@ -496,6 +609,7 @@ void MultiPassCaller::render_retained_records() {
         [&]() {
             splicer.index(staged_sites, emit_phasing);
             rendered_sites = staged_sites.by_key();
+            plan_flat_records();
             if (mosaic_writer.is_exact()) {
                 // An exact mosaic needs the walk of each strand's called allele at every
                 // genotyped site, and the sites are freed as they are rendered. The phase is
@@ -512,6 +626,7 @@ void MultiPassCaller::render_retained_records() {
             }
         });
     rendered_sites.clear();
+    flat_withheld.clear();
     staged_sites.for_each([&](StagedSite& site) {
         if (sites.is_edit(site.net)) {
             edit_record_ids.emplace(sites.canonical(site.net), site.id);

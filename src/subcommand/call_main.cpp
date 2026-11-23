@@ -618,6 +618,11 @@ void help_call(char** argv) {
          << "                            a called allele and the reference, rather than one" << endl
          << "                            per snarl [on]" << endl
          << "      --no-atomize-blocks   write one record per snarl" << endl
+         << "      --flatten-records     write each top-level snarl as the base-level" << endl
+         << "                            differences of its two called haplotypes, with" << endl
+         << "                            the calls in its nested snarls put in, from its" << endl
+         << "                            reference allele: one record per run of" << endl
+         << "                            mismatches or gap, and none for nested snarls" << endl
          << "  read scoring:" << endl
          << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
          << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
@@ -872,6 +877,9 @@ int main_call(int argc, char** argv) {
     bool mosaic_connect_unexplained = true;
     // Whether the mosaic also gives the called allele wherever a strand's haplotype spells another.
     bool mosaic_exact = false;
+    // Whether each top-level snarl is written as the base-level differences of its called
+    // haplotypes from its reference allele.
+    bool flatten_records = false;
     string translation_file_name;
     bool   gbz_translation = false;
     string ref_fasta_filename;
@@ -1065,6 +1073,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_NO_MOSAIC_NESTED = 1055;
     constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
     constexpr int OPT_MOSAIC_EXACT = 1124;
+    constexpr int OPT_FLATTEN_RECORDS = 1125;
     optind = 2; // force optind past command positional argument
     // The long options, grouped by the subsystem they configure, by its name. Every subsystem with
     // a switch is part of the read-likelihood genotyper.
@@ -1164,6 +1173,7 @@ int main_call(int argc, char** argv) {
             {"no-group-candidates", no_argument, nullptr, OPT_NO_GROUP_CANDIDATES},
             {"atomize-blocks", no_argument, nullptr, OPT_ATOMIZE_BLOCKS},
             {"no-atomize-blocks", no_argument, nullptr, OPT_NO_ATOMIZE_BLOCKS},
+            {"flatten-records", no_argument, nullptr, OPT_FLATTEN_RECORDS},
             {"phased", no_argument, nullptr, OPT_PHASED},
             {"mosaic-out", required_argument, nullptr, OPT_MOSAIC_OUT},
             {"anchors-out", required_argument, nullptr, OPT_ANCHORS_OUT},
@@ -1410,6 +1420,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_ATOMIZE_BLOCKS:
             atomize_blocks = false;
+            break;
+        case OPT_FLATTEN_RECORDS:
+            flatten_records = true;
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
@@ -1811,6 +1824,12 @@ int main_call(int argc, char** argv) {
                            << "would stop being sample-independent" << endl;
         }
         atomize_blocks = false;
+    }
+
+    if (flatten_records && genotype_snarls) {
+        logger.error() << "--flatten-records cannot be combined with -a/--genotype-snarls: its "
+                       << "records depend on the called haplotypes, so the record set would stop "
+                       << "being sample-independent" << endl;
     }
 
     if (!vcf_filename.empty() && genotype_snarls) {
@@ -2855,6 +2874,10 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    if (flatten_records && multipass_caller != nullptr) {
+        multipass_caller->set_flatten_records(true);
+    }
+
     if (nested_calling) {
         multipass_caller->set_nested_calling(true);
     }
@@ -2926,6 +2949,13 @@ int main_call(int argc, char** argv) {
                                << "enumeration (-z or -g) and --read-likelihood" << endl;
             }
             phased_output = false;
+        }
+        if (flatten_records && !phased_output) {
+            // A flat record spells a strand, and the phase says which strand carries which
+            // allele at each site.
+            logger.error() << "--flatten-records needs the phase the linkage model gives each "
+                           << "site (--phased), which needs haplotype enumeration (-z or -g)"
+                           << endl;
         }
         if (nested_calling && linkage_weight > 0.0 && !phased_output) {
             // Where the linkage model runs, a nested site's ploidy and strand come from its

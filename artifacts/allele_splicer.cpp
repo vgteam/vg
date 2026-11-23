@@ -38,6 +38,18 @@ bool AlleleSplicer::has_children(size_t record_key) const {
     return children.count(record_key) != 0;
 }
 
+void AlleleSplicer::for_each_under(size_t record_key,
+                                   const function<void(const StagedSite&)>& visit) const {
+    const auto kids = children.find(record_key);
+    if (kids == children.end()) {
+        return;
+    }
+    for (const StagedSite* child : kids->second) {
+        visit(*child);
+        for_each_under(child->record_key, visit);
+    }
+}
+
 bool AlleleSplicer::splice(const StagedSite& site, SplicedAlleles& out) const {
     if (children.empty() || !children.count(site.record_key)) {
         return false;

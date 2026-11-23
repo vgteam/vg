@@ -26,6 +26,18 @@ static constexpr auto g_atomize_refuse_name = std::to_array<const char*>({
     "one block that two strands' routes spell differently within one site allele, so the site cannot give it a genotype",
     "one block, where a chain crossed more than once may leave its record short of what the site record says",
 });
+/// A description of each `FlatRefusal`, in the order of the enum.
+static constexpr auto g_flat_refuse_name = std::to_array<const char*>({
+    "no genotype is written",
+    "the site has no phase",
+    "the strands of the phase do not carry the written genotype",
+    "the resolved reference is not the site's reference allele",
+    "the aligner reached its limit",
+    "a gap at the first base of the site has no reference base before it",
+});
+static_assert(g_flat_refuse_name.size() == (size_t)FlatRefusal::Count,
+              "g_flat_refuse_name must have one entry per FlatRefusal value");
+
 static_assert(g_atomize_refuse_name.size() == (size_t)AtomizeRefusal::Count,
               "each AtomizeRefusal must have a name in g_atomize_refuse_name, "
               "and each name must have a reason");
@@ -147,6 +159,9 @@ public:
             }
         }
     }
+
+    /// The slots are in the order of the genotype, not of the strands of the site's phase.
+    static constexpr bool slots_are_strands = false;
 
     /// Get why the alignment could not be made, if it could not.
     optional<AtomizeRefusal> refusal() const { return failure; }
@@ -357,6 +372,108 @@ private:
     optional<AtomizeRefusal> failure;
 };
 
+/**
+ * The strands of a site, each aligned base by base to the site's resolved reference.
+ *
+ * Flat records are cut from this alignment, as block records are cut from a `SiteAlignment`. Its
+ * positions are offsets in the reference, and a slot is a strand of the site's phase. No walk
+ * spells what it cuts, so its visits are empty.
+ */
+class FlatAlignment {
+public:
+    /// Make the alignment of `flat`, which must outlive it.
+    explicit FlatAlignment(const FlatSite& flat) : flat(flat) {}
+
+    /// The slots are the strands of the site's phase, in order.
+    static constexpr bool slots_are_strands = true;
+
+    /// Get the number of strands.
+    size_t slot_count() const { return flat.strands.size(); }
+
+    /// Get the traversal strand `s` carries.
+    int traversal_of(size_t s) const { return flat.strands[s].trav; }
+
+    /// Get the offset of reference offset `v` from the first base of the site, which is itself.
+    size_t ref_offset(int v) const { return (size_t)v; }
+
+    /**
+     * Return the clusters of the differences of all strands, as ranges of reference offsets.
+     *
+     * The range of a difference is the reference bases it replaces, with the base before them
+     * if a record of it alone needs one. Differences whose ranges share a base go in one
+     * cluster, so that no two records of a site cover the same reference base. The clusters are
+     * in reference order.
+     */
+    vector<pair<int, int>> difference_clusters() const {
+        vector<pair<int, int>> ranges;
+        for (const FlatStrand& strand : flat.strands) {
+            for (const FlatDifference& difference : strand.differences) {
+                ranges.push_back(range_of(difference));
+            }
+        }
+        std::ranges::sort(ranges);
+        vector<pair<int, int>> clusters;
+        for (const pair<int, int>& range : ranges) {
+            if (!clusters.empty() && range.first < clusters.back().second) {
+                clusters.back().second = std::max(clusters.back().second, range.second);
+            } else {
+                clusters.push_back(range);
+            }
+        }
+        return clusters;
+    }
+
+    /// Return what the reference and each strand spell over the cluster of reference offsets
+    /// [rb, re).
+    ClusterSpelling spell_cluster(size_t rb, size_t re) const {
+        ClusterSpelling spelling;
+        spelling.vb = (int)rb;
+        spelling.ve = (int)re;
+        spelling.ref_str = flat.reference.substr(rb, re - rb);
+        spelling.slot_span.resize(flat.strands.size());
+        spelling.slot_marker.assign(flat.strands.size(), false);
+        for (const FlatStrand& strand : flat.strands) {
+            string spelled;
+            size_t next = rb;
+            // The differences are in reference order, so those of the cluster follow the first
+            // that starts in it.
+            auto difference = std::ranges::lower_bound(strand.differences, rb, {},
+                                                       &FlatDifference::ref_begin);
+            for (; difference != strand.differences.end() && difference->ref_begin <= re;
+                 ++difference) {
+                const pair<int, int> range = range_of(*difference);
+                if ((size_t)range.first < rb || (size_t)range.second > re) {
+                    // The difference is in the cluster before or after.
+                    continue;
+                }
+                spelled += flat.reference.substr(next, difference->ref_begin - next);
+                spelled += difference->alt;
+                next = difference->ref_end;
+            }
+            spelled += flat.reference.substr(next, re - next);
+            spelling.slot_str.push_back(std::move(spelled));
+        }
+        return spelling;
+    }
+
+    /// Return the reference bases at offsets [vb, ve).
+    string spell_reference(int vb, int ve) const {
+        return flat.reference.substr((size_t)vb, (size_t)(ve - vb));
+    }
+
+    /// Return no visits, since no walk spells the reference between two offsets.
+    Traversal reference_visits(int, int) const { return Traversal(); }
+
+private:
+    /// Return the range of reference offsets a record of `difference` alone would cover.
+    static pair<int, int> range_of(const FlatDifference& difference) {
+        return {(int)difference.ref_begin - (difference.needs_anchor() ? 1 : 0),
+                (int)difference.ref_end};
+    }
+
+    const FlatSite& flat;
+};
+
 /// Return whether the alleles of a cluster need an anchor base, which VCF requires of an indel,
 /// since it has no empty allele.
 bool needs_anchor_base(const ClusterSpelling& spelling) {
@@ -389,8 +506,10 @@ struct BlockAlleles {
 /// as the site record does.
 ///
 /// Two strands that take different routes to the same sequence are then homozygous.
-/// `trav_to_allele` gives the site allele of each traversal.
-BlockAlleles number_block_alleles(const ClusterSpelling& spelling, const SiteAlignment& alignment,
+/// `trav_to_allele` gives the site allele of each traversal. `alignment` is a `SiteAlignment` or
+/// a `FlatAlignment`.
+template<typename Alignment>
+BlockAlleles number_block_alleles(const ClusterSpelling& spelling, const Alignment& alignment,
                                   const map<int, int>& trav_to_allele) {
     BlockAlleles block;
     map<string, int> allele_to_gt;
@@ -538,6 +657,23 @@ BlockGenotype phase_block_genotype(const string* site_gt, const vector<int>& blo
     return result;
 }
 
+/// Return the GT of a block record whose slots are the strands of the site's phase, in order.
+///
+/// The GT is phased, and the record keeps the phase set of the site, unless the site GT
+/// `site_gt` is missing or unphased.
+BlockGenotype strand_block_genotype(const string* site_gt, const vector<int>& block_gt) {
+    BlockGenotype result;
+    result.keep_phase_set = site_gt != nullptr && site_gt->find('/') == string::npos;
+    for (size_t s = 0; s < block_gt.size(); ++s) {
+        result.gt += block_gt[s] == MISSING_ALLELE_MARKER ? string(".")
+                                                          : std::to_string(block_gt[s]);
+        if (s + 1 != block_gt.size()) {
+            result.gt += result.keep_phase_set ? '|' : '/';
+        }
+    }
+    return result;
+}
+
 /// Return the GL of a block record, taken from the GL of the site, or nothing if an entry it
 /// needs is missing.
 ///
@@ -617,15 +753,20 @@ void copy_site_evidence(vcflib::Variant& b_var, const vcflib::Variant& site,
  * A cutter that cuts the record of a site into block records, one for each cluster of difference
  * blocks that some strand spells differently from the reference.
  *
+ * The clusters come from `Alignment`: a `SiteAlignment`, which aligns the called alleles to the
+ * reference by their symbolic projections, or a `FlatAlignment`, which aligns the strands to the
+ * resolved reference base by base.
+ *
  * Each block record copies every field of the site record that it does not redefine.
  */
+template<typename Alignment>
 class BlockCutter {
 public:
     /// Make a cutter for the site record `record`, aligned as `alignment`.
     ///
     /// The block records are for `sample_name`, with nodes named by `translation` if it is not
     /// null. `gl_layout` is the order of GL in the site record.
-    BlockCutter(const PathPositionHandleGraph& graph, const SiteAlignment& alignment,
+    BlockCutter(const PathPositionHandleGraph& graph, const Alignment& alignment,
                 const SiteRecord& record, const string& sample_name,
                 const NodeTranslation* translation, GLLayout gl_layout)
         : graph(graph), alignment(alignment), record(record), sample_name(sample_name),
@@ -701,8 +842,11 @@ private:
             auto found = record.trav_to_allele.find(alignment.traversal_of(s));
             slot_site_allele[s] = found != record.trav_to_allele.end() ? found->second : -1;
         }
-        const BlockGenotype genotype = phase_block_genotype(
-            site_gt_text(record.variant, sample_name), block.block_gt, slot_site_allele);
+        const string* site_gt = site_gt_text(record.variant, sample_name);
+        const BlockGenotype genotype =
+            Alignment::slots_are_strands
+                ? strand_block_genotype(site_gt, block.block_gt)
+                : phase_block_genotype(site_gt, block.block_gt, slot_site_allele);
         b_var.samples[sample_name]["GT"] = {genotype.gt};
         if (!genotype.keep_phase_set) {
             // PS labels a phase block, so it means nothing on an unphased genotype.
@@ -739,7 +883,7 @@ private:
 
     const PathPositionHandleGraph& graph;
     /// The alignment the clusters are cut from.
-    const SiteAlignment& alignment;
+    const Alignment& alignment;
     /// The finished site record.
     const SiteRecord& record;
     /// The sample the records are written for.
@@ -776,7 +920,41 @@ optional<AtomizeRefusal> single_block_refusal(const SiteAlignment& alignment,
 
 }
 
+void BlockRecordWriter::report_flat() const {
+    size_t refused = 0;
+    for (const std::atomic<size_t>& reason : flat_counters.refuse) {
+        refused += reason.load();
+    }
+    if (flat_counters.sites.load() + flat_counters.reference_sites.load() + refused == 0) {
+        return;
+    }
+    cerr << "[vg call] flatten: " << flat_counters.sites.load()
+         << " top-level sites written as flat records, " << flat_counters.lines.load()
+         << " lines; " << flat_counters.reference_sites.load()
+         << " sites whose strands spell the reference, with no line; "
+         << flat_counters.withheld.load()
+         << " nested sites left without a line because the flat records spell them" << endl;
+    cerr << "[vg call] flatten: " << refused << " sites written as without --flatten-records,"
+         << " with the sites nested in them";
+    // List only the reasons that occurred.
+    bool first = true;
+    for (size_t i = 0; i < flat_counters.refuse.size(); ++i) {
+        if (const size_t n = flat_counters.refuse[i].load(); n > 0) {
+            cerr << (first ? ": " : "; ") << n << " " << g_flat_refuse_name[i];
+            first = false;
+        }
+    }
+    cerr << endl;
+    if (flat_check) {
+        cerr << "[vg call] flatten check: " << flat_counters.checked.load()
+             << " sites whose flat records were put into the resolved reference, "
+             << flat_counters.check_failed.load()
+             << " FAILED to spell their strands" << endl;
+    }
+}
+
 void BlockRecordWriter::report() const {
+    report_flat();
     // Report whenever block emission ran, even if it refused nothing.
     if (counters.sites.load() == 0) {
         return;
@@ -999,6 +1177,154 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const SiteChi
     ++counters.split_sites;
     counters.split_lines += (size_t)added;
     return added;
+}
+
+/// Return the differences of a strand `sequence` from `reference` under the alignment `runs`:
+/// each longest run of columns that are not matches.
+static vector<FlatDifference> differences_of(const string& sequence,
+                                             const vector<AlignmentRun>& runs) {
+    vector<FlatDifference> differences;
+    // The numbers of bases of the reference and of the strand before the run.
+    size_t i = 0;
+    size_t j = 0;
+    bool in_difference = false;
+    for (const AlignmentRun& run : runs) {
+        if (run.op == AlignmentOp::Match) {
+            i += run.length;
+            j += run.length;
+            in_difference = false;
+            continue;
+        }
+        if (!in_difference) {
+            differences.push_back(FlatDifference{i, i, string()});
+            in_difference = true;
+        }
+        if (run.op != AlignmentOp::Insertion) {
+            i += run.length;
+            differences.back().ref_end = i;
+        }
+        if (run.op != AlignmentOp::Deletion) {
+            differences.back().alt += sequence.substr(j, run.length);
+            j += run.length;
+        }
+    }
+    return differences;
+}
+
+optional<FlatSite> BlockRecordWriter::align_flat(string reference,
+                                                 vector<pair<int, string>> strands) const {
+    FlatSite flat;
+    flat.reference = std::move(reference);
+    for (auto& [trav, sequence] : strands) {
+        FlatStrand strand{trav, std::move(sequence), {}};
+        if (!flat.strands.empty() && flat.strands.front().sequence == strand.sequence) {
+            strand.differences = flat.strands.front().differences;
+        } else if (strand.sequence != flat.reference) {
+            optional<StringAlignment> aligned =
+                align_global(flat.reference, strand.sequence, flat_aligner);
+            if (!aligned) {
+                count_flat_refusal(FlatRefusal::AlignerLimit);
+                return std::nullopt;
+            }
+            left_align_gaps(flat.reference, strand.sequence, aligned->runs, true);
+            strand.differences = differences_of(strand.sequence, aligned->runs);
+            if (!strand.differences.empty() && strand.differences.front().needs_anchor()
+                && strand.differences.front().ref_begin == 0) {
+                count_flat_refusal(FlatRefusal::NoAnchorBase);
+                return std::nullopt;
+            }
+        }
+        flat.strands.push_back(std::move(strand));
+    }
+    return flat;
+}
+
+int BlockRecordWriter::write_flat(const PathPositionHandleGraph& graph, const FlatSite& flat,
+                                  const string& sample_name, const NodeTranslation* translation,
+                                  const SiteRecord& record, GLLayout gl_layout,
+                                  const function<bool(vcflib::Variant&, size_t)>& add_line) const {
+    const FlatAlignment alignment(flat);
+    vector<vcflib::Variant> built;
+    vector<bool> built_one_to_one;
+    const BlockCutter cutter(graph, alignment, record, sample_name, translation, gl_layout);
+    if (cutter.cut(alignment.difference_clusters(), built, built_one_to_one)) {
+        // Every cluster holds the base before a difference that needs one, so the cutter has
+        // no anchor base to look for.
+        throw std::logic_error("a flat record of " + record.variant.id + " has an empty allele");
+    }
+    if (built.empty()) {
+        ++flat_counters.reference_sites;
+        return 0;
+    }
+    for (vcflib::Variant& line : built) {
+        line.info["SB"][1] = std::to_string(built.size());
+        line.id += "_" + line.info["SB"][0];
+        line.infoFlags["FL"] = true;
+    }
+    if (flat_check) {
+        ++flat_counters.checked;
+        if (!flat_records_spell(flat, built, record.unflattened_position, sample_name)) {
+            ++flat_counters.check_failed;
+        }
+    }
+    int added = 0;
+    size_t index = 0;
+    for (vcflib::Variant& line : built) {
+        if (add_line(line, index)) {
+            ++added;
+        }
+        ++index;
+    }
+    ++flat_counters.sites;
+    flat_counters.lines += (size_t)added;
+    return added;
+}
+
+bool BlockRecordWriter::flat_records_spell(const FlatSite& flat,
+                                           const vector<vcflib::Variant>& records,
+                                           int64_t first_position, const string& sample_name) {
+    for (size_t s = 0; s < flat.strands.size(); ++s) {
+        string spelled;
+        // The offset in the reference after the last record.
+        size_t next = 0;
+        for (const vcflib::Variant& line : records) {
+            const string* gt = site_gt_text(line, sample_name);
+            if (gt == nullptr || line.position < first_position + (int64_t)next) {
+                return false;
+            }
+            // The entry of the GT for this strand.
+            vector<string> entries(1);
+            for (const char c : *gt) {
+                if (c == '|' || c == '/') {
+                    entries.emplace_back();
+                } else {
+                    entries.back() += c;
+                }
+            }
+            if (entries.size() != flat.strands.size()
+                || !std::ranges::all_of(entries[s], [](unsigned char c) { return isdigit(c); })
+                || entries[s].empty()) {
+                return false;
+            }
+            const size_t allele = std::stoul(entries[s]);
+            const auto at = (size_t)(line.position - first_position);
+            if (allele >= line.alleles.size() || at + line.ref.size() > flat.reference.size()
+                || flat.reference.compare(at, line.ref.size(), line.ref) != 0) {
+                return false;
+            }
+            spelled += flat.reference.substr(next, at - next);
+            spelled += line.alleles[allele];
+            next = at + line.ref.size();
+        }
+        if (next > flat.reference.size()) {
+            return false;
+        }
+        spelled += flat.reference.substr(next);
+        if (spelled != flat.strands[s].sequence) {
+            return false;
+        }
+    }
+    return true;
 }
 
 }

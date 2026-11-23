@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "block_records.hpp"
 #include "descent_policy.hpp"
 #include "linkage_model.hpp"
 #include "panel_lookup.hpp"
@@ -165,6 +166,11 @@ struct StagedSite {
     /// sites under it. The render sets them while it writes the site's records, and then
     /// frees them.
     optional<SplicedAlleles> spliced;
+
+    /// The strands of the site aligned to its resolved reference, if the site is written as flat
+    /// records (`--flatten-records`). The render sets them before it writes the site's records,
+    /// and then frees them.
+    optional<FlatSite> flat;
 };
 
 /// The sources the passes read for what a staged site does not hold.

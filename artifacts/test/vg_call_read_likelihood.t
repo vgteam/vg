@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 312
+plan tests 320
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -1138,6 +1138,41 @@ is $(awk -F'\t' '/^H\t/ && $3 == "0" && $11 != "." {n += $11} END {print n+0}' n
    "the mosaic counts a site written as difference blocks"
 is $(grep -c "collapsed sites phased with no line of their own" nestblk_mosaic.err) "0" \
    "and a site written as blocks is not reported as having no line"
+
+# --flatten-records writes the top-level site 1..6 as the base-level differences of its two strands
+# from its reference, with the calls of the sites nested in it put in. Strand 0 crosses the chain
+# with three substitutions, at the nested sites 2..5 and 5..9, and strand 1 deletes the chain. The
+# deletion covers the substitutions, so the three differences are one record with two ALTs, and the
+# nested sites get no records.
+rm -f nestblk.flat.vcf nestblk.flat.err nestblk.flat.mosaic.tsv
+is "$(grep -c 'FL' nestblk.vcf)" "0" \
+   "without --flatten-records no header line or record has INFO/FL"
+VG_CHECK_FLAT_RECORDS=1 vg call nestblk.gbz --read-likelihood --gam nestblk.gam -t 1 -s samp --nested \
+    --phased --flatten-records --mosaic-out nestblk.flat.mosaic.tsv 2>nestblk.flat.err > nestblk.flat.vcf
+is "$?" 0 "vg call --flatten-records runs"
+is "$(bcftools view -H nestblk.flat.vcf 2>/dev/null | wc -l | tr -d ' ')/$(grep -c '^##INFO=<ID=FL,' nestblk.flat.vcf)" \
+   "$(grep -vc '^#' nestblk.flat.vcf)/1" \
+   "its VCF parses, and its header describes INFO/FL"
+is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '$2 < last {bad++} {last = $2} END {print bad+0}')" "0" \
+   "its records are sorted by position"
+is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '{print $2 "/" $3 "/" split($5, alts, ",") "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)FL(;|$)/) "/" ($8 ~ /(^|;)SB=0,1(;|$)/)}')" \
+   "30/>1>6_0/2/1|2/1/1" \
+   "the site is one flat record, with the three substitutions of one strand and the deletion of the other"
+# A record of a nested site is one with another ID than the flat site's that starts inside the
+# stretch the flat site's records cover.
+is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '{id = $3; sub(/_[0-9]+$/, "", id); n++; pos[n] = $2; stem[n] = id
+          if ($8 ~ /(^|;)FL(;|$)/) { end = $2 + length($4) - 1
+              if (!(id in lo) || $2 < lo[id]) lo[id] = $2
+              if (end > hi[id]) hi[id] = end }}
+        END { for (i = 1; i <= n; i++) for (s in lo) if (stem[i] != s && pos[i] >= lo[s] && pos[i] <= hi[s]) bad++
+              print n "/" bad+0 }')" "1/0" \
+   "no record of a nested site starts inside the stretch the flat records cover"
+is "$(sed -n 's/.*flatten check: \([0-9]*\) sites.* \([0-9]*\) FAILED.*/\1,\2/p' nestblk.flat.err)/$(sed -n 's/.* \([0-9]*\) nested sites left without a line.*/\1/p' nestblk.flat.err)" \
+   "1,0/2" \
+   "the flat records put into the reference spell both strands, and stand in for the two nested sites"
+diff -q <(grep -v '^#graph' nestblk.flat.mosaic.tsv) <(grep -v '^#graph' nestblk.mosaic.tsv) >/dev/null
+is "$?" 0 "--flatten-records leaves the mosaic as it is"
+rm -f nestblk.flat.vcf nestblk.flat.err nestblk.flat.mosaic.tsv
 
 # A site whose only difference outside its child chains is one block is written as that block, not
 # as the whole site record, because the site record spells every allele in full and so repeats the

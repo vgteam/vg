@@ -124,6 +124,11 @@ protected:
     /// Change the finished record just before it is written. By default it is left alone.
     virtual void finish_record(const CalledSite& site, vcflib::Variant& record);
 
+    /// Return whether the one record of the site should be kept out of the output. The site is
+    /// still reported to `on_site_done` as it would be with the record written. By default no
+    /// record is kept out.
+    virtual bool withholds_record(const CalledSite& site);
+
     /**
      * Handle a site whose records have all been sent to the writer. By default do nothing.
      *

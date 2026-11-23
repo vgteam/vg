@@ -29,6 +29,10 @@ void SiteEmitter::finish_record(const CalledSite&, vcflib::Variant&) {
     // The record is written as emit built it.
 }
 
+bool SiteEmitter::withholds_record(const CalledSite&) {
+    return false;
+}
+
 void SiteEmitter::on_site_done(const CalledSite&, const map<int, int>&, bool) {
     // Only an emitter that tracks how its sites were written needs this.
 }
@@ -210,7 +214,8 @@ bool SiteEmitter::file_record(const PathPositionHandleGraph& graph, const Called
     if (!hidden) {
         finish_record(site, out_variant);
     }
-    bool added = output.add_variant(out_variant, 0, hidden);
+    // A record kept out of the output goes to the writer as a hidden one does.
+    bool added = output.add_variant(out_variant, 0, hidden || withholds_record(site));
     has_line = added && !hidden;
     on_site_done(site, record.trav_to_allele, has_line);
     if (!added) {
