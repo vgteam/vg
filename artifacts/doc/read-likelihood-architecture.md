@@ -190,6 +190,7 @@ grouped by the step they serve; the driver and its walk come first.
 | Output | `record_renderer.hpp` | `RecordRenderer`, which builds each staged site's records once and collects its anchors |
 | | `allele_splicer.hpp` | `AlleleSplicer`, which spells a site's alleles with the chosen alleles of the sites staged under it, and gives each strand's resolved sequence and the resolved reference |
 | | `string_aligner.hpp` | `align_global`, a banded global aligner of two strings that returns the alignment's operations, and `left_align_gaps`; `--flatten-records` aligns strands to the reference with them |
+| | `read_consensus.hpp` | `read_consensus`, the consensus of the reads that span a window, built by aligning each read to a backbone with the string aligner; no caller uses it yet |
 | | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the summary |
 | | `sorted_vcf_writer.hpp`, `site_emitter.hpp`, `vcf_record.hpp` | `SortedVCFWriter`, the record buffer and VCF writer that vg's callers hold; `SiteEmitter`, which builds one site's record from the caller's allele and field callbacks, and which a caller subclasses to change its decisions; and the helpers that build a record |
 | | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks, or, with `--flatten-records`, as flat records |
