@@ -315,10 +315,7 @@ is "$(vg gbwt -H -Z auto_kff.HG003.gbz)" 4 "auto kmer counting produces 2 diploi
 # Check that the stats are not included in the alignment output.
 is "$(head -n 1 auto_kff.gaf | cut -f 1)" "@HD" "auto kmer counting does not output KMC stats"
 
-# Giraffe integration, kmer counting from FASTA reads.
-# Convert the FASTQ reads to FASTA wrapped at 60 columns, which KMC's
-# single-line FASTA format miscounts. K-mer counts ignore base qualities, so
-# sampling must match the FASTQ run.
+# Prepare multi-line FASTA to test on
 rm -f auto_fasta.HG003.* auto_fasta.gam auto_fasta.dist
 samtools fasta haplotype-sampling/HG003.fq.gz 2> /dev/null | fold -w 60 | gzip > HG003.fa.gz
 vg giraffe --progress -Z full.gbz --haplotype-name full.hapl \
