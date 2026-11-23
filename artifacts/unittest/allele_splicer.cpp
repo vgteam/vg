@@ -287,5 +287,30 @@ TEST_CASE("AlleleSplicer splices both of two nested sites that share a bound nod
     }
 }
 
+TEST_CASE("AlleleSplicer makes an edit that overlaps only an edit that was skipped",
+          "[allele_splicer]") {
+    // Three sites change one node of two bases: one deletes both, and two change one base
+    // each. The edits are made from the right, and one is skipped where it takes a base that an
+    // edit already made took.
+    StepSequences steps{"AA"};
+    vector<AlleleSplicer::StepEdit> edits{{0, 0, 2, "", 1}, {0, 0, 1, "G", 2}, {0, 1, 1, "C", 3}};
+    REQUIRE(AlleleSplicer::apply_step_edits(edits, steps));
+    // The deletion overlaps the change of the second base and is skipped. The change of the
+    // first base overlaps the deletion alone, which was not made.
+    REQUIRE(steps == StepSequences{"GC"});
+
+    SECTION("of two edits that share a base, the one further right is made") {
+        StepSequences shared{"ACGT"};
+        REQUIRE(AlleleSplicer::apply_step_edits({{0, 0, 2, "X", 1}, {0, 1, 2, "Y", 2}}, shared));
+        REQUIRE(shared == StepSequences{"AYT"});
+    }
+    SECTION("two insertions at one offset are both made") {
+        StepSequences inserted{"ACGT"};
+        REQUIRE(AlleleSplicer::apply_step_edits({{0, 2, 0, "TT", 1}, {0, 2, 0, "GG", 2}},
+                                                inserted));
+        REQUIRE(inserted[0].size() == 8);
+    }
+}
+
 }
 }

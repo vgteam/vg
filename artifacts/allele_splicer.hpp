@@ -106,6 +106,14 @@ public:
      */
     optional<string> reference_sequence(const StagedSite& site) const;
 
+    /// Make the edits to the sequences of the steps, right to left within each step.
+    ///
+    /// Going right to left, an edit that changes the length does not move the offsets of those
+    /// before it. An edit that overlaps one already made to its right is skipped.
+    ///
+    /// @return True if any sequence changed.
+    static bool apply_step_edits(vector<StepEdit> step_edits, StepSequences& steps);
+
 private:
     /// The chosen allele of one child site on one strand, as the steps that replace the parent's
     /// visits [begin, end).
@@ -181,13 +189,6 @@ private:
     /// step sequences differ from its nodes in.
     vector<StepEdit> step_edits_of(const vector<Replacement>& edits, const Traversal& walk) const;
 
-    /// Make the edits to the sequences of the steps, right to left within each step.
-    ///
-    /// Going right to left, an edit that changes the length does not move the offsets of those
-    /// before it. An edit that overlaps one already made to its right is skipped.
-    ///
-    /// @return True if any sequence changed.
-    static bool apply_step_edits(vector<StepEdit> step_edits, StepSequences& steps);
 
     const HandleGraph& graph;
     /// The overlay of sites that the staged sites' net handles are in.

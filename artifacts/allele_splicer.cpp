@@ -404,12 +404,12 @@ bool AlleleSplicer::apply_step_edits(vector<StepEdit> step_edits, StepSequences&
                          < std::tie(b.step, a.at, a.removed, b.key);
               });
     bool changed = false;
-    for (size_t e = 0; e < step_edits.size(); ++e) {
-        const StepEdit& edit = step_edits[e];
-        if (e > 0 && step_edits[e - 1].step == edit.step
-            && edit.at + edit.removed > step_edits[e - 1].at
-            && !(edit.removed == 0 && step_edits[e - 1].removed == 0
-                 && edit.at == step_edits[e - 1].at)) {
+    // The last edit made, which is the one to the right of the next. An edit that was skipped
+    // took no base, so it is in no other edit's way.
+    const StepEdit* made = nullptr;
+    for (const StepEdit& edit : step_edits) {
+        if (made != nullptr && made->step == edit.step && edit.at + edit.removed > made->at
+            && !(edit.removed == 0 && made->removed == 0 && edit.at == made->at)) {
             continue;
         }
         string& spelled = steps[edit.step];
@@ -420,6 +420,7 @@ bool AlleleSplicer::apply_step_edits(vector<StepEdit> step_edits, StepSequences&
             spelled.replace(edit.at, edit.removed, edit.added);
             changed = true;
         }
+        made = &edit;
     }
     return changed;
 }
