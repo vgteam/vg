@@ -1,6 +1,8 @@
 #ifndef VG_ALLELE_SPLICER_HPP_INCLUDED
 #define VG_ALLELE_SPLICER_HPP_INCLUDED
 
+#include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -62,6 +64,36 @@ public:
     /// @return False if no allele changed.
     bool splice(const StagedSite& site, SplicedAlleles& out) const;
 
+    /**
+     * Return the traversal of `site` that strand `strand` of its phase carries.
+     *
+     * A site with two strands has strands 0 and 1. A site with one strand has strand 0, unless
+     * it is a nested chain on one strand of its parent, when it has that strand of the parent.
+     *
+     * @return Nothing if the site has no phase, or the strand does not cross the site.
+     */
+    optional<int> strand_traversal(const StagedSite& site, int strand) const;
+
+    /**
+     * Return the sequence that strand `strand` of the phase of `site` spells, from the start
+     * bound node of the site through its end bound node.
+     *
+     * It is the allele the strand carries at the site, with every site staged under it spelled
+     * by the allele that strand carries there, recursively. A site under it that the strand does
+     * not cross, or that has no phase, leaves the bases of the allele above it as they are.
+     *
+     * @return Nothing if the site has no phase, or the strand does not cross the site.
+     */
+    optional<string> strand_sequence(const StagedSite& site, int strand) const;
+
+    /**
+     * Return the sequence of the reference allele of `site`, with every site staged under it
+     * spelled by its own reference allele, recursively.
+     *
+     * @return Nothing if the site has no reference allele.
+     */
+    optional<string> reference_sequence(const StagedSite& site) const;
+
 private:
     /// The chosen allele of one child site on one strand, as the steps that replace the parent's
     /// visits [begin, end).
@@ -82,21 +114,29 @@ private:
      * under it spelled by its chosen allele on that strand, recursively.
      *
      * @param haploid Whether the site has one strand, which all its one-copy children are on.
+     * @param reference Whether to spell each child by its reference allele instead, whatever
+     * the strand carries.
      * @param walk Set to the spliced walk.
      * @param steps Set to the sequence of each step of `walk`.
      * @return False, leaving `walk` and `steps` empty, if no child changes the allele.
      */
     bool spliced_allele(const StagedSite& site, int trav, int strand, bool haploid,
-                        Traversal& walk, StepSequences& steps) const;
+                        bool reference, Traversal& walk, StepSequences& steps) const;
+
+    /// Return the sequence of allele `trav` of `site`, spliced as `spliced_allele` splices it.
+    string resolved_sequence(const StagedSite& site, int trav, int strand, bool haploid,
+                             bool reference) const;
 
     /**
      * Make the replacement of a child site's chosen allele on one strand of its parent's walk.
+     *
+     * With `reference`, the allele is the child's reference allele.
      *
      * @param first_visit The index in `parent_walk` of the first visit to each node.
      * @return False if the child has no chosen allele on the strand, or the parent's walk does
      * not cross it.
      */
-    bool chosen_replacement(const StagedSite& child, int strand, bool haploid,
+    bool chosen_replacement(const StagedSite& child, int strand, bool haploid, bool reference,
                             const Traversal& parent_walk,
                             const unordered_map<nid_t, int>& first_visit, Replacement& rep) const;
 
