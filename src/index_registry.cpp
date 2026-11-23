@@ -410,8 +410,8 @@ static void init_in_out(fstream& strm, const string& name) {
     }
 }
 
-/// Return true if a read file, possibly compressed, is FASTA, and false if it
-/// is FASTQ. Exit with an error if it is neither, or cannot be read.
+/// Return true if a read file, possibly gzipped, is FASTA, and false if it is
+/// FASTQ. Exit with an error if it is neither, or cannot be read.
 static bool reads_are_fasta(const string& filepath) {
     htsFile* file = hts_open(filepath.c_str(), "r");
     if (!file) {
