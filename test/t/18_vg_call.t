@@ -265,8 +265,7 @@ is "$(/usr/bin/cmp rl_fill0.vcf rl_fill20.vcf && echo same)" "same" \
 is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_fill20.tsv | wc -l | awk '{print ($1 > 0)}') "1" \
    "--anchors-fill 20 writes fill anchors"
 # A read point is the read and the number of read bases before the point: offset + 1 on strand 0,
-# and offset on strand 1. No point of this run is claimed twice, so the rule that ranks anchors
-# claiming one point is tested in the unit tests.
+# and offset on strand 1.
 is $(awk -F'\t' '$1 == "R" {print $2 "\t" ($3 == 0 ? $4 + 1 : $4)}' rl_fill20.tsv | sort | uniq -d \
      | wc -l | tr -d ' ') "0" "no read point is in two anchors"
 is $(awk -F'\t' '$1 == "A" && !(NF == 10 && $10 ~ /^(het|hom|hom-split|haploid|fill-shared|fill-strand|fill-off-call)$/)' \
@@ -278,10 +277,8 @@ is "$(/usr/bin/cmp rl_fill20.tsv rl_fill20_t4.tsv && echo same)" "same" \
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-fill 20 -t 1 > /dev/null 2> rl_fill_alone.err
 is $(grep -c -- "--anchors-fill only applies to the anchor file" rl_fill_alone.err) "1" \
    "--anchors-fill without --anchors-out is refused"
-# Reads fetched from an indexed GAM, a window of 8 node IDs at a time, so that the fill points span
-# several windows. Finding the fill anchors' reads adds nothing to the read-start tallies or the
-# off-panel candidates that the sites are genotyped from. Most windows' reads are placed at the fill
-# points as the sites fetch the windows, rather than fetched again after the sites are genotyped.
+# The same reads, fetched from an indexed GAM a window of 8 node IDs at a time, so that the fill
+# points lie in several windows.
 vg gamsort -i rl_sorted.gam.gai sim.gam > rl_sorted.gam 2>/dev/null
 for arm in 0_1 20_1 20_4; do
     vg call x.gbz --read-likelihood --gam rl_sorted.gam --gam-index rl_sorted.gam.gai \
@@ -316,22 +313,23 @@ vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --ph
 is $(grep -v "^#" nest_hap.vcf | awk '$2 == 30' | cut -f10 | cut -d: -f1) "1|0" \
    "the parent is called het for the deletion that spans the nested chain"
 is $(grep -v "^#" nest_hap.vcf | awk '$2 == 51' | cut -f10 | cut -d: -f1) ".|1" \
-   "the nested haploid record names the strand its parent leaves the chain on"
-# Fill anchors 10 bp apart: those on the chain that strand 1 alone crosses name that strand, and
-# one outside the parent is shared.
+   "the nested SNP has an allele on strand 1 only, since strand 0 deletes the chain"
+# Fill anchors 10 bp apart, each printed as its ID, slot and kind. fill1 is outside the parent, where
+# both strands pass. fill2, fill5 and fill9 are on the chain, where only strand 1 passes.
 vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased \
     --anchors-out nest_hap_anchors.tsv --anchors-fill 10 > /dev/null 2>&1
 is "$(awk -F'\t' '$1 == "A" && $3 ~ /^fill[1259][.]10$/ {printf "%s %s %s,", $3, $4, $10}' nest_hap_anchors.tsv)" \
    "fill1.10 0 fill-shared,fill2.10 1 fill-strand,fill5.10 1 fill-strand,fill9.10 1 fill-strand," \
-   "fill anchors on the nested haploid chain name the strand that carries it"
+   "a fill anchor both strands pass is fill-shared in slot 0, and one only strand 1 passes is fill-strand in slot 1"
 
-# Groups of a site's walks choose its genotype by default: walks that differ only inside child
-# chains share a group. The sample carries the insertion >2>10..13>5 on both strands, which differ
-# inside it at node 11 or 12, and the SNP at node 7 or 8 on one strand. The walks through the
-# insertion share a group, though the reference does not cross its chain, and so do the walks that
-# differ only at the SNP. vg sim leaves every read at MAPQ 0, so vg call gives each read the highest
-# mismapping probability, --mismap-max, set here to 0.95; the walks alone miscall the site only when
-# that is at least 0.95.
+# By default a site's genotype is chosen among groups of its walks, where walks that differ only
+# inside child chains are one group. With --no-group-candidates each walk is a candidate by itself.
+# The sample has the insertion >2>10..13>5 on both strands. The strands differ inside the insertion,
+# at node 11 or 12, and one strand has the SNP at node 7 or 8. The correct call is the insertion on
+# both strands and the SNP on one; calling a deletion is wrong.
+# vg sim gives every read MAPQ 0, and vg call then gives each read the mismapping probability
+# --mismap-max. Without groups the site is called wrongly only when that is at least 0.95, so it is
+# set to 0.95.
 vg gbwt -G nesting/deletion_over_insertion_and_snp.gfa --gbz-format -g nest_off.gbz --set-reference GRCh 2>/dev/null
 vg sim -x nest_off.gbz -n 200 -l 60 -a -s 71 --path "p1#0#chr1#0" > nest_off.gam 2>/dev/null
 vg sim -x nest_off.gbz -n 200 -l 60 -a -s 73 --path "p1#1#chr1#0" >> nest_off.gam 2>/dev/null
@@ -342,11 +340,11 @@ calls_of() {
 vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp --mismap-max 0.95 \
     2>/dev/null > nest_off.vcf
 is "$(calls_of nest_off.vcf)" "47:2|1 71:0|1 " \
-   "by default groups of walks call both insertion alleles, and the SNP on one strand"
+   "by default the insertion is called on both strands, and the SNP on one"
 vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp --mismap-max 0.95 \
     --no-group-candidates 2>/dev/null > nest_off_walks.vcf
 is "$(calls_of nest_off_walks.vcf)" "29:0|1 47:1|. 71:1|. " \
-   "with --no-group-candidates the walks alone choose, and call the deletion on one strand"
+   "with --no-group-candidates a deletion is called on one strand"
 
 rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 \
       callrl_nopack.vcf callrl_nopack_z.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf \
