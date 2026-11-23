@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 102
+plan tests 104
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -325,6 +325,16 @@ vg giraffe --progress -Z full.gbz --haplotype-sampling \
 is $? 0 "Giraffe does fully automatic haplotype sampling"
 is "$(vg gbwt -H -Z auto_all.HG003.gbz)" 4 "fully automatic haplotype sampling produces 2 diploid + 2 reference haplotypes"
 
+# Giraffe integration from FASTA reads, with sequences wrapped over several lines
+rm -f auto_fasta.HG003.* auto_fasta.gam auto_fasta.dist
+zcat haplotype-sampling/HG003.fq.gz | awk 'NR % 4 == 1 {print ">" substr($0, 2)} NR % 4 == 2 {print substr($0, 1, 60); print substr($0, 61)}' | gzip > HG003.fa.gz
+vg giraffe --progress -Z full.gbz --haplotype-sampling \
+    --index-basename auto_fasta -N HG003 \
+    -f HG003.fa.gz > auto_fasta.gam 2> /dev/null
+is $? 0 "Giraffe does fully automatic haplotype sampling from FASTA reads"
+cmp auto_fasta.HG003.gbz auto_all.HG003.gbz
+is $? 0 "haplotype sampling from FASTA reads matches sampling from the same reads as FASTQ"
+
 # Giraffe integration, non-diploid
 rm -f auto_nondip.HG003.* auto_nondip.gam auto_nondip.dist
 vg giraffe --progress -Z full.gbz --haplotype-sampling --no-diploid-sampling --num-haplotypes 3 \
@@ -384,6 +394,7 @@ rm -f GRCh38.HG003.* HG003_GRCh38.gam
 rm -f auto_hapl.HG003.* auto_hapl.gam auto_hapl.dist
 rm -f auto_kff.HG003.* auto_kff.gam auto_kff.dist
 rm -f auto_all.HG003.* auto_all.gam auto_all.dist
+rm -f auto_fasta.HG003.* auto_fasta.gam auto_fasta.dist HG003.fa.gz
 rm -f auto_nondip.HG003.* auto_nondip.gam auto_nondip.dist
 rm -f auto_oneref.HG003.* auto_oneref.gam auto_oneref.dist
 rm -f log.txt
