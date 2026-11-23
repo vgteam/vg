@@ -411,8 +411,7 @@ static void init_in_out(fstream& strm, const string& name) {
 }
 
 /// Return true if a read file, possibly gzipped, is FASTA, and false if it is
-/// FASTQ. Look only at the first character of the file. Exit with an error if
-/// the file cannot be read or is empty, or if it starts with neither '>' nor '@'.
+/// FASTQ. Exit with an error if the file cannot be read or is empty.
 static bool reads_are_fasta(const string& filepath) {
     // zlib reads uncompressed files transparently.
     gzFile file = gzopen(filepath.c_str(), "rb");
@@ -4514,8 +4513,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             "-m128",
             "-okff",
             "-hp",
-            // KMC's -fa format counts only a few k-mers from FASTA records
-            // that wrap over several lines. Its -fm format reads them whole.
+            // Use -fm for normal, multi-line FASTA
             fasta_input ? "-fm" : "-fq"
         };
 
