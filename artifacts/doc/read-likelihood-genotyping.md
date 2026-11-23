@@ -699,7 +699,7 @@ The file is tab-separated. Header lines start with `#` and are identified by the
 
 | Key | Meaning |
 |---|---|
-| `#mosaic-version` | the format version |
+| `#mosaic-version` | the format version: 5, or 6 for a file with `A` rows (see [Called alleles](#called-alleles---mosaic-exact)) |
 | `#graph` | the input graph |
 | `#sample` | the sample name, set with `--sample` |
 | `#reference` | a reference path that positions refer to, one line for each, except gRef fragments |
@@ -708,7 +708,8 @@ The file is tab-separated. Header lines start with `#` and are identified by the
 | `#patch`, `#nested`, `#unexplained` | the choices of the three options described below |
 | `#haplotype` | a panel haplotype's index and name, one line for each |
 | `#note` | text describing the columns |
-| `#H` | the column names |
+| `#H` | the column names of `H` rows |
+| `#A` | the column names of `A` rows, in a version 6 file |
 
 A reader should skip header keys it does not recognise.
 
@@ -762,6 +763,8 @@ crosses it, and is otherwise a row that cannot be walked. A strand can also carr
 than its haplotype at a site, as a
 [mutation](read-likelihood-linkage-model.md#mutation-and-escape), and its segment then names that
 haplotype, whose walk spells the haplotype's allele there rather than the strand's.
+`--mosaic-exact` adds the rows that give the strand's own allele at such sites (see
+[Called alleles](#called-alleles---mosaic-exact)).
 
 Three options change how the rows are formed, and the header records each choice:
 
@@ -773,6 +776,76 @@ Three options change how the rows are formed, and the header records each choice
   strand it could not determine, those sites are left out of the segments by default, and the
   walk crosses them by the rule above. `--mosaic-break-unexplained` writes a `*` row for them
   instead.
+
+#### Called alleles (`--mosaic-exact`)
+
+The walk the `H` rows expand to takes each panel haplotype's own allele at every site. The strand
+was called with another allele where it carries a
+[mutation](read-likelihood-linkage-model.md#mutation-and-escape) of its haplotype, where its
+haplotype is an [unknown allele](read-likelihood-linkage-model.md#mutation-and-escape), where the
+allele is one [no panel haplotype carries](read-likelihood-direct-genotyping.md), and at a site
+with no record that lies on a segment of a haplotype with another allele. With `--mosaic-exact` the
+file also has a row for each such strand and site, starting with `A`, and its version is 6. The
+`H` rows are the same with and without the option.
+
+| Column | Meaning |
+|---|---|
+| `contig`, `strand` | as in an `H` row |
+| `fragment` | the mosaic fragment of the `H` row that the row follows |
+| `start_node`, `end_node` | the site's two bound nodes, as oriented node IDs, in the order the strand passes them |
+| `walk` | the allele the strand was called with, as its walk from `start_node` to `end_node`, both included: `>` and a node ID for a node read forwards, `<` and a node ID for one read backwards |
+| `sequence` | `.` where `walk` spells the allele; otherwise the strand's bases over `walk`, from the first base of `start_node` to the last base of `end_node` |
+
+To rebuild a strand, expand its `H` rows to walks, and then apply its `A` rows in file order. An
+`A` row replaces every stretch of the strand's walks that runs from `start_node` to its next visit
+of `end_node` with `walk`. Where no walk of the strand has such a stretch, `walk` is a walk of its
+own that joins no row; this happens where the site's `H` row cannot be walked. The rebuilt strand
+then takes the allele it was called with at every genotyped site its walks cross. At a site with a
+phased record, that is the allele `GT` gives the strand.
+
+A sequence is given for an allele that changes bases inside nodes, which no walk can spell. Where
+several such alleles of one strand change the same node, each row's sequence has all their changes
+to the nodes of its walk. A site of this kind has an allele with no change too, and a strand with
+that allele gets no row from the site.
+
+An `A` row is written for a strand and a site when, with the rows before it applied, the strand's
+walk between the site's bound nodes is not the walk of the allele the strand was called with, or
+when that allele has a sequence. Sites are taken enclosing site first, so a site inside a site with
+an `A` row is compared with that row's walk. Every genotyped site is compared, with or without a
+record, and so are nested sites under `--no-mosaic-nested`.
+
+The rows are ordered so that each can be applied when it is read:
+
+- An `A` row for a stretch of the `H` rows' walk follows the first `H` row whose walk has the
+  site's end bound node. Where a strand crosses a site more than once, it follows the last of
+  those `H` rows.
+- An `A` row for a stretch of an earlier `A` row's walk follows that row, among the rows that
+  follow the same `H` row. So a site's row comes before the rows of the sites inside it.
+- After one `H` row, the outermost `A` rows are in order of nesting level and then of reference
+  position, and each is followed directly by the rows that apply to its walk, in the same order.
+
+Three things limit what the rebuilt strand says:
+
+- The `H` rows run from a strand's first site with a record to its last, so the strand has no walk
+  before and after them, and a genotyped site there gets no row. Nor does a site inside an
+  enclosing site's allele that the strand does not take. `vg call` reports the number of called
+  alleles left out for these reasons.
+- `AT` gives one walk for each allele of a record, and the walk a strand was called with can be
+  another one. Allele 0 also stands for a walk that differs from the reference walk only inside
+  nested sites. An allele's bases are spelled with the alleles chosen at the sites nested in it,
+  with or without records of their own, while its `AT` walk is the candidate walk it was scored
+  as. Walks that spell the same bases are one allele. So between a site's bound nodes the rebuilt
+  strand can differ from the `AT` walk of the strand's allele, inside the sites nested there. It
+  then spells the allele's bases, or differs only inside nested sites that have records.
+- `walk` is found by its bound nodes, so a strand that crosses one site several times, as inside
+  a duplicated stretch, gets the same allele at each crossing.
+
+`artifacts/scripts/mosaic_to_path.py` rebuilds the strands of a mosaic of either version from the
+graph's paths, and checks that each is a walk in the graph. With `--vcf` it compares each strand
+with the phased records of snarls, and counts the called alleles in four classes: `equal`, where
+the strand takes the allele's `AT` walk; `equal outside nested records`, where it does so except
+inside nested sites that have records; `same bases`, where it takes another walk that spells the
+record's allele, which needs `--gfa`; and `different`. Block records are not compared.
 
 ### Assembly anchors (`--anchors-out`)
 
@@ -992,7 +1065,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Re-genotyping](#re-genotyping-from-the-phase) | `--regenotype`, `--no-regenotype`, `--regeno-temper`, `--regeno-ceiling`, `--regeno-passes`, `--regeno-haploid`, `--no-regeno-haploid`, `--regeno-ledger` |
 | [Quality fields](#options-that-change-the-fields) | `--no-share-quality`, `--depth-quality`, `--min-confidence` |
 | [Allele merging](#options-that-change-the-fields) | `--cluster`, `--cluster-min-len` |
-| [Mosaic](#mosaic---mosaic-out) | `--mosaic-out`, `--mosaic-patch-gaps`, `--no-mosaic-patch-gaps`, `--no-mosaic-nested`, `--mosaic-break-unexplained` |
+| [Mosaic](#mosaic---mosaic-out) | `--mosaic-out`, `--mosaic-patch-gaps`, `--no-mosaic-patch-gaps`, `--no-mosaic-nested`, `--mosaic-break-unexplained`, `--mosaic-exact` |
 | [Anchors](#assembly-anchors---anchors-out) | `--anchors-out`, `--anchors-fill`, `--anchors-reads`, `--anchors-min-gqn`, `--anchors-min-q`, `--anchors-het-only`, `--anchors-leaf-only`, `--anchors-keep-off-call`, `--anchors-end-new`, `--anchors-phase-hets`, `--no-anchors-phase-hets`, `--anchors-hom-split`, `--split-min-q`, `--split-min-side` |
 | Presets | `--preset` |
 

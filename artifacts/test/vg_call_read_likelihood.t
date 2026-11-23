@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 304
+plan tests 312
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -2268,6 +2268,71 @@ is $(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic fx.mosaic.tsv --
 
 rm -f fx.gfa fx_sim.gfa fx.gbz fx_sim.gbz fx.gam fx.snarls fx.err fx.mosaic.tsv \
       fx.paths.gaf fx.graph.gfa fx.expand.txt
+
+# --- the exact mosaic (--mosaic-exact) ----------------------------------------
+# A strand's H rows spell its haplotypes' alleles, which are not always the called ones. This
+# fixture has four SNPs and a panel of the reference and one haplotype with every ALT. The sample's
+# strands are neither: T#0 is the all-ALT haplotype but REF at the second SNP, and T#1 is the
+# reference but ALT at the third. At the default --linkage-scale a switch of haplotype over 40 bp
+# costs more than a mutation, so each strand stays on one haplotype and differs from it at one
+# site: strand T#1 at a het site with a record, and strand T#0 at a hom-ref site with none.
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTACCGTTAAGCA\n'
+  printf 'S\t2\tA\nS\t3\tT\n'
+  printf 'S\t4\tGGCATTAGCCTTAGACCGATTGCAAGTCCAGGTTACCGAT\n'
+  printf 'S\t5\tC\nS\t6\tG\n'
+  printf 'S\t7\tTTGACCAGTTCAGGACTTACGGCATTCGGATCCAAGTTCC\n'
+  printf 'S\t8\tA\nS\t9\tG\n'
+  printf 'S\t10\tAACCGGTTACGTTGCAATCGGTTACCAGTTGGATCCTAGC\n'
+  printf 'S\t11\tC\nS\t12\tT\n'
+  printf 'S\t13\tACGTTGCAATCGGTTACCAGTTAAGGCCTTAGCATTCGGA\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t1\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\nL\t3\t+\t4\t+\t0M\n'
+  printf 'L\t4\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\nL\t5\t+\t7\t+\t0M\nL\t6\t+\t7\t+\t0M\n'
+  printf 'L\t7\t+\t8\t+\t0M\nL\t7\t+\t9\t+\t0M\nL\t8\t+\t10\t+\t0M\nL\t9\t+\t10\t+\t0M\n'
+  printf 'L\t10\t+\t11\t+\t0M\nL\t10\t+\t12\t+\t0M\nL\t11\t+\t13\t+\t0M\nL\t12\t+\t13\t+\t0M\n'
+  printf 'P\tREF#0#chr1\t1+,2+,4+,5+,7+,8+,10+,11+,13+\t*\n'
+  printf 'W\tpA\t0\tchr1\t0\t164\t>1>2>4>5>7>8>10>11>13\n'
+  printf 'W\tpA\t1\tchr1\t0\t164\t>1>3>4>6>7>9>10>12>13\n'
+} > mx.gfa
+cp mx.gfa mx_sim.gfa
+printf 'W\tT\t0\tchr1\t0\t164\t>1>3>4>5>7>9>10>12>13\n' >> mx_sim.gfa
+printf 'W\tT\t1\tchr1\t0\t164\t>1>2>4>5>7>9>10>11>13\n' >> mx_sim.gfa
+vg gbwt -G mx.gfa --gbz-format -g mx.gbz --set-reference REF 2>/dev/null
+vg gbwt -G mx_sim.gfa --gbz-format -g mx_sim.gbz --set-reference REF 2>/dev/null >/dev/null
+vg sim -x mx_sim.gbz -n 300 -l 40 -a -s 17 --path "T#0#chr1#0" >  mx.gam 2>/dev/null
+vg sim -x mx_sim.gbz -n 300 -l 40 -a -s 23 --path "T#1#chr1#0" >> mx.gam 2>/dev/null
+vg paths -x mx.gbz -A > mx.paths.gaf 2>/dev/null
+vg view -g mx.gbz > mx.graph.gfa 2>/dev/null
+vg call mx.gbz --read-likelihood --mismap-max 0.7 --gam mx.gam -t 1 -s samp --phased \
+    --mosaic-out mx.mosaic.tsv 2>/dev/null >mx.vcf
+vg call mx.gbz --read-likelihood --mismap-max 0.7 --gam mx.gam -t 1 -s samp --phased \
+    --mosaic-out mx.exact.tsv --mosaic-exact 2>mx.exact.err >mx.exact.vcf
+is "$?" 0 "vg call --mosaic-exact runs"
+is "$(grep -v '^##' mx.exact.vcf | diff - <(grep -v '^##' mx.vcf) | wc -l | tr -d ' ')" "0" \
+   "--mosaic-exact does not change the calls"
+is "$(grep '^H' mx.exact.tsv | diff - <(grep '^H' mx.mosaic.tsv) | wc -l | tr -d ' ')" "0" \
+   "--mosaic-exact leaves every H row as it is"
+is "$(awk -F'\t' '$1=="#mosaic-version" {v=$2} $1=="A" || $1=="#A" {n++} END {print v "/" n+0}' mx.mosaic.tsv)" "5/0" \
+   "without --mosaic-exact the mosaic is version 5 and has no A rows"
+is "$(awk -F'\t' '$1=="#mosaic-version" {v=$2} $1=="#A" {h=NF} $1=="A" {n++; if (NF != 8) bad++}
+          END {print v "/" h "/" (n > 0) "/" bad+0}' mx.exact.tsv)" "6/8/1/0" \
+   "with it the mosaic is version 6, and has A rows of the eight columns its #A line names"
+# Without the A rows the check below has to fail, or passing it with them says nothing.
+python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic mx.mosaic.tsv --gaf mx.paths.gaf --gfa mx.graph.gfa \
+    --vcf mx.vcf --quiet >mx.expand.txt 2>&1
+is "$?/$(sed -n 's/.* \([0-9]*\) different.*/\1/p' mx.expand.txt)" "1/1" \
+   "the H rows alone take another allele than the called one on one strand of one record"
+is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic mx.exact.tsv --gaf mx.paths.gaf --gfa mx.graph.gfa \
+        --vcf mx.exact.vcf --quiet >mx.expand.txt 2>&1; echo $?)/$(sed -n 's/.*: \([0-9]*\) checked, \([0-9]*\) equal, .* \([0-9]*\) different, \([0-9]*\) strand does not cross/\1,\2,\3,\4/p' mx.expand.txt)" \
+   "0/6,6,0,0" \
+   "with the A rows applied, every strand takes the called allele of every phased record, on a walk in the graph"
+# The site with no record is covered too: strand T#0 is REF there and its haplotype is not.
+is "$(sed -n 's/.*mosaic: \([0-9]*\) allele rows .* \([0-9]*\) are at sites with no VCF line.*/\1,\2/p' mx.exact.err)" "2,1" \
+   "one of the two A rows is at a genotyped site that has no VCF line"
+
+rm -f mx.gfa mx_sim.gfa mx.gbz mx_sim.gbz mx.gam mx.paths.gaf mx.graph.gfa mx.vcf mx.mosaic.tsv \
+      mx.exact.tsv mx.exact.err mx.exact.vcf mx.expand.txt
 
 # The cactus snarl finder makes a unary snarl for the loop off node 2 here, which the
 # read-likelihood caller refuses with a message saying how to find snarls it can call.

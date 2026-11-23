@@ -496,6 +496,20 @@ void MultiPassCaller::render_retained_records() {
         [&]() {
             splicer.index(staged_sites, emit_phasing);
             rendered_sites = staged_sites.by_key();
+            if (mosaic_writer.is_exact()) {
+                // An exact mosaic needs the walk of each strand's called allele at every
+                // genotyped site, and the sites are freed as they are rendered. The phase is
+                // final here, and the hand-off has sorted the sites into those to render and
+                // those held back.
+                auto keep_alleles = [&](const StagedSite& site) {
+                    if (const auto* phase = phase_table.rendered(site.record_key)) {
+                        mosaic_writer.called_alleles().add(graph, *phase, site.alleles,
+                                                           sites.is_edit(site.net));
+                    }
+                };
+                staged_sites.for_each(keep_alleles);
+                std::ranges::for_each(staged_sites.unrendered(), keep_alleles);
+            }
         });
     rendered_sites.clear();
     staged_sites.for_each([&](StagedSite& site) {
@@ -747,7 +761,9 @@ void MultiPassCaller::finalise_linkage_outputs() {
                 written.push_back(pc);
             }
         }
-        mosaic_writer.write(written, panel_lookup, sample_name);
+        // An exact mosaic also covers the genotyped sites with no record, since a strand's
+        // haplotype can take another allele than the called one there too.
+        mosaic_writer.write(written, panel_lookup, sample_name, &phase_table.calls(), &graph);
     }
 }
 

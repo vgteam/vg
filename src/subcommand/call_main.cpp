@@ -744,6 +744,9 @@ void help_call(char** argv) {
          << "  mosaic:" << endl
          << "      --mosaic-out FILE     write the genome as a mosaic of the -z/-g" << endl
          << "                            haplotypes to FILE (implies --phased)" << endl
+         << "      --mosaic-exact        also write an allele row wherever a strand's called" << endl
+         << "                            allele is not the one its haplotype spells, so" << endl
+         << "                            that the mosaic rebuilds the called genotypes" << endl
          << "      --mosaic-break-unexplained" << endl
          << "                            end a mosaic segment where no haplotype explains" << endl
          << "                            a stretch, instead of continuing the flanking one" << endl
@@ -867,6 +870,8 @@ int main_call(int argc, char** argv) {
     bool mosaic_keep_nested = true;
     // Where no haplotype explains a stretch, continue the flanking haplotype through it.
     bool mosaic_connect_unexplained = true;
+    // Whether the mosaic also gives the called allele wherever a strand's haplotype spells another.
+    bool mosaic_exact = false;
     string translation_file_name;
     bool   gbz_translation = false;
     string ref_fasta_filename;
@@ -1059,6 +1064,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MOSAIC_PATCH = 1054;
     constexpr int OPT_NO_MOSAIC_NESTED = 1055;
     constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
+    constexpr int OPT_MOSAIC_EXACT = 1124;
     optind = 2; // force optind past command positional argument
     // The long options, grouped by the subsystem they configure, by its name. Every subsystem with
     // a switch is part of the read-likelihood genotyper.
@@ -1196,6 +1202,7 @@ int main_call(int argc, char** argv) {
             {"no-mosaic-patch-gaps", no_argument, nullptr, OPT_NO_MOSAIC_PATCH},
             {"no-mosaic-nested", no_argument, nullptr, OPT_NO_MOSAIC_NESTED},
             {"mosaic-break-unexplained", no_argument, nullptr, OPT_MOSAIC_BREAK_UNEXPL},
+            {"mosaic-exact", no_argument, nullptr, OPT_MOSAIC_EXACT},
         }}},
         // Re-genotyping needs read phasing, so it is off without it, even where a preset turned it
         // on.
@@ -1292,6 +1299,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_MOSAIC_NESTED:
             mosaic_keep_nested = false;
+            break;
+        case OPT_MOSAIC_EXACT:
+            mosaic_exact = true;
             break;
         case OPT_MOSAIC_PATCH:
             mosaic_patch_gaps = true;
@@ -2975,6 +2985,7 @@ int main_call(int argc, char** argv) {
                     .patch_gaps = mosaic_patch_gaps,
                     .keep_nested = mosaic_keep_nested,
                     .connect_unexplained = mosaic_connect_unexplained,
+                    .exact = mosaic_exact,
                 });
             }
             if (show_progress) {

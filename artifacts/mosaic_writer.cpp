@@ -7,6 +7,8 @@
 #include <numeric>
 #include <span>
 #include <sstream>
+#include <tuple>
+#include <unordered_set>
 
 #include <omp.h>
 
@@ -132,6 +134,29 @@ public:
         return false;
     }
 
+    /// Append the oriented nodes the haplotype at `start` visits, from there to where `follow`
+    /// stops for the node of `end`, to `out`. Return false, appending nothing, where `follow`
+    /// would fail.
+    bool nodes_to(gbwt::edge_type start, gbwt::node_type end,
+                  vector<gbwt::node_type>& out) const {
+        if (index == nullptr || start == gbwt::invalid_edge()) {
+            return false;
+        }
+        const size_t before = out.size();
+        out.push_back(start.first);
+        gbwt::edge_type at = start;
+        for (size_t step = 0; gbwt::Node::id(at.first) != gbwt::Node::id(end); ++step) {
+            at = index->LF(at);
+            if (step >= WALK_LIMIT || at == gbwt::invalid_edge()
+                || at.first == gbwt::ENDMARKER) {
+                out.resize(before);
+                return false;
+            }
+            out.push_back(at.first);
+        }
+        return true;
+    }
+
     /// Where `hap` sits at a node in either orientation, forward first, or invalid.
     ///
     /// Forward first, since snarl boundaries are stored oriented along the reference, so the
@@ -225,6 +250,197 @@ StrandKind strand_kind(const PhaseCall& call, int strand) {
     return StrandKind::Unexplained;
 }
 
+/// Return which of a site's two called alleles strand 0 or 1 carries, 0 for the allele of
+/// `trav_first` and 1 for that of `trav_second`, or -1 if the site is not on the strand.
+///
+/// A ploidy-1 site has one allele, on the strand `nested_strand` names, or on strand 0 where it
+/// names none, which is the strand the `H` rows put such a site on.
+int called_slot(const PhaseCall& call, int strand) {
+    if (call.ploidy == 1) {
+        return strand == (call.nested_strand >= 0 ? (int)call.nested_strand : 0) ? 0 : -1;
+    }
+    return strand;
+}
+
+/// What an exact mosaic's `A` rows are written from, for one contig.
+struct ExactInputs {
+    /// The phase call of every genotyped site of the contig, with or without a VCF line, in
+    /// reference order.
+    std::span<const PhaseCall> genotyped;
+    /// The called alleles of those sites.
+    const CalledAlleles* alleles = nullptr;
+    /// The graph, for the sequences of nodes.
+    const HandleGraph* graph = nullptr;
+};
+
+/**
+ * One strand's walk through the graph, as its `H` rows spell it and its `A` rows change it.
+ *
+ * This is the walk a consumer of an exact mosaic holds: the `H` rows of each fragment joined on
+ * their shared nodes, then changed by each `A` row in turn. The writer keeps it so that it can
+ * tell where the walk does not take a called allele, and what an `A` row there has to say.
+ *
+ * The walk is a set of slots, one per visit of a node, each linked to the next, so that a
+ * stretch can be replaced without moving the rest. A replaced slot is dead.
+ */
+class StrandWalk {
+public:
+    static constexpr uint32_t NO_SLOT = std::numeric_limits<uint32_t>::max();
+
+    /// One crossing of a site: the slots of its two bound nodes, in walk order.
+    using Crossing = pair<uint32_t, uint32_t>;
+
+    /// Forget the walk.
+    void clear() {
+        node.clear();
+        next.clear();
+        owner.clear();
+        live.clear();
+        row_index.clear();
+        added_index.clear();
+        tail = NO_SLOT;
+    }
+
+    /// Add the walk of an `H` row of fragment `fragment`, and return the slot of its last node.
+    ///
+    /// The row joins the row before it where the two are in one fragment and share the node
+    /// they meet at, which is then one slot.
+    uint32_t append_row(size_t fragment, const vector<gbwt::node_type>& row_nodes) {
+        const bool joins = tail != NO_SLOT && tail_fragment == fragment
+                           && node[tail] == row_nodes.front();
+        if (!joins) {
+            tail = NO_SLOT;
+        }
+        for (size_t i = joins ? 1 : 0; i < row_nodes.size(); ++i) {
+            const uint32_t slot = add_slot(row_nodes[i], -1);
+            if (tail != NO_SLOT) {
+                next[tail] = slot;
+            }
+            tail = slot;
+        }
+        tail_fragment = fragment;
+        return tail;
+    }
+
+    /// Index the slots of the `H` rows by node. Call it once, after the last `append_row`.
+    void index_rows() {
+        row_index.reserve(node.size());
+        for (uint32_t slot = 0; slot < node.size(); ++slot) {
+            row_index.emplace_back(node[slot], slot);
+        }
+        std::ranges::sort(row_index);
+    }
+
+    /// Return the `A` row whose walk slot `slot` is from, or -1 if it is from an `H` row.
+    int32_t owner_of(uint32_t slot) const { return owner[slot]; }
+
+    /// List the stretches of the walk that run from oriented node `from` to the next visit of
+    /// oriented node `to`, without coming back to `from`'s node on the way.
+    vector<Crossing> crossings(gbwt::node_type from, gbwt::node_type to) const {
+        vector<Crossing> found;
+        auto try_from = [&](uint32_t slot) {
+            if (!live[slot]) {
+                return;
+            }
+            uint32_t at = slot;
+            for (size_t step = 0; node[at] != to; ++step) {
+                at = next[at];
+                if (at == NO_SLOT || step >= WALK_LIMIT
+                    || gbwt::Node::id(node[at]) == gbwt::Node::id(from)) {
+                    return;
+                }
+            }
+            found.emplace_back(slot, at);
+        };
+        const auto rows = std::ranges::equal_range(row_index, from, {},
+                                                   &pair<gbwt::node_type, uint32_t>::first);
+        for (const auto& [visited, slot] : rows) {
+            try_from(slot);
+        }
+        const auto added = added_index.equal_range(from);
+        const size_t from_rows = found.size();
+        for (auto it = added.first; it != added.second; ++it) {
+            try_from(it->second);
+        }
+        // An unordered map lists equal keys in no fixed order.
+        std::sort(found.begin() + from_rows, found.end());
+        return found;
+    }
+
+    /// Return whether the walk takes exactly `walk` over a crossing.
+    bool spells(const Crossing& crossing, std::span<const gbwt::node_type> walk) const {
+        uint32_t at = crossing.first;
+        for (size_t i = 0; i < walk.size(); ++i) {
+            if (node[at] != walk[i]) {
+                return false;
+            }
+            if (at == crossing.second) {
+                return i + 1 == walk.size();
+            }
+            at = next[at];
+        }
+        return false;
+    }
+
+    /// Make the walk take `walk` over a crossing, whose bound nodes `walk` starts and ends
+    /// with. The new slots are from `A` row `row`.
+    void replace(const Crossing& crossing, std::span<const gbwt::node_type> walk, int32_t row) {
+        if (crossing.first == crossing.second) {
+            return;
+        }
+        for (uint32_t at = next[crossing.first]; at != crossing.second; at = next[at]) {
+            live[at] = 0;
+        }
+        uint32_t before = crossing.first;
+        for (size_t i = 1; i + 1 < walk.size(); ++i) {
+            const uint32_t slot = add_slot(walk[i], row);
+            added_index.emplace(walk[i], slot);
+            next[before] = slot;
+            before = slot;
+        }
+        next[before] = crossing.second;
+    }
+
+    /// Add `walk` as a piece of the walk that joins nothing, from `A` row `row`.
+    void add_piece(std::span<const gbwt::node_type> walk, int32_t row) {
+        uint32_t before = NO_SLOT;
+        for (const gbwt::node_type& visited : walk) {
+            const uint32_t slot = add_slot(visited, row);
+            added_index.emplace(visited, slot);
+            if (before != NO_SLOT) {
+                next[before] = slot;
+            }
+            before = slot;
+        }
+    }
+
+private:
+    /// Add a live slot for a visit of `visited`, linked to nothing, and return it.
+    uint32_t add_slot(gbwt::node_type visited, int32_t row) {
+        node.push_back(visited);
+        next.push_back(NO_SLOT);
+        owner.push_back(row);
+        live.push_back(1);
+        return (uint32_t)(node.size() - 1);
+    }
+
+    /// The oriented node of each slot.
+    vector<gbwt::node_type> node;
+    /// The slot after each slot, or NO_SLOT at the end of a piece of the walk.
+    vector<uint32_t> next;
+    /// The `A` row each slot is from, or -1 for a slot from an `H` row.
+    vector<int32_t> owner;
+    /// Whether each slot is still on the walk.
+    vector<uint8_t> live;
+    /// The slots from `H` rows, as (node, slot), sorted. They are numbered in walk order.
+    vector<pair<gbwt::node_type, uint32_t>> row_index;
+    /// The slots from `A` rows, by node.
+    unordered_multimap<gbwt::node_type, uint32_t> added_index;
+    /// The last slot of the last `H` row added, and that row's fragment.
+    uint32_t tail = NO_SLOT;
+    size_t tail_fragment = 0;
+};
+
 /**
  * A writer of one contig's mosaic rows.
  *
@@ -240,11 +456,13 @@ class ContigRowWriter {
 public:
     /// Prepare to write the rows of `sites`, one contig's phase calls in reference order, to
     /// `out`. `reference_hap` is the reference's index in the panel, or NO_HAPLOTYPE.
+    ///
+    /// With `exact`, each strand's `A` rows are written among its `H` rows.
     ContigRowWriter(std::span<const PhaseCall> sites, const PanelLookup& panel,
                     size_t reference_hap, const MosaicParams& params, MosaicCounters& counters,
-                    ostream& out)
+                    ostream& contig_out, const ExactInputs* exact = nullptr)
         : sites(sites), walk(panel), reference_hap(reference_hap), params(params),
-          counters(counters), out(out) {}
+          counters(counters), contig_out(contig_out), exact(exact) {}
 
     /// Write the rows of every strand of the contig.
     void write();
@@ -366,6 +584,72 @@ private:
     /// gap if the reference cannot be walked from where the row ended.
     void write_reference_fill(const PhaseCall& a, const PhaseCall& b, const RowEnd& end);
 
+    /// An `H` row of the current strand, as the `A` rows need it.
+    struct RowNote {
+        /// Where the row's line ends in `out`.
+        size_t text_end = 0;
+        /// The row's fragment.
+        size_t fragment = 0;
+        /// The slot of the row's last node in `strand_walk`, if the row could be walked.
+        uint32_t last_slot = StrandWalk::NO_SLOT;
+    };
+
+    /// An `A` row of the current strand.
+    struct AlleleRow {
+        /// The index in `row_notes` of the `H` row this row is written after.
+        size_t host = 0;
+        /// The index of the outermost `A` row whose walk this row applies to, or its own.
+        size_t root = 0;
+        /// The called allele's walk, read the way the strand crosses the site.
+        vector<gbwt::node_type> walk;
+        /// Whether the walk does not spell the allele, so that the row gives its sequence.
+        bool with_sequence = false;
+    };
+
+    /// A change to the sequence of a node, in the node's forward orientation: `removed` bases
+    /// from offset `at` on become `added`.
+    struct NodeEdit {
+        size_t at = 0;
+        size_t removed = 0;
+        string added;
+    };
+
+    /// Note the `H` row just printed, which starts at `position` and ends at oriented node
+    /// `end`, and add its walk to `strand_walk`.
+    void note_row(gbwt::edge_type position, gbwt::node_type end);
+
+    /// Write the current strand's `H` rows from `out`, with its `A` rows among them.
+    ///
+    /// Sites are taken enclosing site first. Each strand's called allele is compared with what
+    /// `strand_walk` takes between the site's bounds, and where they differ an `A` row is made
+    /// and `strand_walk` is changed as the row says, so that a site inside is compared with
+    /// what its enclosing site's row left.
+    void write_allele_rows();
+
+    /// Compare one called allele with `strand_walk` at site `call`, and add any `A` rows.
+    void place_allele(const PhaseCall& call, const CalledAlleles::Allele& allele,
+                      vector<AlleleRow>& rows);
+
+    /// Add the `A` row that puts `target` on `found`, the crossings of one site in one
+    /// direction, if any of them takes another walk or if `with_sequence`.
+    void add_allele_row(std::span<const gbwt::node_type> target,
+                        const vector<StrandWalk::Crossing>& found, bool with_sequence,
+                        vector<AlleleRow>& rows);
+
+    /// Return the index in `row_notes` of the first `H` row whose walk has slot `slot`, which
+    /// is a slot from an `H` row.
+    size_t row_of_slot(uint32_t slot) const;
+
+    /// Record the changes of a called allele by node, in `node_edits`.
+    void note_edits(const CalledAlleles::Allele& allele);
+
+    /// Return the bases of oriented node `visited` on the strand, with the changes of
+    /// `node_edits` made.
+    string strand_sequence(gbwt::node_type visited) const;
+
+    /// Print `A` row `row`, as a row of fragment `row_fragment`.
+    void print_allele_row(const AlleleRow& row, size_t row_fragment);
+
     /// The contig's phase calls, in reference order.
     std::span<const PhaseCall> sites;
     /// Finds and follows haplotypes in the panel's GBWT, with caches for this contig only.
@@ -374,7 +658,25 @@ private:
     size_t reference_hap;
     const MosaicParams& params;
     MosaicCounters& counters;
-    ostream& out;
+    /// Where the contig's rows go, a strand at a time.
+    ostream& contig_out;
+    /// What the `A` rows are written from, or null when the mosaic is not exact.
+    const ExactInputs* exact;
+    /// The current strand's `H` rows. They are held until the strand is done, since its `A`
+    /// rows are known only then and go among them.
+    ostringstream out;
+    /// The current strand's `H` rows, in the order written. Kept only for an exact mosaic, as
+    /// are the four members after it.
+    vector<RowNote> row_notes;
+    /// The rows of `row_notes` that could be walked, as (last slot, index in `row_notes`).
+    vector<pair<uint32_t, size_t>> walked_rows;
+    /// The current strand's walk.
+    StrandWalk strand_walk;
+    /// The record key of each site that an `H` row with no position covers, with that row's
+    /// index in `row_notes`.
+    unordered_map<size_t, size_t> unwalked_sites;
+    /// The changes the strand's called alleles make to nodes, by node ID.
+    unordered_map<nid_t, vector<NodeEdit>> node_edits;
     size_t total_rows = 0;
     size_t unexplained = 0;
 
@@ -400,9 +702,257 @@ void ContigRowWriter::write() {
         pending_from_node = -1;
         carry = gbwt::ENDMARKER;
         fragment = 0;
+        out.str(string());
+        row_notes.clear();
+        walked_rows.clear();
+        strand_walk.clear();
+        unwalked_sites.clear();
+        node_edits.clear();
         collect_strand_sites();
         write_runs();
+        if (exact != nullptr) {
+            write_allele_rows();
+        } else {
+            contig_out << out.str();
+        }
     }
+}
+
+void ContigRowWriter::note_row(gbwt::edge_type position, gbwt::node_type end) {
+    RowNote note;
+    note.text_end = (size_t)out.tellp();
+    note.fragment = fragment;
+    if (vector<gbwt::node_type> row_nodes; walk.nodes_to(position, end, row_nodes)) {
+        note.last_slot = strand_walk.append_row(fragment, row_nodes);
+        walked_rows.emplace_back(note.last_slot, row_notes.size());
+    }
+    row_notes.push_back(note);
+}
+
+void ContigRowWriter::write_allele_rows() {
+    strand_walk.index_rows();
+    const std::span<const PhaseCall> genotyped = exact->genotyped;
+    // An enclosing site has a lower level than the sites inside it.
+    vector<size_t> order(genotyped.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::ranges::stable_sort(order, {}, [&](size_t g) { return genotyped[g].level; });
+    unordered_set<size_t> written;
+    written.reserve(sites.size() * 2);
+    for (const PhaseCall& call : sites) {
+        written.insert(call.record_key);
+    }
+
+    vector<AlleleRow> rows;
+    for (size_t g : order) {
+        const PhaseCall& call = genotyped[g];
+        const int slot = called_slot(call, strand);
+        if (slot < 0) {
+            continue;
+        }
+        CalledAlleles::Allele allele;
+        if (!exact->alleles->find(call.record_key, slot, allele) || allele.walk.empty()
+            || allele.traversal != (slot == 0 ? call.trav_first : call.trav_second)) {
+            ++counters.strands_without_allele;
+            continue;
+        }
+        if (allele.no_change) {
+            continue;
+        }
+        const size_t rows_before = rows.size();
+        place_allele(call, allele, rows);
+        if (written.count(call.record_key) == 0) {
+            counters.allele_rows_unwritten += rows.size() - rows_before;
+        }
+    }
+
+    // Each `H` row is followed by the `A` rows it hosts: each outermost row, then the rows that
+    // apply to its walk, in the order made, which is enclosing site first.
+    vector<size_t> row_order(rows.size());
+    std::iota(row_order.begin(), row_order.end(), 0);
+    std::ranges::sort(row_order, {}, [&](size_t r) {
+        return std::make_tuple(rows[r].host, rows[r].root, r);
+    });
+    const string h_rows = out.str();
+    size_t text_from = 0;
+    auto next_row = row_order.begin();
+    for (size_t h = 0; h < row_notes.size(); ++h) {
+        contig_out.write(h_rows.data() + text_from, row_notes[h].text_end - text_from);
+        text_from = row_notes[h].text_end;
+        for (; next_row != row_order.end() && rows[*next_row].host == h; ++next_row) {
+            print_allele_row(rows[*next_row], row_notes[h].fragment);
+            counters.allele_rows_nested += (size_t)(rows[*next_row].root != *next_row);
+        }
+    }
+}
+
+void ContigRowWriter::place_allele(const PhaseCall& call, const CalledAlleles::Allele& allele,
+                                   vector<AlleleRow>& rows) {
+    ++counters.strands_compared;
+    // A strand can cross a site from its end to its start, as inside an inverted allele of an
+    // enclosing site, and then it takes the allele's walk read backwards.
+    vector<gbwt::node_type> backwards(allele.walk.rbegin(), allele.walk.rend());
+    for (gbwt::node_type& visited : backwards) {
+        visited = gbwt::Node::reverse(visited);
+    }
+    bool crossed = false;
+    for (bool reversed : {false, true}) {
+        const std::span<const gbwt::node_type> target =
+            reversed ? std::span<const gbwt::node_type>(backwards) : allele.walk;
+        if (target.size() > 1 && target.front() == target.back()) {
+            // A walk that comes back to the node it starts on has no stretch to stand for.
+            continue;
+        }
+        const vector<StrandWalk::Crossing> found =
+            strand_walk.crossings(target.front(), target.back());
+        if (found.empty()) {
+            continue;
+        }
+        if (!crossed && allele.edits != nullptr) {
+            note_edits(allele);
+        }
+        crossed = true;
+        const size_t rows_before = rows.size();
+        add_allele_row(target, found, allele.edits != nullptr, rows);
+        counters.allele_rows_reversed += (size_t)(reversed && rows.size() > rows_before);
+    }
+    if (crossed) {
+        return;
+    }
+    const auto unwalked = unwalked_sites.find(call.record_key);
+    if (unwalked == unwalked_sites.end()) {
+        ++counters.strands_not_crossed;
+        return;
+    }
+    // The site's `H` row has no walk, so the allele's walk stands alone, and sites inside it
+    // are compared with it.
+    if (allele.edits != nullptr) {
+        note_edits(allele);
+    }
+    AlleleRow row;
+    row.host = unwalked->second;
+    row.root = rows.size();
+    row.walk.assign(allele.walk.begin(), allele.walk.end());
+    row.with_sequence = allele.edits != nullptr;
+    strand_walk.add_piece(allele.walk, (int32_t)rows.size());
+    rows.push_back(std::move(row));
+    ++counters.allele_rows_standalone;
+}
+
+void ContigRowWriter::add_allele_row(std::span<const gbwt::node_type> target,
+                                     const vector<StrandWalk::Crossing>& found,
+                                     bool with_sequence, vector<AlleleRow>& rows) {
+    const size_t self = rows.size();
+    AlleleRow row;
+    row.root = self;
+    row.with_sequence = with_sequence;
+    bool differs = false;
+    bool placed = false;
+    for (const StrandWalk::Crossing& crossing : found) {
+        differs = differs || !strand_walk.spells(crossing, target);
+        // A crossing on the walk of an earlier `A` row needs that row first, so this row goes
+        // with it. A crossing on the `H` rows needs the row its end bound is in. The row goes
+        // where the last of its crossings needs it.
+        const int32_t owner = std::max(strand_walk.owner_of(crossing.first),
+                                       strand_walk.owner_of(crossing.second));
+        const size_t host = owner >= 0 ? rows[owner].host : row_of_slot(crossing.second);
+        const size_t root = owner >= 0 ? rows[owner].root : self;
+        if (!placed || std::tie(host, root) > std::tie(row.host, row.root)) {
+            row.host = host;
+            row.root = root;
+            placed = true;
+        }
+    }
+    if (!differs && !with_sequence) {
+        return;
+    }
+    for (const StrandWalk::Crossing& crossing : found) {
+        if (!strand_walk.spells(crossing, target)) {
+            strand_walk.replace(crossing, target, (int32_t)self);
+        }
+    }
+    row.walk.assign(target.begin(), target.end());
+    rows.push_back(std::move(row));
+}
+
+size_t ContigRowWriter::row_of_slot(uint32_t slot) const {
+    // Slots are numbered along the rows, so the walked rows' last slots are in order.
+    const auto found = std::ranges::lower_bound(walked_rows, slot, {},
+                                                &pair<uint32_t, size_t>::first);
+    return found != walked_rows.end() ? found->second : walked_rows.back().second;
+}
+
+void ContigRowWriter::note_edits(const CalledAlleles::Allele& allele) {
+    for (const AlleleEdit& edit : *allele.edits) {
+        if (edit.step >= allele.walk.size()) {
+            continue;
+        }
+        const gbwt::node_type visited = allele.walk[edit.step];
+        const nid_t id = gbwt::Node::id(visited);
+        const size_t length = exact->graph->get_length(exact->graph->get_handle(id));
+        if (edit.at + edit.removed > length) {
+            continue;
+        }
+        // The allele's walk may read the node backwards, and so may another allele that changes
+        // the same node, so the changes are kept in the node's forward orientation.
+        NodeEdit change;
+        change.removed = edit.removed;
+        if (gbwt::Node::is_reverse(visited)) {
+            change.at = length - edit.at - edit.removed;
+            change.added = reverse_complement(edit.added);
+        } else {
+            change.at = edit.at;
+            change.added = edit.added;
+        }
+        node_edits[id].push_back(std::move(change));
+    }
+}
+
+string ContigRowWriter::strand_sequence(gbwt::node_type visited) const {
+    const nid_t id = gbwt::Node::id(visited);
+    string own = exact->graph->get_sequence(exact->graph->get_handle(id));
+    if (const auto found = node_edits.find(id); found != node_edits.end()) {
+        // Along the node, insertions first among the changes at one offset.
+        vector<const NodeEdit*> changes;
+        for (const NodeEdit& change : found->second) {
+            changes.push_back(&change);
+        }
+        std::ranges::stable_sort(changes, [](const NodeEdit* a, const NodeEdit* b) {
+            return std::tie(a->at, a->removed) < std::tie(b->at, b->removed);
+        });
+        string changed;
+        size_t copied = 0;
+        for (const NodeEdit* change : changes) {
+            if (change->at < copied) {
+                // It removes a base an earlier change already removed.
+                continue;
+            }
+            changed.append(own, copied, change->at - copied);
+            changed += change->added;
+            copied = change->at + change->removed;
+        }
+        changed.append(own, copied, string::npos);
+        own = std::move(changed);
+    }
+    return gbwt::Node::is_reverse(visited) ? reverse_complement(own) : own;
+}
+
+void ContigRowWriter::print_allele_row(const AlleleRow& row, size_t row_fragment) {
+    contig_out << "A\t" << sites.front().contig << "\t" << strand << "\t" << row_fragment << "\t"
+               << row.walk.front() << "\t" << row.walk.back() << "\t";
+    for (const gbwt::node_type& visited : row.walk) {
+        contig_out << (gbwt::Node::is_reverse(visited) ? '<' : '>') << gbwt::Node::id(visited);
+    }
+    contig_out << "\t";
+    if (row.with_sequence) {
+        for (const gbwt::node_type& visited : row.walk) {
+            contig_out << strand_sequence(visited);
+        }
+        ++counters.allele_rows_with_sequence;
+    } else {
+        contig_out << ".";
+    }
+    contig_out << "\n";
+    ++counters.allele_rows;
 }
 
 int ContigRowWriter::strand_count() const {
@@ -546,6 +1096,11 @@ void ContigRowWriter::write_row(size_t a_idx, size_t b_idx, size_t hap,
         ++fragment;
     }
     print_row(a, b, from_node, hap, row, b_idx - a_idx + 1);
+    if (exact != nullptr && row.position == gbwt::invalid_edge()) {
+        for (size_t t = a_idx; t <= b_idx; ++t) {
+            unwalked_sites.emplace(site(t).record_key, row_notes.size() - 1);
+        }
+    }
     if (end.fill_to >= 0) {
         write_reference_fill(a, b, end);
     }
@@ -759,6 +1314,9 @@ void ContigRowWriter::print_row(const PhaseCall& a, const PhaseCall& b, int64_t 
     }
     out << "\n";
     ++total_rows;
+    if (exact != nullptr) {
+        note_row(row.position, row.end);
+    }
 }
 
 void ContigRowWriter::write_reference_fill(const PhaseCall& a, const PhaseCall& b,
@@ -778,6 +1336,9 @@ void ContigRowWriter::write_reference_fill(const PhaseCall& a, const PhaseCall& 
             << "ref\t" << haplotype_name(reference_hap)
             << "\t.\t" << fill_pos.second << "\n";
         ++total_rows;
+        if (exact != nullptr) {
+            note_row(fill_pos, fill_end);
+        }
         carry = fill_end;
     } else {
         ++counters.gap_left;
@@ -793,7 +1354,7 @@ void ContigRowWriter::write_reference_fill(const PhaseCall& a, const PhaseCall& 
 /// graph can hold several references with the same contig names, and what each hap_index means,
 /// since the index is internal to the run.
 void write_header(ostream& out, const MosaicParams& params, const string& sample_name) {
-    out << "#mosaic-version\t5\n";
+    out << "#mosaic-version\t" << (params.exact ? 6 : 5) << "\n";
     out << "#graph\t" << params.graph_name << "\n";
     out << "#sample\t" << sample_name << "\n";
     // gRef fragments are counted, not listed: a cover can name thousands of contigs, and each row
@@ -850,8 +1411,31 @@ void write_header(ostream& out, const MosaicParams& params, const string& sample
         << "the fragment has reached starts a new fragment instead -- an inversion boundary is the "
         << "usual reason, and X+ followed by X- is not a walk. A row with no position at all "
         << "(gbwt_offset .) is alone in its fragment, so it never sits inside a walk.\n";
+    if (params.exact) {
+        out << "#note\tan A row gives the allele a strand was called with at one site, where the "
+            << "walk the rows before it spell does not take that allele. start_node and end_node "
+            << "are the site's two bound nodes, oriented as in H rows and in the order the strand "
+            << "passes them. walk is the allele's node walk from start_node to end_node, both "
+            << "included, written >id for a node read forwards and <id for one read backwards.\n";
+        out << "#note\tto apply an A row, find every stretch of the strand's walk that runs from "
+            << "start_node to its next visit of end_node, and make it walk. If the strand's walk "
+            << "has no such stretch, walk is a piece of the strand that joins no row: the site's "
+            << "H row has no position. Apply the A rows in file order. Each follows the H rows "
+            << "and the A rows it needs: a site's row comes before the rows of the sites inside "
+            << "it. The strand then takes the called allele at every genotyped site its walk "
+            << "crosses, including sites with no VCF line.\n";
+        out << "#note\tsequence is . where walk spells the allele. Otherwise the allele changes "
+            << "bases inside nodes, as an allele no panel haplotype carries does, and sequence is "
+            << "the strand's bases over walk, from the first base of start_node to the last base "
+            << "of end_node, read along walk. It has every such change the strand's alleles make "
+            << "to those nodes.\n";
+        out << "#note\tan A row's fragment is that of the H row it follows.\n";
+    }
     out << "#H\tcontig\tstrand\tfragment\tref_start\tref_end\tstart_node\tend_node"
         << "\thap_index\thaplotype\tsites\tgbwt_offset\n";
+    if (params.exact) {
+        out << "#A\tcontig\tstrand\tfragment\tstart_node\tend_node\twalk\tsequence\n";
+    }
 }
 
 /// Return the reference's index in the panel, for filling a gap no haplotype can cross, or
@@ -911,10 +1495,74 @@ void report_counters(const MosaicCounters& counters) {
          << counters.row_to_ref.load() << " rewritten as a reference substitution" << endl;
 }
 
+/// Print the counters of an exact mosaic's `A` rows to stderr.
+void report_allele_rows(const MosaicCounters& counters) {
+    cerr << "[vg call] mosaic: " << counters.allele_rows.load() << " allele rows for "
+         << counters.strands_compared.load() << " called alleles compared with the walk, of which "
+         << counters.allele_rows_with_sequence.load() << " give a sequence, "
+         << counters.allele_rows_nested.load() << " apply to an earlier allele row's walk, "
+         << counters.allele_rows_unwritten.load() << " are at sites with no VCF line, "
+         << counters.allele_rows_reversed.load() << " cross their site backwards and "
+         << counters.allele_rows_standalone.load() << " join no row" << endl;
+    cerr << "[vg call] mosaic: " << counters.strands_not_crossed.load()
+         << " called alleles at sites the strand's walk does not cross, and "
+         << counters.strands_without_allele.load()
+         << " with no walk kept, so no allele row could be written for them" << endl;
+}
+
+}
+
+void CalledAlleles::add(const HandleGraph& graph, const PhaseCall& phase,
+                        const CandidateAlleles& alleles, bool edit_site) {
+    const auto [found, fresh] = entries.try_emplace(phase.record_key);
+    if (!fresh) {
+        return;
+    }
+    Entry& entry = found->second;
+    entry.edit_site = edit_site;
+    const int traversals[2] = {phase.trav_first, phase.ploidy == 2 ? phase.trav_second : -1};
+    for (int slot = 0; slot < 2; ++slot) {
+        const int traversal = traversals[slot];
+        if (traversal < 0 || (size_t)traversal >= alleles.walks.size()) {
+            continue;
+        }
+        entry.traversal[slot] = traversal;
+        if (slot == 1 && entry.traversal[0] == traversal) {
+            // A homozygous site keeps one copy.
+            entry.offset[1] = entry.offset[0];
+            entry.length[1] = entry.length[0];
+            entry.edits[1] = entry.edits[0];
+            continue;
+        }
+        entry.offset[slot] = nodes.size();
+        entry.length[slot] = (uint32_t)alleles.walks[traversal].size();
+        for (const handle_t& step : alleles.walks[traversal]) {
+            nodes.push_back(gbwt::Node::encode(graph.get_id(step), graph.get_is_reverse(step)));
+        }
+        if (!alleles.spelled_by_walk(traversal)) {
+            entry.edits[slot] = (int32_t)edit_sets.size();
+            edit_sets.push_back(alleles.edits[traversal]);
+        }
+    }
+}
+
+bool CalledAlleles::find(size_t record_key, int slot, Allele& out) const {
+    const auto found = entries.find(record_key);
+    if (found == entries.end() || slot < 0 || slot > 1 || found->second.traversal[slot] < 0) {
+        return false;
+    }
+    const Entry& entry = found->second;
+    out.traversal = entry.traversal[slot];
+    out.walk = std::span<const gbwt::node_type>(nodes).subspan(entry.offset[slot],
+                                                               entry.length[slot]);
+    out.edits = entry.edits[slot] >= 0 ? &edit_sets[entry.edits[slot]] : nullptr;
+    out.no_change = entry.edit_site && out.edits == nullptr;
+    return true;
 }
 
 void MosaicWriter::write(const vector<PhaseCall>& phasing, const PanelLookup& panel,
-                         const string& sample_name) {
+                         const string& sample_name, const vector<PhaseCall>* genotyped,
+                         const HandleGraph* graph) {
     ofstream out(params.path);
     if (!out) {
         cerr << "error [vg call]: could not open " << params.path << " for the mosaic output"
@@ -941,6 +1589,18 @@ void MosaicWriter::write(const vector<PhaseCall>& phasing, const PanelLookup& pa
     std::ranges::stable_sort(order, [&](size_t a, size_t b) {
         return contigs[a].second - contigs[a].first > contigs[b].second - contigs[b].first;
     });
+    // An exact mosaic also takes each contig's genotyped sites, which are grouped as the
+    // phasing is.
+    if (params.exact && (genotyped == nullptr || graph == nullptr)) {
+        cerr << "error [vg call]: an exact mosaic needs the genotyped sites and the graph" << endl;
+        return;
+    }
+    unordered_map<string, pair<size_t, size_t>> genotyped_of_contig;
+    if (params.exact) {
+        for (const auto& [first, past] : contig_ranges(*genotyped)) {
+            genotyped_of_contig.emplace((*genotyped)[first].contig, make_pair(first, past));
+        }
+    }
     vector<string> rows(contigs.size());
     vector<size_t> segments(contigs.size(), 0);
     vector<size_t> unexplained(contigs.size(), 0);
@@ -948,10 +1608,18 @@ void MosaicWriter::write(const vector<PhaseCall>& phasing, const PanelLookup& pa
     for (size_t k = 0; k < order.size(); ++k) {
         const size_t c = order[k];
         ostringstream contig_rows;
+        ExactInputs exact;
+        if (params.exact) {
+            const auto [first, past] = genotyped_of_contig.at(phasing[contigs[c].first].contig);
+            exact.genotyped = std::span<const PhaseCall>(*genotyped).subspan(first, past - first);
+            exact.alleles = &alleles;
+            exact.graph = graph;
+        }
         ContigRowWriter writer(
             std::span<const PhaseCall>(phasing).subspan(contigs[c].first,
                                                         contigs[c].second - contigs[c].first),
-            panel, reference_hap, params, counters, contig_rows);
+            panel, reference_hap, params, counters, contig_rows,
+            params.exact ? &exact : nullptr);
         writer.write();
         rows[c] = contig_rows.str();
         segments[c] = writer.rows_written();
@@ -969,6 +1637,9 @@ void MosaicWriter::write(const vector<PhaseCall>& phasing, const PanelLookup& pa
     cerr << "[vg call] mosaic: " << unexplained_segments
          << " segments the panel cannot name a haplotype for" << endl;
     report_counters(counters);
+    if (params.exact) {
+        report_allele_rows(counters);
+    }
 }
 
 }
