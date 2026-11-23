@@ -2467,34 +2467,33 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
     // ---- Check for early return ----
 
     // Do we already have an alignment (from GBWT step?)
-    if (tail_wfa_aln) {
-        tail_wfa_aln.check_lengths(this->gbwt_graph);
-            
-        if (show_work) {
+    if (tail_wfa_aln || tail_length > this->max_tail_dp_length) {
+        if (tail_wfa_aln) {
+            // We already have an alignment (from GBWT step)
+            tail_wfa_aln.check_lengths(this->gbwt_graph);
+                
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Add " << tail_side << " tail of "
+                         << tail_wfa_aln.length << "bp with score of " << tail_wfa_aln.score << endl;
+                }
+            }
+        } else {
+            // Tail is too long to align
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Add " << tail_side << " tail of "
-                     << tail_wfa_aln.length << "bp with score of " << tail_wfa_aln.score << endl;
+                cerr << "warning[MinimizerMapper::find_tail_alignment]: Refusing to align "
+                     << tail_length << " bp " << tail_side << " tail against "
+                     << anchor_pos << " in " << aln.name() << endl;
             }
+                    
+            // Make a softclip for it.
+            tail_wfa_aln = WFAAlignment::make_unlocalized_insertion(is_left_tail ? 0 : tail_anchor.read_end(), tail_length, 0);
         }
 
         output.path = tail_wfa_aln.to_path(this->gbwt_graph, aln.sequence());
-        output.score = tail_wfa_aln.score;
-        return output;
-    }
-
-    // Is the tail too long to align?
-    if (tail_length > this->max_tail_dp_length) {
-        #pragma omp critical (cerr)
-        {
-            cerr << "warning[MinimizerMapper::find_tail_alignment]: Refusing to align "
-                 << tail_length << " bp " << tail_side << " tail against "
-                 << anchor_pos << " in " << aln.name() << endl;
-        }
-                
-        // Make a softclip for it.
-        tail_wfa_aln = WFAAlignment::make_unlocalized_insertion(is_left_tail ? 0 : tail_anchor.read_end(), tail_length, 0);
-        output.path = tail_wfa_aln.to_path(this->gbwt_graph, aln.sequence());
+        output.path.set_length(tail_length);
         output.score = tail_wfa_aln.score;
         return output;
     }
@@ -2555,6 +2554,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
     }
 
     output.path = tail_fallback_aln.path();
+    output.path.set_length(tail_length);
     output.score = tail_fallback_aln.score();
         
     if (show_work) {
@@ -3047,7 +3047,7 @@ Alignment MinimizerMapper::do_base_level_alignment(
 #endif
 
         ScoredPath link = find_link_alignment(to_chain, aln, here_it, next_it, wfa_extender, aligner, stats);
-        longest_attempted_connection = std::max(longest_attempted_connection, (size_t) link.path.length());
+        longest_attempted_connection = std::max(longest_attempted_connection, (*next).read_start() - (*here).read_end());
 
         if (link.score == -std::numeric_limits<int32_t>::max()) {
             // We gave up. Jump to right tail.
