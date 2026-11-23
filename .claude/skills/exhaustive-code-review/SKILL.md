@@ -180,6 +180,25 @@ specific condition under which the bug triggers.
   judgment calls as questions where the author may know something you don't.
 - If the change is clean, say so plainly and stop. Length is not thoroughness.
 
+## Updating these skills
+
+When a person points out a problem in reviewed code that the review missed,
+change the skills so that the next review finds problems of that kind.
+
+- Name the kind of problem, not the instance. "A doc comment describes how
+  the function works inside" is a kind; "the doc comment on
+  `gfa_has_haplotypes()`" is an instance.
+- Write the rule for the kind, in the lens reference where a reviewer looks
+  for it. Give an example from other code than the case that prompted it. A
+  rule that quotes its own case always catches that case, so testing it there
+  proves nothing.
+- Look for rules that pushed the reviewer the wrong way, such as a rule that
+  asks for more explanation where the person wanted less, and qualify them.
+- Make the same change on the author side, in `intelligible-comments` or the
+  skill that guided writing the code, so the problem is not written again.
+- Test the change: give the old diff to a fresh lens reviewer, without saying
+  what it should find, and check that it reports the problem.
+
 ## Reference files
 
 - `references/tooling.md` — deterministic tools to run and how to read them

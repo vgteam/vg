@@ -42,6 +42,28 @@ them. The rules in CLAUDE.md about documentation apply too.
 - Missing comments: an invariant at a storage location with no note there, a
   non-obvious shortcut with no note of the guarantee it relies on.
 
+## Too much
+
+A comment can say too much as easily as too little. Look for both.
+
+- A comment that argues for the code against alternatives it does not use, by
+  saying how they would fail. Rewrite it to say what the code does and what it
+  is for. Not "`unordered_map` would make the output order change between
+  runs, so this uses `map`", but "Keep paths sorted by name for stable output".
+  Do not ask for such a comparison where a comment lacks one.
+- A doc comment that says how the function finds its answer: what it reads,
+  how far it looks, what it compares. The caller needs what the function
+  returns, what it requires, and when it fails. Cut the mechanism, unless a
+  caller would act differently knowing it.
+- A comment on a step of a test that argues why the expectation holds, or
+  repeats the test's description string. Name the step in one line ("Make a
+  graph with a bubble on each strand").
+- A comment longer than the code under it, other than a doc comment. Look for
+  what to cut.
+
+A rewrite you suggest must be shorter than the comment it replaces, unless the
+comment lacks a fact that a reader would get wrong without it. Name that fact.
+
 ## Readable
 
 - One idea per comment; plain words; terms from the CLAUDE.md glossary.

@@ -95,6 +95,9 @@ description: Scope rules and bug patterns for reviewing changes to vg (C++ varia
 - **Test inputs built at run time.** GFA, GAM or JSON written out from strings
   inside a `.t` file or a unit test is hard to read and review. Prefer small
   input files committed under `test/`, or a heredoc with real newlines and tabs.
+  An input derived from another file needs a tool vg or the tests already use
+  (a vg subcommand, samtools, jq), not a parser written for the test in awk or
+  sed.
   Scratch files go in the current directory with fixed names, as in the rest of
   the `.t` files, not in a temporary directory of their own.
 - **A subcommand option added without its help text, or a help text with no

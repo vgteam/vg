@@ -33,7 +33,9 @@ the code.
 3. **Give the reason for anything a reader would not expect,** including
    requirements from outside this code. Look for reasons in commit messages,
    issues, internal thinking notes, and the contracts of the interfaces
-   involved, not only in the code.
+   involved, not only in the code. State the reason as what the code is for
+   ("Keep paths sorted by name for stable output"), not as how the choices you
+   did not make would fail.
 4. **Justify a shortcut with the guarantee that makes it correct.** Code that
    skips a copy, a check or a general path needs a comment saying why skipping
    is safe. How often the shortcut runs, how big things get, and who calls it
@@ -134,6 +136,11 @@ buries the ones that matter. For each fact, ask what a reader would get wrong
 without it: call the function wrongly, keep a pointer too long, miss an
 exception. Keep only those, usually one to three. Leave out what the
 declaration, the names or the code already show.
+
+Leave out of a doc comment how the function finds its answer, such as what it
+reads or compares. The caller needs what it returns, what it requires, and when
+it fails. Name a step of a test in one line, and let the test's description
+string say what it checks.
 
 ## Write like these
 
