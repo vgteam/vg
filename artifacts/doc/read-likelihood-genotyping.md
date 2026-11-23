@@ -1084,26 +1084,30 @@ Three things limit what the rebuilt strand says:
 `artifacts/scripts/mosaic_to_path.py` rebuilds the strands of a mosaic of either version from the
 graph's paths, and checks that each is a walk in the graph. With `--gfa` it also reads each `A`
 row's `sequence` into the strand's bases. A sequence does not say which of its bases are over
-which node of `walk`, so the script settles a strand's rows together: a row whose nodes' bases are
-all known but one makes that one known, and otherwise a node at an end of `walk` whose own bases
-the sequence has there keeps them. Bases left between two nodes that keep theirs lie between
-them. With
+which node of `walk`, so the script settles a strand's rows together: a row over one node says
+that node's bases, a row whose nodes' bases are all known but one makes that one known, and
+otherwise a node at an end of `walk` whose own bases the sequence has there keeps them. Bases left
+between two nodes that keep theirs lie between them. Two rows that give one node different bases
+fail the check. With
 `--vcf` it compares each strand with the phased records of snarls, and counts the called alleles
 in four classes: `equal`, where the strand takes the allele's `AT` walk, and, where that walk is
 the two bound nodes alone, also has the allele's bases between them; `equal outside nested
 records`, where it takes the walk except inside nested sites that have records; `same bases`,
-where it takes another walk and has the record's allele's bases between the bound nodes; and
-`different`. A site written as [flat records](#flat-records) is compared by its bases: the
-reference from the first base of the node of the site's start bound to the last base of the node
-of its end bound, with each record's allele for the strand put in, is what the strand must have
-there, since a flat record's gap can lie on a bound node. The bases an edit site's record inserts
-right beside a bound node lie between the two nodes and are no part of the site, so they are taken
-off the strand's bases first. The records of edit sites have no walks that tell their alleles
-apart, so they are compared by node: a node whose bases a sequence changes must have its own bases
-with the changes that those records make inside it. The script prints the number of records,
-alleles, strands and nodes it does not compare, by reason: block records, records with no phase,
-strands with no allele, nodes off the reference path, nodes where two records of edit sites change
-one base, and strands and nodes where two sequences do not agree on a node's bases.
+where it takes another walk and has the record's allele's bases; and `different`. Bases are
+compared from the first base of the node of the site's start bound to the last base of the node
+of its end bound. The records of edit sites can change those two nodes, and an insertion in a
+repeat can be written inside a node and lie right after it, so the strand may have either the two
+nodes with every change those records make inside them, or the nodes' own bases with what those
+records put right beside them. A site written as [flat records](#flat-records) is compared by
+its bases in the same way: the reference from bound to bound, with each record's allele for the
+strand put in, is what the strand must have there. The records of edit sites have no walks that
+tell their alleles apart, so they are compared by node: a node whose bases a sequence changes
+must have its own bases with the changes that those records make inside it, taken together with
+the nodes beside it where a record puts a change across the end of a node. The script prints the
+number of records, alleles, strands and nodes it does not compare, by reason: block records,
+records with no phase, strands with no allele, nodes off the reference path, nodes where two
+records of edit sites change one base, and nodes whose bases the sequences of two rows that share
+them do not tell apart.
 
 ### Assembly anchors (`--anchors-out`)
 
