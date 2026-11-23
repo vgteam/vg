@@ -1098,9 +1098,12 @@ reference from the first base of the node of the site's start bound to the last 
 of its end bound, with each record's allele for the strand put in, is what the strand must have
 there, since a flat record's gap can lie on a bound node. The bases an edit site's record inserts
 right beside a bound node lie between the two nodes and are no part of the site, so they are taken
-off the strand's bases first. The script prints the number of records, alleles and strands it does
-not compare, by reason: block records, records of edit sites, records with no phase, strands with
-no allele, and strands where two sequences do not agree on a node's bases.
+off the strand's bases first. The records of edit sites have no walks that tell their alleles
+apart, so they are compared by node: a node whose bases a sequence changes must have its own bases
+with the changes that those records make inside it. The script prints the number of records,
+alleles, strands and nodes it does not compare, by reason: block records, records with no phase,
+strands with no allele, nodes off the reference path, nodes where two records of edit sites change
+one base, and strands and nodes where two sequences do not agree on a node's bases.
 
 ### Assembly anchors (`--anchors-out`)
 
