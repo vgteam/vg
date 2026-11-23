@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <zlib.h>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
@@ -409,6 +410,31 @@ static void init_in_out(fstream& strm, const string& name) {
     }
 }
 
+/// Return true if a read file, possibly gzipped, is FASTA, and false if it is
+/// FASTQ. Look only at the first character of the file. Exit with an error if
+/// the file cannot be read or is empty, or if it starts with neither '>' nor '@'.
+static bool reads_are_fasta(const string& filepath) {
+    // zlib reads uncompressed files transparently.
+    gzFile file = gzopen(filepath.c_str(), "rb");
+    if (!file) {
+        error(context) << "Failed to open read file " << filepath << endl;
+    }
+    int first = gzgetc(file);
+    gzclose(file);
+    if (first == '>') {
+        return true;
+    } else if (first == '@') {
+        return false;
+    } else if (first == -1) {
+        error(context) << "Read file " << filepath << " is empty or unreadable" << endl;
+    } else {
+        error(context) << "Read file " << filepath << " starts with '" << (char) first
+                       << "', not a FASTA '>' or FASTQ '@'" << endl;
+    }
+    // error() exits, so this is unreachable.
+    return false;
+}
+
 static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> {
     unique_ptr<MutablePathDeletableHandleGraph> graph;
     switch (IndexingParameters::mut_graph_impl) {
@@ -637,6 +663,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Haplotype-Sampled GBZ", "sampled.gbz");
     registry.register_index("Top Level Chain Distance Index", "tcdist");
     registry.register_index("r Index", "ri");
+    // Read files given for haplotype sampling. Each may be FASTA or FASTQ,
+    // gzipped or not.
     registry.register_index("FASTQ", "fastq");
     registry.register_index("Haplotype Index", "hapl");
     registry.register_index("KFF Kmer Counts", "kff");
@@ -4418,11 +4446,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // Create a temp directory for kmc intermediate files.
         string tmp_dir = temp_file::create_directory();
 
-        // Find the format of the reads to tell KMC. The "FASTQ" index can hold
-        // FASTA files too. KMC takes one format for all its inputs.
-        bool reads_are_fasta = IndexRegistry::reads_are_fasta(fastq_filenames.front());
+        // Find the format of the reads to tell KMC. KMC takes one format for
+        // all its inputs.
+        bool fasta_input = reads_are_fasta(fastq_filenames.front());
         for (const string& fq : fastq_filenames) {
-            if (IndexRegistry::reads_are_fasta(fq) != reads_are_fasta) {
+            if (reads_are_fasta(fq) != fasta_input) {
                 error(context) << "Cannot count k-mers from a mix of FASTA and FASTQ read files: "
                                << fastq_filenames.front() << " and " << fq << " differ" << endl;
             }
@@ -4486,9 +4514,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             "-m128",
             "-okff",
             "-hp",
-            // KMC's -fa format counts almost nothing from FASTA records that
-            // wrap over several lines. Its -fm format reads them whole.
-            reads_are_fasta ? "-fm" : "-fq"
+            // KMC's -fa format counts only a few k-mers from FASTA records
+            // that wrap over several lines. Its -fm format reads them whole.
+            fasta_input ? "-fm" : "-fq"
         };
 
         if (kmc_gb != std::numeric_limits<size_t>::max()) {
@@ -5410,28 +5438,6 @@ string IndexRegistry::get_work_dir() {
         work_dir = temp_file::create_directory();
     }
     return work_dir;
-}
-
-bool IndexRegistry::reads_are_fasta(const string& filepath) {
-    // zlib reads uncompressed files transparently.
-    gzFile file = gzopen(filepath.c_str(), "rb");
-    if (!file) {
-        error(context) << "Failed to open read file " << filepath << endl;
-    }
-    int first = gzgetc(file);
-    gzclose(file);
-    if (first == '>') {
-        return true;
-    } else if (first == '@') {
-        return false;
-    } else if (first == -1) {
-        error(context) << "Read file " << filepath << " is empty or unreadable" << endl;
-    } else {
-        error(context) << "Read file " << filepath << " starts with '" << (char) first
-                       << "', not a FASTA '>' or FASTQ '@'" << endl;
-    }
-    // error() exits, so this is unreachable.
-    return false;
 }
 
 bool IndexRegistry::vcf_is_phased(const string& filepath) {

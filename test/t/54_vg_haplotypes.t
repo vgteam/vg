@@ -314,6 +314,21 @@ is "$(vg gbwt -H -Z auto_kff.HG003.gbz)" 4 "auto kmer counting produces 2 diploi
 # KMC prints statistics to stdout.
 # Check that the stats are not included in the alignment output.
 is "$(head -n 1 auto_kff.gaf | cut -f 1)" "@HD" "auto kmer counting does not output KMC stats"
+
+# Giraffe integration, kmer counting from FASTA reads.
+# Convert the FASTQ reads to FASTA and wrap each sequence onto two lines, which
+# KMC's single-line FASTA format miscounts. K-mer counts ignore base qualities,
+# so sampling must match the FASTQ run.
+rm -f auto_fasta.HG003.* auto_fasta.gam auto_fasta.dist
+zcat haplotype-sampling/HG003.fq.gz \
+    | awk 'NR % 4 == 1 { print ">" substr($0, 2) } NR % 4 == 2 { print substr($0, 1, 60); print substr($0, 61) }' \
+    | gzip > HG003.fa.gz
+vg giraffe --progress -Z full.gbz --haplotype-name full.hapl \
+    --index-basename auto_fasta -N HG003 \
+    -f HG003.fa.gz > auto_fasta.gam 2> /dev/null
+is $? 0 "Giraffe counts kmers from FASTA reads automatically"
+cmp auto_fasta.HG003.gbz auto_kff.HG003.gbz
+is $? 0 "haplotype sampling from FASTA reads matches sampling from the same reads as FASTQ"
 rm -f auto_kff.gaf
 
 # Giraffe integration, fully automatic: both hapl and kff are built by the
@@ -324,16 +339,6 @@ vg giraffe --progress -Z full.gbz --haplotype-sampling \
     -f haplotype-sampling/HG003.fq.gz > auto_all.gam 2> /dev/null
 is $? 0 "Giraffe does fully automatic haplotype sampling"
 is "$(vg gbwt -H -Z auto_all.HG003.gbz)" 4 "fully automatic haplotype sampling produces 2 diploid + 2 reference haplotypes"
-
-# Giraffe integration from FASTA reads, with sequences wrapped over several lines
-rm -f auto_fasta.HG003.* auto_fasta.gam auto_fasta.dist
-zcat haplotype-sampling/HG003.fq.gz | awk 'NR % 4 == 1 {print ">" substr($0, 2)} NR % 4 == 2 {print substr($0, 1, 60); print substr($0, 61)}' | gzip > HG003.fa.gz
-vg giraffe --progress -Z full.gbz --haplotype-sampling \
-    --index-basename auto_fasta -N HG003 \
-    -f HG003.fa.gz > auto_fasta.gam 2> /dev/null
-is $? 0 "Giraffe does fully automatic haplotype sampling from FASTA reads"
-cmp auto_fasta.HG003.gbz auto_all.HG003.gbz
-is $? 0 "haplotype sampling from FASTA reads matches sampling from the same reads as FASTQ"
 
 # Giraffe integration, non-diploid
 rm -f auto_nondip.HG003.* auto_nondip.gam auto_nondip.dist
