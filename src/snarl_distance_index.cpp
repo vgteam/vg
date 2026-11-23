@@ -6,8 +6,13 @@
 //#define debug_hub_label_storage
 
 #include "snarl_distance_index.hpp"
-#include <unordered_set>
+#include "integrated_snarl_finder.hpp"
+#include "subgraph_overlay.hpp"
 #include "decomposition_neighbors.hpp"
+
+#include <gbwtgraph/algorithms.h>
+#include <omp.h>
+#include <unordered_set>
 
 using namespace std;
 using namespace handlegraph;
@@ -63,14 +68,60 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
     SnarlDistanceIndex::TemporaryDistanceIndex temp_index = make_temporary_distance_index(graph, snarl_finder, size_limit, only_top_level_chain_distances);
 
     if (!silence_warnings && temp_index.use_oversized_snarls) {
-        cerr << "warning: distance index uses oversized snarls, (the biggest has "
-             << temp_index.most_oversized_snarl_size << " nodes), which may make mapping slow" << endl;
-        cerr << "\ttry increasing --snarl-limit when building the distance index" << endl;
+        cerr << "note: using hub labeling for oversized snarls (largest: "
+             << temp_index.most_oversized_snarl_size << " nodes)" << endl;
     }
 
     //And fill in the permanent distance index
     vector<const SnarlDistanceIndex::TemporaryDistanceIndex*> indexes;
     indexes.emplace_back(&temp_index);
+    distance_index->get_snarl_tree_records(indexes, graph);
+}
+void fill_in_distance_index_by_component(SnarlDistanceIndex* distance_index, const HandleGraph* graph,
+                                         const std::unordered_map<nid_t, size_t>& extra_node_weight,
+                                         size_t size_limit, bool only_top_level_chain_distances,
+                                         bool silence_warnings) {
+    std::vector<std::vector<nid_t>> components = gbwtgraph::weakly_connected_components(*graph);
+    if (components.size() <= 1 || omp_get_max_threads() <= 1) {
+        IntegratedSnarlFinder snarl_finder(*graph, extra_node_weight);
+        fill_in_distance_index(distance_index, graph, &snarl_finder, size_limit, only_top_level_chain_distances, silence_warnings);
+        return;
+    }
+
+    distance_index->set_snarl_size_limit(size_limit);
+    distance_index->set_only_top_level_chain_distances(only_top_level_chain_distances);
+
+    // Build a temporary index for each component, largest components first.
+    std::vector<size_t> order(components.size());
+    for (size_t i = 0; i < order.size(); i++) {
+        order[i] = i;
+    }
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        return components[a].size() > components[b].size();
+    });
+    std::vector<SnarlDistanceIndex::TemporaryDistanceIndex> temp_indexes(components.size());
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < order.size(); i++) {
+        size_t component = order[i];
+        std::unordered_set<nid_t> nodes(components[component].begin(), components[component].end());
+        std::vector<nid_t>().swap(components[component]);
+        SubgraphOverlay overlay(graph, &nodes);
+        IntegratedSnarlFinder snarl_finder(overlay, extra_node_weight);
+        temp_indexes[component] = make_temporary_distance_index(&overlay, &snarl_finder, size_limit, only_top_level_chain_distances);
+    }
+
+    vector<const SnarlDistanceIndex::TemporaryDistanceIndex*> indexes;
+    size_t most_oversized_snarl_size = 0;
+    bool use_oversized_snarls = false;
+    for (auto& temp_index : temp_indexes) {
+        indexes.push_back(&temp_index);
+        use_oversized_snarls |= temp_index.use_oversized_snarls;
+        most_oversized_snarl_size = std::max(most_oversized_snarl_size, temp_index.most_oversized_snarl_size);
+    }
+    if (!silence_warnings && use_oversized_snarls) {
+        cerr << "note: using hub labeling for oversized snarls (largest: "
+             << most_oversized_snarl_size << " nodes)" << endl;
+    }
     distance_index->get_snarl_tree_records(indexes, graph);
 }
 
@@ -624,17 +675,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         temp_snarl_record.end_node_rev = graph->get_is_reverse(snarl_end_handle);
         temp_snarl_record.end_node_length = graph->get_length(snarl_end_handle);
         temp_snarl_record.node_count = temp_snarl_record.children.size();
-        bool any_edges_in_snarl = false;
-        graph->follow_edges(graph->get_handle(temp_snarl_record.start_node_id, temp_snarl_record.start_node_rev), false, [&](const handle_t& next_handle) {
-            if (graph->get_id(next_handle) != temp_snarl_record.end_node_id) {
-                any_edges_in_snarl = true;
-            }
-        });
-        graph->follow_edges(graph->get_handle(temp_snarl_record.end_node_id, !temp_snarl_record.end_node_rev), false, [&](const handle_t& next_handle) {
-            if (graph->get_id(next_handle) != temp_snarl_record.start_node_id) {
-                any_edges_in_snarl = true;
-            }
-        });
 
         if (temp_snarl_record.children.size() == 0) {
             //This is a trivial snarl

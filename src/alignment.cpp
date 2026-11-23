@@ -3609,6 +3609,30 @@ int edit_count(const Alignment& alignment) {
     return i;
 }
 
+void count_edit_bases(const Alignment& aln, uint64_t& matches, uint64_t& mismatches,
+                      uint64_t& inserted, uint64_t& deleted) {
+    matches = mismatches = inserted = deleted = 0;
+    for (const auto& mapping : aln.path().mapping()) {
+        for (const auto& edit : mapping.edit()) {
+            if (edit.from_length() == edit.to_length()) {
+                if (edit.sequence().empty()) matches += edit.from_length();
+                else                         mismatches += edit.from_length();
+            } else if (edit.from_length() == 0) {
+                inserted += edit.to_length();
+            } else if (edit.to_length() == 0) {
+                deleted += edit.from_length();
+            } else {
+                // The edit changes both lengths. Count the shorter length as
+                // mismatches and the rest as an insertion or deletion.
+                const uint64_t common = std::min(edit.from_length(), edit.to_length());
+                mismatches += common;
+                if (edit.to_length() > common) inserted += edit.to_length() - common;
+                else                           deleted  += edit.from_length() - common;
+            }
+        }
+    }
+}
+
 size_t to_length_after_pos(const Alignment& aln, const Position& pos) {
     return path_to_length(cut_path(aln.path(), pos).second);
 }

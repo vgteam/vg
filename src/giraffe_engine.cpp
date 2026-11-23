@@ -1,0 +1,507 @@
+#include "giraffe_engine.hpp"
+
+#include <algorithm>
+#include <exception>
+#include <fstream>
+#include <iostream>
+#include <stdexcept>
+#include <unordered_set>
+
+#include <omp.h>
+
+#include <vg/io/vpkg.hpp>
+#include <vg/vg.pb.h>
+
+#include <limits>
+
+#include "alignment.hpp"
+#include "anchor_backed_position_graph.hpp"
+#include "gbwtgraph_helper.hpp"
+#include "surjector.hpp"
+#include "utility.hpp"
+
+#include <handlegraph/util.hpp>
+
+namespace vg {
+
+using namespace std;
+
+namespace {
+
+/// Apply the engine's surjector settings. vg giraffe has four more, set by
+/// flags the server does not have.
+void set_up_surjector(Surjector& surjector, const GiraffeEngineConfig& config) {
+    surjector.prune_suspicious_anchors = config.prune_suspicious_anchors;
+}
+
+/// Fill `result` from the highest-scoring surjected alignment on `path`.
+/// `positions` holds the path name, start and strand of each alignment. Set
+/// SURJECTION_FAILED if no alignment landed on the path.
+void take_best_surjection(const vector<Alignment>& surjected,
+                          const vector<tuple<string, int64_t, bool>>& positions,
+                          const PathPositionHandleGraph& position_graph,
+                          const path_handle_t& path,
+                          HaplotypeSurjectionResult& result) {
+    using S = HaplotypeSurjectionResult::Status;
+    if (surjected.empty() || positions.empty()) {
+        result.status = S::SURJECTION_FAILED;
+        return;
+    }
+    size_t best = 0;
+    for (size_t i = 1; i < surjected.size(); ++i) {
+        if (surjected[i].score() > surjected[best].score()) {
+            best = i;
+        }
+    }
+    const Alignment& chosen = surjected[best];
+    const auto& chosen_pos = positions[best];
+    if (chosen.path().mapping_size() == 0 || std::get<0>(chosen_pos).empty()) {
+        result.status = S::SURJECTION_FAILED;
+        return;
+    }
+
+    result.status = S::OK;
+    result.path_name = std::get<0>(chosen_pos);
+    result.path_position = std::get<1>(chosen_pos);
+    result.path_reverse = std::get<2>(chosen_pos);
+    result.score = chosen.score();
+    result.mapping_quality = chosen.mapping_quality();
+
+    // cigar_against_path moves the position only when it suppresses softclips,
+    // and we ask it to suppress none.
+    int64_t pos_adj = result.path_position;
+    size_t path_len = position_graph.get_path_length(path);
+    vector<pair<int, char>> cigar = cigar_against_path(chosen, result.path_reverse, pos_adj,
+                                                       path_len, /*softclip_suppress=*/0);
+    // An empty CIGAR is written as "*", as in SAM.
+    result.cigar = cigar.empty() ? "*" : cigar_string(cigar);
+    count_edit_bases(chosen, result.matches, result.mismatches,
+                     result.inserted, result.deleted);
+}
+
+/// Return true if path visits the nodes of the mappings [begin, end) of
+/// aln_path in order, in either orientation.
+///
+/// We look only at the path's visits to the first mapping's node, so this is
+/// cheap on a graph that lists just the visits of a few indexed paths there.
+bool path_carries_mappings(const PathPositionHandleGraph& graph, const path_handle_t& path,
+                           const Path& aln_path, size_t begin, size_t end) {
+    if (begin >= end) {
+        return false;
+    }
+    auto handle_of = [&](size_t k) {
+        const auto& pos = aln_path.mapping(k).position();
+        return graph.get_handle(pos.node_id(), pos.is_reverse());
+    };
+    const handle_t first = handle_of(begin);
+    bool carried = false;
+    graph.for_each_step_on_handle(first, [&](const step_handle_t& step) {
+        if (graph.get_path_handle_of_step(step) != path) {
+            return true;
+        }
+        // A visit in the first mapping's orientation reads the mappings
+        // forward along the path. A visit in the other orientation reads them
+        // backward, with each node flipped.
+        const bool forward = graph.get_handle_of_step(step) == first;
+        step_handle_t cursor = step;
+        size_t k = begin + 1;
+        for (; k < end; ++k) {
+            if (forward ? !graph.has_next_step(cursor) : !graph.has_previous_step(cursor)) {
+                break;
+            }
+            cursor = forward ? graph.get_next_step(cursor) : graph.get_previous_step(cursor);
+            handle_t visited = graph.get_handle_of_step(cursor);
+            if ((forward ? visited : graph.flip(visited)) != handle_of(k)) {
+                break;
+            }
+        }
+        carried = (k == end);
+        return !carried;
+    });
+    return carried;
+}
+
+} // namespace
+
+HaplotypeSurjectionResult GiraffeEngine::surject_to_indexed_path(
+    const Alignment& aln,
+    const string& target_path_name,
+    size_t begin_mapping, size_t end_mapping) const
+{
+    HaplotypeSurjectionResult result;
+    using S = HaplotypeSurjectionResult::Status;
+
+    if (aln.path().mapping_size() == 0) {
+        result.status = S::EMPTY_INPUT;
+        return result;
+    }
+    if (target_path_name.empty()) {
+        result.status = S::UNKNOWN_PATH;
+        return result;
+    }
+
+    // The overlay has only the paths whose positions it indexes.
+    if (!position_overlay_ || !position_overlay_->has_path(target_path_name)) {
+        if (gbz_->graph.has_path(target_path_name)) {
+            result.status = S::PATH_NOT_INDEXED;
+        } else {
+            result.status = S::UNKNOWN_PATH;
+        }
+        return result;
+    }
+
+    // The overlay lists only its indexed paths' visits on each node, so the
+    // check walks just the target path. The overlay keeps the GBZ graph's path
+    // handles, so the GBZ's handle works with the overlay's surjector.
+    path_handle_t gbz_path_handle = gbz_->graph.get_path_handle(target_path_name);
+    if (!path_carries_mappings(*position_overlay_,
+                               position_overlay_->get_path_handle(target_path_name),
+                               aln.path(), begin_mapping, end_mapping)) {
+        result.status = S::INCOMPATIBLE;
+        return result;
+    }
+
+    unordered_set<path_handle_t> paths;
+    paths.insert(gbz_path_handle);
+    vector<tuple<string, int64_t, bool>> positions_out;
+    vector<Alignment> surjected = overlay_surjector_->surject(aln, paths, positions_out,
+                                                              /*allow_negative_scores=*/true,
+                                                              /*preserve_deletions=*/false);
+    take_best_surjection(surjected, positions_out, *position_overlay_,
+                         position_overlay_->get_path_handle(target_path_name), result);
+    return result;
+}
+
+void GiraffeEngine::load(const GiraffeEngineConfig& config) {
+    if (config.gbz_path.empty() || config.minimizer_path.empty() || config.distance_path.empty() || config.zipcode_path.empty()) {
+        throw runtime_error("All index paths must be provided: GBZ, minimizer, distance, zipcodes");
+    }
+    if (config.threads == 0) {
+        throw runtime_error("Thread count must be >= 1");
+    }
+
+    // The caller's OpenMP threads run map_reads(). Their count is global to
+    // the process. It is set before the mapper and the surjector are built,
+    // because their aligners make one dozeu aligner per thread.
+    omp_set_num_threads(static_cast<int>(config.threads));
+
+    if (!file_exists(config.gbz_path) || !file_exists(config.minimizer_path)
+        || !file_exists(config.distance_path) || !file_exists(config.zipcode_path)) {
+        throw runtime_error("One or more required index files do not exist");
+    }
+
+    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(config.gbz_path);
+    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(config.minimizer_path);
+    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(config.distance_path);
+    auto zipcodes = make_unique<ZipCodeCollection>();
+
+    ifstream zip_in(config.zipcode_path);
+    if (!zip_in) {
+        throw runtime_error("Failed to open zipcode file: " + config.zipcode_path);
+    }
+    zipcodes->deserialize(zip_in);
+    zip_in.close();
+
+    if (!has_payload(*minimizer_index, {MinimizerIndexParameters::PAYLOAD_ZIPCODES,
+                                        MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS})) {
+        throw runtime_error("Minimizer index has no zipcode payload: " + config.minimizer_path);
+    }
+    require_compatible_graphs(*gbz, "GBZ", *minimizer_index, "Minimizer Index");
+
+    if (config.preload_distance_index) {
+        distance_index->preload(true);
+    }
+
+    auto mapper = make_unique<MinimizerMapper>(gbz->graph, *minimizer_index, distance_index.get(), zipcodes.get());
+
+    auto assigner = make_unique<HaplotypeAssigner>(*gbz, *distance_index);
+
+    // Index the positions of the surjection target paths once, here. The
+    // overlay indexes reference and generic paths, and the target names are
+    // passed as extra paths so that haplotype paths are indexed too. A target
+    // that is not in the graph fails the load.
+    unique_ptr<bdsg::ReferencePathOverlay> position_overlay;
+    unique_ptr<Surjector> surjector;
+    if (!config.surjection_target_paths.empty()) {
+        for (const auto& name : config.surjection_target_paths) {
+            if (!gbz->graph.has_path(name)) {
+                throw runtime_error(
+                    "Surjection target path not present in GBZ: " + name);
+            }
+        }
+        std::unordered_set<string> extras(config.surjection_target_paths.begin(),
+                                          config.surjection_target_paths.end());
+        position_overlay = make_unique<bdsg::ReferencePathOverlay>(
+            &gbz->graph, /*all_paths=*/false, extras);
+        surjector = make_unique<Surjector>(position_overlay.get());
+        set_up_surjector(*surjector, config);
+    }
+
+    config_ = config;
+    gbz_ = move(gbz);
+    minimizer_index_ = move(minimizer_index);
+    distance_index_ = move(distance_index);
+    zipcodes_ = move(zipcodes);
+    mapper_ = move(mapper);
+    haplotype_assigner_ = move(assigner);
+    position_overlay_ = move(position_overlay);
+    overlay_surjector_ = move(surjector);
+}
+
+bool GiraffeEngine::is_loaded() const {
+    return static_cast<bool>(mapper_);
+}
+
+const GiraffeEngineConfig& GiraffeEngine::config() const {
+    return config_;
+}
+
+MinimizerMapper& GiraffeEngine::mapper() {
+    require_loaded();
+    return *mapper_;
+}
+
+const gbwtgraph::DefaultMinimizerIndex& GiraffeEngine::minimizer_index() const {
+    require_loaded();
+    return *minimizer_index_;
+}
+
+const gbwtgraph::GBZ& GiraffeEngine::gbz() const {
+    require_loaded();
+    return *gbz_;
+}
+
+vector<MappedRead> GiraffeEngine::map_reads(const vector<GiraffeServerRequest>& reads) {
+    require_loaded();
+    vector<MappedRead> results(reads.size());
+    if (reads.empty()) {
+        return results;
+    }
+
+    // One task per read. Without shared(), each task would get its own copy
+    // of the reads and the results.
+#pragma omp taskloop grainsize(1) shared(reads, results)
+    for (size_t i = 0; i < reads.size(); ++i) {
+        const auto& req = reads[i];
+        try {
+            Alignment aln = req.read;
+            // The mapper asserts that a read has a name.
+            if (aln.name().empty()) {
+                throw runtime_error("read has no name");
+            }
+            // check_quality_length() would exit the process.
+            if (!aln.quality().empty() && aln.quality().size() != aln.sequence().size()) {
+                throw runtime_error("qualities and sequence differ in length");
+            }
+            toUppercaseInPlace(*aln.mutable_sequence());
+
+            vector<Alignment> mapped = mapper_->map(aln);
+            vector<vector<HaplotypeSegment>> segments;
+            vector<SnarlBoundaries> boundaries;
+            if (config_.assign_haplotypes && this->haplotype_assigner_) {
+                segments.reserve(mapped.size());
+                boundaries.resize(mapped.size());
+                for (size_t j = 0; j < mapped.size(); ++j) {
+                    segments.push_back(this->haplotype_assigner_->segments(mapped[j]));
+                    if (config_.find_snarl_boundaries) {
+                        boundaries[j] = this->haplotype_assigner_->snarl_boundaries(mapped[j]);
+                    }
+                }
+            }
+
+            // When the read names a target, every alignment gets a surjection
+            // status, so the client can tell why a surjection is missing.
+            vector<HaplotypeSurjectionResult> surj_results;
+            if (!req.surjection_target.empty()) {
+                surj_results.resize(mapped.size());
+                if (!overlay_surjector_) {
+                    for (auto& r : surj_results) {
+                        r.status = HaplotypeSurjectionResult::Status::PATH_NOT_INDEXED;
+                    }
+                } else {
+                    for (size_t j = 0; j < mapped.size(); ++j) {
+                        // The target must carry the mappings that the reported
+                        // haplotypes carry: the longest segment, or the whole
+                        // path without a haplotype assignment.
+                        size_t begin = 0;
+                        size_t end = mapped[j].path().mapping_size();
+                        if (!segments.empty()) {
+                            const HaplotypeSegment* longest = longest_segment(segments[j]);
+                            if (longest) {
+                                begin = longest->first_mapping;
+                                end = longest->past_last_mapping;
+                            } else {
+                                // No haplotype visits any node of the path.
+                                end = begin;
+                            }
+                        }
+                        surj_results[j] = surject_to_indexed_path(
+                            mapped[j], req.surjection_target, begin, end);
+                    }
+                }
+            }
+
+            auto& alignments = results[i].alignments;
+            alignments.reserve(mapped.size());
+            for (size_t j = 0; j < mapped.size(); ++j) {
+                MappedAlignment out;
+                out.alignment = std::move(mapped[j]);
+                if (!segments.empty()) {
+                    out.haplotype_segments = std::move(segments[j]);
+                    out.snarl_boundaries = boundaries[j];
+                }
+                if (j < surj_results.size()) {
+                    out.surjection = std::move(surj_results[j]);
+                }
+                alignments.emplace_back(std::move(out));
+            }
+        } catch (const exception& e) {
+            results[i].alignments.clear();
+            results[i].error = e.what();
+        } catch (...) {
+            // An exception that escapes an OpenMP task terminates the
+            // process.
+            results[i].alignments.clear();
+            results[i].error = "non-standard exception";
+        }
+    }
+
+    return results;
+}
+
+void GiraffeEngine::require_loaded() const {
+    if (!mapper_) {
+        throw runtime_error("GiraffeEngine is not loaded");
+    }
+}
+
+namespace {
+
+/// Return the GBWTGraph step handle for a GBWT node and an offset in that
+/// node's GBWT record.
+handlegraph::step_handle_t make_step_handle(uint64_t node, uint64_t offset) {
+    handlegraph::step_handle_t step;
+    handlegraph::as_integers(step)[0] = node;
+    handlegraph::as_integers(step)[1] = offset;
+    return step;
+}
+
+/// Return the length in bases of a GBWT path, by walking it.
+size_t walk_target_path_length(const gbwtgraph::GBZ& gbz, size_t target_gbwt_path_id) {
+    gbwt::vector_type nodes = gbz.index.extract(
+        gbwt::Path::encode(target_gbwt_path_id, false));
+    size_t total = 0;
+    for (gbwt::node_type node : nodes) {
+        if (node == gbwt::ENDMARKER) break;
+        total += gbz.graph.get_length(
+            gbz.graph.get_handle(gbwt::Node::id(node), gbwt::Node::is_reverse(node)));
+    }
+    return total;
+}
+
+} // anonymous namespace
+
+HaplotypeSurjectionResult GiraffeEngine::surject_with_anchors(
+    const Alignment& aln,
+    const std::vector<PathAnchor>& anchors,
+    const std::string& target_haplotype,
+    size_t target_path_length)
+{
+    require_loaded();
+    using S = HaplotypeSurjectionResult::Status;
+
+    HaplotypeSurjectionResult surj_result;
+    if (aln.path().mapping_size() == 0) {
+        surj_result.status = S::EMPTY_INPUT;
+        return surj_result;
+    }
+
+    // Find the target path. A sample and haplotype such as HG002#2 is not a
+    // path name in the graph. Then the target is the path of the first
+    // anchor's step, since all the anchors lie on the target path.
+    path_handle_t target_path{};
+    bool target_resolved = false;
+    if (gbz_->graph.has_path(target_haplotype)) {
+        target_path = gbz_->graph.get_path_handle(target_haplotype);
+        target_resolved = true;
+        // The anchors must be on that path. Checking the first one is enough
+        // to catch anchors made for another target.
+        if (!anchors.empty()) {
+            handlegraph::step_handle_t s = make_step_handle(
+                anchors[0].step_begin_node, anchors[0].step_begin_offset);
+            if (!(gbz_->graph.get_path_handle_of_step(s) == target_path)) {
+                throw runtime_error("the anchors are not on the target path " + target_haplotype);
+            }
+        }
+    } else if (!anchors.empty()) {
+        handlegraph::step_handle_t s = make_step_handle(
+            anchors[0].step_begin_node, anchors[0].step_begin_offset);
+        try {
+            target_path = gbz_->graph.get_path_handle_of_step(s);
+            target_resolved = !gbz_->graph.get_path_name(target_path).empty();
+        } catch (const std::exception&) {
+            target_resolved = false;
+        }
+    }
+    if (!target_resolved) {
+        surj_result.status = S::UNKNOWN_PATH;
+        return surj_result;
+    }
+
+    // Walk the target path for its length if the caller did not give it.
+    size_t path_length = target_path_length;
+    if (path_length == 0) {
+        gbwt::size_type gbwt_path_id = gbz_->graph.handle_to_path(target_path);
+        path_length = walk_target_path_length(*gbz_, gbwt_path_id);
+    }
+
+    // The anchor-backed position graph needs only the steps and their path
+    // offsets.
+    std::vector<PrecomputedAnchor> vg_anchors;
+    vg_anchors.reserve(anchors.size());
+    for (const auto& a : anchors) {
+        PrecomputedAnchor pa;
+        pa.step_begin = make_step_handle(a.step_begin_node, a.step_begin_offset);
+        pa.step_end   = make_step_handle(a.step_end_node, a.step_end_offset);
+        pa.path_offset_step_begin = a.path_offset_step_begin;
+        pa.path_offset_step_end   = a.path_offset_step_end;
+        vg_anchors.push_back(pa);
+    }
+
+    // Surject onto the target path. The anchor-backed position graph answers
+    // the surjector's position queries.
+    AnchorBackedPositionGraph anchor_graph(&gbz_->graph, vg_anchors,
+                                           target_path, path_length);
+
+    unordered_set<path_handle_t> paths;
+    paths.insert(target_path);
+    vector<tuple<string, int64_t, bool>> positions_out;
+    vector<Alignment> surjected;
+
+    // A surjector's aligners make one dozeu aligner per OpenMP thread, counted
+    // when they are built, and pick one by thread number. In a task of the
+    // caller's parallel region the count is 1 but the thread number is not 0.
+    // In a parallel region of one thread the count is 1 and the number is 0.
+    exception_ptr failure;
+#pragma omp parallel num_threads(1)
+    {
+        try {
+            Surjector anchor_surjector(&anchor_graph);
+            set_up_surjector(anchor_surjector, config_);
+            surjected = anchor_surjector.surject(aln, paths, positions_out,
+                                                 /*allow_negative_scores=*/true,
+                                                 /*preserve_deletions=*/false);
+        } catch (...) {
+            // An exception must not leave the parallel region.
+            failure = current_exception();
+        }
+    }
+    if (failure) {
+        rethrow_exception(failure);
+    }
+
+    take_best_surjection(surjected, positions_out, anchor_graph, target_path, surj_result);
+    return surj_result;
+}
+
+} // namespace vg

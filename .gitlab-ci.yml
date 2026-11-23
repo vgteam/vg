@@ -3,13 +3,33 @@
 # There's no good way to do that when running Docker containers as siblings of a container containing toil-vg.
 # So we either have to genuinely nest Docker inside another Docker, or we have to run the build on the real host.
 
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
+default:
+  # Tag all jobs by project, so we can flexibly route them to runners
+  tags:
+    - vg
+
+variables:
+  # Work around <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/39384>
+  # See <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/38908>
+  # This should also fix:
+  # fatal: could not get a repository handle for submodule 'doc/wiki'
+  # These are all caused by the "project workspace" shared Git repository
+  # checkout, which lives in a Docker volume on the Docker-based CI runners we
+  # use, getting corrupted because a job was canceled or the host rebooted.
+  #
+  # So we just use a fresh one every time.
+  GIT_STRATEGY: clone
+
+# TODO: Should the top-level defaults nest inside "deafult" now? They aren't documented (anymore?)
+
 # Pull in an image that has our apt packages pre-installed, to save time installing them for every test.
 # Make sure to use :latest so we re-check and re-pull if needed on every run.
 image: quay.io/vgteam/vg_ci_prebake:latest
 
-workflow:
-  auto_cancel:
-    on_new_commit: interruptible
 
 before_script:
   - sudo apt-get -q -y update
@@ -227,9 +247,6 @@ build-job:
     - docker buildx build --cache-from type=local,src=${HOME}/docker-cache/base --cache-from type=local,src=${HOME}/docker-cache/build --cache-from type=local,src=${HOME}/docker-cache/run --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=${THREADS} --target run -t ${CI_REPO}:${DOCKER_TAG} -f Dockerfile --push .
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
-    # Work around <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/39384>
-    # See <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/38908>
-    GIT_STRATEGY: clone
 
 # The arm container build takes like 90 minutes, so we don't want to run it
 # before the main test phase where the other long tests live.
@@ -278,9 +295,6 @@ production-build-job:
     # manage to hit a 6 hour timeout on our extremely slow emulators.
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
-    # Work around <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/39384>
-    # See <https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/38908>
-    GIT_STRATEGY: clone
 
 # We also run the toil-vg/pytest-based tests
 # Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt

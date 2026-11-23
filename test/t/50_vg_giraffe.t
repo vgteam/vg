@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 90
+plan tests 93
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -76,12 +76,18 @@ rm -f x.longread.zipcodes
 vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi >mapped.gam
 is "$(vg view -aj mapped.gam | jq '.annotation.chain.rec_count')" "1" "recombinations are counted by default when mapping with the hifi preset"
 
+vg filter --tsv-out "annotation.left_tail_length;annotation.right_tail_length;annotation.longest_attempted_connection" mapped.gam | tail -1 > annots.txt
+is "$(cut -f1 annots.txt)" "67" "left tail length is set"
+is "$(cut -f2 annots.txt)" "33" "right tail length is set"
+is "$(cut -f3 annots.txt)" "71" "longest attempted connection is set"
+
 vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi --rec-penalty-aln 9999 >mapped.gam
 is "$(vg view -aj mapped.gam | jq '.score // 0')" "0" "recombination alignment score penalty is used by default and can unmap a read"
 
 rm -f mapped.gam
 rm -f x.longread.withzip.min
 rm -f x.longread.zipcodes
+rm -f annots.txt
 
 rm -Rf grid-out
 mkdir grid-out
