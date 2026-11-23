@@ -201,11 +201,11 @@ using namespace std;
             if (!has_annotation(aln, "tags")) {
                 return;
             }
-            const string tags = get_annotation<string>(aln, "tags");
+            string tags = get_annotation<string>(aln, "tags");
             string retained;
             for (size_t start = 0; start < tags.size();) {
-                const size_t end = tags.find('\t', start);
-                const string tag = tags.substr(start, end == string::npos ? end : end - start);
+                size_t end = tags.find('\t', start);
+                string tag = tags.substr(start, end == string::npos ? end : end - start);
                 if (tag.compare(0, 3, "SA:") != 0) {
                     if (!retained.empty()) retained += '\t';
                     retained += tag;
@@ -224,7 +224,7 @@ using namespace std;
             if (source.path().mapping_size() == 0) {
                 continue;
             }
-            const string source_path = source.path().SerializeAsString();
+            string source_path = source.path().SerializeAsString();
             if (!seen_paths.insert(source_path).second) {
                 continue;
             }
@@ -237,7 +237,7 @@ using namespace std;
             if (annotate_with_graph_alignment) {
                 annotate_graph_cigar(surjected, source, positions);
             }
-            const size_t first_candidate = candidates.size();
+            size_t first_candidate = candidates.size();
             for (const auto& group : groups) {
                 if (surjected[group.front()].path().mapping_size() == 0) {
                     continue;
@@ -259,7 +259,7 @@ using namespace std;
             for (size_t i = first_candidate; i < candidates.size(); ++i) {
                 scores.push_back(candidates[i].pieces.front().score());
             }
-            const int32_t hq = quality(scores);
+            int32_t hq = quality(scores);
             candidates[first_candidate].preferred = true;
             for (size_t i = first_candidate; i < candidates.size(); ++i) {
                 candidates[i].haplotype_quality = hq;
@@ -791,7 +791,7 @@ using namespace std;
             
             // find the position along the path
             size_t num_suppls = source_aln ? aln_surjections[path_strand].size() : mp_aln_surjections[path_strand].size();
-            const size_t strand_group = candidate_groups ? candidate_groups->size() : 0;
+            size_t strand_group = candidate_groups ? candidate_groups->size() : 0;
             for (size_t j = 0; j < num_suppls; ++j) {
                 
                 // retrieve the first/last positions of the best alignment and the corresponding
@@ -805,7 +805,7 @@ using namespace std;
                     path_range = surjection.second;
                     alns_out->emplace_back(std::move(surjection.first));
                     if (candidate_groups) {
-                        const size_t index = alns_out->size() - 1;
+                        size_t index = alns_out->size() - 1;
                         if (j == 0 || !is_supplementary(alns_out->back())) {
                             candidate_groups->push_back({index});
                         } else {

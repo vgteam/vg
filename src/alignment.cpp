@@ -1044,7 +1044,7 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     }
     
     // Build hp/hq/aq SAM tags from the diploid annotations set by surject_diploid.
-    const auto diploid_tags = io::encode_diploid_tags(alignment);
+    auto diploid_tags = io::encode_diploid_tags(alignment);
 
     // TODO: it would be nice wrap htslib and set the other tags this way as well
     if (has_annotation(alignment, "tags")) {

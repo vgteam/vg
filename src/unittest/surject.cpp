@@ -67,7 +67,7 @@ static Alignment diploid_test_placement(int64_t node_id, const string& sequence)
 
 TEST_CASE("Diploid selection compares graph placements deterministically", "[surject][diploid]") {
     bdsg::HashGraph graph;
-    const string sequence = "ACGTTGCACTGATCGATGCA";
+    string sequence = "ACGTTGCACTGATCGATGCA";
     auto a = graph.create_handle(sequence);
     auto b = graph.create_handle(sequence);
     auto path_a = graph.create_path_handle("A");
@@ -130,7 +130,7 @@ TEST_CASE("Diploid selection compares graph placements deterministically", "[sur
 
 TEST_CASE("Diploid mapping quality respects known input confidence", "[surject][diploid]") {
     bdsg::HashGraph graph;
-    const string sequence = "ACGTTGCACTGATCGATGCA";
+    string sequence = "ACGTTGCACTGATCGATGCA";
     auto b = graph.create_handle(sequence);
     auto path_b = graph.create_path_handle("B");
     graph.append_step(path_b, b);
@@ -164,7 +164,7 @@ TEST_CASE("Diploid mapping quality respects known input confidence", "[surject][
 
 TEST_CASE("Diploid haplotype quality compares targets of one graph placement", "[surject][diploid]") {
     bdsg::HashGraph graph;
-    const string sequence = "ACGTTGCACTGATCGATGCA";
+    string sequence = "ACGTTGCACTGATCGATGCA";
     auto b = graph.create_handle(sequence);
     auto path_b = graph.create_path_handle("B");
     graph.append_step(path_b, b);
@@ -191,7 +191,7 @@ TEST_CASE("Diploid haplotype quality compares targets of one graph placement", "
 
 TEST_CASE("Diploid reads without candidates retain unmapped metadata", "[surject][diploid]") {
     bdsg::HashGraph graph;
-    const string sequence = "ACGTTGCACTGATCGATGCA";
+    string sequence = "ACGTTGCACTGATCGATGCA";
     auto a = graph.create_handle(sequence);
     auto b = graph.create_handle(sequence);
     auto path_a = graph.create_path_handle("A");
@@ -224,7 +224,7 @@ TEST_CASE("Diploid reads without candidates retain unmapped metadata", "[surject
 
 TEST_CASE("Diploid input requires compatible placements of one unpaired read", "[surject][diploid]") {
     bdsg::HashGraph graph;
-    const string sequence = "ACGTTGCACTGATCGATGCA";
+    string sequence = "ACGTTGCACTGATCGATGCA";
     auto a = graph.create_handle(sequence);
     auto b = graph.create_handle(sequence);
     auto path_a = graph.create_path_handle("A");
