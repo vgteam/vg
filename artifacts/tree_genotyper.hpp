@@ -122,9 +122,12 @@ public:
      * is a group of its own where groups choose the genotype. The site is not filed in the
      * linkage model again.
      *
+     * @param read_interiors If not null, the bases some reads have between the site's bounds,
+     * which those reads are scored on (see `ReadInteriors`).
      * @return False, leaving the site's call as it was, if the site could not be genotyped.
      */
-    bool regenotype(StagedSite& site, size_t first_added) const;
+    bool regenotype(StagedSite& site, size_t first_added,
+                    const ReadInteriors* read_interiors = nullptr) const;
 
     /// Count the nodes whose free edit sites `genotype_top_level_edits` genotyped.
     size_t edit_nodes_after_pass() const { return placer.nodes_after_pass(); }

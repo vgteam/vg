@@ -6,7 +6,11 @@
  * time.
  */
 
+#include <cstdint>
+#include <functional>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "../src/handle.hpp"
@@ -113,6 +117,33 @@ struct CandidateAlleles {
     string sequence(const HandleGraph& graph, size_t allele) const;
 };
 
+/// Return a key for one alignment of a read: its name, and the node, offset and orientation
+/// its path starts at. Mates share a name, so the name alone is not one.
+inline uint64_t read_alignment_key(std::string_view name, nid_t node, size_t offset,
+                                   bool reverse) {
+    uint64_t key = std::hash<std::string_view>{}(name);
+    for (const uint64_t part : {(uint64_t)node, (uint64_t)offset, (uint64_t)reverse}) {
+        key ^= part + 0x9e3779b97f4a7c15ULL + (key << 6) + (key >> 2);
+    }
+    return key;
+}
+
+/**
+ * The bases that reads have between the bounds of one snarl, where a caller found them itself
+ * rather than taking them from each read's alignment.
+ *
+ * The mapper places a difference in a repeat in one of several places, and not in the same one
+ * for every read. A caller that placed the reads' bases over a wider window in one way gives
+ * them here (see `ReadConsensusStep`). The snarl's reads are then scored by alignment: a read
+ * with an entry by aligning the entry to each allele's bases between the bounds, whatever nodes
+ * the read visits there.
+ */
+struct ReadInteriors {
+    /// The bases between the bounds, in upper case and read the way the alleles are, by
+    /// `read_alignment_key`.
+    unordered_map<uint64_t, string> bases;
+};
+
 /**
  * A site with its alleles, written out for code that works on one site at a time.
  *
@@ -138,6 +169,9 @@ struct MaterializedSite {
     size_t end_offset;
     /// The alleles of the site.
     const CandidateAlleles& alleles;
+    /// The bases some reads have between the bounds, as a caller that placed the reads itself
+    /// found them, or null where every read's alignment says what it has there.
+    const ReadInteriors* read_interiors = nullptr;
 
     /// Return true if the bounds lie inside nodes, as an edit site's do, rather than on the sides
     /// of nodes, as a snarl's do.

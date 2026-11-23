@@ -624,10 +624,11 @@ void help_call(char** argv) {
          << "                            reference allele: one record per run of" << endl
          << "                            mismatches or gap, and none for nested snarls" << endl
          << "  read consensus:" << endl
-         << "      --read-consensus      add to a snarl the consensus of the reads spanning" << endl
-         << "                            it, where enough reads of a called haplotype" << endl
-         << "                            differ from what is called on it, and genotype" << endl
-         << "                            the snarl again; needs --phased" << endl
+         << "      --read-consensus      add to a snarl, or to a run of neighbouring" << endl
+         << "                            snarls of a chain, the consensus of the reads" << endl
+         << "                            spanning it, where enough reads of a called" << endl
+         << "                            haplotype differ from what is called on it, and" << endl
+         << "                            genotype the snarls again; needs --phased" << endl
          << "      --consensus-min-diff=N" << endl
          << "                            a read differs where its bases across the snarl" << endl
          << "                            are N or more bases from the called ones [15]" << endl
@@ -2942,8 +2943,8 @@ int main_call(int argc, char** argv) {
         multipass_caller->set_flatten_records(true);
     }
     if (read_consensus.enabled && multipass_caller != nullptr) {
-        // The step tests every snarl where this is set, to measure what its prefilter leaves
-        // out.
+        // A developer switch: the step tests every snarl, and grows runs in every stretch
+        // with a seed, where this is set, to measure what its prefilter leaves out.
         read_consensus.prefilter = getenv("VG_READ_CONSENSUS_NO_PREFILTER") == nullptr;
         // The step keeps to the limits of the read scorer, which are its defaults.
         const AlleleLikelihoodParams scorer_limits;

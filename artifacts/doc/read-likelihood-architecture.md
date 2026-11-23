@@ -69,7 +69,10 @@ matched to its site by its ID (`MultiPassCaller::record_id_of_site`).
    strand is called as there (`AlleleSplicer::strand_sequence`), adds the consensus of a strand's
    disagreeing reads to the snarl as a sequence allele (`add_sequence_allele`), has
    `TreeGenotyper::regenotype` genotype the snarl again from its reads, and files it with the
-   linkage model in place of its entry. Its reads come through
+   linkage model in place of its entry. It does the same across a run of neighbouring snarls of
+   one chain: it cuts the run's consensus into the snarls at the nodes between them, and gives
+   `regenotype` the bases each spanning read has at each snarl (`ReadInteriors`), which the
+   calculator scores in place of the read's own alignment there. Its reads come through
    `SiteReadSource::for_each_read_uncounted`, and `main_call` frees the read source's cache again
    after it. If any snarl gained an allele, the linkage pass and read phasing run again.
 3. **Later rounds**, with re-genotyping. Each round corrects every staged site's likelihoods from
@@ -197,9 +200,9 @@ grouped by the step they serve; the driver and its walk come first.
 | | `regenotype.hpp`, `genotype_rescorer.hpp`, `round_history.hpp` | strand log-odds, tempering and the per-read likelihood correction; `GenotypeRescorer`, which applies the correction to every staged site; and `RoundHistory`, the chosen genotypes of each round |
 | Output | `record_renderer.hpp` | `RecordRenderer`, which builds each staged site's records once and collects its anchors |
 | | `allele_splicer.hpp` | `AlleleSplicer`, which spells a site's alleles with the chosen alleles of the sites staged under it, and gives each strand's resolved sequence and the resolved reference |
-| | `string_aligner.hpp` | `align_global`, a banded global aligner of two strings that returns the alignment's operations, and `left_align_gaps`; `--flatten-records` aligns strands to the reference with them |
+| | `string_aligner.hpp` | `align_global`, a banded global aligner of two strings that returns the alignment's operations, `align_global_pinned`, which keeps given stretches of the first string matched whole, and `left_align_gaps`; `--flatten-records` aligns strands to the reference with them |
 | | `read_consensus.hpp` | `read_consensus`, the consensus of the reads that span a window, built by aligning each read to a backbone with the string aligner |
-| | `read_consensus_step.hpp` | `ReadConsensusStep`, which gives a snarl the consensus of the reads of a strand that disagree with what is called on it, as a sequence allele, and has the snarl genotyped again (`--read-consensus`) |
+| | `read_consensus_step.hpp` | `ReadConsensusStep`, which gives a snarl, or the snarls of a run of neighbours in one chain, the consensus of the reads of a strand that disagree with what is called there, as sequence alleles, and has them genotyped again (`--read-consensus`) |
 | | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the summary |
 | | `sorted_vcf_writer.hpp`, `site_emitter.hpp`, `vcf_record.hpp` | `SortedVCFWriter`, the record buffer and VCF writer that vg's callers hold; `SiteEmitter`, which builds one site's record from the caller's allele and field callbacks, and which a caller subclasses to change its decisions; and the helpers that build a record |
 | | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks, or, with `--flatten-records`, as flat records |

@@ -2,7 +2,8 @@
 #define VG_READ_CONSENSUS_STEP_HPP_INCLUDED
 
 /** \file
- * The step of the read-likelihood caller that gives a snarl an allele built from its reads.
+ * The step of the read-likelihood caller that gives a snarl, or a run of neighbouring snarls of
+ * one chain, an allele built from its reads.
  */
 
 #include <cstddef>
@@ -50,9 +51,21 @@ struct ReadConsensusOptions {
     size_t min_change = 10;
     /// The most reads a consensus is built from.
     size_t max_reads = 20;
-    /// Whether a site is tested only where its span summary says a read can disagree. Without
-    /// it every site is tested, which measures what the summary leaves out.
+    /// Whether a site is tested only where its span summary says a read can disagree, and a run
+    /// only where its sites' summaries do. Without it every site and every run is tested, which
+    /// measures what the summaries leave out.
     bool prefilter = true;
+    /// Whether runs of neighbouring sites are treated, as well as single sites.
+    bool runs = true;
+    /// A run grows from a site where `min_reads` of its spanning reads have this many bases
+    /// more between its bounds than its longest called sequence, or this many fewer than its
+    /// shortest, as it does from a site with a candidate strand.
+    size_t run_site_diff = 3;
+    /// The most bases that lie between two neighbouring sites of a run: their bound nodes, and
+    /// any nodes between those.
+    size_t run_max_junction = 32;
+    /// The most sites a run has.
+    size_t run_max_members = 8;
 };
 
 /// What the read-consensus step did, for its report.
@@ -96,11 +109,35 @@ struct ReadConsensusCounts {
     size_t already_allele = 0;
     /// Sites that could not be genotyped with the added alleles, which keep their call.
     size_t regenotype_failed = 0;
+
+    /// Seeds that a run was grown from. The counts below are of the last run each grew to.
+    size_t runs_grown = 0;
+    /// The runs whose reads were fetched and compared with the called sequences while those
+    /// grew.
+    size_t runs_tested = 0;
+    /// Strands that were candidates at a run.
+    size_t run_candidate_strands = 0;
+    /// Consensuses built across a run.
+    size_t run_built = 0;
+    /// Run consensuses within `min_change` bases of the called sequence.
+    size_t run_unchanged = 0;
+    /// Run consensuses that could not be cut into the member sites, because the bases between
+    /// two members are not found whole in the consensus.
+    size_t runs_not_cuttable = 0;
+    /// Runs, and seeds with no run, that stopped growing at the most bases the scorer aligns,
+    /// and runs left alone because a member's alleles or reads are more than the scorer takes.
+    size_t runs_over_cap = 0;
+    /// Runs treated: their consensus was cut, and their member sites genotyped again.
+    size_t runs_treated = 0;
+    /// Member sites of treated runs that gained an allele.
+    size_t run_sites_gained = 0;
+    /// Those whose chosen genotype has an added allele, after the last linkage pass.
+    size_t run_sites_called = 0;
 };
 
 /**
- * The step that adds to a snarl the consensus of the reads that disagree with what is called
- * there, and genotypes the snarl again.
+ * The step that adds to a snarl, or to the snarls of a run, the consensus of the reads that
+ * disagree with what is called there, and genotypes them again.
  *
  * It runs after the first linkage pass and read phasing, on the staged snarls that have a phase.
  * At each, a strand's reads are the reads that span the snarl from bound to bound and that the
@@ -128,7 +165,62 @@ struct ReadConsensusCounts {
  * Before any read is fetched, a snarl is left out where no read can disagree: where fewer than
  * `min_spanning` reads span it, or where every called sequence has fewer than `min_diff` bases
  * between the bounds and fewer than `min_reads` spanning reads have that many. The direct pass
- * keeps the two numbers this needs with each snarl's call (`AlleleLikelihoodParams::span_rank`).
+ * keeps the numbers this needs with each snarl's call (`AlleleLikelihoodParams::span_rank`).
+ *
+ * ## Runs
+ *
+ * A mapper places a difference in a repeat in one of several neighbouring snarls, and not in
+ * the same one for every read, so no one snarl need hold `min_diff` bases of it. A run is two or
+ * more snarls that follow each other in one chain, at any level: each shares its bound node
+ * with the next, or is joined to it by nodes that every walk of the chain takes. The junction
+ * of two neighbours is the bases of those nodes, bound nodes included. A run is read from its
+ * first member's start bound to its last member's end bound, and the same test, consensus and
+ * threshold are applied to it as to one snarl: a strand's called sequence across the run is its
+ * called sequence at each member with the junctions between, and a read's bases are those it
+ * has between the run's two outer bounds.
+ *
+ * A snarl can be in a run where the single-snarl test gives it no allele, it has a called
+ * sequence of no more bases than the scorer aligns, and at least `min_spanning` reads span it.
+ * Two such snarls are neighbours where they follow each other in a chain, their junction has
+ * at most `run_max_junction` bases, and one phase set orders the strands of both. A stretch is
+ * a longest sequence of neighbours.
+ *
+ * A snarl's signal is the number of bases by which `min_reads` of its spanning reads have more
+ * between the bounds than its longest called sequence, or fewer than its shortest, whichever is
+ * more; the direct pass's span summary gives it. A seed is a snarl of a stretch with a
+ * candidate strand, or with a signal of `run_site_diff` or more. Runs are grown in a stretch
+ * that has a seed and either a snarl with a candidate strand or signals that sum to `min_diff`
+ * or more, so that reads are fetched for few stretches.
+ *
+ * A run grows from each seed in turn, in the stretch's order, among the snarls of the stretch
+ * that are in no treated run. It takes the neighbour with the greater signal, or on a tie the
+ * one on the side where it has fewer members, the later side if those tie too, and is tested:
+ * its reads are fetched and compared as above. It stops at the first run that is treated, so
+ * the run is the smallest around the seed that is. It also stops where the run cannot be cut,
+ * is over a limit of the scorer, has `min_spanning` reads on no strand, has `run_max_members`
+ * members, or has no neighbour that keeps the bases between its bounds within what the scorer
+ * aligns. A treated run then takes in one more neighbour, the later one first, for as long as
+ * that leaves it treated and gives its treated strands more reads that disagree with what is
+ * called: those are reads whose difference the mapper put in that neighbour. So a snarl is in
+ * at most one treated run.
+ *
+ * The consensus of a candidate strand across a run is cut into the members: it is aligned to
+ * the strand's called sequence, and each junction must be matched whole, base for base. Where
+ * the best alignment does not match one, the two are aligned again with the junctions pinned
+ * (`align_global_pinned`), and that alignment stands if it costs no more than the best plus the
+ * cost of opening one long gap for each junction the best did not match. A run with no such
+ * alignment is left alone. Each member then has the consensus's bases between its bounds, which
+ * become a sequence allele of it unless one of its alleles spells them.
+ *
+ * Every read that spans the run is then placed in the members in one way. It is aligned to each
+ * sequence known across the run, the strands' called sequences and the consensuses, and cut at
+ * the junctions of the one it fits best. Each member of the run is genotyped again with those
+ * bases for those reads (`ReadInteriors`), whether or not it gained an allele, and filed again.
+ * A read that does not span the run is scored as at any other snarl.
+ *
+ * A run is left alone on a strand where a snarl staged under one of its members gained an
+ * allele for the strand, and a member of a treated run counts as having gained one for the
+ * strands the run was treated on.
  *
  * The reads are fetched with `SiteReadSource::for_each_read_uncounted`, both to compare them and
  * to genotype again, so the step adds nothing to the source's tallies of read starts or to its
@@ -194,6 +286,23 @@ public:
 private:
     /// What the step found at one site.
     struct Finding;
+    /// A run of neighbouring sites of one chain.
+    struct Run;
+    /// What the step found at one run.
+    struct RunFinding;
+
+    /// Grow and test the runs among `snarls`, whose single-site findings are `findings`. Add
+    /// to `runs` the last run each seed's growth tested, and to `run_findings` what was found
+    /// at it.
+    void grow_runs(const Parts& parts, const AlleleSplicer& splicer,
+                   const vector<StagedSite*>& snarls, const vector<Finding>& findings,
+                   vector<Run>& runs, vector<RunFinding>& run_findings);
+
+    /// Compare the reads that span `run` with each strand's called sequence across it, build
+    /// and cut the consensus of each candidate strand, and find the bases every spanning read
+    /// has between the bounds of each member site.
+    RunFinding examine_run(const Parts& parts, const AlleleSplicer& splicer,
+                           const vector<StagedSite*>& snarls, const Run& run) const;
 
     /// Compare the reads of `site` with its called sequences, and build the consensus of each
     /// candidate strand.
@@ -206,8 +315,10 @@ private:
 
     ReadConsensusOptions options;
     ReadConsensusCounts counted;
-    /// The record keys of the sites that gained an allele.
+    /// The record keys of the sites that gained an allele on their own.
     vector<size_t> changed;
+    /// The record keys of the member sites of treated runs that gained an allele.
+    vector<size_t> run_changed;
 };
 
 }

@@ -2120,15 +2120,20 @@ pair<size_t, size_t> GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::bases_
 }
 
 /**
- * The bases of each allele between the bounds of a snarl that has a sequence allele.
+ * The bases of each allele between the bounds of a snarl whose reads are scored by alignment: a
+ * snarl that has a sequence allele, or one given the bases its reads have between the bounds
+ * (`MaterializedSite::read_interiors`).
  *
  * A sequence allele is an allele of a snarl with changes to the sequences of its walk (see
  * `add_sequence_allele`). Its walk does not spell it, so the nodes a read visits do not say how
  * well the read fits it. The table is empty for any other site.
  */
 struct GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles : SnarlBounds {
-    /// Whether each allele is a sequence allele. Empty when the site has none.
+    /// Whether each allele is a sequence allele. Empty when the site has none and was given no
+    /// read's bases.
     vector<bool> is_sequence;
+    /// Whether the site has a sequence allele.
+    bool has_sequence = false;
     /// Whether the reads that span the snarl are scored by alignment. Where the site has a
     /// sequence allele and this is false, no read can be placed on a sequence allele.
     bool aligned = false;
@@ -2143,7 +2148,7 @@ struct GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles : SnarlBounds {
                     const EditAlignmentScorer& scorer, const Params& params);
 
     /// Return whether the site has a sequence allele.
-    bool any() const { return !is_sequence.empty(); }
+    bool any() const { return has_sequence; }
 
     /// Set the entries of the sequence alleles in the row of a read that was not aligned: the
     /// greatest entry of the other alleles where spanning reads are aligned, so that the read
@@ -2159,9 +2164,10 @@ GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::SequenceAlleles(
     for (size_t a = 0; a < alleles.walks.size(); ++a) {
         found = found || !alleles.spelled_by_walk(a);
     }
-    if (!found || site.bounds_inside_nodes(graph)) {
+    if ((!found && site.read_interiors == nullptr) || site.bounds_inside_nodes(graph)) {
         return;
     }
+    has_sequence = found;
     for (size_t a = 0; a < alleles.walks.size(); ++a) {
         is_sequence.push_back(!alleles.spelled_by_walk(a));
     }
@@ -2252,8 +2258,13 @@ bool GraphAlignedAlleleLikelihoodCalculator::score_spanning_read(
     for (char& b : bases) {
         b = (char)toupper(b);
     }
+    return score_interior(bases, read_scorer.get_log_base() * (double)score + nats, sequences,
+                          row);
+}
 
-    const double boundary = read_scorer.get_log_base() * (double)score + nats;
+bool GraphAlignedAlleleLikelihoodCalculator::score_interior(
+    const string& bases, double boundary, const SequenceAlleles& sequences,
+    vector<double>& row) const {
     vector<double> aligned(row.size());
     for (size_t a = 0; a < row.size(); ++a) {
         const string& allele = sequences.interiors[a];
@@ -2478,6 +2489,16 @@ void GraphAlignedAlleleLikelihoodCalculator::visit_reads(
     }
 }
 
+/// Return the key of the alignment `aln` (`read_alignment_key`).
+static uint64_t alignment_key(const Alignment& aln) {
+    if (aln.path().mapping_size() == 0) {
+        return read_alignment_key(aln.name(), 0, 0, false);
+    }
+    const Position& start = aln.path().mapping(0).position();
+    return read_alignment_key(aln.name(), start.node_id(), (size_t)start.offset(),
+                              start.is_reverse());
+}
+
 vector<AlleleLikelihoodCalculator::SpanningRead>
 GraphAlignedAlleleLikelihoodCalculator::spanning_reads(const MaterializedSite& site) const {
     vector<SpanningRead> spanning;
@@ -2516,6 +2537,7 @@ GraphAlignedAlleleLikelihoodCalculator::spanning_reads(const MaterializedSite& s
         }
         SpanningRead found;
         found.name = read.aln->name();
+        found.key = alignment_key(*read.aln);
         found.length = to - from;
         if (found.length <= params.sequence_allele_max_bases) {
             found.bases = aln->sequence().substr(from, found.length);
@@ -2526,7 +2548,8 @@ GraphAlignedAlleleLikelihoodCalculator::spanning_reads(const MaterializedSite& s
         spanning.push_back(std::move(found));
     });
     std::ranges::sort(spanning, [](const SpanningRead& a, const SpanningRead& b) {
-        return std::tie(a.name, a.length, a.bases) < std::tie(b.name, b.length, b.bases);
+        return std::tie(a.name, a.length, a.bases, a.key)
+               < std::tie(b.name, b.length, b.bases, b.key);
     });
     return spanning;
 }
@@ -2645,9 +2668,19 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             changes.adjust_row(read_steps, scored_aln->sequence(), read_scorer, plain_scorer,
                                params.insertion_gap_nats, row);
         }
-        if (sequences.any()
-            && !(sequences.aligned && sequences.spanned_by(read_steps)
-                 && score_spanning_read(*scored_aln, read_steps, read_scorer, sequences, row))) {
+        // A read whose bases between the bounds were given is scored on them. Its score on
+        // the boundary nodes is the same under every allele, and is left out.
+        const string* given = nullptr;
+        if (sequences.aligned && site.read_interiors != nullptr) {
+            const auto found = site.read_interiors->bases.find(alignment_key(*read.aln));
+            given = found != site.read_interiors->bases.end() ? &found->second : nullptr;
+        }
+        if (given != nullptr && score_interior(*given, 0.0, sequences, row)) {
+            // The row is the read's fit to each allele's bases.
+        } else if (sequences.any()
+                   && !(sequences.aligned && sequences.spanned_by(read_steps)
+                        && score_spanning_read(*scored_aln, read_steps, read_scorer, sequences,
+                                               row))) {
             sequences.fill_unaligned(row);
         }
 
@@ -2680,6 +2713,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             std::ranges::nth_element(span_bases, span_bases.begin() + (params.span_rank - 1),
                                      std::greater<>());
             summary.rank_bases = span_bases[params.span_rank - 1];
+            std::ranges::nth_element(span_bases, span_bases.begin() + (params.span_rank - 1));
+            summary.low_bases = span_bases[params.span_rank - 1];
         }
         result.set_span_summary(summary);
     }

@@ -213,5 +213,60 @@ TEST_CASE("The string aligner aligns long strings with many differences", "[stri
     require_spells(first, second, aligned->runs);
 }
 
+TEST_CASE("A pinned stretch is matched whole, and the gap moves off it", "[string_aligner]") {
+    // The first string has two units of a repeat, and the second has three more.
+    const string unit = "ACGTTGCA";
+    const string first = unit + unit;
+    string second = first;
+    for (size_t i = 0; i < 3; ++i) {
+        second += unit;
+    }
+    vector<uint32_t> pinned(first.size(), 0);
+    SECTION("wherever the stretch is, an alignment of the same cost matches it") {
+        const optional<StringAlignment> best = align_global(first, second);
+        REQUIRE(best);
+        for (size_t at = 0; at + 3 <= first.size(); ++at) {
+            std::ranges::fill(pinned, 0);
+            std::fill_n(pinned.begin() + (ptrdiff_t)at, 3, 1);
+            const optional<StringAlignment> kept = align_global_pinned(first, second, pinned);
+            REQUIRE(kept);
+            require_spells(first, second, kept->runs);
+            REQUIRE(kept->cost == best->cost);
+            REQUIRE(kept->cost == alignment_cost(kept->runs, StringAlignerParams()));
+            // The three pinned bases are in one run of matches.
+            size_t i = 0;
+            bool whole = false;
+            for (const AlignmentRun& run : kept->runs) {
+                const size_t length = run.op == Op::Insertion ? 0 : run.length;
+                whole = whole || (run.op == Op::Match && i <= at && at + 3 <= i + length);
+                i += length;
+            }
+            REQUIRE(whole);
+        }
+    }
+    SECTION("two stretches that touch may have bases inserted between them") {
+        std::fill_n(pinned.begin(), unit.size(), 1);
+        std::fill_n(pinned.begin() + (ptrdiff_t)unit.size(), unit.size(), 2);
+        const string apart = unit + "TTTTTTTTTT" + unit;
+        const optional<StringAlignment> kept = align_global_pinned(first, apart, pinned);
+        REQUIRE(kept);
+        REQUIRE(kept->runs == vector<AlignmentRun>{{Op::Match, 8}, {Op::Insertion, 10},
+                                                   {Op::Match, 8}});
+        // One stretch may not.
+        std::ranges::fill(pinned, 1);
+        REQUIRE(!align_global_pinned(first, apart, pinned));
+    }
+    SECTION("a stretch the second string lacks leaves no alignment") {
+        std::ranges::fill(pinned, 1);
+        string changed = second;
+        changed[3] = 'A';
+        changed[11] = 'A';
+        changed[19] = 'A';
+        changed[27] = 'A';
+        changed[35] = 'A';
+        REQUIRE(!align_global_pinned(first, changed, pinned));
+    }
+}
+
 }
 }

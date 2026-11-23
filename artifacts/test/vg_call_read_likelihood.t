@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 333
+plan tests 334
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -2424,6 +2424,8 @@ is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 passed the prefilter, 1 tes
    "and reports what it did in one line"
 is "$($RCN_CALL --read-consensus 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.on.vcf) | wc -l | tr -d ' ')" "0" \
    "two runs with --read-consensus write the same records"
+is "$(grep -c 'runs: 0 grown, 0 tested, .* 0 treated, 0 member sites gained an allele' rcn.on.err)" "1" \
+   "--read-consensus reports the runs of neighbouring snarls, of which the chain has none"
 is "$($RCN_CALL --read-consensus --consensus-min-diff 61 2>&1 >/dev/null | grep -c 'read consensus: 3 phased snarls, 0 passed the prefilter')" "1" \
    "a read that differs by fewer bases than --consensus-min-diff does not disagree"
 # With flat records, the record of the top-level snarl is a flat one, and is marked too.

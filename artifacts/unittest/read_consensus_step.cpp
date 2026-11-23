@@ -1,7 +1,8 @@
 /// \file read_consensus_step.cpp
 ///
-/// Unit tests for the read-consensus step of MultiPassCaller: a snarl gains the consensus of the
-/// reads of a strand that disagree with what is called on it, and is called with it.
+/// Unit tests for the read-consensus step of MultiPassCaller: a snarl, or a run of neighbouring
+/// snarls, gains the consensus of the reads of a strand that disagree with what is called on
+/// it, and is called with it.
 
 #include "../../src/unittest/catch.hpp"
 #include "../../src/alignment_scorer.hpp"
@@ -19,7 +20,9 @@
 #include <bdsg/overlays/path_position_overlays.hpp>
 #include <gbwt/dynamic_gbwt.h>
 
+#include <functional>
 #include <limits>
+#include <map>
 #include <random>
 #include <sstream>
 
@@ -99,11 +102,15 @@ struct Called {
     ReadConsensusCounts counts;
 };
 
-/// Call the chain from `reads` with the linkage model, read phasing and the read-consensus
-/// step, which is on where `consensus` is.
-Called call_chain(const vector<Alignment>& reads, bool consensus, bool flatten = false) {
+/// Call the chain that `make` builds, whose panel is `panel`, from `reads` with the linkage
+/// model, read phasing and the read-consensus step, which has the settings `options`.
+Called call_graph(const function<void(bdsg::HashGraph&)>& make,
+                  const vector<vector<nid_t>>& panel, const vector<Alignment>& reads,
+                  const ReadConsensusOptions& options, bool flatten = false) {
+    const vector<vector<nid_t>>& PANEL = panel;
+    const bool consensus = options.enabled;
     bdsg::HashGraph graph;
-    make_chain(graph);
+    make(graph);
     for (size_t h = 0; h < PANEL.size(); ++h) {
         path_handle_t handle = graph.create_path_handle(h == 0 ? "ref" : "h" + std::to_string(h));
         for (nid_t n : PANEL[h]) {
@@ -138,8 +145,6 @@ Called call_chain(const vector<Alignment>& reads, bool consensus, bool flatten =
     for (const Alignment& aln : reads) {
         source.add(aln);
     }
-    ReadConsensusOptions options;
-    options.enabled = consensus;
     QualAdjAlignmentScorer qual_scorer;
     MatrixAlignmentScorer plain_scorer;
     AlleleLikelihoodParams scoring;
@@ -186,6 +191,14 @@ Called call_chain(const vector<Alignment>& reads, bool consensus, bool flatten =
         }
     }
     return called;
+}
+
+/// Call the chain of `make_chain` from `reads`, with the read-consensus step on where
+/// `consensus` is.
+Called call_chain(const vector<Alignment>& reads, bool consensus, bool flatten = false) {
+    ReadConsensusOptions options;
+    options.enabled = consensus;
+    return call_graph(make_chain, PANEL, reads, options, flatten);
 }
 
 /// The reads of a sample whose strand 0 is haplotype 0 and whose strand 1 is haplotype 1, with
@@ -297,6 +310,214 @@ TEST_CASE("The read-consensus prefilter leaves out no snarl the step would give 
     REQUIRE(filtered.counts.prefiltered == 1);
     REQUIRE(filtered.counts.tested == 1);
     REQUIRE(filtered.counts.candidates_outside_prefilter == 0);
+}
+
+namespace {
+
+/// One unit of a tandem repeat. Its fourth base is the one that varies.
+const string UNIT = "CTGATCAGGCTTAGCCATGA";
+/// The bases of a unit after the one that varies, and those of the next unit before it.
+const string REST = UNIT.substr(4) + UNIT.substr(0, 3);
+
+/// Return `length` bases drawn with `random`.
+string drawn(std::mt19937& random, size_t length) {
+    string seq;
+    for (size_t i = 0; i < length; ++i) {
+        seq += "ACGT"[random() % 4];
+    }
+    return seq;
+}
+
+/// Build a chain of three snarls, 1-4, 4-7 and 7-10, each a choice of A or G, from the ten
+/// node sequences that `flank`, `between` and the two bases give.
+void make_three(bdsg::HashGraph& graph, const vector<string>& sequences) {
+    for (size_t i = 0; i < sequences.size(); ++i) {
+        graph.create_handle(sequences[i], (nid_t)i + 1);
+    }
+    for (const auto& [from, to] : vector<pair<nid_t, nid_t>>{
+             {1, 2}, {1, 3}, {2, 4}, {3, 4}, {4, 5}, {4, 6}, {5, 7}, {6, 7}, {7, 8}, {7, 9},
+             {8, 10}, {9, 10}}) {
+        graph.create_edge(graph.get_handle(from), graph.get_handle(to));
+    }
+}
+
+/// A graph of three units of a tandem repeat between two flanks. The base that varies in each
+/// unit is a snarl, so the two nodes between the snarls are `REST`, 19 bases of the repeat.
+void make_repeat(bdsg::HashGraph& graph) {
+    std::mt19937 random(5);
+    const string left = drawn(random, 40);
+    const string right = drawn(random, 40);
+    make_three(graph, {left + UNIT.substr(0, 3), "A", "G", REST, "A", "G", REST, "A", "G",
+                       UNIT.substr(4) + right});
+}
+
+/// A graph of three snarls with bases of no repeat between them.
+void make_unique(bdsg::HashGraph& graph) {
+    std::mt19937 random(7);
+    vector<string> sequences{drawn(random, 40), "A", "G", drawn(random, 19), "A", "G",
+                             drawn(random, 19), "A", "G", drawn(random, 40)};
+    make_three(graph, sequences);
+}
+
+/// The walks of the panel's four haplotypes: the first takes G at each snarl, the second A.
+const vector<vector<nid_t>> THREE_PANEL{{1, 3, 4, 6, 7, 9, 10},
+                                        {1, 2, 4, 5, 7, 8, 10},
+                                        {1, 3, 4, 6, 7, 9, 10},
+                                        {1, 2, 4, 5, 7, 9, 10}};
+
+/// A read of the whole of `walk`, named `name`, with the bases `inserted` gives after the last
+/// base of a node, and a base that is not the node's at each of the offsets `changed` gives.
+Alignment read_with(const HandleGraph& graph, const string& name, const vector<nid_t>& walk,
+                    const map<nid_t, string>& inserted,
+                    const map<nid_t, vector<size_t>>& changed = {}) {
+    Alignment aln;
+    aln.set_name(name);
+    string seq;
+    for (nid_t n : walk) {
+        const string node_seq = graph.get_sequence(graph.get_handle(n, false));
+        Mapping* m = aln.mutable_path()->add_mapping();
+        m->mutable_position()->set_node_id(n);
+        const vector<size_t> offsets = changed.contains(n) ? changed.at(n) : vector<size_t>();
+        size_t from = 0;
+        auto match_to = [&](size_t to) {
+            if (to > from) {
+                Edit* e = m->add_edit();
+                e->set_from_length((int32_t)(to - from));
+                e->set_to_length((int32_t)(to - from));
+                seq += node_seq.substr(from, to - from);
+            }
+            from = to;
+        };
+        for (size_t offset : offsets) {
+            match_to(offset);
+            Edit* e = m->add_edit();
+            e->set_from_length(1);
+            e->set_to_length(1);
+            e->set_sequence(node_seq[offset] == 'A' ? "C" : "A");
+            seq += e->sequence();
+            from = offset + 1;
+        }
+        match_to(node_seq.size());
+        if (inserted.contains(n)) {
+            Edit* insertion = m->add_edit();
+            insertion->set_to_length((int32_t)inserted.at(n).size());
+            insertion->set_sequence(inserted.at(n));
+            seq += inserted.at(n);
+        }
+    }
+    aln.set_sequence(seq);
+    aln.set_mapping_quality(60);
+    return aln;
+}
+
+/// Return the sequence strand `strand` of the sample has from node 1 through node 10 of the
+/// graph `make` builds, as the three records of `records` spell it.
+string spelled_strand(const function<void(bdsg::HashGraph&)>& make, const vector<string>& records,
+                      size_t strand) {
+    bdsg::HashGraph graph;
+    make(graph);
+    auto node = [&](nid_t id) { return graph.get_sequence(graph.get_handle(id)); };
+    string spelled = node(1);
+    for (const auto& [id, after] : vector<pair<string, nid_t>>{{">1>4", 4}, {">4>7", 7},
+                                                                {">7>10", 10}}) {
+        const string record = record_of(records, id);
+        REQUIRE(!record.empty());
+        vector<string> alleles{field(record, 3)};
+        stringstream alts(field(record, 4));
+        for (string alt; getline(alts, alt, ',');) {
+            alleles.push_back(alt);
+        }
+        const string genotype = field(record, 9).substr(0, 3);
+        REQUIRE(genotype[1] == '|');
+        spelled += alleles.at((size_t)(genotype[2 * strand] - '0')) + node(after);
+    }
+    return spelled;
+}
+
+}
+
+TEST_CASE("A run of snarls in a tandem repeat gains an expansion its reads place in different "
+          "snarls", "[read_consensus_step]") {
+    bdsg::HashGraph graph;
+    make_repeat(graph);
+    // Strand 0 takes G at each snarl. Strand 1 takes A, and has three more units of the
+    // repeat, which the mapper puts after node 1, node 4 or node 7: the read is the same.
+    string expansion;
+    for (size_t i = 0; i < 3; ++i) {
+        expansion += "A" + REST;
+    }
+    vector<Alignment> reads;
+    for (size_t i = 0; i < 12; ++i) {
+        reads.push_back(read_with(graph, "x" + std::to_string(i), THREE_PANEL[0], {}));
+        reads.push_back(read_with(graph, "y" + std::to_string(i), THREE_PANEL[1],
+                                  {{(nid_t)(1 + 3 * (i % 3)), expansion}}));
+    }
+    REQUIRE(reads[1].sequence() == reads[3].sequence());
+    REQUIRE(reads[1].sequence() == reads[5].sequence());
+    ReadConsensusOptions options;
+    options.enabled = true;
+
+    SECTION("no snarl gains an allele on its own") {
+        options.runs = false;
+        const Called called = call_graph(make_repeat, THREE_PANEL, reads, options);
+        // Each snarl has four reads of the strand with the expansion, and eight without.
+        REQUIRE(called.counts.candidate_strands == 3);
+        REQUIRE(called.counts.unchanged == 3);
+        REQUIRE(called.counts.added == 0);
+        REQUIRE(called.counts.runs_grown == 0);
+        const size_t expanded = spelled_strand(make_repeat, called.records, 0) == reads[1].sequence()
+                                    ? 0 : 1;
+        REQUIRE(spelled_strand(make_repeat, called.records, expanded) != reads[1].sequence());
+    }
+
+    SECTION("the run does, and the strand is called with the expansion") {
+        const Called called = call_graph(make_repeat, THREE_PANEL, reads, options);
+        REQUIRE(called.counts.added == 0);
+        // The run of the first two snarls is treated, and the third snarl then gives it the
+        // reads whose expansion the mapper put there.
+        REQUIRE(called.counts.runs_grown == 1);
+        REQUIRE(called.counts.runs_tested == 2);
+        REQUIRE(called.counts.run_candidate_strands == 1);
+        REQUIRE(called.counts.run_built == 1);
+        REQUIRE(called.counts.runs_not_cuttable == 0);
+        REQUIRE(called.counts.runs_treated == 1);
+        // The consensus is cut at the two nodes between the snarls, and the 60 bases fall in
+        // one snarl.
+        REQUIRE(called.counts.run_sites_gained == 1);
+        REQUIRE(called.counts.run_sites_called == 1);
+        const string first = spelled_strand(make_repeat, called.records, 0);
+        const string second = spelled_strand(make_repeat, called.records, 1);
+        REQUIRE((first == reads[1].sequence() || second == reads[1].sequence()));
+        REQUIRE((first == reads[0].sequence() || second == reads[0].sequence()));
+    }
+}
+
+TEST_CASE("A run whose consensus changes the node between two snarls is left alone and counted",
+          "[read_consensus_step]") {
+    bdsg::HashGraph graph;
+    make_unique(graph);
+    // Strand 1 has ten more bases in each of the first two snarls, and two bases of node 4,
+    // which is between them, changed.
+    vector<Alignment> reads;
+    for (size_t i = 0; i < 12; ++i) {
+        reads.push_back(read_with(graph, "x" + std::to_string(i), THREE_PANEL[0], {}));
+        reads.push_back(read_with(graph, "y" + std::to_string(i), THREE_PANEL[1],
+                                  {{1, "TTGACCATGC"}, {4, "GGATCTTACA"}}, {{4, {6, 12}}}));
+    }
+    ReadConsensusOptions options;
+    options.enabled = true;
+    const Called called = call_graph(make_unique, THREE_PANEL, reads, options);
+    // No snarl has 15 bases of the difference.
+    REQUIRE(called.counts.tested == 0);
+    REQUIRE(called.counts.runs_grown == 1);
+    REQUIRE(called.counts.runs_tested == 1);
+    REQUIRE(called.counts.run_candidate_strands == 1);
+    REQUIRE(called.counts.run_built == 1);
+    REQUIRE(called.counts.runs_not_cuttable == 1);
+    REQUIRE(called.counts.runs_treated == 0);
+    REQUIRE(called.counts.run_sites_gained == 0);
+    options.runs = false;
+    REQUIRE(called.records == call_graph(make_unique, THREE_PANEL, reads, options).records);
 }
 
 }

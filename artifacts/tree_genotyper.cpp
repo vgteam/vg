@@ -557,7 +557,8 @@ vector<int> TreeGenotyper::group_walks(const SiteCall& call) const {
     return candidate_groups(*parts.graph, call.walks, call.nested.children);
 }
 
-bool TreeGenotyper::regenotype(StagedSite& site, size_t first_added) const {
+bool TreeGenotyper::regenotype(StagedSite& site, size_t first_added,
+                               const ReadInteriors* read_interiors) const {
     const PathPositionHandleGraph& graph = *parts.graph;
     vector<int> group_of;
     if (options.group_candidates) {
@@ -576,7 +577,8 @@ bool TreeGenotyper::regenotype(StagedSite& site, size_t first_added) const {
     }
     const handle_t start = parts.sites->get_site_start(site.net);
     const handle_t end = parts.sites->get_site_end(site.net);
-    const MaterializedSite view{start, graph.get_length(start), end, 0, site.alleles};
+    const MaterializedSite view{start, graph.get_length(start), end, 0, site.alleles,
+                                read_interiors};
     // A nested chain is scored at the other ploidy too, as the direct pass scores it.
     const bool nested = site.placement.level > 0;
     auto [genotype, score] = parts.genotyper->genotype_at(
