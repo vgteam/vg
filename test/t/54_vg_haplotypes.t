@@ -314,6 +314,7 @@ is "$(vg gbwt -H -Z auto_kff.HG003.gbz)" 4 "auto kmer counting produces 2 diploi
 # KMC prints statistics to stdout.
 # Check that the stats are not included in the alignment output.
 is "$(head -n 1 auto_kff.gaf | cut -f 1)" "@HD" "auto kmer counting does not output KMC stats"
+rm -f auto_kff.gaf
 
 # Prepare multi-line FASTA to test on
 rm -f auto_fasta.HG003.* auto_fasta.gam auto_fasta.dist
@@ -324,7 +325,6 @@ vg giraffe --progress -Z full.gbz --haplotype-name full.hapl \
 is $? 0 "Giraffe counts kmers from FASTA reads automatically"
 cmp auto_fasta.HG003.gbz auto_kff.HG003.gbz
 is $? 0 "haplotype sampling from FASTA reads matches sampling from the same reads as FASTQ"
-rm -f auto_kff.gaf
 
 # Giraffe integration, fully automatic: both hapl and kff are built by the
 # IndexRegistry. Triggered by --haplotype-sampling without either input file.
