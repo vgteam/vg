@@ -19,6 +19,7 @@
 
 #include "subcommand.hpp"
 #include "options.hpp"
+#include "giraffe_options.hpp"
 
 #include "../snarl_seed_clusterer.hpp"
 #include "../mapper.hpp"
@@ -449,6 +450,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         MinimizerMapper::default_max_indel_bases_per_base,
         "maximum indel length in a transition when chaining, per read base"
     );
+    chaining_opts.add_flag(
+        "allow-seed-overlap",
+        &MinimizerMapper::allow_seed_overlap,
+        MinimizerMapper::default_allow_seed_overlap,
+        "allow seeds to overlap when chaining"
+    );
     chaining_opts.add_range(
         "item-bonus",
         &MinimizerMapper::item_bonus,
@@ -481,15 +488,13 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "chain-score-threshold",
         &MinimizerMapper::chain_score_threshold,
         MinimizerMapper::default_chain_score_threshold,
-        "only align chains if their score is within this many points of the best score",
-        double_is_nonnegative
+        "only align chains if their score is within this many points of the best score"
     );
     chaining_opts.add_range(
         "target-alignment-attempts",
         &MinimizerMapper::target_alignment_attempts,
         MinimizerMapper::default_target_alignment_attempts,
-        "ignore score threshold (but not min score) to get this many chains aligned",
-        int_is_nonnegative
+        "ignore score threshold (but not min score) to get this many chains aligned"
     );
     chaining_opts.add_range(
         "min-chain-score-per-base",
@@ -617,12 +622,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "penalize candidate alignment scores this many points per softclipped base",
         double_is_nonnegative
     );
-    chaining_opts.add_flag(
-        "sort-by-chain-score",
-        &MinimizerMapper::sort_by_chain_score,
-        MinimizerMapper::default_sort_by_chain_score,
-        "order alignment candidates by chain score instead of base-level score"
-    );
     chaining_opts.add_range(
         "min-unique-node-fraction",
         &MinimizerMapper::min_unique_node_fraction,
@@ -632,6 +631,240 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
     );
 
     return parser;
+}
+
+/// vg giraffe's parameter presets, by name.
+static std::map<std::string, Preset> make_giraffe_presets() {
+    // Map preset names to presets
+    std::map<std::string, Preset> presets;
+    // We have a fast preset that sets a bunch of stuff
+    presets["fast"]
+        .add_entry<size_t>("hit-cap", 10)
+        .add_entry<size_t>("hard-hit-cap", 500)
+        .add_entry<double>("score-fraction", 0.5)
+        .add_entry<size_t>("max-multimaps", 1)
+        .add_entry<size_t>("max-extensions", 400)
+        .add_entry<size_t>("max-alignments", 8)
+        .add_entry<double>("cluster-score", 50)
+        .add_entry<double>("pad-cluster-score", 0)
+        .add_entry<double>("cluster-coverage", 0.2)
+        .add_entry<double>("extension-set", 20)
+        .add_entry<int>("extension-score", 1);
+    // And a default preset that doesn't.
+    presets["default"]
+        // This is always on in the non-chaining codepath right now, but just to be sure...
+        .add_entry<bool>("explored-cap", true);
+    
+    presets["hifi"]
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", false)
+        .add_entry<size_t>("watchdog-timeout", 30)
+        .add_entry<size_t>("batch-size", 10)
+        // Use downsampling instead of max unique minimizer count
+        .add_entry<size_t>("max-min", 79)
+        .add_entry<size_t>("num-bp-per-min", 152)
+        .add_entry<size_t>("downsample-window-count", 15)
+        .add_entry<size_t>("downsample-window-length", 227)
+        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
+        .add_entry<size_t>("hit-cap", 0)
+        .add_entry<double>("score-fraction", 1.0)
+        .add_entry<size_t>("hard-hit-cap", 13614)
+        // Don't do gapless extension
+        .add_entry<size_t>("gapless-extension-limit", 0)
+        .add_entry<double>("mapq-score-scale", 0.001)
+        .add_entry<double>("zipcode-tree-score-threshold", 100.0)
+        .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
+        .add_entry<double>("zipcode-tree-scale", 2.0)
+        .add_entry<int>("min-chaining-problems", 6)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-graph-lookback-bases", 20000)
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0.10501002120802233)
+        .add_entry<size_t>("max-indel-bases", 5000)
+        .add_entry<double>("max-indel-bases-per-base", 2.45)
+        .add_entry<int>("item-bonus", 2)
+        .add_entry<double>("gap-scale", 0.27579)
+        .add_entry<int>("rec-penalty", 2)
+        .add_entry<int>("rec-consistency-bonus", 12)
+        .add_entry<size_t>("chain-score-threshold", 234)
+        .add_entry<size_t>("target-alignment-attempts", 2)
+        .add_entry<double>("min-unique-node-fraction", 0.2)
+        .add_entry<double>("min-chain-score-per-base", 0.24)
+        .add_entry<size_t>("max-chains-per-tree", 3)
+        .add_entry<int>("max-min-chain-score", 46)
+        .add_entry<size_t>("min-indel-avoid-bases", 50)
+        .add_entry<size_t>("max-skipped-bases", 1000)
+        .add_entry<size_t>("max-alignments", 3)
+        .add_entry<size_t>("max-chain-connection", 233)
+        .add_entry<size_t>("max-tail-length", 68)
+        .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<size_t>("max-middle-gap", 500)
+        .add_entry<size_t>("max-dp-cells", 8000000000)
+        .add_entry<int>("wfa-distance", 33)
+        .add_entry<double>("wfa-distance-per-base", 0.195722)
+        .add_entry<int>("wfa-max-distance", 240)
+        .add_entry<int>("wfa-max-mismatches", 2)
+        .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
+        .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<int>("rec-penalty-aln", 28)
+        .add_entry<bool>("prune-low-cplx", true);
+
+    // The "blat" preset maps BLAT-style queries of any length. It is hifi, but
+    // reports every copy that scores nearly as well as the best, up to 20, with
+    // MAPQ that does not depend on query length. It keeps hifi's chain score
+    // thresholds, so weak partial hits are still dropped. The first value a
+    // preset gives for an option wins, so these entries go before hifi's.
+    Preset blat;
+    blat
+        .add_entry<size_t>("max-multimaps", 20)
+        .add_entry<size_t>("max-alignments", 20)
+        // Nearby copies, such as a tandem array or SMN1 and SMN2, fall in one
+        // zipcode tree.
+        .add_entry<size_t>("max-chains-per-tree", 20)
+        // Keep aligning chains after a clear best one, so the other copies are
+        // found.
+        .add_entry<size_t>("target-alignment-attempts", 20)
+        // Compute MAPQ from scores rescaled to a 150 bp window, with no other
+        // scaling. This makes MAPQ independent of query length. hifi's 0.001
+        // scale gives a unique short query a low MAPQ.
+        .add_entry<double>("mapq-score-scale", 1)
+        .add_entry<size_t>("mapq-score-window", 150);
+    Preset hifi_entries = presets.at("hifi");
+    for (auto& entry : hifi_entries.entries) {
+        blat.entries.push_back(std::move(entry));
+    }
+    presets.emplace("blat", std::move(blat));
+
+    Preset r10_base;
+
+    r10_base
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", false)
+        .add_entry<size_t>("watchdog-timeout", 30)
+        .add_entry<size_t>("batch-size", 10)
+        // Use downsampling instead of max unique minimizer count
+        .add_entry<size_t>("max-min", 79)
+        .add_entry<size_t>("num-bp-per-min", 152)
+        .add_entry<size_t>("downsample-window-count", 15)
+        .add_entry<size_t>("downsample-window-length", 227)
+        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
+        .add_entry<size_t>("hit-cap", 0)
+        .add_entry<double>("score-fraction", 1.0)
+        .add_entry<size_t>("hard-hit-cap", 13614)
+        .add_entry<double>("mapq-score-scale", 1)
+        .add_entry<size_t>("mapq-score-window", 150)
+        .add_entry<size_t>("min-mapq0-score", 67)
+        .add_entry<double>("zipcode-tree-score-threshold", 100.0)
+        .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
+        .add_entry<double>("zipcode-tree-scale", 2.0)
+        // Don't do gapless extension
+        .add_entry<size_t>("gapless-extension-limit", 0)
+        .add_entry<int>("min-chaining-problems", 6)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-graph-lookback-bases", 20000)
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0.036)
+        .add_entry<size_t>("max-read-lookback-bases", 20000)
+        .add_entry<double>("max-read-lookback-bases-per-base", 0.036)
+        .add_entry<size_t>("max-indel-bases", 5000)
+        .add_entry<double>("max-indel-bases-per-base", 2.45)
+        .add_entry<int>("item-bonus", 20)
+        .add_entry<double>("gap-scale", 0.06759721757973396)
+        .add_entry<int>("rec-penalty", 2)
+        .add_entry<int>("rec-consistency-bonus", 13)
+        .add_entry<size_t>("chain-score-threshold", 160)
+        .add_entry<size_t>("target-alignment-attempts", 2)
+        .add_entry<double>("min-unique-node-fraction", 0.2)
+        .add_entry<size_t>("max-chains-per-tree", 3)
+        // Lowering this can reduce wrong reads in mapping experiments, but
+        // seems to *increase* miscalls; see
+        // https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1779202719223779?thread_ts=1779127572.303779&cid=CJ2EHEH1A
+        .add_entry<double>("min-chain-score-per-base", 0.052)
+        .add_entry<int>("max-min-chain-score", 1900.0)
+        .add_entry<size_t>("min-indel-avoid-bases", 50)
+        .add_entry<size_t>("max-skipped-bases", 1000)
+        .add_entry<size_t>("max-alignments", 3)
+        .add_entry<size_t>("max-chain-connection", 233)
+        .add_entry<size_t>("max-tail-length", 68)
+        .add_entry<size_t>("max-tail-gap", 150)
+        .add_entry<size_t>("max-middle-gap", 500)
+        .add_entry<size_t>("max-dp-cells", 8000000000)
+        .add_entry<int>("wfa-distance", 33)
+        .add_entry<double>("wfa-distance-per-base", 0.195722)
+        .add_entry<int>("wfa-max-distance", 240)
+        .add_entry<int>("wfa-max-mismatches", 2)
+        .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
+        .add_entry<int>("wfa-max-max-mismatches", 15)
+        .add_entry<int>("rec-penalty-aln", 32)
+        .add_entry<bool>("prune-low-cplx", true);
+
+    presets.emplace("r10", r10_base);
+
+    // TODO: Add a dedicated r10y2025 preset that diverges slightly.
+
+    // And a short reads with chaining preset
+    presets["chaining-sr"]
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", true)
+        // Cap minimizers at a number we won't reach.
+        .add_entry<size_t>("max-min", 500)
+        .add_entry<size_t>("num-bp-per-min", 500)
+        // Don't downsample
+        .add_entry<size_t>("downsample-window-count", 0)
+        .add_entry<size_t>("downsample-window-length", std::numeric_limits<size_t>::max())
+        // Use the hit-cap||score-fraction filter
+        .add_entry<size_t>("hit-cap", 15)
+        .add_entry<double>("score-fraction", 0.9)
+        .add_entry<size_t>("hard-hit-cap", 500) // Default: 500
+        // Grab the best trees
+        .add_entry<double>("zipcode-tree-scale", 1.5)
+        .add_entry<double>("zipcode-tree-score-threshold", 70)
+        .add_entry<double>("pad-zipcode-tree-score-threshold", 50)
+        .add_entry<double>("zipcode-tree-coverage-threshold", 0.13)
+        // And extend them
+        .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<size_t>::max())
+        // Allowing a lot of mismatches because we chop later
+        .add_entry<size_t>("max-extension-mismatches", 15)
+        .add_entry<double>("gap-scale", 2.2)
+        // And take those to chains
+        .add_entry<int>("min-chaining-problems", 7)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<size_t>("max-graph-lookback-bases", 1000)
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0)
+        .add_entry<size_t>("max-indel-bases", 1600)
+        .add_entry<double>("max-indel-bases-per-base", 0)
+        .add_entry<size_t>("chain-score-threshold", 100)
+        .add_entry<double>("min-chain-score-per-base", 0.01)
+        .add_entry<int>("max-min-chain-score", 200.0)
+        .add_entry<int>("item-bonus", 0)
+        .add_entry<size_t>("target-alignment-attempts", 3)
+        .add_entry<size_t>("max-chains-per-tree", 5)
+        .add_entry<size_t>("max-alignments", 4)
+        // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
+        .add_entry<size_t>("max-chain-connection", 65)
+        .add_entry<size_t>("max-tail-gap", 115)
+        .add_entry<double>("mapq-score-scale", 1.5);
+    presets["srold"]
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<bool>("explored-cap", false)
+        // Use downsampling instead of max unique minimizer count
+        .add_entry<size_t>("max-min", 0)
+        .add_entry<size_t>("downsample-window-count", 100)
+        .add_entry<size_t>("downsample-window-length", std::numeric_limits<size_t>::max())
+        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
+        .add_entry<size_t>("hit-cap", 0)
+        .add_entry<double>("score-fraction", 1.0)
+        // Use a high hard hit cap to allow centromeres
+        .add_entry<size_t>("hard-hit-cap", 16384)
+        .add_entry<double>("mapq-score-scale", 1.0)
+        .add_entry<int>("min-chaining-problems", 1)
+        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
+        .add_entry<double>("max-graph-lookback-bases-per-base", 0)
+        .add_entry<double>("max-indel-bases-per-base", 0)
+        .add_entry<size_t>("target-alignment-attempts", 4)
+        .add_entry<size_t>("max-chains-per-tree", 5)
+        .add_entry<size_t>("max-alignments", 5);
+    return presets;
 }
 
 // Try stripping all suffixes in the vector, one at a time, and return on failure.
@@ -655,6 +888,108 @@ template<typename T> void enforce_min_max(const T& low, const std::string& low_o
         logger.error() << "Empty range: --" << low_option << " of " << low << " exceeds --" << high_option << " of " << high << std::endl;
     }
 }
+
+namespace vg {
+namespace subcommand {
+
+std::vector<std::string> giraffe_preset_names() {
+    std::vector<std::string> names;
+    for (const auto& kv : make_giraffe_presets()) {
+        names.push_back(kv.first);
+    }
+    return names;
+}
+
+std::unique_ptr<GroupedOptionGroup> make_giraffe_parser(const GiraffeParameters& params) {
+    std::unique_ptr<GroupedOptionGroup> parser = get_options();
+    std::map<std::string, Preset> presets = make_giraffe_presets();
+    auto found = presets.find(params.preset);
+    if (found == presets.end()) {
+        logger.error() << "invalid parameter preset: " << params.preset << std::endl;
+    }
+    found->second.apply(*parser);
+
+    
+    std::vector<struct option> known;
+    parser->make_long_options(known);
+    std::map<std::string, const struct option*> by_name;
+    for (const struct option& o : known) {
+        if (o.name != nullptr) {
+            by_name.emplace(o.name, &o);
+        }
+    }
+
+    // Parse each option as if it came from the command line. The option's
+    // own type parses the value, and it replaces the preset's value.
+    // A flag that a preset turned on is turned off with its no- form, as on
+    // the command line.
+    for (const auto& kv : params.options) {
+        auto it = by_name.find(kv.first);
+        if (it == by_name.end()) {
+            logger.error() << "unknown option: --" << kv.first << std::endl;
+        }
+        const struct option& o = *it->second;
+        const bool is_flag = (o.has_arg == no_argument);
+        if (is_flag && !kv.second.empty()) {
+            logger.error() << "--" << kv.first << " is a flag and takes no value" << std::endl;
+        }
+        if (!parser->parse(o.val, is_flag ? nullptr : kv.second.c_str())) {
+            logger.error() << "could not set --" << kv.first << " to " << kv.second << std::endl;
+        }
+    }
+
+    return parser;
+}
+
+bool giraffe_preset_maps_long_reads(const std::string& preset) {
+    // TODO: Can we make the presets know if they are long read presets and not
+    // list their names here? What if someone manually turns on chaining?
+    return preset == "hifi" || preset == "r10" || preset == "blat";
+}
+
+bool giraffe_rec_mode(const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+                      bool map_long_reads, std::optional<bool> rec_mode) {
+    if (rec_mode.value_or(false) && !map_long_reads) {
+        // TODO: Get a better idea of if reads are long.
+        logger.error() << "Recombination-aware mode cannot be used with short reads yet." << std::endl;
+    }
+    bool default_rec_mode = map_long_reads &&
+        has_payload(minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS);
+    bool use_rec_mode = rec_mode.value_or(default_rec_mode);
+
+    // Recombination-aware mapping needs paths in the minimizer payload.
+    // Otherwise zipcodes alone are enough.
+    std::vector<MinimizerIndexParameters::PayloadType> allowed_payloads;
+    allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS);
+    if (!use_rec_mode) {
+        allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES);
+    }
+    require_payload(minimizer_index, allowed_payloads);
+    return use_rec_mode;
+}
+
+void set_up_giraffe_mapper(GroupedOptionGroup& parser, bool use_rec_mode, MinimizerMapper& mapper) {
+    ScoringOptions scoring_options;
+    parser.apply(mapper);
+    parser.apply(scoring_options);
+
+    enforce_min_max(mapper.wfa_max_mismatches, "wfa-max-mismatches",
+                    mapper.wfa_max_max_mismatches, "wfa-max-max-mismatches");
+    enforce_min_max(mapper.wfa_distance, "wfa-distance",
+                    mapper.wfa_max_distance, "wfa-max-distance");
+    enforce_min_max(mapper.min_chaining_problems, "min-chaining-problems",
+                    mapper.max_chaining_problems, "max-chaining-problems");
+    enforce_min_max(mapper.min_extensions, "min-extensions",
+                    mapper.max_extensions, "max-extensions");
+
+    mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch,
+        scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
+    mapper.use_payload_paths &= use_rec_mode;
+}
+
+
+} // namespace subcommand
+} // namespace vg
 
 // Tries to set the given haplotype sampling preset in `IndexingParameters`.
 void apply_haplotype_sampling_preset(std::string_view preset_name, Logger& logger) {
@@ -852,8 +1187,6 @@ int main_giraffe(int argc, char** argv) {
     // Main Giraffe program options struct
     // Not really initialized until after we load all the indexes though...
     GiraffeMainOptions main_options;
-    // Scoring options struct
-    ScoringOptions scoring_options;
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -948,211 +1281,8 @@ int main_giraffe(int argc, char** argv) {
     };
     //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
 
-    // Map preset names to presets
-    std::map<std::string, Preset> presets;
-    // We have a fast preset that sets a bunch of stuff
-    presets["fast"]
-        .add_entry<size_t>("hit-cap", 10)
-        .add_entry<size_t>("hard-hit-cap", 500)
-        .add_entry<double>("score-fraction", 0.5)
-        .add_entry<size_t>("max-multimaps", 1)
-        .add_entry<size_t>("max-extensions", 400)
-        .add_entry<size_t>("max-alignments", 8)
-        .add_entry<double>("cluster-score", 50)
-        .add_entry<double>("pad-cluster-score", 0)
-        .add_entry<double>("cluster-coverage", 0.2)
-        .add_entry<double>("extension-set", 20)
-        .add_entry<int>("extension-score", 1);
-    // And a default preset that doesn't.
-    presets["default"]
-        // This is always on in the non-chaining codepath right now, but just to be sure...
-        .add_entry<bool>("explored-cap", true);
-    
-    presets["hifi"]
-        .add_entry<bool>("align-from-chains", true)
-        .add_entry<bool>("explored-cap", false)
-        .add_entry<size_t>("watchdog-timeout", 30)
-        .add_entry<size_t>("batch-size", 10)
-        // Use downsampling instead of max unique minimizer count
-        .add_entry<size_t>("max-min", 79)
-        .add_entry<size_t>("num-bp-per-min", 152)
-        .add_entry<size_t>("downsample-window-count", 15)
-        .add_entry<size_t>("downsample-window-length", 227)
-        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
-        .add_entry<size_t>("hit-cap", 0)
-        .add_entry<double>("score-fraction", 1.0)
-        .add_entry<size_t>("hard-hit-cap", 13614)
-        // Don't do gapless extension
-        .add_entry<size_t>("gapless-extension-limit", 0)
-        .add_entry<double>("mapq-score-scale", 0.001)
-        .add_entry<double>("zipcode-tree-score-threshold", 100.0)
-        .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
-        .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
-        .add_entry<double>("zipcode-tree-scale", 2.0)
-        .add_entry<int>("min-chaining-problems", 6)
-        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-graph-lookback-bases", 20000)
-        .add_entry<double>("max-graph-lookback-bases-per-base", 0.10501002120802233)
-        .add_entry<size_t>("max-indel-bases", 5000)
-        .add_entry<double>("max-indel-bases-per-base", 2.45)
-        .add_entry<int>("item-bonus", 2)
-        .add_entry<double>("gap-scale", 0.27579)
-        .add_entry<int>("rec-penalty", 2)
-        .add_entry<int>("rec-consistency-bonus", 12)
-        .add_entry<double>("chain-score-threshold", 234.0)
-        .add_entry<int>("target-alignment-attempts", 2)
-        .add_entry<double>("min-unique-node-fraction", 0.2)
-        .add_entry<double>("min-chain-score-per-base", 0.24)
-        .add_entry<size_t>("max-chains-per-tree", 3)
-        .add_entry<int>("max-min-chain-score", 46)
-        .add_entry<size_t>("min-indel-avoid-bases", 50)
-        .add_entry<size_t>("max-skipped-bases", 1000)
-        .add_entry<size_t>("max-alignments", 3)
-        .add_entry<size_t>("max-chain-connection", 233)
-        .add_entry<size_t>("max-tail-length", 68)
-        .add_entry<size_t>("max-tail-gap", 150)
-        .add_entry<size_t>("max-middle-gap", 500)
-        .add_entry<size_t>("max-dp-cells", 8000000000)
-        .add_entry<int>("wfa-distance", 33)
-        .add_entry<double>("wfa-distance-per-base", 0.195722)
-        .add_entry<int>("wfa-max-distance", 240)
-        .add_entry<int>("wfa-max-mismatches", 2)
-        .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
-        .add_entry<int>("wfa-max-max-mismatches", 15)
-        .add_entry<int>("rec-penalty-aln", 28)
-        .add_entry<bool>("prune-low-cplx", true);
+    std::map<std::string, Preset> presets = make_giraffe_presets();
 
-    Preset r10_base;
-
-    r10_base
-        .add_entry<bool>("align-from-chains", true)
-        .add_entry<bool>("explored-cap", false)
-        .add_entry<size_t>("watchdog-timeout", 30)
-        .add_entry<size_t>("batch-size", 10)
-        // Use downsampling instead of max unique minimizer count
-        .add_entry<size_t>("max-min", 79)
-        .add_entry<size_t>("num-bp-per-min", 152)
-        .add_entry<size_t>("downsample-window-count", 15)
-        .add_entry<size_t>("downsample-window-length", 227)
-        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
-        .add_entry<size_t>("hit-cap", 0)
-        .add_entry<double>("score-fraction", 1.0)
-        .add_entry<size_t>("hard-hit-cap", 13614)
-        .add_entry<double>("mapq-score-scale", 1)
-        .add_entry<size_t>("mapq-score-window", 150)
-        .add_entry<size_t>("min-mapq0-score", 67)
-        .add_entry<double>("zipcode-tree-score-threshold", 100.0)
-        .add_entry<double>("pad-zipcode-tree-score-threshold", 50.0)
-        .add_entry<double>("zipcode-tree-coverage-threshold", 0.5)
-        .add_entry<double>("zipcode-tree-scale", 2.0)
-        //Don't do gapless extension
-        .add_entry<size_t>("gapless-extension-limit", 0)
-        .add_entry<int>("min-chaining-problems", 6)
-        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-graph-lookback-bases", 20000)
-        .add_entry<double>("max-graph-lookback-bases-per-base", 0.036)
-        .add_entry<size_t>("max-read-lookback-bases", 20000)
-        .add_entry<double>("max-read-lookback-bases-per-base", 0.036)
-        .add_entry<size_t>("max-indel-bases", 5000)
-        .add_entry<double>("max-indel-bases-per-base", 2.45)
-        .add_entry<int>("item-bonus", 20)
-        .add_entry<double>("gap-scale", 0.06759721757973396)
-        .add_entry<int>("rec-penalty", 2)
-        .add_entry<int>("rec-consistency-bonus", 13)
-        .add_entry<double>("chain-score-threshold", 160.0)
-        .add_entry<int>("target-alignment-attempts", 2)
-        .add_entry<double>("min-unique-node-fraction", 0.2)
-        .add_entry<size_t>("max-chains-per-tree", 3)
-        // Lowering this can reduce wrong reads in mapping experiments, but
-        // seems to *increase* miscalls; see
-        // https://ucsc-gi.slack.com/archives/CJ2EHEH1A/p1779202719223779?thread_ts=1779127572.303779&cid=CJ2EHEH1A
-        .add_entry<double>("min-chain-score-per-base", 0.052)
-        .add_entry<int>("max-min-chain-score", 1900.0)
-        .add_entry<size_t>("min-indel-avoid-bases", 50)
-        .add_entry<size_t>("max-skipped-bases", 1000)
-        .add_entry<size_t>("max-alignments", 3)
-        .add_entry<size_t>("max-chain-connection", 233)
-        .add_entry<size_t>("max-tail-length", 68)
-        .add_entry<size_t>("max-tail-gap", 150)
-        .add_entry<size_t>("max-middle-gap", 500)
-        .add_entry<size_t>("max-dp-cells", 8000000000)
-        .add_entry<int>("wfa-distance", 33)
-        .add_entry<double>("wfa-distance-per-base", 0.195722)
-        .add_entry<int>("wfa-max-distance", 240)
-        .add_entry<int>("wfa-max-mismatches", 2)
-        .add_entry<double>("wfa-max-mismatches-per-base", 0.05)
-        .add_entry<int>("wfa-max-max-mismatches", 15)
-        .add_entry<int>("rec-penalty-aln", 32)
-        .add_entry<bool>("prune-low-cplx", true);
-
-    presets.emplace("r10", r10_base);
-
-    // TODO: Add a dedicated r10y2025 preset that diverges slightly.
-
-    // And a short reads with chaining preset
-    presets["chaining-sr"]
-        .add_entry<bool>("align-from-chains", true)
-        .add_entry<bool>("explored-cap", true)
-        // Cap minimizers at a number we won't reach.
-        .add_entry<size_t>("max-min", 500)
-        .add_entry<size_t>("num-bp-per-min", 500)
-        // Don't downsample
-        .add_entry<size_t>("downsample-window-count", 0)
-        .add_entry<size_t>("downsample-window-length", std::numeric_limits<size_t>::max())
-        // Use the hit-cap||score-fraction filter
-        .add_entry<size_t>("hit-cap", 15)
-        .add_entry<double>("score-fraction", 0.9)
-        .add_entry<size_t>("hard-hit-cap", 500) // Default: 500
-        // Grab the best trees
-        .add_entry<double>("zipcode-tree-scale", 1.5)
-        .add_entry<double>("zipcode-tree-score-threshold", 70)
-        .add_entry<double>("pad-zipcode-tree-score-threshold", 50)
-        .add_entry<double>("zipcode-tree-coverage-threshold", 0.13)
-        // And extend them
-        .add_entry<size_t>("gapless-extension-limit", std::numeric_limits<size_t>::max())
-        // Allowing a lot of mismatches because we chop later
-        .add_entry<size_t>("max-extension-mismatches", 15)
-        .add_entry<double>("gap-scale", 2.2)
-        // And take those to chains
-        .add_entry<int>("min-chaining-problems", 7)
-        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<size_t>("max-graph-lookback-bases", 1000)
-        .add_entry<double>("max-graph-lookback-bases-per-base", 0)
-        .add_entry<size_t>("max-indel-bases", 1600)
-        .add_entry<double>("max-indel-bases-per-base", 0)
-        .add_entry<double>("chain-score-threshold", 100.0)
-        .add_entry<double>("min-chain-score-per-base", 0.01)
-        .add_entry<int>("max-min-chain-score", 200.0)
-        .add_entry<int>("item-bonus", 0)
-        .add_entry<int>("target-alignment-attempts", 3)
-        .add_entry<size_t>("max-chains-per-tree", 5)
-        .add_entry<size_t>("max-alignments", 4)
-        // Don't use the WFAExtender to connect anchors because it can take tenths of seconds sometimes.
-        .add_entry<size_t>("max-chain-connection", 65)
-        .add_entry<size_t>("max-tail-gap", 115)
-        .add_entry<double>("mapq-score-scale", 1.5);
-    presets["srold"]
-        .add_entry<bool>("align-from-chains", true)
-        .add_entry<bool>("explored-cap", false)
-        // Use downsampling instead of max unique minimizer count
-        .add_entry<size_t>("max-min", 0)
-        .add_entry<size_t>("downsample-window-count", 100)
-        .add_entry<size_t>("downsample-window-length", std::numeric_limits<size_t>::max())
-        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
-        .add_entry<size_t>("hit-cap", 0)
-        .add_entry<double>("score-fraction", 1.0)
-        // Use a high hard hit cap to allow centromeres
-        .add_entry<size_t>("hard-hit-cap", 16384)
-        .add_entry<double>("mapq-score-scale", 1.0)
-        .add_entry<int>("min-chaining-problems", 1)
-        .add_entry<int>("max-chaining-problems", std::numeric_limits<int>::max())
-        .add_entry<double>("max-graph-lookback-bases-per-base", 0)
-        .add_entry<double>("max-indel-bases-per-base", 0)
-        .add_entry<int>("target-alignment-attempts", 4)
-        .add_entry<size_t>("max-chains-per-tree", 5)
-        .add_entry<size_t>("max-alignments", 5);
-        
-   
     std::vector<struct option> long_options =
     {
         {"help", no_argument, 0, 'h'},
@@ -1409,10 +1539,7 @@ int main_giraffe(int argc, char** argv) {
                         found->second.apply(*parser);
                     }
                 }
-                // TODO: Can we make the presets know if they are long read
-                // presets and not list their names here? What if someone
-                // manually turns on chaining?
-                if (param_preset == "hifi" || param_preset == "r10") {
+                if (giraffe_preset_maps_long_reads(param_preset)) {
                     map_long_reads = true;
                 }
                 // TODO: We would have to move all haplotype sampling options
@@ -1851,21 +1978,9 @@ int main_giraffe(int argc, char** argv) {
     }
     minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require(minimizer_indexname).at(0));
 
-    // Decide if we want to do recombination-aware mapping by default, based on whether we can.
-    
-    // Whether to use recombination-aware mapping if the user did not set the option.
-    // Can't be a constant because it has to depend on the haplotype count in the index.
-    bool default_rec_mode = has_payload(*minimizer_index, MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS) && map_long_reads;
-
-    std::vector<MinimizerIndexParameters::PayloadType> allowed_payloads;
-    allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES_WITH_PATHS);
-    if (!rec_mode.value_or(default_rec_mode)) {
-        // If we're not doing recombination-aware mapping, we can also accept a
-        // payload without path info, as long as it still has zipcodes.
-        allowed_payloads.push_back(MinimizerIndexParameters::PAYLOAD_ZIPCODES);
-    }
-    // Make sure we have a usable minimizer index payload.
-    require_payload(*minimizer_index, allowed_payloads);
+    // Decide on recombination-aware mapping, and make sure we have a usable
+    // minimizer index payload for it.
+    bool use_rec_mode = giraffe_rec_mode(*minimizer_index, map_long_reads, rec_mode);
     
     // Grab the zipcodes
     if (show_progress) {
@@ -2025,25 +2140,8 @@ int main_giraffe(int argc, char** argv) {
         if (show_progress) {
             parser->print_options(cerr);
         }
-        parser->apply(minimizer_mapper);
+        set_up_giraffe_mapper(*parser, use_rec_mode, minimizer_mapper);
         parser->apply(main_options);
-        parser->apply(scoring_options);
-
-        // Make sure that options that represent ranges are sensible, nonempty
-        // ranges.
-        //
-        // TODO: It would be nice if we did this earlier when setting up the
-        // option ranges to iterate, to make it happen before indexing/index
-        // loading, but then we'd have to know how to do the comparison on the
-        // range objects themselves.
-        enforce_min_max(minimizer_mapper.wfa_max_mismatches, "wfa-max-mismatches",
-                        minimizer_mapper.wfa_max_max_mismatches, "wfa-max-max-mismatches");
-        enforce_min_max(minimizer_mapper.wfa_distance, "wfa-distance",
-                        minimizer_mapper.wfa_max_distance, "wfa-max-distance");
-        enforce_min_max(minimizer_mapper.min_chaining_problems, "min-chaining-problems",
-                        minimizer_mapper.max_chaining_problems, "max-chaining-problems");
-        enforce_min_max(minimizer_mapper.min_extensions, "min-extensions",
-                        minimizer_mapper.max_extensions, "max-extensions");
 
         // Make a line of JSON about our command line options.
         // We may embed it in the output file later.
@@ -2107,18 +2205,13 @@ int main_giraffe(int argc, char** argv) {
             report_string("rescue-algorithm", algorithm_names[rescue_algorithm]);
         }
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
-        report_paired_flag("rec-mode", rec_mode.value_or(default_rec_mode));
-        minimizer_mapper.use_payload_paths &= rec_mode.value_or(default_rec_mode);
+        report_paired_flag("rec-mode", use_rec_mode);
         
 
         params_json << "}" << std::endl;
 
         minimizer_mapper.sample_name = sample_name;
         minimizer_mapper.read_group = read_group;
-
-        // Apply scoring parameters, after they have been parsed
-        minimizer_mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch, 
-            scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
 
         // Work out the number of threads we will have
         size_t thread_count = omp_get_max_threads();
