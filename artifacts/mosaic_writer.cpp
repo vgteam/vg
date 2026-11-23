@@ -13,6 +13,7 @@
 #include <omp.h>
 
 #include "mosaic_writer.hpp"
+#include "allele_splicer.hpp"
 #include "../src/sorted_vcf_writer.hpp"
 #include "../src/graph_caller.hpp"
 #include "symbolic_allele.hpp"
@@ -612,6 +613,8 @@ private:
         size_t at = 0;
         size_t removed = 0;
         string added;
+        /// The record key of the site whose allele makes the change.
+        size_t key = 0;
     };
 
     /// Note the `H` row just printed, which starts at `position` and ends at oriented node
@@ -640,8 +643,9 @@ private:
     /// is a slot from an `H` row.
     size_t row_of_slot(uint32_t slot) const;
 
-    /// Record the changes of a called allele by node, in `node_edits`.
-    void note_edits(const CalledAlleles::Allele& allele);
+    /// Record the changes of a called allele of the site with record key `key` by node, in
+    /// `node_edits`.
+    void note_edits(const CalledAlleles::Allele& allele, size_t key);
 
     /// Return the bases of oriented node `visited` on the strand, with the changes of
     /// `node_edits` made. The bases a change puts before the first base the visit reads are
@@ -809,7 +813,7 @@ void ContigRowWriter::place_allele(const PhaseCall& call, const CalledAlleles::A
             continue;
         }
         if (!crossed && allele.edits != nullptr) {
-            note_edits(allele);
+            note_edits(allele, call.record_key);
         }
         crossed = true;
         const size_t rows_before = rows.size();
@@ -827,7 +831,7 @@ void ContigRowWriter::place_allele(const PhaseCall& call, const CalledAlleles::A
     // The site's `H` row has no walk, so the allele's walk stands alone, and sites inside it
     // are compared with it.
     if (allele.edits != nullptr) {
-        note_edits(allele);
+        note_edits(allele, call.record_key);
     }
     AlleleRow row;
     row.host = unwalked->second;
@@ -882,7 +886,7 @@ size_t ContigRowWriter::row_of_slot(uint32_t slot) const {
     return found != walked_rows.end() ? found->second : walked_rows.back().second;
 }
 
-void ContigRowWriter::note_edits(const CalledAlleles::Allele& allele) {
+void ContigRowWriter::note_edits(const CalledAlleles::Allele& allele, size_t key) {
     for (const AlleleEdit& edit : *allele.edits) {
         if (edit.step >= allele.walk.size()) {
             continue;
@@ -896,6 +900,7 @@ void ContigRowWriter::note_edits(const CalledAlleles::Allele& allele) {
         // The allele's walk may read the node backwards, and so may another allele that changes
         // the same node, so the changes are kept in the node's forward orientation.
         NodeEdit change;
+        change.key = key;
         change.removed = edit.removed;
         if (gbwt::Node::is_reverse(visited)) {
             change.at = length - edit.at - edit.removed;
@@ -911,39 +916,32 @@ void ContigRowWriter::note_edits(const CalledAlleles::Allele& allele) {
 string ContigRowWriter::strand_sequence(gbwt::node_type visited, bool with_before,
                                         bool with_after) const {
     const nid_t id = gbwt::Node::id(visited);
+    const bool reversed = gbwt::Node::is_reverse(visited);
     string own = exact->graph->get_sequence(exact->graph->get_handle(id));
-    // The changes are along the node, so a visit that reads it backwards has them turned.
-    const bool keep_first = gbwt::Node::is_reverse(visited) ? with_after : with_before;
-    const bool keep_last = gbwt::Node::is_reverse(visited) ? with_before : with_after;
-    if (const auto found = node_edits.find(id); found != node_edits.end()) {
-        // Along the node, insertions first among the changes at one offset.
-        vector<const NodeEdit*> changes;
-        for (const NodeEdit& change : found->second) {
-            const bool outside = change.removed == 0
-                                 && ((change.at == 0 && !keep_first)
-                                     || (change.at == own.size() && !keep_last));
-            if (!outside) {
-                changes.push_back(&change);
-            }
-        }
-        std::ranges::stable_sort(changes, [](const NodeEdit* a, const NodeEdit* b) {
-            return std::tie(a->at, a->removed) < std::tie(b->at, b->removed);
-        });
-        string changed;
-        size_t copied = 0;
-        for (const NodeEdit* change : changes) {
-            if (change->at < copied) {
-                // It removes a base an earlier change already removed.
-                continue;
-            }
-            changed.append(own, copied, change->at - copied);
-            changed += change->added;
-            copied = change->at + change->removed;
-        }
-        changed.append(own, copied, string::npos);
-        own = std::move(changed);
+    if (reversed) {
+        own = reverse_complement(own);
     }
-    return gbwt::Node::is_reverse(visited) ? reverse_complement(own) : own;
+    const auto found = node_edits.find(id);
+    if (found == node_edits.end()) {
+        return own;
+    }
+    // The changes as the visit reads the node, made as a record makes them where it spells a
+    // strand through the node (`AlleleSplicer::apply_step_edits`), so that two changes that
+    // take one base leave the mosaic and the records with the same one of them.
+    vector<AlleleSplicer::StepEdit> edits;
+    for (const NodeEdit& change : found->second) {
+        const size_t at = reversed ? own.size() - change.at - change.removed : change.at;
+        if (change.removed == 0
+            && ((at == 0 && !with_before) || (at == own.size() && !with_after))) {
+            continue;
+        }
+        edits.push_back(AlleleSplicer::StepEdit{
+            0, at, change.removed, reversed ? reverse_complement(change.added) : change.added,
+            change.key});
+    }
+    StepSequences steps{std::move(own)};
+    AlleleSplicer::apply_step_edits(std::move(edits), steps);
+    return steps[0];
 }
 
 void ContigRowWriter::print_allele_row(const AlleleRow& row, size_t row_fragment) {

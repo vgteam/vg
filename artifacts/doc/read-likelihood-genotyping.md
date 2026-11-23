@@ -1031,7 +1031,7 @@ file also has a row for each such strand and site, starting with `A`, and its ve
 | `fragment` | the mosaic fragment of the `H` row that the row follows |
 | `start_node`, `end_node` | the site's two bound nodes, as oriented node IDs, in the order the strand passes them |
 | `walk` | the allele the strand was called with, as its walk from `start_node` to `end_node`, both included: `>` and a node ID for a node read forwards, `<` and a node ID for one read backwards |
-| `sequence` | `.` where `walk` spells the allele; otherwise the strand's bases over `walk`, from the first base of `start_node` to the last base of `end_node`, with every change the strand's alleles make inside those nodes and between them. Bases that an allele puts before the first base of `start_node` or after the last base of `end_node` are not over `walk`; they are in the row of the walk they lie inside |
+| `sequence` | `.` where `walk` spells the allele; otherwise the strand's bases over `walk`, from the first base of `start_node` to the last base of `end_node`, with every change the strand's alleles make inside those nodes and between them. Bases that an allele puts before the first base of `start_node` or after the last base of `end_node` are not over `walk`; they are in the row of the walk they lie inside. Where two of the strand's changes take one base of a node, the one further along `walk` is made, as in the records |
 
 The row of an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) has
 the two bound nodes alone as its `walk`, and its `sequence` gives the bases between them. The
