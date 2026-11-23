@@ -34,6 +34,7 @@ enum class AtomizeRefusal : size_t {
     AllelesMerged,
     StrandsDisagree,
     ChainCrossedTwice,
+    BoundChanged,
     /// The number of reasons.
     Count
 };

@@ -114,6 +114,18 @@ public:
      */
     void genotype_top_level_edits(vector<EditCandidate> candidates);
 
+    /**
+     * Genotype the staged snarl `site` again from its reads, with the alleles it has now, at the
+     * ploidy it has now, and give it the new call.
+     *
+     * The alleles from `first_added` on were added after the direct pass genotyped the site. Each
+     * is a group of its own where groups choose the genotype. The site is not filed in the
+     * linkage model again.
+     *
+     * @return False, leaving the site's call as it was, if the site could not be genotyped.
+     */
+    bool regenotype(StagedSite& site, size_t first_added) const;
+
     /// Count the nodes whose free edit sites `genotype_top_level_edits` genotyped.
     size_t edit_nodes_after_pass() const { return placer.nodes_after_pass(); }
 

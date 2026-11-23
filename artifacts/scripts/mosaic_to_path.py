@@ -28,7 +28,10 @@ called with at one site, as a node walk between the site's two bound nodes. They
 file order to the paths the `H` rows expand to: every stretch of the strand's paths that runs from
 the row's start node to its next visit of the end node becomes the row's walk. A row whose start
 node the strand does not visit adds its walk as a path of its own. Check 4 then runs on the paths
-with the `A` rows applied, so it also says that every `A` row's walk is a walk in the graph.
+with the `A` rows applied, so it also says that every `A` row's walk is a walk in the graph. The
+one exception is a row that gives a sequence and whose walk is its two bound nodes alone, as the
+row of an allele built from the reads is (`vg call --read-consensus`): the sequence joins the two
+nodes, so the step between them need not be an edge, and it is counted apart.
 
 --vcf CALLS.vcf checks that the paths take the alleles the VCF calls. It reads each record whose ID
 names a snarl by its two bound nodes (`>a>b`, without the `_N` suffix of a block record), whose
@@ -183,6 +186,7 @@ class StrandWalk:
         self.node, self.next, self.live = [], [], bytearray()
         self.heads = []                    # (fragment, first slot) of each path
         self.at = defaultdict(list)        # node -> slots, for the nodes asked for
+        self.joined = set()                # (node, node) steps that an A row's sequence joins
 
     def add_path(self, fragment, steps):
         first = len(self.node)
@@ -268,6 +272,9 @@ def apply_allele_rows(strand_walk, rows, fail, counts):
             continue
         counts['A rows'] += 1
         counts['A rows with a sequence'] += f[7] != '.'
+        if f[7] != '.' and len(walk) == 2:
+            # The sequence gives the bases between the two bound nodes.
+            strand_walk.joined.add((walk[0], walk[1]))
         found = strand_walk.crossings(start, end) if len(walk) == 1 or start != end else []
         if not found:
             # The strand has no path here, so the walk is a path of its own.
@@ -542,7 +549,9 @@ def main():
         for frag, path in strand_walk.paths():
             for i in range(len(path) - 1):
                 total_steps += 1
-                if edges is not None and (path[i], path[i + 1]) not in edges:
+                if (path[i], path[i + 1]) in strand_walk.joined:
+                    allele_counts['steps joined by a sequence'] += 1
+                elif edges is not None and (path[i], path[i + 1]) not in edges:
                     fail['step is not an edge in the graph'] += 1
                     print(f"  NOEDGE  {contig} strand {strand} frag {frag} step {i}: "
                           f"{path[i]} -> {path[i+1]}", file=sys.stderr)
@@ -557,6 +566,9 @@ def main():
         print(f"  {allele_counts['A rows']} A rows applied, of which "
               f"{allele_counts['A rows with a sequence']} give a sequence and "
               f"{allele_counts['A rows that join no H row']} join no H row")
+    if allele_counts['steps joined by a sequence']:
+        print(f"  {allele_counts['steps joined by a sequence']} steps joined by an A row's "
+              f"sequence rather than an edge")
     if a.vcf:
         vcf_counts = check_vcf(a.vcf, strands, sequences, a.quiet)
         print(f"  called alleles against {a.vcf}: {vcf_counts['checked']} checked, "

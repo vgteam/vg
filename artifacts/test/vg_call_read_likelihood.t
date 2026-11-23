@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 320
+plan tests 333
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -2368,6 +2368,93 @@ is "$(sed -n 's/.*mosaic: \([0-9]*\) allele rows .* \([0-9]*\) are at sites with
 
 rm -f mx.gfa mx_sim.gfa mx.gbz mx_sim.gbz mx.gam mx.paths.gaf mx.graph.gfa mx.vcf mx.mosaic.tsv \
       mx.exact.tsv mx.exact.err mx.exact.vcf mx.expand.txt
+
+# --read-consensus gives a snarl the consensus of the reads of a strand that disagree with what is
+# called on it. The graph is a chain of three snarls, 1..4, 4..7 and 7..10, each a choice of two
+# single bases. Strand X of the sample takes the reference. Strand Y takes the other base at the
+# two outer snarls, which phases its reads, and between nodes 4 and 7 has 60 bases that no walk
+# spells, in place of the one base there. `vg sim` reads follow walks of the graph, so the reads
+# are written out here: each is the whole of its strand, and a read of strand Y has the 60 bases
+# as an insertion after node 4, and then node 7.
+rm -f rcn.gfa rcn.gbz rcn.json rcn.gam rcn.off.vcf rcn.on.vcf rcn.on.err rcn.flat.vcf rcn.mos.tsv \
+      rcn.mos.vcf rcn.paths.gaf rcn.graph.gfa rcn.expand.txt rcn.refuse.txt
+RCN1=CCTAGGCTTAGGACCTGATCGGATCCAGTATTGACCAGTT; RCN4=GGCATTAGCCTTAGACCGATCAGGACTTAC
+RCN7=AACCGGTTACGTTGCAATCGTGCAAGTCCA; RCN10=GGATCCTAGCATTCGGATCCAAGTTCCAGATTCAGGCATA
+RCNOVEL=TGCATGCAAGTCGATCGGATTACAGCTAGCTAGGATCCATGCAATGCCGTAAGCTTGCAT
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\t%s\nS\t2\tA\nS\t3\tT\nS\t4\t%s\nS\t5\tC\nS\t6\tG\nS\t7\t%s\nS\t8\tA\nS\t9\tC\nS\t10\t%s\n' \
+    $RCN1 $RCN4 $RCN7 $RCN10
+  printf 'L\t1\t+\t2\t+\t0M\nL\t1\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\nL\t3\t+\t4\t+\t0M\n'
+  printf 'L\t4\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\nL\t5\t+\t7\t+\t0M\nL\t6\t+\t7\t+\t0M\n'
+  printf 'L\t7\t+\t8\t+\t0M\nL\t7\t+\t9\t+\t0M\nL\t8\t+\t10\t+\t0M\nL\t9\t+\t10\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,4+,5+,7+,8+,10+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t143\t>1>2>4>5>7>8>10\n'
+  printf 'W\tp1\t1\tchr1\t0\t143\t>1>3>4>6>7>9>10\n'
+  printf 'W\tp2\t0\tchr1\t0\t143\t>1>2>4>5>7>8>10\n'
+  printf 'W\tp2\t1\tchr1\t0\t143\t>1>3>4>5>7>9>10\n'
+} > rcn.gfa
+vg gbwt -G rcn.gfa --gbz-format -g rcn.gbz --set-reference GRCh 2>/dev/null
+rcn_match() { printf '{"position":{"node_id":"%s"},"edit":[{"from_length":%s,"to_length":%s}]}' $1 $2 $2; }
+for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+  printf '{"name":"x%s","mapping_quality":60,"sequence":"%sA%sC%sA%s","path":{"mapping":[%s,%s,%s,%s,%s,%s,%s]}}\n' \
+    $i $RCN1 $RCN4 $RCN7 $RCN10 "$(rcn_match 1 40)" "$(rcn_match 2 1)" "$(rcn_match 4 30)" \
+    "$(rcn_match 5 1)" "$(rcn_match 7 30)" "$(rcn_match 8 1)" "$(rcn_match 10 40)"
+  printf '{"name":"y%s","mapping_quality":60,"sequence":"%sT%s%s%sC%s","path":{"mapping":[%s,%s,{"position":{"node_id":"4"},"edit":[{"from_length":30,"to_length":30},{"to_length":60,"sequence":"%s"}]},%s,%s,%s]}}\n' \
+    $i $RCN1 $RCN4 $RCNOVEL $RCN7 $RCN10 "$(rcn_match 1 40)" "$(rcn_match 3 1)" $RCNOVEL \
+    "$(rcn_match 7 30)" "$(rcn_match 9 1)" "$(rcn_match 10 40)"
+done > rcn.json
+vg view -JaG rcn.json > rcn.gam
+# The chain has too few reads to fit the temper of the strand log-odds, so it is given.
+RCN_CALL="vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --read-phasing --regenotype --regeno-temper 1"
+$RCN_CALL 2>/dev/null > rcn.off.vcf
+is "$(grep -v '^#' rcn.off.vcf | cut -f3 | tr '\n' ' ')/$(grep -c 'RC' rcn.off.vcf)/$(grep -c $RCNOVEL rcn.off.vcf)" \
+   ">1>4 >7>10 /0/0" \
+   "without --read-consensus the snarl with unspelled bases has no record, and nothing names INFO/RC"
+$RCN_CALL --read-consensus 2>rcn.on.err > rcn.on.vcf
+is "$?" 0 "vg call --read-consensus runs"
+is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' -v novel=$RCNOVEL '$3 == ">4>7" {print $2 "/" $4 "/" ($5 == novel) "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)RC(;|$)/)}')/$(grep -c '^##INFO=<ID=RC,' rcn.on.vcf)" \
+   "72/C/1/0|1/1/1" \
+   "--read-consensus calls the 60 bases the reads of one strand carry, on that strand, and marks the record"
+is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7"' | cut -f1-5,8 | diff - <(grep -v '^#' rcn.off.vcf | cut -f1-5,8) | wc -l | tr -d ' ')/$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7" && $8 ~ /RC/' | wc -l | tr -d ' ')" \
+   "0/0" \
+   "and the other snarls are called as without it, unmarked"
+is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 passed the prefilter, 1 tested, 1 candidate strands at 1 sites, 1 consensuses built, 1 alleles added at 1 sites, 1 sites called with a consensus allele.*/found/p' rcn.on.err)" \
+   "found" \
+   "and reports what it did in one line"
+is "$($RCN_CALL --read-consensus 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.on.vcf) | wc -l | tr -d ' ')" "0" \
+   "two runs with --read-consensus write the same records"
+is "$($RCN_CALL --read-consensus --consensus-min-diff 61 2>&1 >/dev/null | grep -c 'read consensus: 3 phased snarls, 0 passed the prefilter')" "1" \
+   "a read that differs by fewer bases than --consensus-min-diff does not disagree"
+# With flat records, the record of the top-level snarl is a flat one, and is marked too.
+$RCN_CALL --read-consensus --flatten-records 2>/dev/null > rcn.flat.vcf
+is "$(grep -v '^#' rcn.flat.vcf | awk -F'\t' -v novel=$RCNOVEL '$5 == novel {print $2 "/" $3 "/" $4 "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)RC(;|$)/) "/" ($8 ~ /(^|;)FL(;|$)/)}')" \
+   "72/>4>7_0/C/0|1/1/1" \
+   "--read-consensus with --flatten-records writes the consensus as a marked flat record"
+# In an exact mosaic, the allele row of the consensus gives its bases, from the first base of the
+# start bound's node to the last base of the end bound's, and its walk is the two nodes alone.
+$RCN_CALL --read-consensus --mosaic-out rcn.mos.tsv --mosaic-exact 2>/dev/null > rcn.mos.vcf
+is "$(awk -F'\t' -v seq=$RCN4$RCNOVEL$RCN7 '$1 == "A" {print $3 "/" $7 "/" ($8 == seq)}' rcn.mos.tsv)" \
+   "1/>4>7/1" \
+   "the exact mosaic gives the consensus allele as an allele row with its sequence"
+vg paths -x rcn.gbz -A > rcn.paths.gaf 2>/dev/null
+vg view -g rcn.gbz > rcn.graph.gfa 2>/dev/null
+is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcn.mos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
+        --vcf rcn.mos.vcf --quiet >rcn.expand.txt 2>&1; echo $?)/$(sed -n 's/.*: \([0-9]*\) checked, \([0-9]*\) equal, .* \([0-9]*\) different, \([0-9]*\) strand does not cross/\1,\2,\3,\4/p' rcn.expand.txt)/$(grep -c '1 steps joined by an A row.s sequence rather than an edge' rcn.expand.txt)" \
+   "0/6,6,0,0/1" \
+   "and the mosaic's paths take every called allele, the consensus joining its two nodes by its sequence"
+# The step needs the read-likelihood genotyper and the phase, and its settings need the step.
+vg call rcn.gbz --gam rcn.gam -t 1 -s samp --read-consensus >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--read-consensus only appl.* to the read-likelihood genotyper' rcn.refuse.txt)" "1" \
+   "--read-consensus is refused without --read-likelihood"
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --no-phased --read-consensus >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--read-consensus needs the phase' rcn.refuse.txt)" "1" \
+   "--read-consensus is refused without --phased"
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --consensus-max-reads 10 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--consensus-max-reads only applies to read consensus, which --read-consensus turns on' rcn.refuse.txt)" "1" \
+   "the settings of --read-consensus are refused without it"
+rm -f rcn.gfa rcn.gbz rcn.json rcn.gam rcn.off.vcf rcn.on.vcf rcn.on.err rcn.flat.vcf rcn.mos.tsv \
+      rcn.mos.vcf rcn.paths.gaf rcn.graph.gfa rcn.expand.txt rcn.refuse.txt
 
 # The cactus snarl finder makes a unary snarl for the loop off node 2 here, which the
 # read-likelihood caller refuses with a message saying how to find snarls it can call.

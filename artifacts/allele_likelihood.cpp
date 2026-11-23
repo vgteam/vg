@@ -2051,6 +2051,74 @@ vector<vector<size_t>> GraphAlignedAlleleLikelihoodCalculator::SiteAlleles::uniq
     return lengths;
 }
 
+/// The two boundary nodes of a snarl, as its alleles read them.
+struct GraphAlignedAlleleLikelihoodCalculator::SnarlBounds {
+    /// The nodes of the two bounds, and the way the alleles read them.
+    nid_t start = 0;
+    bool start_backward = false;
+    nid_t end = 0;
+    bool end_backward = false;
+
+    /// Set the bounds to those of the snarl `site`.
+    void set(const HandleGraph& graph, const MaterializedSite& site);
+
+    /// Return whether a read with the visits `read_steps` spans the snarl: it enters on the
+    /// start bound's node, leaves on the end bound's, visits neither in between, and its
+    /// visits are consecutive in the read.
+    bool spanned_by(const vector<ReadStep>& read_steps) const;
+
+    /**
+     * Return where the bases that a read spanning the snarl has between the bounds begin and
+     * end in the read.
+     *
+     * They are the bases after the read's last base on the start bound's node and before its
+     * first base on the end bound's, with any bases the read inserts after the one or before
+     * the other.
+     *
+     * @param on_insertion Called with the number of bases of each such insertion.
+     */
+    template<typename OnInsertion>
+    static pair<size_t, size_t> bases_between(const ReadStep& first, const ReadStep& last,
+                                              OnInsertion&& on_insertion);
+};
+
+void GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::set(const HandleGraph& graph,
+                                                             const MaterializedSite& site) {
+    start = graph.get_id(site.start);
+    start_backward = graph.get_is_reverse(site.start);
+    end = graph.get_id(site.end);
+    end_backward = graph.get_is_reverse(site.end);
+}
+
+template<typename OnInsertion>
+pair<size_t, size_t> GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::bases_between(
+    const ReadStep& first, const ReadStep& last, OnInsertion&& on_insertion) {
+    auto inserted = [&](const Edit& edit) -> size_t {
+        if (edit.from_length() != 0 || edit.to_length() <= 0) {
+            return 0;
+        }
+        on_insertion((size_t)edit.to_length());
+        return (size_t)edit.to_length();
+    };
+    size_t from = first.read_offset + first.read_length;
+    for (int64_t i = first.mapping->edit_size() - 1; i >= 0; --i) {
+        const size_t moved = inserted(first.mapping->edit(i));
+        if (moved == 0) {
+            break;
+        }
+        from -= moved;
+    }
+    size_t to = last.read_offset;
+    for (int64_t i = 0; i < last.mapping->edit_size(); ++i) {
+        const size_t moved = inserted(last.mapping->edit(i));
+        if (moved == 0) {
+            break;
+        }
+        to += moved;
+    }
+    return make_pair(from, to);
+}
+
 /**
  * The bases of each allele between the bounds of a snarl that has a sequence allele.
  *
@@ -2058,7 +2126,7 @@ vector<vector<size_t>> GraphAlignedAlleleLikelihoodCalculator::SiteAlleles::uniq
  * `add_sequence_allele`). Its walk does not spell it, so the nodes a read visits do not say how
  * well the read fits it. The table is empty for any other site.
  */
-struct GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles {
+struct GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles : SnarlBounds {
     /// Whether each allele is a sequence allele. Empty when the site has none.
     vector<bool> is_sequence;
     /// Whether the reads that span the snarl are scored by alignment. Where the site has a
@@ -2066,11 +2134,6 @@ struct GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles {
     bool aligned = false;
     /// The bases of each allele between the bounds, where `aligned`.
     vector<string> interiors;
-    /// The nodes of the two bounds, and the way the alleles read them.
-    nid_t start = 0;
-    bool start_backward = false;
-    nid_t end = 0;
-    bool end_backward = false;
     /// The costs that make the string aligner find the alignment `scorer` scores highest (see
     /// `score_spanning_read`), and the score of a matched base.
     StringAlignerParams aligner;
@@ -2081,11 +2144,6 @@ struct GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles {
 
     /// Return whether the site has a sequence allele.
     bool any() const { return !is_sequence.empty(); }
-
-    /// Return whether a read with the visits `read_steps` spans the snarl: it enters on the
-    /// start bound's node, leaves on the end bound's, visits neither in between, and its
-    /// visits are consecutive in the read.
-    bool spanned_by(const vector<ReadStep>& read_steps) const;
 
     /// Set the entries of the sequence alleles in the row of a read that was not aligned: the
     /// greatest entry of the other alleles where spanning reads are aligned, so that the read
@@ -2107,10 +2165,7 @@ GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::SequenceAlleles(
     for (size_t a = 0; a < alleles.walks.size(); ++a) {
         is_sequence.push_back(!alleles.spelled_by_walk(a));
     }
-    start = graph.get_id(site.start);
-    start_backward = graph.get_is_reverse(site.start);
-    end = graph.get_id(site.end);
-    end_backward = graph.get_is_reverse(site.end);
+    set(graph, site);
     if (start == end) {
         return;
     }
@@ -2137,7 +2192,7 @@ GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::SequenceAlleles(
     aligned = true;
 }
 
-bool GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::spanned_by(
+bool GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::spanned_by(
     const vector<ReadStep>& read_steps) const {
     if (read_steps.size() < 2 || read_steps.front().node_id != start
         || read_steps.front().backward != start_backward || read_steps.back().node_id != end
@@ -2185,30 +2240,10 @@ bool GraphAlignedAlleleLikelihoodCalculator::score_spanning_read(
     // The bases the read inserts after the last base of the start bound's node, or before the
     // first base of the end bound's, lie between the bounds. Take back what they were charged
     // as gaps on the boundary nodes.
-    auto inserted = [&](const Edit& edit) -> size_t {
-        if (edit.from_length() != 0 || edit.to_length() <= 0) {
-            return 0;
-        }
-        score -= read_scorer.score_gap((size_t)edit.to_length());
+    const auto [from, to] = SnarlBounds::bases_between(first, last, [&](size_t bases) {
+        score -= read_scorer.score_gap(bases);
         nats -= params.insertion_gap_nats;
-        return (size_t)edit.to_length();
-    };
-    size_t from = first.read_offset + first.read_length;
-    for (int64_t i = first.mapping->edit_size() - 1; i >= 0; --i) {
-        const size_t moved = inserted(first.mapping->edit(i));
-        if (moved == 0) {
-            break;
-        }
-        from -= moved;
-    }
-    size_t to = last.read_offset;
-    for (int64_t i = 0; i < last.mapping->edit_size(); ++i) {
-        const size_t moved = inserted(last.mapping->edit(i));
-        if (moved == 0) {
-            break;
-        }
-        to += moved;
-    }
+    });
     if (to < from || to > aln.sequence().size()
         || to - from > params.sequence_allele_max_bases) {
         return false;
@@ -2433,6 +2468,69 @@ double GraphAlignedAlleleLikelihoodCalculator::mismap_probability(const Alignmen
                                   : params.min_mismap_prob;
 }
 
+void GraphAlignedAlleleLikelihoodCalculator::visit_reads(
+    const vector<pair<nid_t, nid_t>>& ranges,
+    const function<void(const SiteRead&)>& iteratee) const {
+    if (counted_fetches) {
+        read_source.for_each_read(ranges, iteratee);
+    } else {
+        read_source.for_each_read_uncounted(ranges, iteratee);
+    }
+}
+
+vector<AlleleLikelihoodCalculator::SpanningRead>
+GraphAlignedAlleleLikelihoodCalculator::spanning_reads(const MaterializedSite& site) const {
+    vector<SpanningRead> spanning;
+    const vector<Traversal>& traversals = site.alleles.walks;
+    if (traversals.empty() || site.bounds_inside_nodes(graph)
+        || graph.get_id(site.start) == graph.get_id(site.end)) {
+        return spanning;
+    }
+    unordered_set<nid_t> site_nodes;
+    unordered_set<nid_t> boundary_nodes;
+    collect_site_nodes(graph, site, site_nodes, boundary_nodes);
+    // The walks say which way the alleles read each node, which is the way a read is turned.
+    SiteAlleles alleles;
+    alleles.steps.reserve(traversals.size());
+    for (const Traversal& walk : traversals) {
+        alleles.steps.push_back(get_allele_steps(walk));
+    }
+    alleles.index(!params.optimal_pairing);
+    SnarlBounds bounds;
+    bounds.set(graph, site);
+
+    vector<ReadStep> read_steps;
+    read_source.for_each_read_uncounted(id_ranges(site_nodes), [&](const SiteRead& read) {
+        Alignment flipped;
+        const Alignment* aln = orient_read(read, site_nodes, boundary_nodes, alleles, read_steps,
+                                           flipped);
+        if (aln == nullptr || !bounds.spanned_by(read_steps)) {
+            return;
+        }
+        const auto [from, to] = SnarlBounds::bases_between(
+            read_steps.front(), read_steps.back(), [](size_t /*bases*/) {
+                // Only the range is wanted.
+            });
+        if (from > to || to > aln->sequence().size()) {
+            return;
+        }
+        SpanningRead found;
+        found.name = read.aln->name();
+        found.length = to - from;
+        if (found.length <= params.sequence_allele_max_bases) {
+            found.bases = aln->sequence().substr(from, found.length);
+            for (char& b : found.bases) {
+                b = (char)toupper(b);
+            }
+        }
+        spanning.push_back(std::move(found));
+    });
+    std::ranges::sort(spanning, [](const SpanningRead& a, const SpanningRead& b) {
+        return std::tie(a.name, a.length, a.bases) < std::tie(b.name, b.length, b.bases);
+    });
+    return spanning;
+}
+
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     const MaterializedSite& site, const vector<nid_t>& fallback_nodes, int region_ploidy) {
     const vector<Traversal>& traversals = site.alleles.walks;
@@ -2467,7 +2565,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         // Count the alignments the reads that span the snarl need, and do not offer the
         // sequence alleles if they are too many.
         size_t spanning = 0;
-        read_source.for_each_read(ranges, [&](const SiteRead& read) {
+        visit_reads(ranges, [&](const SiteRead& read) {
             Alignment flipped;
             if (orient_read(read, site_nodes, boundary_nodes, alleles, read_steps, flipped)
                     != nullptr
@@ -2513,12 +2611,31 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     ReadScratch read_scratch;
     vector<double> row(traversals.size());
 
-    read_source.for_each_read(ranges, [&](const SiteRead& read) {
+    // The number of bases each read that spans the snarl has between its bounds, if a summary
+    // of them is kept.
+    vector<uint32_t> span_bases;
+    SnarlBounds bounds;
+    const bool summarise_spans = params.span_rank > 0 && !boundary_nodes.empty()
+                                 && graph.get_id(site.start) != graph.get_id(site.end);
+    if (summarise_spans) {
+        bounds.set(graph, site);
+    }
+
+    visit_reads(ranges, [&](const SiteRead& read) {
         Alignment flipped;
         const Alignment* scored_aln = orient_read(read, site_nodes, boundary_nodes, alleles,
                                                   read_steps, flipped);
         if (scored_aln == nullptr) {
             return;
+        }
+        if (summarise_spans && bounds.spanned_by(read_steps)) {
+            const auto [from, to] = SnarlBounds::bases_between(
+                read_steps.front(), read_steps.back(), [](size_t /*bases*/) {
+                    // Only the range is wanted.
+                });
+            if (from <= to && to <= scored_aln->sequence().size()) {
+                span_bases.push_back((uint32_t)(to - from));
+            }
         }
         // Score a read with no base qualities with the scorer that does not need them.
         const EditAlignmentScorer& read_scorer =
@@ -2556,6 +2673,16 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     });
 
     AlleleReadLikelihoods result = builder.build();
+    if (summarise_spans) {
+        AlleleReadLikelihoods::SpanSummary summary;
+        summary.reads = (uint32_t)span_bases.size();
+        if (span_bases.size() >= params.span_rank) {
+            std::ranges::nth_element(span_bases, span_bases.begin() + (params.span_rank - 1),
+                                     std::greater<>());
+            summary.rank_bases = span_bases[params.span_rank - 1];
+        }
+        result.set_span_summary(summary);
+    }
 
     // Set R, the mean read length, for the depth term's lambda, the mixture weights and the anchor
     // slot weights. The builder's R is the mean over this site's reads, which over-represents long

@@ -302,6 +302,22 @@ public:
      */
     void attach_phase_evidence(unique_ptr<PhaseReadEvidence> evidence);
 
+    /// What the reads that span a snarl from bound to bound have between its bounds.
+    struct SpanSummary {
+        /// The number of reads that span the snarl.
+        uint32_t reads = 0;
+        /// The number of bases that the read with the `AlleleLikelihoodParams::span_rank`-th
+        /// most has between the bounds, or 0 where fewer reads than that span the snarl.
+        uint32_t rank_bases = 0;
+    };
+
+    /// Get the summary of the reads that span the site, which is empty unless the calculator
+    /// kept one.
+    const SpanSummary& span_summary() const { return spans; }
+
+    /// Set the summary of the reads that span the site.
+    void set_span_summary(const SpanSummary& summary) { spans = summary; }
+
     /// Give up the anchor evidence, or null if none was attached.
     unique_ptr<AnchorSiteEvidence> take_anchor_evidence() { return std::move(anchor_evidence); }
 
@@ -339,6 +355,8 @@ private:
     unique_ptr<AnchorSiteEvidence> anchor_evidence;
     /// The read-phasing evidence of the site, or null.
     unique_ptr<PhaseReadEvidence> phase_evidence;
+    /// The summary of the reads that span the site.
+    SpanSummary spans;
 
     /// The relative likelihoods, row major, n_reads * n_alleles, with a maximum of 1 in each row.
     vector<double> matrix;
@@ -554,6 +572,13 @@ struct AlleleLikelihoodParams {
     /// allele. Where the reads that span the snarl need more, its sequence alleles are not
     /// offered.
     size_t sequence_allele_max_alignments = 2000;
+
+    /**
+     * If not 0, the matrix of a snarl keeps how many reads span the snarl, and the number of
+     * bases the read with the `span_rank`-th most has between its bounds (see
+     * `AlleleReadLikelihoods::SpanSummary`).
+     */
+    size_t span_rank = 0;
 };
 
 /**
@@ -587,6 +612,40 @@ public:
     virtual AlleleReadLikelihoods compute(const MaterializedSite& site,
                                           const vector<nid_t>& fallback_nodes,
                                           int region_ploidy) = 0;
+
+    /// A read that spans a snarl from bound to bound.
+    struct SpanningRead {
+        /// The name of the read.
+        string name;
+        /// The number of bases the read has between the bounds.
+        size_t length = 0;
+        /// Those bases, in upper case, read the way the snarl's alleles are. Empty where the read
+        /// has more of them than `AlleleLikelihoodParams::sequence_allele_max_bases`.
+        string bases;
+    };
+
+    /**
+     * Return the reads that span the snarl `site` from bound to bound, sorted by name and then
+     * by bases.
+     *
+     * A read spans the snarl as `compute` takes it to at a snarl with a sequence allele, and its
+     * bases between the bounds are the ones `compute` aligns there. The reads are fetched as
+     * `set_counted_fetches(false)` fetches them. The default returns none.
+     */
+    virtual vector<SpanningRead> spanning_reads(const MaterializedSite& /*site*/) const {
+        return {};
+    }
+
+    /**
+     * Set whether `compute` fetches a site's reads with `SiteReadSource::for_each_read`, as it
+     * does at first, or with `for_each_read_uncounted`, which adds nothing to the source's
+     * tallies of read starts or to its off-panel candidates.
+     *
+     * Not safe to call while a site is computed. The default does nothing.
+     */
+    virtual void set_counted_fetches(bool /*counted*/) {
+        // A calculator that fetches no reads has nothing to set.
+    }
 };
 
 /**
@@ -655,6 +714,10 @@ public:
                                   const vector<nid_t>& fallback_nodes,
                                   int region_ploidy) override;
 
+    vector<SpanningRead> spanning_reads(const MaterializedSite& site) const override;
+
+    void set_counted_fetches(bool counted) override { counted_fetches = counted; }
+
     /**
      * Place rate windows on reference paths.
      *
@@ -713,8 +776,15 @@ protected:
     /// A table of the alleles of one site, as node visits with sequences, ready for scoring reads.
     struct SiteAlleles;
 
+    /// The two boundary nodes of a snarl, as its alleles read them.
+    struct SnarlBounds;
+
     /// The bases of each allele between the bounds of a snarl that has a sequence allele.
     struct SequenceAlleles;
+
+    /// Visit the reads on the nodes of `ranges`, counted or not as `set_counted_fetches` set.
+    void visit_reads(const vector<pair<nid_t, nid_t>>& ranges,
+                     const function<void(const SiteRead&)>& iteratee) const;
 
     /// A dynamic-programming grid that finds the optimal pairing of the visits of one read with
     /// those of one allele.
@@ -972,6 +1042,8 @@ protected:
 
 private:
     const SiteReadSource& read_source;
+    /// Whether `compute` fetches reads with `SiteReadSource::for_each_read`.
+    bool counted_fetches = true;
     /// The statistics of each node-ID fallback window, by window index.
     mutable unordered_map<size_t, WindowReadStats> window_rate;
     /// The counts of each reference bucket, by reference path index and bucket.

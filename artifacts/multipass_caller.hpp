@@ -32,6 +32,7 @@
 #include "phase_table.hpp"
 #include "ploidy_regions.hpp"
 #include "read_likelihood_caller.hpp"
+#include "read_consensus_step.hpp"
 #include "read_phaser.hpp"
 #include "read_strand_table.hpp"
 #include "record_renderer.hpp"
@@ -101,10 +102,12 @@ public:
      * @param recurse_type Which sites the direct pass goes on to after the top level. It visits
      * the children of every site (`RecurseAlways`), of every site that `TreeGenotyper::genotype`
      * returns false for (`RecurseOnFail`), or of none (`RecurseNever`), and so on down.
-     * @param after_direct_pass Runs once the direct pass is done, before the linkage pass. The
-     * passes after it read only what the direct pass kept, not reads.
+     * @param release_reads Frees what the read source keeps for fetching reads. It runs once
+     * the direct pass is done, before the linkage pass, and again after the read-consensus step
+     * if that ran, which fetches reads. The other passes after the direct pass read only what it
+     * kept, not reads.
      */
-    void call(GraphCaller::RecurseType recurse_type, const function<void()>& after_direct_pass);
+    void call(GraphCaller::RecurseType recurse_type, const function<void()>& release_reads);
 
     /// Get the emitter that writes the record of each staged site, so that its settings can be
     /// changed.
@@ -231,6 +234,23 @@ public:
         rescorer.configure(on, params, passes);
     }
 
+    /**
+     * Set the read-consensus step (see `ReadConsensusStep`), which runs where `options.enabled`.
+     *
+     * @param max_bases The most bases between a snarl's bounds that the read scorer aligns at a
+     * snarl with a sequence allele (`AlleleLikelihoodParams::sequence_allele_max_bases`).
+     * @param max_alignments The most alignments it makes at one such snarl.
+     */
+    void set_read_consensus(const ReadConsensusOptions& options, size_t max_bases,
+                            size_t max_alignments) {
+        read_consensus.set_options(options);
+        consensus_max_bases = max_bases;
+        consensus_max_alignments = max_alignments;
+    }
+
+    /// Get what the read-consensus step did.
+    const ReadConsensusCounts& read_consensus_counts() const { return read_consensus.counts(); }
+
     /// Set the source the reads of the sites come from.
     ///
     /// It can hold a wide site's reads for the sites below it (see `SiteReadSource::hold_reads`).
@@ -316,6 +336,13 @@ private:
      * resolved reference is not its reference allele, or the strands cannot be aligned.
      */
     optional<FlatSite> flat_site_of(const StagedSite& site, const vector<int>& genotype) const;
+
+    /// Return the objects the read-consensus step works with.
+    ReadConsensusStep::Parts read_consensus_parts();
+
+    /// Run the read-consensus step, if it is on, and choose the genotypes and phase the reads
+    /// again if it gave any site an allele.
+    void add_read_consensus_alleles();
 
     /**
      * Decide, before any record is written, which top-level sites with sites nested in them are
@@ -524,6 +551,13 @@ private:
 
     /// Re-genotyping from the phase, if it is on.
     GenotypeRescorer rescorer;
+    /// The step that adds alleles built from the reads, if it is on.
+    ReadConsensusStep read_consensus;
+    /// The limits of the read scorer at a snarl with a sequence allele, which the step keeps to.
+    size_t consensus_max_bases = 10000;
+    size_t consensus_max_alignments = 2000;
+    /// Frees what the read source keeps for fetching reads (see `call`).
+    function<void()> release_reads;
 
     /// Collects the anchors and writes the anchor file, if one was asked for.
     AnchorCollector anchor_collector;

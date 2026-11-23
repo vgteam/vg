@@ -38,7 +38,8 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
 }
 
 void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
-                           const function<void()>& after_direct_pass) {
+                           const function<void()>& release_reads_now) {
+    release_reads = release_reads_now;
     // Sized here rather than inside the parallel region that writes it.
     staged_sites.start(max((size_t)get_thread_count(), (size_t)omp_get_max_threads()));
     if (off_panel.is_enabled()) {
@@ -108,7 +109,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
         fill_anchors.place(sites);
         fill_anchors.resolve_reads(*read_source);
     }
-    after_direct_pass();
+    release_reads();
 
     // Round 1's linkage pass, then read phasing and any further rounds, then the render.
     run_linkage_pass();
@@ -364,6 +365,23 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
         own_steps = site.alleles.all_step_sequences(graph);
     }
     const AlleleSequences& steps = site.spliced ? site.spliced->sequences : own_steps;
+    // Whether the called genotype has an allele built from the reads, here or, for a site
+    // written as flat records, in a site under it.
+    bool consensus_called = false;
+    if (read_consensus.enabled()) {
+        auto called_in = [&](const StagedSite& at, const vector<int>& chosen) {
+            return std::ranges::any_of(chosen, [&](int allele) {
+                return ReadConsensusStep::is_consensus_allele(sites, at, allele);
+            });
+        };
+        consensus_called = called_in(site, genotype);
+        if (site.flat && !consensus_called) {
+            splicer.for_each_under(site.record_key, [&](const StagedSite& nested) {
+                consensus_called = consensus_called
+                                   || called_in(nested, linker.chosen_genotype(nested));
+            });
+        }
+    }
     RecordRenderer::WrittenAlleles written;
     bool has_line = false;
     site_emitter.emit(
@@ -393,6 +411,9 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
                                           sample_name, record);
             if (sites.is_edit(site.net)) {
                 record.infoFlags["OP"] = true;
+            }
+            if (consensus_called) {
+                record.infoFlags["RC"] = true;
             }
         },
         &has_line);
@@ -425,6 +446,15 @@ static const char* const OP_HEADER_LINE =
     "##INFO=<ID=OP,Number=0,Type=Flag,Description=\"Off-panel variant (--off-panel): "
     "the ALT is a change recurring in the reads that no walk of the graph spells, "
     "called at an edit site. Its ID starts with op\">";
+
+/// The header line of INFO/RC.
+static const char* const RC_HEADER_LINE =
+    "##INFO=<ID=RC,Number=0,Type=Flag,Description=\"Read consensus (--read-consensus): the "
+    "called genotype of the record's snarl has an allele that is the consensus of the reads "
+    "spanning the snarl, which no walk of the graph spells; its AT is the snarl's two bound "
+    "nodes alone. On a flat record "
+    "(--flatten-records), the called genotype of the record's top-level snarl, or of a snarl "
+    "nested in it, has such an allele\">";
 
 /// The header line of INFO/SB.
 static const char* const SB_HEADER_LINE =
@@ -469,6 +499,9 @@ void MultiPassCaller::add_header_lines() {
     }
     if (off_panel.is_enabled()) {
         output.add_info_line(OP_HEADER_LINE);
+    }
+    if (read_consensus.enabled()) {
+        output.add_info_line(RC_HEADER_LINE);
     }
     if (block_records.is_enabled() || flatten_records) {
         output.add_info_line(SB_HEADER_LINE);
@@ -572,9 +605,50 @@ bool MultiPassCaller::run_regenotyping_round(size_t round, RoundHistory& history
     return true;
 }
 
+ReadConsensusStep::Parts MultiPassCaller::read_consensus_parts() {
+    return ReadConsensusStep::Parts{
+        .graph = &graph,
+        .sites = &sites,
+        .genotyper = &snarl_caller,
+        .tree_genotyper = &tree_genotyper,
+        .linker = &linker,
+        .staged_sites = &staged_sites,
+        .phase_table = &phase_table,
+        .read_strands = &read_strands,
+        .max_bases = consensus_max_bases,
+        .max_alignments = consensus_max_alignments,
+    };
+}
+
+void MultiPassCaller::add_read_consensus_alleles() {
+    if (!read_consensus.enabled() || !linker.enabled()) {
+        return;
+    }
+    // The step asks which strand each read is on, so the read strand table needs its sums, as
+    // the render builds them. No round of re-genotyping has run, so the calibration is the
+    // temper re-genotyping was given, or else one fitted here.
+    const RegenotypeParams& regenotyping = rescorer.params();
+    read_strands.build_lambda(
+        phase_table.calls(),
+        [&](const string& contig, size_t phase_set) { return phase_set_id(contig, phase_set); },
+        StrandCalibration{std::max(regenotyping.temper, 0.0),
+                          regenotyping.ceiling < 0.0 ? 1.0 : regenotyping.ceiling},
+        regenotyping);
+    const size_t changed = read_consensus.run(read_consensus_parts());
+    // The step fetched reads, which no later pass does.
+    release_reads();
+    if (changed > 0) {
+        // The sites that gained an allele have new calls, so choose the genotypes and phase the
+        // reads again, as a re-genotyping round does after its correction.
+        rerun_linkage_pass();
+        phase_reads();
+    }
+}
+
 void MultiPassCaller::phase_and_regenotype() {
     // Round 1 ends with read phasing. Its linkage pass has already run.
     phase_reads();
+    add_read_consensus_alleles();
     if (rescorer.enabled() && rescorer.passes() >= 2) {
         // Remember every state the rounds reach, so that a cycle is recognised.
         RoundHistory history;
@@ -586,6 +660,10 @@ void MultiPassCaller::phase_and_regenotype() {
     } else {
         // With one pass, compute and report the correction, and keep nothing.
         rescore();
+    }
+    if (read_consensus.enabled()) {
+        read_consensus.count_called(read_consensus_parts());
+        read_consensus.report(cerr);
     }
 }
 

@@ -623,6 +623,27 @@ void help_call(char** argv) {
          << "                            the calls in its nested snarls put in, from its" << endl
          << "                            reference allele: one record per run of" << endl
          << "                            mismatches or gap, and none for nested snarls" << endl
+         << "  read consensus:" << endl
+         << "      --read-consensus      add to a snarl the consensus of the reads spanning" << endl
+         << "                            it, where enough reads of a called haplotype" << endl
+         << "                            differ from what is called on it, and genotype" << endl
+         << "                            the snarl again; needs --phased" << endl
+         << "      --consensus-min-diff=N" << endl
+         << "                            a read differs where its bases across the snarl" << endl
+         << "                            are N or more bases from the called ones [15]" << endl
+         << "      --consensus-min-reads=N" << endl
+         << "                            build a consensus where at least N reads of a" << endl
+         << "                            haplotype differ [3]" << endl
+         << "      --consensus-min-share=F" << endl
+         << "                            and they are at least F of its spanning reads" << endl
+         << "                            [0.25]" << endl
+         << "      --consensus-min-spanning=N" << endl
+         << "                            and at least N of its reads span the snarl [6]" << endl
+         << "      --consensus-min-change=N" << endl
+         << "                            add a consensus that is more than N bases from" << endl
+         << "                            the called sequence [10]" << endl
+         << "      --consensus-max-reads=N" << endl
+         << "                            build a consensus from at most N reads [20]" << endl
          << "  read scoring:" << endl
          << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
          << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
@@ -880,6 +901,8 @@ int main_call(int argc, char** argv) {
     // Whether each top-level snarl is written as the base-level differences of its called
     // haplotypes from its reference allele.
     bool flatten_records = false;
+    // The step that adds alleles built from the reads to snarls.
+    vg::multipass::ReadConsensusOptions read_consensus;
     string translation_file_name;
     bool   gbz_translation = false;
     string ref_fasta_filename;
@@ -1074,6 +1097,13 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
     constexpr int OPT_MOSAIC_EXACT = 1124;
     constexpr int OPT_FLATTEN_RECORDS = 1125;
+    constexpr int OPT_READ_CONSENSUS = 1126;
+    constexpr int OPT_CONSENSUS_MIN_DIFF = 1127;
+    constexpr int OPT_CONSENSUS_MIN_READS = 1128;
+    constexpr int OPT_CONSENSUS_MIN_SHARE = 1129;
+    constexpr int OPT_CONSENSUS_MIN_SPANNING = 1130;
+    constexpr int OPT_CONSENSUS_MIN_CHANGE = 1131;
+    constexpr int OPT_CONSENSUS_MAX_READS = 1132;
     optind = 2; // force optind past command positional argument
     // The long options, grouped by the subsystem they configure, by its name. Every subsystem with
     // a switch is part of the read-likelihood genotyper.
@@ -1128,6 +1158,7 @@ int main_call(int argc, char** argv) {
         }}},
         {"the read-likelihood genotyper", {"--read-likelihood", nullptr,
          [&] { return read_likelihood; }, {
+            {"read-consensus", no_argument, nullptr, OPT_READ_CONSENSUS},
             {"no-phased", no_argument, nullptr, OPT_NO_PHASED},
             {"gam", required_argument, nullptr, OPT_GAM},
             {"gaf-reads", required_argument, nullptr, OPT_GAF},
@@ -1216,6 +1247,15 @@ int main_call(int argc, char** argv) {
         }}},
         // Re-genotyping needs read phasing, so it is off without it, even where a preset turned it
         // on.
+        {"read consensus", {"--read-consensus", "the read-likelihood genotyper",
+         [&] { return read_consensus.enabled; }, {
+            {"consensus-min-diff", required_argument, nullptr, OPT_CONSENSUS_MIN_DIFF},
+            {"consensus-min-reads", required_argument, nullptr, OPT_CONSENSUS_MIN_READS},
+            {"consensus-min-share", required_argument, nullptr, OPT_CONSENSUS_MIN_SHARE},
+            {"consensus-min-spanning", required_argument, nullptr, OPT_CONSENSUS_MIN_SPANNING},
+            {"consensus-min-change", required_argument, nullptr, OPT_CONSENSUS_MIN_CHANGE},
+            {"consensus-max-reads", required_argument, nullptr, OPT_CONSENSUS_MAX_READS},
+        }}},
         {"re-genotyping", {"--regenotype", "the read-likelihood genotyper",
          [&] { return regenotype && read_phasing; }, {
             {"regeno-ceiling", required_argument, nullptr, OPT_REGENO_CEILING},
@@ -1423,6 +1463,27 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_FLATTEN_RECORDS:
             flatten_records = true;
+            break;
+        case OPT_READ_CONSENSUS:
+            read_consensus.enabled = true;
+            break;
+        case OPT_CONSENSUS_MIN_DIFF:
+            read_consensus.min_diff = parse<size_t>(optarg);
+            break;
+        case OPT_CONSENSUS_MIN_READS:
+            read_consensus.min_reads = parse<size_t>(optarg);
+            break;
+        case OPT_CONSENSUS_MIN_SHARE:
+            read_consensus.min_share = parse<double>(optarg);
+            break;
+        case OPT_CONSENSUS_MIN_SPANNING:
+            read_consensus.min_spanning = parse<size_t>(optarg);
+            break;
+        case OPT_CONSENSUS_MIN_CHANGE:
+            read_consensus.min_change = parse<size_t>(optarg);
+            break;
+        case OPT_CONSENSUS_MAX_READS:
+            read_consensus.max_reads = parse<size_t>(optarg);
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
@@ -2547,6 +2608,9 @@ int main_call(int argc, char** argv) {
             likelihood_params.anchor_counters = &anchor_run_counters;
             anchor_params.counters = &anchor_run_counters;
             likelihood_params.collect_read_phasing = read_phasing;
+            // The read-consensus step leaves out the snarls where fewer reads than it needs to
+            // differ have enough bases between the bounds.
+            likelihood_params.span_rank = read_consensus.enabled ? read_consensus.min_reads : 0;
 
             auto owned_calculator = make_unique<GraphAlignedAlleleLikelihoodCalculator>(
                 *graph, *read_source, *qual_scorer, *plain_scorer,
@@ -2877,6 +2941,16 @@ int main_call(int argc, char** argv) {
     if (flatten_records && multipass_caller != nullptr) {
         multipass_caller->set_flatten_records(true);
     }
+    if (read_consensus.enabled && multipass_caller != nullptr) {
+        // The step tests every snarl where this is set, to measure what its prefilter leaves
+        // out.
+        read_consensus.prefilter = getenv("VG_READ_CONSENSUS_NO_PREFILTER") == nullptr;
+        // The step keeps to the limits of the read scorer, which are its defaults.
+        const AlleleLikelihoodParams scorer_limits;
+        multipass_caller->set_read_consensus(read_consensus,
+                                             scorer_limits.sequence_allele_max_bases,
+                                             scorer_limits.sequence_allele_max_alignments);
+    }
 
     if (nested_calling) {
         multipass_caller->set_nested_calling(true);
@@ -2949,6 +3023,18 @@ int main_call(int argc, char** argv) {
                                << "enumeration (-z or -g) and --read-likelihood" << endl;
             }
             phased_output = false;
+        }
+        if (read_consensus.enabled
+            && (read_consensus.min_reads < 1 || read_consensus.min_share < 0.0
+                || read_consensus.min_share > 1.0)) {
+            logger.error() << "--consensus-min-reads must be at least 1 and "
+                           << "--consensus-min-share between 0 and 1" << endl;
+        }
+        if (read_consensus.enabled && !phased_output) {
+            // The step compares the reads of a strand with what the phase puts on it.
+            logger.error() << "--read-consensus needs the phase the linkage model gives each "
+                           << "site (--phased), which needs haplotype enumeration (-z or -g)"
+                           << endl;
         }
         if (flatten_records && !phased_output) {
             // A flat record spells a strand, and the phase says which strand carries which

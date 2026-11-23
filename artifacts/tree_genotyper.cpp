@@ -248,6 +248,7 @@ bool TreeGenotyper::genotype_nested_chain(SiteCall& call) {
                            .position_from_parent = position_from_parent},
         call.ploidy);
     place_in_tree(*call.staged, placement);
+    call.staged->region_ploidy = call.region_ploidy;
     call.staged_nested = true;
     record_nested_chain(call);
     return call.genotype.size() == (size_t)call.ploidy;
@@ -554,6 +555,43 @@ vector<int> TreeGenotyper::group_walks(const SiteCall& call) const {
         return {};
     }
     return candidate_groups(*parts.graph, call.walks, call.nested.children);
+}
+
+bool TreeGenotyper::regenotype(StagedSite& site, size_t first_added) const {
+    const PathPositionHandleGraph& graph = *parts.graph;
+    vector<int> group_of;
+    if (options.group_candidates) {
+        // The walks the site had are grouped as the direct pass grouped them. An added allele
+        // crosses no child chain, so it is a group of its own.
+        group_of = candidate_groups(
+            graph, vector<Traversal>(site.alleles.walks.begin(),
+                                     site.alleles.walks.begin() + first_added),
+            site.children);
+        if (!group_of.empty()) {
+            int next = *std::ranges::max_element(group_of) + 1;
+            for (size_t a = first_added; a < site.alleles.walks.size(); ++a) {
+                group_of.push_back(next++);
+            }
+        }
+    }
+    const handle_t start = parts.sites->get_site_start(site.net);
+    const handle_t end = parts.sites->get_site_end(site.net);
+    const MaterializedSite view{start, graph.get_length(start), end, 0, site.alleles};
+    // A nested chain is scored at the other ploidy too, as the direct pass scores it.
+    const bool nested = site.placement.level > 0;
+    auto [genotype, score] = parts.genotyper->genotype_at(
+        view,
+        Ploidies{.ploidy = site.ploidy, .region_ploidy = site.region_ploidy,
+                 .also_score_other = nested},
+        fallback_nodes_of(*parts.sites, graph, site.net),
+        group_of.empty() ? nullptr : &group_of);
+    if (genotype.size() != (size_t)site.ploidy) {
+        return false;
+    }
+    site.genotype = std::move(genotype);
+    site.set_score(std::move(score));
+    site.panel_cache.reset();
+    return true;
 }
 
 unique_ptr<StagedSite> TreeGenotyper::stage_render_record(

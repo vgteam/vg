@@ -129,6 +129,9 @@ struct StagedSite {
     /// For a nested chain, it is the number of the parent's called alleles that cross the chain,
     /// or the parent's ploidy when none does. `score` also holds the answer at the other ploidy.
     int ploidy = 2;
+    /// For a nested chain, the number of the sample's haplotypes in the region around the site
+    /// (`Ploidies::region_ploidy`), and 0 for any other site.
+    int region_ploidy = 0;
     /// The genotyper's call, which the record is written from.
     unique_ptr<SnarlCaller::CallInfo> call_info;
     /// The object `call_info` holds, typed as a read-likelihood score, or null if another genotyper

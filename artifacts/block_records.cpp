@@ -25,6 +25,7 @@ static constexpr auto g_atomize_refuse_name = std::to_array<const char*>({
     "-L merged the called alleles, which blocks would spell apart again",
     "one block that two strands' routes spell differently within one site allele, so the site cannot give it a genotype",
     "one block, where a chain crossed more than once may leave its record short of what the site record says",
+    "a called allele puts bases of its own on a boundary node of the site, which no block spells",
 });
 /// A description of each `FlatRefusal`, in the order of the enum.
 static constexpr auto g_flat_refuse_name = std::to_array<const char*>({
@@ -1139,6 +1140,21 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const SiteChi
     const vector<pair<int, int>> clusters = alignment.difference_clusters();
     if (clusters.empty()) {
         return refuse(AtomizeRefusal::NoDifferenceBlocks);
+    }
+    // Every allele visits the two boundary nodes of the site, so no block covers them, and a
+    // block takes them from the reference. An allele whose step sequences put other bases
+    // there, as a sequence allele does (see `add_sequence_allele`), is spelled only by the site
+    // record.
+    for (const int allele : genotype) {
+        const StepSequences* own = allele >= 0 ? own_sequences(sequences, (size_t)allele) : nullptr;
+        if (own == nullptr || own->empty()) {
+            continue;
+        }
+        const Traversal& walk = called_traversals[allele];
+        if (own->front() != graph.get_sequence(walk.front())
+            || own->back() != graph.get_sequence(walk.back())) {
+            return refuse(AtomizeRefusal::BoundChanged);
+        }
     }
 
     // Build every record before writing any, so that the decision to split is made on the

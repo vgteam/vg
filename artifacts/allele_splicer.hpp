@@ -54,6 +54,12 @@ public:
     /// without a phase there is no strand to splice on. The sites must not move until `clear()`.
     void index(StagedSiteTable& staged_sites, bool phasing);
 
+    /// Index the staged sites under each site of `staged_sites` before the hand-off, while the
+    /// nested sites are in the gathered nested list.
+    ///
+    /// Index nothing unless the phase table has its render phases. The sites must not move
+    /// until `clear()`.
+    void index_before_hand_off(StagedSiteTable& staged_sites);
     /// Forget the index.
     void clear();
 

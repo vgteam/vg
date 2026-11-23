@@ -121,8 +121,10 @@ sites is described under [Passes and rounds](#passes-and-rounds), after the voca
 
 ## Passes and rounds
 
-vg goes over the sites in **passes**. The **direct pass** comes first and runs once. It is the only
-pass that fetches reads: the steps after it work from the evidence it keeps for each read.
+vg goes over the sites in **passes**. The **direct pass** comes first and runs once. It fetches
+the reads: the steps after it work from the evidence it keeps for each read, except for the
+[read-consensus step](#alleles-built-from-the-reads---read-consensus), which fetches the reads of
+the sites it tests.
 **Rounds** follow, each built around a **linkage pass**. Last, the **render** builds the records,
 and vg writes the output files:
 
@@ -138,6 +140,8 @@ round 1, 2, ...                     round 2 on only with --regenotype
         phasing from the panel      put each genotype's alleles on the strands
         ploidy of the next level    from the genotypes just chosen
     read phasing                    re-decide the phases from the reads (--read-phasing)
+    read consensus                  round 1 only, with --read-consensus: add alleles built from
+                                    the reads, then a linkage pass and read phasing again
 render                              build each site's records from its settled genotype
 write                               the VCF, and the mosaic and anchor files if asked for
 ```
@@ -292,12 +296,82 @@ A site's candidate alleles come from the panel or from the reads.
 vg keeps a site's candidate alleles in a list, in the order in which vg's search finds them, with
 the reference allele added at the end if the search did not find it.
 
+With [`--read-consensus`](#alleles-built-from-the-reads---read-consensus), a snarl can also gain
+an allele built from its reads after the direct pass.
+
 `--max-snarl-edges` sets a limit on a site's edges, counting the edges of the sites nested in it.
 vg skips a site over the limit, and genotypes the sites of its child chains as top-level sites.
 They take the ploidy of their contig or region, and join the contig's top-level sites in the
 linkage model. A skipped site with no child chains gets no genotype and no record, even with
 `--genotype-snarls`. The limit exists because Yen's search is slow on very large sites. Under
 haplotype enumeration, which does not use Yen's search, there is no limit by default.
+
+### Alleles built from the reads (`--read-consensus`)
+
+Haplotype enumeration offers only the alleles of the panel, and
+[off-panel detection](read-likelihood-direct-genotyping.md) adds changes inside nodes. With
+`--read-consensus`, off by default, a snarl whose reads carry a longer sequence that no walk spells
+gains that sequence as an allele. It needs `--phased`. The step runs once, at the end of round 1,
+on each snarl that has a phase, at any level, and on each of its strands:
+
+1. The strand's reads are the reads that **span** the snarl, from its start bound's node to its
+   end bound's, and that [read phasing](#from-the-reads) puts on the strand: those whose strand
+   log-odds, without the snarl's own term, are positive for strand 0 and negative for strand 1.
+   Where fewer than half of the spanning reads have a strand, as in a long homozygous stretch or
+   without `--read-phasing`, all of them are taken to be on strand 0. A snarl with one strand has
+   all of them on it.
+2. A read **disagrees** with the strand where its bases between the bounds differ from the
+   strand's called sequence there by `--consensus-min-diff` bases (15) or more. The called sequence
+   is the strand's allele with each site nested in the snarl spelled by the allele the strand has
+   there, as a [flat record](#flat-records) spells it. The two differ by that much where their
+   lengths do, or where their edit distance is at least that many bases and at least 8% of the
+   longer of the two.
+3. The strand is a **candidate** where at least `--consensus-min-spanning` (6) of its reads span
+   the snarl, and at least `--consensus-min-reads` (3) of them, and at least
+   `--consensus-min-share` (0.25) of them, disagree.
+4. A candidate strand gets the consensus of its spanning reads. At most `--consensus-max-reads`
+   (20) are used, those nearest the median length. Each is aligned to the called sequence, each
+   base becomes whichever of a base or a deletion most reads have there, and an insertion is made
+   where more than half the reads insert bases; the result is aligned to again until it stops
+   changing. A difference that only changes the length of a run of one base is undone.
+5. A consensus more than `--consensus-min-change` (10) differing bases from the called sequence
+   becomes an allele of the snarl, unless one of the snarl's alleles spells it already. Two strands
+   with the same consensus add one allele. The allele is given as its bases between the bounds. It
+   visits no node between them, so it crosses no site nested in the snarl, as a deletion of
+   everything between the bounds does, and no panel haplotype carries it.
+
+A strand is left alone where a snarl nested in its snarl gained an allele for the strand, so that a
+difference is given to the innermost snarl that holds it. The step looks at one snarl at a time. A
+difference that the reads' alignments spread over several neighbouring snarls of a chain, as in a
+tandem repeat, makes a candidate only of a snarl that holds `--consensus-min-diff` bases of it, or
+of a snarl that encloses them all.
+
+A snarl that gained an allele is genotyped again from its reads, at the ploidy it has. Each read
+that spans it is scored by aligning its bases between the bounds to every allele's (see
+[Relative likelihood](read-likelihood-direct-genotyping.md#relative-likelihood)), and the other
+reads are scored as before and say nothing about the new allele. Where [groups](#choosing-among-alleles-that-differ-inside-child-chains)
+choose the genotype, the new allele is a group of its own. The snarl is then filed with the linkage
+model in place of its first call, and a linkage pass and read phasing run again before any further
+round. So the linkage model, to which the allele is one no haplotype carries, read phasing and
+re-genotyping treat the snarl as if the direct pass had found the allele.
+
+The step fetches reads only at the snarls where a read can disagree. The direct pass keeps, for
+each snarl, the number of reads that span it and the number of bases the read with the
+`--consensus-min-reads`-th most has between the bounds. A snarl is tested where at least
+`--consensus-min-spanning` reads span it and either that number of bases, or the length of a
+strand's called sequence between the bounds, is at least `--consensus-min-diff`. Every candidate
+snarl passes this, since a read can only differ by that many bases from a called sequence where
+one of the two has that many. The scorer aligns at most 10,000 bases between the bounds and makes
+at most 2,000 alignments at one snarl (see [Fixed constants](#fixed-constants)); a snarl over
+either limit gains no allele. The step fetches reads without adding to the read-start counts of
+the [depth term](read-likelihood-direct-genotyping.md#depth-term) or to the off-panel candidates,
+so both are as the direct pass left them.
+
+A record whose snarl is called with such an allele has `INFO/RC`. It is the snarl's site record,
+not [block records](#block-records): the allele puts its bases after the start bound's node, which
+no block covers. Its `AT` walk is the two bound nodes alone. vg reports on standard error how many
+snarls it tested, how many strands were candidates, how many alleles it added and how many snarls
+were called with one, and how many were left alone for each reason.
 
 ## Ploidy
 
@@ -585,6 +659,7 @@ the allele its GT entry names, and compares the result with the strand's resolve
 | `FORMAT/PS` | the phase set |
 | `INFO/SB` | not strand bias: on a block record, its index counting from 0 among the site's block records, and the number of block records the site writes (see [Reporting each difference once](#reporting-each-difference-once)); likewise on a [flat record](#flat-records) |
 | `INFO/FL` | the record is a [flat record](#flat-records), written with `--flatten-records` |
+| `INFO/RC` | the called genotype of the record's snarl has an [allele built from the reads](#alleles-built-from-the-reads---read-consensus), written with `--read-consensus`; on a flat record, the called genotype of its top-level snarl or of a snarl nested in it has one |
 | `FILTER=noreads` | the site had no reads, so no genotype is called (`GT` is `./.`). Such a record is written only with `--genotype-snarls`, which also writes reference calls |
 | `FILTER=lowconf` | `GQN` is below `--min-confidence`, when that is above 0 |
 
@@ -853,6 +928,10 @@ file also has a row for each such strand and site, starting with `A`, and its ve
 | `walk` | the allele the strand was called with, as its walk from `start_node` to `end_node`, both included: `>` and a node ID for a node read forwards, `<` and a node ID for one read backwards |
 | `sequence` | `.` where `walk` spells the allele; otherwise the strand's bases over `walk`, from the first base of `start_node` to the last base of `end_node` |
 
+The row of an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) has
+the two bound nodes alone as its `walk`, and its `sequence` gives the bases between them. The
+graph need not have an edge from the one node to the other.
+
 To rebuild a strand, expand its `H` rows to walks, and then apply its `A` rows in file order. An
 `A` row replaces every stretch of the strand's walks that runs from `start_node` to its next visit
 of `end_node` with `walk`. Where no walk of the strand has such a stretch, `walk` is a walk of its
@@ -1115,6 +1194,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Mismapping](read-likelihood-direct-genotyping.md#mismapping-probability) | `--mismap-min`, `--mismap-max`, `--no-mismap-term` |
 | [Mixture weights](read-likelihood-direct-genotyping.md#mixture-weights) | `--flat-mixture` |
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
+| [Alleles built from the reads](#alleles-built-from-the-reads---read-consensus) | `--read-consensus`, `--consensus-min-diff`, `--consensus-min-reads`, `--consensus-min-share`, `--consensus-min-spanning`, `--consensus-min-change`, `--consensus-max-reads` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
 | [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--flatten-records`, `--no-off-ref-nesting` |
 | [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
@@ -1138,6 +1218,8 @@ holds it.
 | `LinkageModel::Params::window`, `margin` | `artifacts/linkage_model.hpp` | the number of sites each forward–backward window keeps, and the extra sites decoded and discarded on each side |
 | `RATE_BUCKET`, `RATE_ID_WINDOW` | `artifacts/allele_likelihood.hpp` | reference bp per rate-window bucket (a rate window is three buckets), and node IDs per rate window when there are no reference positions |
 | `banded` and `band`, in `score_by_optimal_pairing` | `artifacts/allele_likelihood.cpp` | the grid size, in read visits times allele visits, above which optimal pairing is restricted to a band, and the band's half-width in allele visits |
+| `AlleleLikelihoodParams::sequence_allele_max_bases`, `sequence_allele_max_alignments` | `artifacts/allele_likelihood.hpp` | the most bases between a snarl's bounds, and the most alignments of a read to an allele at one snarl, at a snarl with an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) |
+| `ReadConsensusOptions::min_diff_share` | `artifacts/read_consensus_step.hpp` | the share of the longer of a read and a called sequence that their differing bases are, at least, for a read of nearly the called length to disagree with it |
 | `max_yens_traversals` | `src/subcommand/call_main.cpp` | the most candidate alleles support enumeration keeps |
 | the difference limit in `LinkageModel::run_length_site` | `artifacts/linkage_model.cpp` | the largest homopolymer length difference to which `--hp-prior` applies |
 | the `int8_t` of `LinkageCollector::allele_arena` | `artifacts/linkage_model.hpp` | the most alleles a site's compact allele set may hold for the linkage model |

@@ -30,6 +30,18 @@ void AlleleSplicer::index(StagedSiteTable& staged_sites, bool phasing) {
     }
 }
 
+void AlleleSplicer::index_before_hand_off(StagedSiteTable& staged_sites) {
+    children.clear();
+    if (!phase_table.has_rendered()) {
+        return;
+    }
+    staged_sites.for_each([&](StagedSite& site) {
+        if (site.placement.parent_record_key != 0 && !site.dropped) {
+            children[site.placement.parent_record_key].push_back(&site);
+        }
+    });
+}
+
 void AlleleSplicer::clear() {
     children.clear();
 }
