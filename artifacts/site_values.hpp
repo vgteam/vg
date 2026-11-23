@@ -9,10 +9,11 @@
  * (`SiteChildren`). An allele of a site is a `Traversal`, a walk of handles from the start bound of
  * the site to its end bound.
  *
- * Namespace vg holds how edit sites are made. Namespace vg::multipass holds the caller's own types,
+ * Namespace vg holds how edit sites and sequence alleles are made. Namespace vg::multipass holds the caller's own types,
  * and the functions that read them from a decomposition.
  */
 
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -56,6 +57,22 @@ struct EditSite {
  */
 EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t offset, size_t at,
                    size_t length, const vector<string>& alts);
+
+/**
+ * Add a sequence allele to `alleles`, the alleles of a snarl: an allele that spells `interior`
+ * between the snarl's two bounds, whatever the graph has there.
+ *
+ * The allele's walk is the snarl's two boundary nodes alone, as the walks of `alleles` begin and
+ * end, and its one change puts `interior` after the last base of the first. So the allele spells
+ * the first boundary node, then `interior`, then the second boundary node. Its walk visits no
+ * node between the bounds, so it crosses no site nested in the snarl, and no panel haplotype
+ * carries it.
+ *
+ * @return The index of the new allele, or nothing, with `alleles` as it was, if `alleles` has no
+ * walk of two or more steps to take the bounds from, or the two bounds are on one node.
+ */
+optional<size_t> add_sequence_allele(const HandleGraph& graph, CandidateAlleles& alleles,
+                                     const string& interior);
 
 /**
  * Make the ID of an edit site, `op<node>.<offset>.<kind><alt>`.

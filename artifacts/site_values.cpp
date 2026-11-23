@@ -34,6 +34,23 @@ EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t of
     return site;
 }
 
+optional<size_t> add_sequence_allele(const HandleGraph& graph, CandidateAlleles& alleles,
+                                     const string& interior) {
+    if (alleles.walks.empty() || alleles.walks.front().size() < 2) {
+        return std::nullopt;
+    }
+    const handle_t start = alleles.walks.front().front();
+    const handle_t end = alleles.walks.front().back();
+    if (graph.get_id(start) == graph.get_id(end)) {
+        return std::nullopt;
+    }
+    const size_t allele = alleles.walks.size();
+    alleles.walks.push_back({start, end});
+    alleles.edits.resize(allele + 1);
+    alleles.edits[allele].push_back(AlleleEdit{0, graph.get_length(start), 0, interior});
+    return allele;
+}
+
 string edit_site_id(nid_t node, uint32_t offset, char kind, const string& alt) {
     return "op" + std::to_string(node) + "." + std::to_string(offset) + "." + kind + alt;
 }

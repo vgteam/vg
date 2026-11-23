@@ -538,6 +538,22 @@ struct AlleleLikelihoodParams {
     ///
     /// Phasing needs only the rows, not the positions that `collect_anchors` also resolves.
     bool collect_read_phasing = false;
+
+    /**
+     * The most bases that are aligned at a snarl with a sequence allele, an allele that is given
+     * as a sequence between the snarl's bounds (see `add_sequence_allele`).
+     *
+     * A read that spans such a snarl is scored by aligning its bases between the bounds to each
+     * allele's. Where an allele has more bases than this between the bounds, the snarl's sequence
+     * alleles are not offered: no read can be placed on them. A read with more bases than this
+     * between the bounds is scored as a read that does not span the snarl.
+     */
+    size_t sequence_allele_max_bases = 10000;
+
+    /// The most alignments of a read to an allele that are made at one snarl with a sequence
+    /// allele. Where the reads that span the snarl need more, its sequence alleles are not
+    /// offered.
+    size_t sequence_allele_max_alignments = 2000;
 };
 
 /**
@@ -552,6 +568,13 @@ public:
      *
      * Nothing in the matrix depends on the ploidy the site is then genotyped at. An allele with
      * step sequences is scored against them rather than against the nodes of its walk.
+     *
+     * At a snarl with a sequence allele, a read that spans the snarl from bound to bound is
+     * scored on every allele by aligning its bases between the bounds to the allele's. A read
+     * that does not span the snarl is scored on the other alleles as at any snarl, and fits each
+     * sequence allele as well as the allele it fits best, so that it says nothing about the
+     * sequence allele. Where the alignments would pass the limits of the parameters, no read can
+     * be placed on a sequence allele, and the others are scored as at any snarl.
      *
      * @param site The site, whose alleles are in the order the caller will genotype them.
      * @param fallback_nodes Nodes to place the site's depth-rate window by, most preferred
@@ -690,6 +713,9 @@ protected:
     /// A table of the alleles of one site, as node visits with sequences, ready for scoring reads.
     struct SiteAlleles;
 
+    /// The bases of each allele between the bounds of a snarl that has a sequence allele.
+    struct SequenceAlleles;
+
     /// A dynamic-programming grid that finds the optimal pairing of the visits of one read with
     /// those of one allele.
     class PairingGrid;
@@ -827,6 +853,32 @@ protected:
     void score_row(const Alignment& aln, const vector<ReadStep>& read_steps,
                    const EditAlignmentScorer& read_scorer, const SiteAlleles& alleles,
                    ReadScratch& scratch, vector<double>& row) const;
+
+    /**
+     * Fill `row` with the ln-likelihood under each allele of a read that spans a snarl with a
+     * sequence allele, by aligning the read's bases between the snarl's bounds to each allele's.
+     *
+     * The read's bases between the bounds are those after its last base on the start bound's
+     * node and before its first base on the end bound's, with any bases it inserts there. Each
+     * allele's entry is the read's score on the two boundary nodes, from its own alignment, plus
+     * the score of the best global alignment of the read's bases between the bounds to the
+     * allele's, in nats, plus `insertion_gap_nats` for each gap of read bases in that alignment.
+     *
+     * The alignment is scored as `plain_scorer` scores a read's alignment to a walk: a matched
+     * base scores `match`, a mismatched one `-mismatch`, and a gap of n bases
+     * `-(gap_open + (n - 1) * gap_extension)`. With m matched bases, x mismatched, and the gaps
+     * G, between a read of r bases and an allele of a, 2m + 2x + (bases in gaps) = r + a, so the
+     * score is `(match * (r + a) - cost) / 2`, where the cost is `2 * (match + mismatch)` for
+     * each mismatch and `2 * (gap_open - gap_extension) + (2 * gap_extension + match) * n` for
+     * each gap. The string aligner finds the alignment of least such cost, which is the one of
+     * the highest score.
+     *
+     * @return False, leaving `row` as it was, if the read has more bases between the bounds
+     * than `sequence_allele_max_bases`, or an alignment is not found within the aligner's limits.
+     */
+    bool score_spanning_read(const Alignment& aln, const vector<ReadStep>& read_steps,
+                             const EditAlignmentScorer& read_scorer,
+                             const SequenceAlleles& sequences, vector<double>& row) const;
 
     /// The statistics of the reads that begin in a rate window.
     struct WindowReadStats {

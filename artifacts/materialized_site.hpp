@@ -93,7 +93,8 @@ struct CandidateAlleles {
      *
      * An edit site's ALTs differ from the graph inside nodes, so their walks do not spell them and
      * they have changes here. An allele whose entry is empty, or lies past the end of the vector,
-     * is spelled by its walk. A snarl's alleles all are, and the vector is empty.
+     * is spelled by its walk. A snarl's alleles all are, but for its sequence alleles (see
+     * `add_sequence_allele`), and the vector is empty where it has none.
      */
     vector<vector<AlleleEdit>> edits;
 
