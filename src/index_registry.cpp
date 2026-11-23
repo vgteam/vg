@@ -23,7 +23,6 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <zlib.h>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
@@ -39,6 +38,7 @@
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
 #include <Fasta.h>
+#include <htslib/hts.h>
 #include <htslib/tbx.h>
 
 #include "vg.hpp"
@@ -410,26 +410,21 @@ static void init_in_out(fstream& strm, const string& name) {
     }
 }
 
-/// Return true if a read file, possibly gzipped, is FASTA, and false if it is
-/// FASTQ. Exit with an error if the file cannot be read or is empty.
+/// Return true if a read file, possibly compressed, is FASTA, and false if it
+/// is FASTQ. Exit with an error if it is neither, or cannot be read.
 static bool reads_are_fasta(const string& filepath) {
-    // zlib reads uncompressed files transparently.
-    gzFile file = gzopen(filepath.c_str(), "rb");
+    htsFile* file = hts_open(filepath.c_str(), "r");
     if (!file) {
         error(context) << "Failed to open read file " << filepath << endl;
     }
-    int first = gzgetc(file);
-    gzclose(file);
-    if (first == '>') {
+    htsExactFormat format = hts_get_format(file)->format;
+    hts_close(file);
+    if (format == fasta_format) {
         return true;
-    } else if (first == '@') {
+    } else if (format == fastq_format) {
         return false;
-    } else if (first == -1) {
-        error(context) << "Read file " << filepath << " is empty or unreadable" << endl;
-    } else {
-        error(context) << "Read file " << filepath << " starts with '" << (char) first
-                       << "', not a FASTA '>' or FASTQ '@'" << endl;
     }
+    error(context) << "Read file " << filepath << " is not FASTA or FASTQ" << endl;
     // error() exits, so this is unreachable.
     return false;
 }
