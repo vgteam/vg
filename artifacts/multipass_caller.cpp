@@ -268,8 +268,7 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
     }
     const AlleleSequences& steps = site.spliced ? site.spliced->sequences : own_steps;
     RecordRenderer::WrittenAlleles written;
-    bool has_line = false;
-    site_emitter.emit(
+    const SiteEmitter::Outcome outcome = site_emitter.emit(
         graph,
         CalledSite{
             .start = sites.get_site_start(site.net),
@@ -297,10 +296,9 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
             if (sites.is_edit(site.net)) {
                 record.infoFlags["OP"] = true;
             }
-        },
-        &has_line);
+        });
     site.spliced.reset();
-    return has_line ? written : RecordRenderer::WrittenAlleles();
+    return outcome == SiteEmitter::Outcome::Written ? written : RecordRenderer::WrittenAlleles();
 }
 
 void MultiPassCaller::finish_moved_record(vcflib::Variant& record) {
