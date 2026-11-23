@@ -366,10 +366,12 @@ const vector<vector<nid_t>> THREE_PANEL{{1, 3, 4, 6, 7, 9, 10},
                                         {1, 2, 4, 5, 7, 9, 10}};
 
 /// A read of the whole of `walk`, named `name`, with the bases `inserted` gives after the last
-/// base of a node, and a base that is not the node's at each of the offsets `changed` gives.
+/// base of a node, a base that is not the node's at each of the offsets `changed` gives, and
+/// the bases `inside` gives before the base at an offset of a node.
 Alignment read_with(const HandleGraph& graph, const string& name, const vector<nid_t>& walk,
                     const map<nid_t, string>& inserted,
-                    const map<nid_t, vector<size_t>>& changed = {}) {
+                    const map<nid_t, vector<size_t>>& changed = {},
+                    const map<nid_t, pair<size_t, string>>& inside = {}) {
     Alignment aln;
     aln.set_name(name);
     string seq;
@@ -388,6 +390,13 @@ Alignment read_with(const HandleGraph& graph, const string& name, const vector<n
             }
             from = to;
         };
+        if (inside.contains(n)) {
+            match_to(inside.at(n).first);
+            Edit* insertion = m->add_edit();
+            insertion->set_to_length((int32_t)inside.at(n).second.size());
+            insertion->set_sequence(inside.at(n).second);
+            seq += inside.at(n).second;
+        }
         for (size_t offset : offsets) {
             match_to(offset);
             Edit* e = m->add_edit();
@@ -411,15 +420,17 @@ Alignment read_with(const HandleGraph& graph, const string& name, const vector<n
 }
 
 /// Return the sequence strand `strand` of the sample has from node 1 through node 10 of the
-/// graph `make` builds, as the three records of `records` spell it.
+/// graph `make` builds, as the records of `records` spell it: those of `sites`, each the ID of
+/// a site and the node of its end bound.
 string spelled_strand(const function<void(bdsg::HashGraph&)>& make, const vector<string>& records,
-                      size_t strand) {
+                      size_t strand,
+                      const vector<pair<string, nid_t>>& sites = {{">1>4", 4}, {">4>7", 7},
+                                                                  {">7>10", 10}}) {
     bdsg::HashGraph graph;
     make(graph);
     auto node = [&](nid_t id) { return graph.get_sequence(graph.get_handle(id)); };
     string spelled = node(1);
-    for (const auto& [id, after] : vector<pair<string, nid_t>>{{">1>4", 4}, {">4>7", 7},
-                                                                {">7>10", 10}}) {
+    for (const auto& [id, after] : sites) {
         const string record = record_of(records, id);
         REQUIRE(!record.empty());
         vector<string> alleles{field(record, 3)};
@@ -492,7 +503,62 @@ TEST_CASE("A run of snarls in a tandem repeat gains an expansion its reads place
     }
 }
 
-TEST_CASE("A run whose consensus changes the node between two snarls is left alone and counted",
+/// The sites of the three-snarl chain once its first two snarls are one site.
+const vector<pair<string, nid_t>> FIRST_TWO_MERGED{{">1>7", 7}, {">7>10", 10}};
+
+/// Return the sequence strand `strand` of the sample has, as the flat records of `records`
+/// spell it: `reference`, with each record's allele for the strand in place of its REF.
+string spelled_flat(const string& reference, const vector<string>& records, size_t strand) {
+    string spelled;
+    size_t copied = 0;
+    for (const string& record : records) {
+        vector<string> alleles{field(record, 3)};
+        stringstream alts(field(record, 4));
+        for (string alt; getline(alts, alt, ',');) {
+            alleles.push_back(alt);
+        }
+        const string genotype = field(record, 9).substr(0, 3);
+        REQUIRE(genotype[1] == '|');
+        const size_t at = std::stoul(field(record, 1)) - 1;
+        const string& allele = alleles.at((size_t)(genotype[2 * strand] - '0'));
+        if (&allele == &alleles[0]) {
+            continue;
+        }
+        REQUIRE(at >= copied);
+        spelled += reference.substr(copied, at - copied) + allele;
+        copied = at + alleles[0].size();
+    }
+    return spelled + reference.substr(copied);
+}
+
+/// Require that `called` made one site of the first two snarls of the chain `make` builds, and
+/// that its records spell the sequences of the reads `plain` and `changed`, one on each strand.
+/// With `reference`, the sequence of the reference path, the records are flat ones.
+void require_first_two_merged(const function<void(bdsg::HashGraph&)>& make, const Called& called,
+                              const Alignment& plain, const Alignment& changed,
+                              const string& reference = "") {
+    REQUIRE(called.counts.runs_treated == 1);
+    REQUIRE(called.counts.runs_merged == 1);
+    // The second snarl is removed, and the one site takes the place of the first.
+    REQUIRE(called.counts.merged_removed == 1);
+    REQUIRE(called.counts.merged_called == 1);
+    REQUIRE(called.counts.run_sites_gained == 0);
+    REQUIRE(record_of(called.records, ">1>4").empty());
+    REQUIRE(record_of(called.records, ">4>7").empty());
+    const string merged = record_of(called.records, ">1>7");
+    REQUIRE(!merged.empty());
+    REQUIRE((";" + field(merged, 7) + ";").find(";RC;") != string::npos);
+    const string first = reference.empty()
+                             ? spelled_strand(make, called.records, 0, FIRST_TWO_MERGED)
+                             : spelled_flat(reference, called.records, 0);
+    const string second = reference.empty()
+                              ? spelled_strand(make, called.records, 1, FIRST_TWO_MERGED)
+                              : spelled_flat(reference, called.records, 1);
+    REQUIRE((first == changed.sequence() || second == changed.sequence()));
+    REQUIRE((first == plain.sequence() || second == plain.sequence()));
+}
+
+TEST_CASE("A run whose consensus changes the node between two snarls becomes one site",
           "[read_consensus_step]") {
     bdsg::HashGraph graph;
     make_unique(graph);
@@ -506,18 +572,71 @@ TEST_CASE("A run whose consensus changes the node between two snarls is left alo
     }
     ReadConsensusOptions options;
     options.enabled = true;
-    const Called called = call_graph(make_unique, THREE_PANEL, reads, options);
-    // No snarl has 15 bases of the difference.
-    REQUIRE(called.counts.tested == 0);
-    REQUIRE(called.counts.runs_grown == 1);
-    REQUIRE(called.counts.runs_tested == 1);
-    REQUIRE(called.counts.run_candidate_strands == 1);
-    REQUIRE(called.counts.run_built == 1);
-    REQUIRE(called.counts.runs_not_cuttable == 1);
-    REQUIRE(called.counts.runs_treated == 0);
-    REQUIRE(called.counts.run_sites_gained == 0);
-    options.runs = false;
-    REQUIRE(called.records == call_graph(make_unique, THREE_PANEL, reads, options).records);
+    // The reference path takes the first haplotype's walk.
+    for (const bool flatten : {false, true}) {
+        const Called called = call_graph(make_unique, THREE_PANEL, reads, options, flatten);
+        // No snarl has 15 bases of the difference.
+        REQUIRE(called.counts.tested == 0);
+        REQUIRE(called.counts.runs_grown == 1);
+        REQUIRE(called.counts.run_candidate_strands == 1);
+        REQUIRE(called.counts.run_built == 1);
+        REQUIRE(called.counts.runs_not_cuttable == 1);
+        require_first_two_merged(make_unique, called, reads[0], reads[1],
+                                 flatten ? reads[0].sequence() : "");
+    }
+}
+
+TEST_CASE("A run whose reads have bases inside the node between two snarls becomes one site",
+          "[read_consensus_step]") {
+    const string novel = "TTGACCATGCGGATCTTACATTGACC";
+    ReadConsensusOptions options;
+    options.enabled = true;
+
+    SECTION("across a node of few bases") {
+        bdsg::HashGraph graph;
+        make_unique(graph);
+        vector<Alignment> reads;
+        for (size_t i = 0; i < 12; ++i) {
+            reads.push_back(read_with(graph, "x" + std::to_string(i), THREE_PANEL[0], {}));
+            reads.push_back(read_with(graph, "y" + std::to_string(i), THREE_PANEL[1], {}, {},
+                                      {{4, {9, novel}}}));
+        }
+        const Called called = call_graph(make_unique, THREE_PANEL, reads, options);
+        // No read has a base more between the bounds of any snarl.
+        REQUIRE(called.counts.tested == 0);
+        REQUIRE(called.counts.runs_grown >= 1);
+        require_first_two_merged(make_unique, called, reads[0], reads[1]);
+
+        // Without runs the bases are in no record.
+        options.runs = false;
+        const Called alone = call_graph(make_unique, THREE_PANEL, reads, options);
+        REQUIRE(alone.counts.runs_grown == 0);
+        REQUIRE(spelled_strand(make_unique, alone.records, 0).size()
+                == reads[0].sequence().size());
+        REQUIRE(spelled_strand(make_unique, alone.records, 1).size()
+                == reads[0].sequence().size());
+    }
+
+    SECTION("across a node of more bases than two snarls of a run have between them") {
+        // The node between the first two snarls has 80 bases.
+        auto make_long = [](bdsg::HashGraph& graph) {
+            std::mt19937 random(11);
+            vector<string> sequences{drawn(random, 40), "A", "G", drawn(random, 80), "A", "G",
+                                     drawn(random, 19), "A", "G", drawn(random, 40)};
+            make_three(graph, sequences);
+        };
+        bdsg::HashGraph graph;
+        make_long(graph);
+        REQUIRE(graph.get_length(graph.get_handle(4)) > options.run_max_junction);
+        vector<Alignment> reads;
+        for (size_t i = 0; i < 12; ++i) {
+            reads.push_back(read_with(graph, "x" + std::to_string(i), THREE_PANEL[0], {}));
+            reads.push_back(read_with(graph, "y" + std::to_string(i), THREE_PANEL[1], {}, {},
+                                      {{4, {37, novel}}}));
+        }
+        const Called called = call_graph(make_long, THREE_PANEL, reads, options);
+        require_first_two_merged(make_long, called, reads[0], reads[1]);
+    }
 }
 
 }

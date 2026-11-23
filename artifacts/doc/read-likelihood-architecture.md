@@ -181,7 +181,7 @@ grouped by the step they serve; the driver and its walk come first.
 | Step | Module | What it holds |
 |---|---|---|
 | Driver | `multipass_caller.hpp` | `MultiPassCaller`, which holds the options and the widgets, and runs the passes in `call()` |
-| | `edit_snarl_decomposition_overlay.hpp` | `EditSnarlDecompositionOverlay`, the snarl decomposition with the edit sites laid over it as leaf children, through which the caller walks its sites |
+| | `edit_snarl_decomposition_overlay.hpp` | `EditSnarlDecompositionOverlay`, the snarl decomposition with the edit sites laid over it as leaf children, and the sites made of a run of neighbouring snarls, through which the caller walks its sites |
 | | `site_walker.hpp`, `site_scheduler.hpp` | `SiteWalker`, the walk over a decomposition's sites, and the batching scheduler it shares with `GraphCaller` |
 | | `site_values.hpp` | the plain values copied out of the overlay (`SiteChildren`, `ChildSite`), the spelling of edit sites' alleles, and `add_sequence_allele`, which gives a snarl an allele that is a sequence between its bounds; no caller adds one yet |
 | | `staged_site.hpp` | `StagedSite`, one site's result from the direct pass, and `StagedSiteTable`, which holds every staged site from the direct pass to the render |
@@ -202,7 +202,7 @@ grouped by the step they serve; the driver and its walk come first.
 | | `allele_splicer.hpp` | `AlleleSplicer`, which spells a site's alleles with the chosen alleles of the sites staged under it, and gives each strand's resolved sequence and the resolved reference |
 | | `string_aligner.hpp` | `align_global`, a banded global aligner of two strings that returns the alignment's operations, `align_global_pinned`, which keeps given stretches of the first string matched whole, and `left_align_gaps`; `--flatten-records` aligns strands to the reference with them |
 | | `read_consensus.hpp` | `read_consensus`, the consensus of the reads that span a window, built by aligning each read to a backbone with the string aligner |
-| | `read_consensus_step.hpp` | `ReadConsensusStep`, which gives a snarl, or the snarls of a run of neighbours in one chain, the consensus of the reads of a strand that disagree with what is called there, as sequence alleles, and has them genotyped again (`--read-consensus`) |
+| | `read_consensus_step.hpp` | `ReadConsensusStep`, which gives a snarl, or the snarls of a run of neighbours in one chain, the consensus of the reads of a strand that disagree with what is called there, as sequence alleles, and has them genotyped again, or makes the run one site with the consensus as an allele (`--read-consensus`) |
 | | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the summary |
 | | `sorted_vcf_writer.hpp`, `site_emitter.hpp`, `vcf_record.hpp` | `SortedVCFWriter`, the record buffer and VCF writer that vg's callers hold; `SiteEmitter`, which builds one site's record from the caller's allele and field callbacks, and which a caller subclasses to change its decisions; and the helpers that build a record |
 | | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks, or, with `--flatten-records`, as flat records |

@@ -366,14 +366,18 @@ nested in it.
 
 1. A snarl can be in a run where the test above gives it no allele, at least
    `--consensus-min-spanning` reads span it, and its called sequences have no more bases than the
-   scorer aligns. Two such snarls are **neighbours** where they follow each other in a chain, their
-   junction has at most 32 bases, and one phase set orders the strands of both. A **stretch** is a
-   longest sequence of neighbours.
+   scorer aligns. Two such snarls are **neighbours** where they follow each other in a chain, one
+   phase set orders the strands of both, and their junction has at most 32 bases or holds a gap.
+   A read's **gap** inside a node is a run of bases it inserts between two bases of the node, or a
+   run of the node's bases it lacks. A junction holds a gap where `--consensus-min-reads` of the
+   reads that span one of the two snarls have a gap of `--consensus-min-diff` bases or more inside
+   the node of its bound that faces the other. A **stretch** is a longest sequence of neighbours.
 2. A snarl's **signal** is the number of bases by which `--consensus-min-reads` of its spanning
    reads have more between the bounds than its longest called sequence, or fewer than its
-   shortest, whichever is more. A **seed** is a snarl of a stretch that has a candidate strand, or
-   a signal of 3 bases or more. Runs are grown only in a stretch that has a seed and either a snarl
-   with a candidate strand or signals that sum to `--consensus-min-diff` or more.
+   shortest, whichever is more, or the length of the gap its junction with a neighbour holds, if
+   that is more. A **seed** is a snarl of a stretch that has a candidate strand, or a signal of 3
+   bases or more. Runs are grown only in a stretch that has a seed and either a snarl with a
+   candidate strand or signals that sum to `--consensus-min-diff` or more.
 3. A run **grows** from each seed in turn, in the order of the stretch, among the snarls of the
    stretch that are in no treated run. At each step it takes in the neighbour with the greater
    signal, or on a tie the one on the side where it has fewer members, the later side if those tie
@@ -389,19 +393,21 @@ nested in it.
    junctions pinned: each must be matched whole. A junction is usually a few bases of the repeat
    itself, so an alignment that moves a gap off it often costs the same. The pinned alignment
    stands if it costs no more than the best one plus the cost of opening one long gap (24) for
-   each junction the best one missed. A run with no such alignment cannot be cut. It is left
-   alone and counted.
-5. Growth stops at the first run with a consensus that is cut, which is then **treated**: it is the
-   smallest run around the seed that can be. Growth also stops where the run cannot be cut, where
+   each junction the best one missed. A run with no such alignment cannot be cut, and becomes
+   [one site](#a-run-as-one-site).
+5. Growth stops at the first run with a consensus that is cut, or that makes the run one site. The
+   run is then **treated**: it is the smallest run around the seed that can be. Growth also stops
+   where the run can neither be cut nor become one site, where
    a member's alleles or the run's reads are more than the scorer takes, where no strand has
    `--consensus-min-spanning` reads that span the run, at 8 members, and where no neighbour keeps
    the bases between the run's outer bounds within the 10,000 the scorer aligns. A treated run then
    takes in one more neighbour at a time, the later one first, for as long as that leaves it
    treated and gives its treated strands more reads that disagree: reads whose difference the
    mapper put in that neighbour. A snarl is in at most one treated run.
-6. Each member of a treated run has the consensus's bases between its bounds. They become an
-   allele of the member, as in step 5 above, unless one of its alleles spells them already.
-7. Every read that spans the run is placed in the members again, in one way for all reads. It is
+6. Each member of a treated run that was cut has the consensus's bases between its bounds. They
+   become an allele of the member, as in step 5 above, unless one of its alleles spells them
+   already.
+7. Every read that spans such a run is placed in the members again, in one way for all reads. It is
    aligned to each sequence known across the run, the strands' called sequences and the
    consensuses, and cut at the junctions of the one it fits best, the first of two it fits
    equally. The bases a read inserts beside a junction go to the member on that side. Every member
@@ -410,12 +416,37 @@ nested in it.
    read is scored as at any snarl. Each member is filed with the linkage model again, as a snarl
    that gained an allele is.
 
-A run changes no junction, so it cannot hold a difference that lies in the nodes between two
-snarls, such as a deletion that takes several snarls and the nodes between them, or bases inserted
-inside such a node.
-
 A run is left alone on a strand where a snarl nested in one of its members gained an allele for
 the strand, and the members of a treated run count as having gained one.
+
+#### A run as one site
+
+A member of a run cannot change the bases of a junction. So a run that is cut cannot hold a
+difference that lies in the nodes between two snarls, such as a deletion that takes several snarls
+and the nodes between them, or bases inserted inside such a node. A run with a consensus that
+cannot be cut becomes one site, the **merged site**, in place of its members:
+
+- Its bounds are the start bound of the run's first member and the end bound of its last. It is
+  named by them as a snarl is, has the first member's place in the nesting tree and on the
+  reference and its ploidy, and has no child sites.
+- Its alleles are sequences across the run. The first is the walk that takes each member's
+  reference allele, with the junctions between them, which is its reference allele. Then comes
+  what each strand is called as across the run, as the walk that takes the strand's allele at
+  each member where that walk spells it, and otherwise as its bases between the bounds. Last come
+  the consensuses, each strand's whole, as their bases between the bounds. Alleles that spell the
+  same bases are one.
+- It is genotyped from its reads as a snarl that gained an allele is, with every read that spans
+  it aligned to every allele, and filed with the linkage model in place of its first member. The
+  other members, every site nested in a member, and the
+  [edit sites](read-likelihood-direct-genotyping.md) inside the nodes of the junctions are no
+  longer sites: the merged site's alleles spell what was called at them. Phasing, re-genotyping
+  and the records treat the merged site as a snarl. A site that holds the run's chain spells the
+  merged site's chosen alleles in its own, as it does those of any site nested in it.
+
+A run does not become one site, and is left alone on the strands whose consensus cannot be cut,
+where its members are not placed alike on the reference, where a site nested in a member gained an
+allele, or where a change is called at an edit site inside a node of a junction, which the
+strands' called sequences across the run do not have.
 
 #### Which snarls are tested, and limits
 
@@ -733,7 +764,7 @@ the allele its GT entry names, and compares the result with the strand's resolve
 | `FORMAT/PS` | the phase set |
 | `INFO/SB` | not strand bias: on a block record, its index counting from 0 among the site's block records, and the number of block records the site writes (see [Reporting each difference once](#reporting-each-difference-once)); likewise on a [flat record](#flat-records) |
 | `INFO/FL` | the record is a [flat record](#flat-records), written with `--flatten-records` |
-| `INFO/RC` | the called genotype of the record's snarl has an [allele built from the reads](#alleles-built-from-the-reads---read-consensus), written with `--read-consensus`; on a flat record, the called genotype of its top-level snarl or of a snarl nested in it has one |
+| `INFO/RC` | the called genotype of the record's snarl, or of its [merged site](#a-run-as-one-site), has an [allele built from the reads](#alleles-built-from-the-reads---read-consensus), written with `--read-consensus`; on a flat record, the called genotype of its top-level snarl or of a snarl nested in it has one |
 | `FILTER=noreads` | the site had no reads, so no genotype is called (`GT` is `./.`). Such a record is written only with `--genotype-snarls`, which also writes reference calls |
 | `FILTER=lowconf` | `GQN` is below `--min-confidence`, when that is above 0 |
 

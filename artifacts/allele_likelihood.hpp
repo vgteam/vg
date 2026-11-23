@@ -312,6 +312,13 @@ public:
         /// The number of bases that the read with the `span_rank`-th fewest has between the
         /// bounds, or 0 where fewer reads than that span the snarl.
         uint32_t low_bases = 0;
+        /// The longest gap that the read with the `span_rank`-th longest has inside the node of
+        /// the start bound, in bases, or 0 where fewer reads than that span the snarl. A read's
+        /// gap inside a node is a run of bases it inserts between two bases of the node, or a
+        /// run of the node's bases it lacks.
+        uint32_t start_gap = 0;
+        /// The same inside the node of the end bound.
+        uint32_t end_gap = 0;
     };
 
     /// Get the summary of the reads that span the site, which is empty unless the calculator

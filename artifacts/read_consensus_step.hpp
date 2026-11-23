@@ -62,7 +62,8 @@ struct ReadConsensusOptions {
     /// shortest, as it does from a site with a candidate strand.
     size_t run_site_diff = 3;
     /// The most bases that lie between two neighbouring sites of a run: their bound nodes, and
-    /// any nodes between those.
+    /// any nodes between those. Two sites whose reads have a gap of `min_diff` bases inside
+    /// the node of a bound that faces the other are neighbours across any number.
     size_t run_max_junction = 32;
     /// The most sites a run has.
     size_t run_max_members = 8;
@@ -122,17 +123,30 @@ struct ReadConsensusCounts {
     /// Run consensuses within `min_change` bases of the called sequence.
     size_t run_unchanged = 0;
     /// Run consensuses that could not be cut into the member sites, because the bases between
-    /// two members are not found whole in the consensus.
+    /// two members are not found whole in the consensus. Such a run becomes one site where it
+    /// can.
     size_t runs_not_cuttable = 0;
     /// Runs, and seeds with no run, that stopped growing at the most bases the scorer aligns,
     /// and runs left alone because a member's alleles or reads are more than the scorer takes.
     size_t runs_over_cap = 0;
-    /// Runs treated: their consensus was cut, and their member sites genotyped again.
+    /// Runs treated: their consensus was cut and their member sites genotyped again, or they
+    /// became one site.
     size_t runs_treated = 0;
     /// Member sites of treated runs that gained an allele.
     size_t run_sites_gained = 0;
     /// Those whose chosen genotype has an added allele, after the last linkage pass.
     size_t run_sites_called = 0;
+    /// Treated runs that became one site.
+    size_t runs_merged = 0;
+    /// The staged sites those sites took the place of, less one for each: the other member
+    /// sites, the sites under any member, and the edit sites between two members.
+    size_t merged_removed = 0;
+    /// The sites made of a run whose chosen genotype has a consensus allele, after the last
+    /// linkage pass.
+    size_t merged_called = 0;
+    /// Runs whose consensus could not be cut and that did not become one site, because a
+    /// change is called at an edit site inside a node between two members.
+    size_t runs_edit_between = 0;
 };
 
 /**
@@ -181,13 +195,16 @@ struct ReadConsensusCounts {
  *
  * A snarl can be in a run where the single-snarl test gives it no allele, it has a called
  * sequence of no more bases than the scorer aligns, and at least `min_spanning` reads span it.
- * Two such snarls are neighbours where they follow each other in a chain, their junction has
- * at most `run_max_junction` bases, and one phase set orders the strands of both. A stretch is
- * a longest sequence of neighbours.
+ * Two such snarls are neighbours where they follow each other in a chain, one phase set orders
+ * the strands of both, and their junction has at most `run_max_junction` bases or holds a gap:
+ * `min_reads` of the reads that span one of the two have a gap of `min_diff` bases or more
+ * inside the node of its bound that faces the other (`SpanSummary::start_gap`, `end_gap`). A
+ * stretch is a longest sequence of neighbours.
  *
  * A snarl's signal is the number of bases by which `min_reads` of its spanning reads have more
  * between the bounds than its longest called sequence, or fewer than its shortest, whichever is
- * more; the direct pass's span summary gives it. A seed is a snarl of a stretch with a
+ * more, or the length of the gap its junction with a neighbour holds, if that is more; the
+ * direct pass's span summary gives both. A seed is a snarl of a stretch with a
  * candidate strand, or with a signal of `run_site_diff` or more. Runs are grown in a stretch
  * that has a seed and either a snarl with a candidate strand or signals that sum to `min_diff`
  * or more, so that reads are fetched for few stretches.
@@ -196,8 +213,8 @@ struct ReadConsensusCounts {
  * that are in no treated run. It takes the neighbour with the greater signal, or on a tie the
  * one on the side where it has fewer members, the later side if those tie too, and is tested:
  * its reads are fetched and compared as above. It stops at the first run that is treated, so
- * the run is the smallest around the seed that is. It also stops where the run cannot be cut,
- * is over a limit of the scorer, has `min_spanning` reads on no strand, has `run_max_members`
+ * the run is the smallest around the seed that is. It also stops where the run can neither be
+ * cut nor become one site, is over a limit of the scorer, has `min_spanning` reads on no strand, has `run_max_members`
  * members, or has no neighbour that keeps the bases between its bounds within what the scorer
  * aligns. A treated run then takes in one more neighbour, the later one first, for as long as
  * that leaves it treated and gives its treated strands more reads that disagree with what is
@@ -209,10 +226,11 @@ struct ReadConsensusCounts {
  * the best alignment does not match one, the two are aligned again with the junctions pinned
  * (`align_global_pinned`), and that alignment stands if it costs no more than the best plus the
  * cost of opening one long gap for each junction the best did not match. A run with no such
- * alignment is left alone. Each member then has the consensus's bases between its bounds, which
- * become a sequence allele of it unless one of its alleles spells them.
+ * alignment becomes one site (below). Each member of a run that was cut has the consensus's
+ * bases between its bounds, which become a sequence allele of it unless one of its alleles
+ * spells them.
  *
- * Every read that spans the run is then placed in the members in one way. It is aligned to each
+ * Every read that spans a run that was cut is then placed in the members in one way. It is aligned to each
  * sequence known across the run, the strands' called sequences and the consensuses, and cut at
  * the junctions of the one it fits best. Each member of the run is genotyped again with those
  * bases for those reads (`ReadInteriors`), whether or not it gained an allele, and filed again.
@@ -221,6 +239,29 @@ struct ReadConsensusCounts {
  * A run is left alone on a strand where a snarl staged under one of its members gained an
  * allele for the strand, and a member of a treated run counts as having gained one for the
  * strands the run was treated on.
+ *
+ * ## A run as one site
+ *
+ * A member cannot change the bases of a junction, so a run with a consensus that cannot be cut
+ * becomes one site in place of its members: a merged site of the overlay of sites
+ * (`EditSnarlDecompositionOverlay::add_merged_site`), from the first member's start bound to
+ * the last member's end bound. `TreeGenotyper::merged_site` makes and genotypes it. Its
+ * alleles are sequences across the run: the walk that takes each member's reference allele,
+ * which is its reference allele; what each strand is called as across the run, as the walk
+ * that takes the strand's allele at each member where that walk spells it, and as a sequence
+ * allele otherwise; and each strand's consensus, whole, as a sequence allele. Alleles that
+ * spell the same bases are one.
+ *
+ * The site is staged in the place of the run's first member, and filed in the linkage model in
+ * place of that member's entry. The other members, every site staged under a member, and the
+ * edit sites inside the nodes of the junctions are removed from the staged sites and from the
+ * linkage model (`StagedSiteTable::remove_with_nested`), since the site's alleles spell what
+ * was called at them.
+ *
+ * A run does not become one site, and is left alone on the strands whose consensus cannot be
+ * cut, where its members are not placed alike in the nesting tree and on the reference, where
+ * a site staged under a member gained an allele, or where a change is called at an edit site
+ * inside a node of a junction, which the strands' called sequences across the run do not have.
  *
  * The reads are fetched with `SiteReadSource::for_each_read_uncounted`, both to compare them and
  * to genotype again, so the step adds nothing to the source's tallies of read starts or to its
@@ -269,9 +310,10 @@ public:
     size_t run(const Parts& parts);
 
     /// Return whether allele `allele` of the staged site `site` is one the step adds: an allele
-    /// of a snarl that its walk does not spell.
-    static bool is_consensus_allele(const EditSnarlDecompositionOverlay& sites,
-                                    const StagedSite& site, int allele);
+    /// of a snarl that its walk does not spell, or a consensus allele of a site the step made
+    /// of a run.
+    bool is_consensus_allele(const EditSnarlDecompositionOverlay& sites, const StagedSite& site,
+                             int allele) const;
 
     /// Count the sites that gained an allele whose chosen genotype has one, once the last
     /// linkage pass has chosen the genotypes.
@@ -304,6 +346,20 @@ private:
     RunFinding examine_run(const Parts& parts, const AlleleSplicer& splicer,
                            const vector<StagedSite*>& snarls, const Run& run) const;
 
+    /// Return whether `run` can become one site, and note in `found` the edit sites between its
+    /// members, or that a change called at one keeps it from becoming one.
+    bool can_merge(const Parts& parts, const vector<StagedSite*>& snarls, const Run& run,
+                   RunFinding& found) const;
+
+    /// Make the one site that `run` becomes, with what each strand is called as across the run
+    /// and each consensus in `found` as its alleles, and genotype it. Set `first_consensus` to
+    /// the index of its first consensus allele.
+    ///
+    /// @return Nothing if no consensus is a new allele, or the site could not be genotyped.
+    optional<StagedSite> merge_run(const Parts& parts, const AlleleSplicer& splicer,
+                                   const vector<StagedSite*>& snarls, const Run& run,
+                                   const RunFinding& found, size_t& first_consensus) const;
+
     /// Compare the reads of `site` with its called sequences, and build the consensus of each
     /// candidate strand.
     Finding examine(const Parts& parts, const AlleleSplicer& splicer,
@@ -319,6 +375,12 @@ private:
     vector<size_t> changed;
     /// The record keys of the member sites of treated runs that gained an allele.
     vector<size_t> run_changed;
+    /// The record keys of the sites made of a run.
+    vector<size_t> merged_keys;
+    /// The index of the first consensus allele of each site made of a run, by record key.
+    unordered_map<size_t, size_t> merged_first_consensus;
+    /// The staged edit sites inside each node, by node ID, while the step runs.
+    unordered_map<nid_t, vector<const StagedSite*>> edit_sites_on;
 };
 
 }

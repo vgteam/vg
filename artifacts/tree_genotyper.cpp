@@ -596,6 +596,26 @@ bool TreeGenotyper::regenotype(StagedSite& site, size_t first_added,
     return true;
 }
 
+optional<StagedSite> TreeGenotyper::merged_site(const StagedSite& first, const StagedSite& last,
+                                                CandidateAlleles alleles,
+                                                size_t first_added) const {
+    const handle_t start = parts.sites->get_site_start(first.net);
+    const handle_t end = parts.sites->get_site_end(last.net);
+    optional<StagedSite> site(std::in_place);
+    site->id = parts.site_id(start, end);
+    site->record_key = record_key_of(site->id);
+    site->placement = first.placement;
+    site->net = parts.sites->add_merged_site(start, end);
+    site->alleles = std::move(alleles);
+    site->reference = first.reference;
+    site->ploidy = first.ploidy;
+    site->region_ploidy = first.region_ploidy;
+    if (!regenotype(*site, first_added)) {
+        return std::nullopt;
+    }
+    return site;
+}
+
 unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
         const net_handle_t& net, const string& site_id,
         const vector<int>& trav_genotype,

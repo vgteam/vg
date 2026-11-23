@@ -2080,6 +2080,12 @@ struct GraphAlignedAlleleLikelihoodCalculator::SnarlBounds {
     template<typename OnInsertion>
     static pair<size_t, size_t> bases_between(const ReadStep& first, const ReadStep& last,
                                               OnInsertion&& on_insertion);
+
+    /// Return the length of the longest gap a read has inside the node of its visit `step`: a
+    /// run of bases it inserts between two bases of the node, or a run of the node's bases it
+    /// lacks. The bases it inserts before the node's first base or after its last are not
+    /// inside the node.
+    static size_t longest_gap(const ReadStep& step);
 };
 
 void GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::set(const HandleGraph& graph,
@@ -2088,6 +2094,29 @@ void GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::set(const HandleGraph&
     start_backward = graph.get_is_reverse(site.start);
     end = graph.get_id(site.end);
     end_backward = graph.get_is_reverse(site.end);
+}
+
+size_t GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::longest_gap(const ReadStep& step) {
+    const Mapping& mapping = *step.mapping;
+    auto inserts = [&](int64_t i) {
+        return mapping.edit(i).from_length() == 0 && mapping.edit(i).to_length() > 0;
+    };
+    int64_t from = 0;
+    int64_t to = mapping.edit_size();
+    while (from < to && inserts(from)) {
+        ++from;
+    }
+    while (to > from && inserts(to - 1)) {
+        --to;
+    }
+    size_t longest = 0;
+    for (int64_t i = from; i < to; ++i) {
+        const Edit& edit = mapping.edit(i);
+        if (edit.from_length() != edit.to_length()) {
+            longest = std::max(longest, (size_t)std::max(edit.from_length(), edit.to_length()));
+        }
+    }
+    return longest;
 }
 
 template<typename OnInsertion>
@@ -2637,6 +2666,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // The number of bases each read that spans the snarl has between its bounds, if a summary
     // of them is kept.
     vector<uint32_t> span_bases;
+    // The longest gap each of those reads has inside the node of each bound.
+    vector<uint32_t> start_gaps;
+    vector<uint32_t> end_gaps;
     SnarlBounds bounds;
     const bool summarise_spans = params.span_rank > 0 && !boundary_nodes.empty()
                                  && graph.get_id(site.start) != graph.get_id(site.end);
@@ -2658,6 +2690,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                 });
             if (from <= to && to <= scored_aln->sequence().size()) {
                 span_bases.push_back((uint32_t)(to - from));
+                start_gaps.push_back((uint32_t)SnarlBounds::longest_gap(read_steps.front()));
+                end_gaps.push_back((uint32_t)SnarlBounds::longest_gap(read_steps.back()));
             }
         }
         // Score a read with no base qualities with the scorer that does not need them.
@@ -2715,6 +2749,12 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             summary.rank_bases = span_bases[params.span_rank - 1];
             std::ranges::nth_element(span_bases, span_bases.begin() + (params.span_rank - 1));
             summary.low_bases = span_bases[params.span_rank - 1];
+            std::ranges::nth_element(start_gaps, start_gaps.begin() + (params.span_rank - 1),
+                                     std::greater<>());
+            summary.start_gap = start_gaps[params.span_rank - 1];
+            std::ranges::nth_element(end_gaps, end_gaps.begin() + (params.span_rank - 1),
+                                     std::greater<>());
+            summary.end_gap = end_gaps[params.span_rank - 1];
         }
         result.set_span_summary(summary);
     }

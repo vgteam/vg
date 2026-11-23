@@ -371,7 +371,7 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
     if (read_consensus.enabled()) {
         auto called_in = [&](const StagedSite& at, const vector<int>& chosen) {
             return std::ranges::any_of(chosen, [&](int allele) {
-                return ReadConsensusStep::is_consensus_allele(sites, at, allele);
+                return read_consensus.is_consensus_allele(sites, at, allele);
             });
         };
         consensus_called = called_in(site, genotype);
@@ -452,7 +452,8 @@ static const char* const RC_HEADER_LINE =
     "##INFO=<ID=RC,Number=0,Type=Flag,Description=\"Read consensus (--read-consensus): the "
     "called genotype of the record's snarl has an allele that is the consensus of the reads "
     "spanning the snarl, which no walk of the graph spells; its AT is the snarl's two bound "
-    "nodes alone. On a flat record "
+    "nodes alone. The record's site can be a run of neighbouring snarls of one chain made one "
+    "site, which is named by the run's two outer bound nodes. On a flat record "
     "(--flatten-records), the called genotype of the record's top-level snarl, or of a snarl "
     "nested in it, has such an allele\">";
 
