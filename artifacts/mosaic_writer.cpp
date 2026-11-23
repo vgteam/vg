@@ -644,8 +644,9 @@ private:
     void note_edits(const CalledAlleles::Allele& allele);
 
     /// Return the bases of oriented node `visited` on the strand, with the changes of
-    /// `node_edits` made.
-    string strand_sequence(gbwt::node_type visited) const;
+    /// `node_edits` made. The bases a change puts before the first base the visit reads are
+    /// left out unless `with_before`, and those it puts after the last unless `with_after`.
+    string strand_sequence(gbwt::node_type visited, bool with_before, bool with_after) const;
 
     /// Print `A` row `row`, as a row of fragment `row_fragment`.
     void print_allele_row(const AlleleRow& row, size_t row_fragment);
@@ -907,14 +908,23 @@ void ContigRowWriter::note_edits(const CalledAlleles::Allele& allele) {
     }
 }
 
-string ContigRowWriter::strand_sequence(gbwt::node_type visited) const {
+string ContigRowWriter::strand_sequence(gbwt::node_type visited, bool with_before,
+                                        bool with_after) const {
     const nid_t id = gbwt::Node::id(visited);
     string own = exact->graph->get_sequence(exact->graph->get_handle(id));
+    // The changes are along the node, so a visit that reads it backwards has them turned.
+    const bool keep_first = gbwt::Node::is_reverse(visited) ? with_after : with_before;
+    const bool keep_last = gbwt::Node::is_reverse(visited) ? with_before : with_after;
     if (const auto found = node_edits.find(id); found != node_edits.end()) {
         // Along the node, insertions first among the changes at one offset.
         vector<const NodeEdit*> changes;
         for (const NodeEdit& change : found->second) {
-            changes.push_back(&change);
+            const bool outside = change.removed == 0
+                                 && ((change.at == 0 && !keep_first)
+                                     || (change.at == own.size() && !keep_last));
+            if (!outside) {
+                changes.push_back(&change);
+            }
         }
         std::ranges::stable_sort(changes, [](const NodeEdit* a, const NodeEdit* b) {
             return std::tie(a->at, a->removed) < std::tie(b->at, b->removed);
@@ -944,8 +954,9 @@ void ContigRowWriter::print_allele_row(const AlleleRow& row, size_t row_fragment
     }
     contig_out << "\t";
     if (row.with_sequence) {
-        for (const gbwt::node_type& visited : row.walk) {
-            contig_out << strand_sequence(visited);
+        // Bases put before the first base of the walk, or after its last, are not over it.
+        for (size_t i = 0; i < row.walk.size(); ++i) {
+            contig_out << strand_sequence(row.walk[i], i > 0, i + 1 < row.walk.size());
         }
         ++counters.allele_rows_with_sequence;
     } else {
@@ -1428,7 +1439,9 @@ void write_header(ostream& out, const MosaicParams& params, const string& sample
             << "bases inside nodes, as an allele no panel haplotype carries does, and sequence is "
             << "the strand's bases over walk, from the first base of start_node to the last base "
             << "of end_node, read along walk. It has every such change the strand's alleles make "
-            << "to those nodes.\n";
+            << "to those nodes. Bases that an allele puts before the first base of start_node or "
+            << "after the last base of end_node are not over walk, and are in the row of the walk "
+            << "they lie inside.\n";
         out << "#note\tan A row's fragment is that of the H row it follows.\n";
     }
     out << "#H\tcontig\tstrand\tfragment\tref_start\tref_end\tstart_node\tend_node"
