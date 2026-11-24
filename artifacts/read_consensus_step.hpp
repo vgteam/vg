@@ -256,22 +256,23 @@ public:
     const ReadConsensusCounts& counts() const { return counted; }
 
 private:
-    /// What the step found at one site.
-    struct Finding;
-    /// A run of neighbouring sites of one chain.
+    /// What the step knows of one site on its own.
+    struct Alone;
+    /// A run of neighbouring sites of one chain, or one site.
     struct Run;
     /// What the step found at one run.
     struct RunFinding;
 
-    /// Grow and test the runs among `snarls`, whose single-site findings are `findings`. Add
-    /// to `runs` each run that is treated, and to `run_findings` what was found at it.
+    /// Grow and test the runs of two or more among `snarls`, of each of which `alone` says what
+    /// is known on its own. Add to `runs` each run that is treated, and to `run_findings` what
+    /// was found at it.
     void grow_runs(const Parts& parts, const AlleleSplicer& splicer,
-                   const vector<StagedSite*>& snarls, const vector<Finding>& findings,
+                   const vector<StagedSite*>& snarls, const vector<Alone>& alone,
                    vector<Run>& runs, vector<RunFinding>& run_findings);
 
     /// Compare the reads that span `run` with each strand's called sequence across it, build
-    /// and cut the consensus of each candidate strand, and find the bases every spanning read
-    /// has between the bounds of each member site.
+    /// and cut the consensus of each candidate strand, and, for a run of two or more, find the
+    /// bases every spanning read has between the bounds of each member site.
     RunFinding examine_run(const Parts& parts, const AlleleSplicer& splicer,
                            const vector<StagedSite*>& snarls, const Run& run) const;
 
@@ -288,10 +289,9 @@ private:
                                    const vector<StagedSite*>& snarls, const Run& run,
                                    const RunFinding& found) const;
 
-    /// Compare the reads of `site` with its called sequences, and build the consensus of each
-    /// candidate strand.
-    Finding examine(const Parts& parts, const AlleleSplicer& splicer,
-                    const StagedSite& site) const;
+    /// Return what the span summary of `site` says of it: whether a read of it can disagree
+    /// with a called sequence, and what it adds to the signal of a run.
+    Alone measure(const Parts& parts, const AlleleSplicer& splicer, const StagedSite& site) const;
 
     /// Return whether a read with the bases `read` between the bounds disagrees with the called
     /// sequence `called`.

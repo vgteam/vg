@@ -1,8 +1,9 @@
 #include <algorithm>
 #include <cmath>
-#include <deque>
 #include <limits>
 #include <map>
+#include <memory>
+#include <numeric>
 #include <unordered_set>
 
 #include "read_consensus_step.hpp"
@@ -11,43 +12,6 @@
 namespace vg::multipass {
 
 using namespace std;
-
-struct ReadConsensusStep::Finding {
-    /// What the step found on one strand.
-    struct Strand {
-        /// The strand's spanning reads, and how many of them disagree.
-        size_t reads = 0;
-        size_t disagreeing = 0;
-        bool candidate = false;
-        /// The bases the consensus puts between the bounds, where it is to become an allele.
-        optional<string> allele;
-    };
-    Strand strands[2];
-    /// Whether the site's reads were fetched and compared with the called sequences.
-    bool tested = false;
-    /// Whether a called sequence or an allele has more bases between the bounds than the
-    /// scorer aligns, or the reads and alleles need more alignments than it makes.
-    bool over_cap = false;
-    /// Whether the site has two strands and all its reads were taken to be on strand 0.
-    bool pooled = false;
-    /// Whether the site has a called sequence and enough spanning reads to be in a run.
-    bool measured = false;
-    /// The most bases a called sequence has between the bounds.
-    size_t longest = 0;
-    /// The number of bases by which `min_reads` of the spanning reads have more between the
-    /// bounds than the longest called sequence, or fewer than the shortest, whichever is more.
-    size_t signal = 0;
-    /// The longest gap that `min_reads` of the spanning reads have inside the node of the start
-    /// bound, and inside that of the end bound.
-    size_t start_gap = 0;
-    size_t end_gap = 0;
-
-    /// Return whether any strand has a consensus that is to become an allele.
-    bool proposes() const { return strands[0].allele || strands[1].allele; }
-
-    /// Return whether any strand is a candidate.
-    bool candidate() const { return strands[0].candidate || strands[1].candidate; }
-};
 
 bool ReadConsensusStep::disagrees(const string& read, const string& called) const {
     const size_t longer = std::max(read.size(), called.size());
@@ -72,148 +36,9 @@ static optional<string> between(const string& sequence, size_t before, size_t af
     return sequence.substr(before, sequence.size() - before - after);
 }
 
-ReadConsensusStep::Finding ReadConsensusStep::examine(const Parts& parts,
-                                                      const AlleleSplicer& splicer,
-                                                      const StagedSite& site) const {
-    Finding found;
-    const HandleGraph& graph = *parts.graph;
-    const AlleleReadLikelihoods::SpanSummary& spans = site.score->spans;
-    if (spans.reads < options.min_spanning) {
-        return found;
-    }
-    const handle_t start = parts.sites->get_site_start(site.net);
-    const handle_t end = parts.sites->get_site_end(site.net);
-    if (graph.get_id(start) == graph.get_id(end)) {
-        return found;
-    }
-    const size_t before = graph.get_length(start);
-    const size_t after = graph.get_length(end);
-
-    // What each strand is called as between the bounds.
-    optional<string> called[2];
-    bool long_called = false;
-    for (int strand = 0; strand < 2; ++strand) {
-        if (const optional<string> spelled = splicer.strand_sequence(site, strand)) {
-            called[strand] = between(*spelled, before, after);
-        }
-        long_called = long_called || (called[strand] && called[strand]->size() >= options.min_diff);
-    }
-    if (!called[0] && !called[1]) {
-        return found;
-    }
-    size_t shortest = std::numeric_limits<size_t>::max();
-    for (const optional<string>& sequence : called) {
-        if (sequence) {
-            found.longest = std::max(found.longest, sequence->size());
-            shortest = std::min(shortest, sequence->size());
-        }
-    }
-    found.measured = true;
-    found.start_gap = spans.start_gap;
-    found.end_gap = spans.end_gap;
-    found.signal = std::max(
-        spans.rank_bases > found.longest ? spans.rank_bases - found.longest : 0,
-        shortest > spans.low_bases ? shortest - spans.low_bases : 0);
-    // No read can disagree where neither a called sequence nor enough reads have `min_diff`
-    // bases between the bounds.
-    if (!long_called && spans.rank_bases < options.min_diff) {
-        return found;
-    }
-    for (const optional<string>& sequence : called) {
-        if (sequence && sequence->size() > max_bases) {
-            found.over_cap = true;
-            return found;
-        }
-    }
-
-    const MaterializedSite view{start, before, end, 0, site.alleles};
-    const vector<AlleleLikelihoodCalculator::SpanningRead> reads =
-        parts.genotyper->calculator().spanning_reads(view);
-    found.tested = true;
-
-    // Put each read on a strand.
-    const bool one_strand = !called[0] || !called[1];
-    vector<int> strand_of(reads.size(), one_strand ? (called[0] ? 0 : 1) : -1);
-    if (!one_strand) {
-        unordered_map<uint64_t, double> own;
-        const bool have_own = parts.read_strands->site_own_strand_log_odds(site.record_key, own);
-        size_t told = 0;
-        for (size_t r = 0; r < reads.size(); ++r) {
-            const double log_odds = parts.read_strands->read_strand_log_odds(
-                site.record_key, reads[r].name, have_own ? &own : nullptr);
-            if (std::isfinite(log_odds) && log_odds != 0.0) {
-                strand_of[r] = log_odds > 0.0 ? 0 : 1;
-                ++told;
-            }
-        }
-        if (2 * told < reads.size()) {
-            found.pooled = true;
-            std::ranges::fill(strand_of, 0);
-        }
-    }
-
-    for (int strand = 0; strand < 2; ++strand) {
-        if (!called[strand]) {
-            continue;
-        }
-        Finding::Strand& on = found.strands[strand];
-        vector<string> bases;
-        for (size_t r = 0; r < reads.size(); ++r) {
-            // A read with more bases than the scorer aligns does not span the site for it.
-            if (strand_of[r] == strand && reads[r].length <= max_bases) {
-                bases.push_back(reads[r].bases);
-                on.disagreeing += disagrees(reads[r].bases, *called[strand]) ? 1 : 0;
-            }
-        }
-        on.reads = bases.size();
-        on.candidate = on.reads >= options.min_spanning && on.disagreeing >= options.min_reads
-                       && (double)on.disagreeing >= options.min_share * (double)on.reads;
-        if (!on.candidate) {
-            continue;
-        }
-        optional<string> consensus = read_consensus(bases, *called[strand]);
-        const optional<int64_t> change =
-            consensus ? edit_distance(*consensus, *called[strand]) : std::nullopt;
-        if (change && (size_t)*change > options.min_change) {
-            on.allele = std::move(consensus);
-        }
-    }
-
-    // The scorer aligns the spanning reads to every allele, within its limits. A consensus
-    // that an allele spells already is no new allele.
-    size_t new_alleles = 0;
-    for (size_t a = 0; a < site.alleles.walks.size(); ++a) {
-        const optional<string> spelled = between(site.alleles.sequence(graph, a), before, after);
-        if (!spelled || spelled->size() > max_bases) {
-            found.over_cap = true;
-        }
-        for (Finding::Strand& on : found.strands) {
-            if (spelled && on.allele && *on.allele == *spelled) {
-                on.allele.reset();
-            }
-        }
-    }
-    for (const Finding::Strand& on : found.strands) {
-        new_alleles += on.allele ? 1 : 0;
-    }
-    if (found.strands[0].allele && found.strands[1].allele
-        && *found.strands[0].allele == *found.strands[1].allele) {
-        --new_alleles;
-    }
-    if (new_alleles > 0 && !found.over_cap
-        && reads.size() * (site.alleles.walks.size() + new_alleles) > max_alignments) {
-        found.over_cap = true;
-    }
-    if (found.over_cap) {
-        for (Finding::Strand& on : found.strands) {
-            on.allele.reset();
-        }
-    }
-    return found;
-}
-
 struct ReadConsensusStep::Run {
-    /// The members, as indices of the phased snarls, in the order of their chain.
+    /// The members, as indices of the phased snarls, in the order of their chain. A snarl on
+    /// its own is a run of one member.
     vector<size_t> members;
     /// The nodes from each member's end bound to the next member's start bound, both included.
     /// It is the one node where the two share a bound.
@@ -285,6 +110,10 @@ vector<optional<size_t>> matched_junctions(const vector<AlignmentRun>& runs,
  */
 optional<RunSequence> cut_consensus(const RunSequence& called, const string& consensus,
                                     const StringAlignerParams& aligner) {
+    if (called.junctions.empty()) {
+        // A run of one member has no junction to cut at.
+        return RunSequence{consensus, {}};
+    }
     const optional<StringAlignment> best = align_global(called.bases, consensus, aligner);
     if (!best) {
         return std::nullopt;
@@ -374,6 +203,10 @@ struct ReadConsensusStep::RunFinding {
     optional<string> called[2];
     /// The record keys of the edit sites inside the nodes between the members.
     vector<size_t> edits_between;
+    /// Whether the run's reads were fetched and compared with the called sequences.
+    bool fetched = false;
+    /// Whether a called sequence or an allele of a member has more bases between the bounds
+    /// than the scorer aligns, or the reads and alleles need more alignments than it makes.
     bool over_cap = false;
     /// Whether no strand has `min_spanning` reads that span the run.
     bool too_few = false;
@@ -389,27 +222,92 @@ struct ReadConsensusStep::RunFinding {
     bool merges() const { return strands[0].whole.has_value() || strands[1].whole.has_value(); }
 };
 
+struct ReadConsensusStep::Alone {
+    /// Whether the site has a called sequence and enough spanning reads to be in a run.
+    bool measured = false;
+    /// Whether the span summary says a read of the site can disagree with a called sequence.
+    bool can_disagree = false;
+    /// The most bases a called sequence has between the bounds.
+    size_t longest = 0;
+    /// The number of bases by which `min_reads` of the spanning reads have more between the
+    /// bounds than the longest called sequence, or fewer than the shortest, whichever is more.
+    size_t signal = 0;
+    /// The longest gap that `min_reads` of the spanning reads have inside the node of the start
+    /// bound, and inside that of the end bound.
+    size_t start_gap = 0;
+    size_t end_gap = 0;
+    /// Whether the site's reads were fetched and compared with the called sequences.
+    bool tested = false;
+    /// Whether the site is over a limit of the scorer (`RunFinding::over_cap`).
+    bool over_cap = false;
+    /// The number of the site's strands that are candidates.
+    size_t candidates = 0;
+    /// Whether a strand has a consensus that is to become an allele of the site.
+    bool treated = false;
+};
+
+ReadConsensusStep::Alone ReadConsensusStep::measure(const Parts& parts,
+                                                    const AlleleSplicer& splicer,
+                                                    const StagedSite& site) const {
+    Alone alone;
+    const HandleGraph& graph = *parts.graph;
+    const AlleleReadLikelihoods::SpanSummary& spans = site.score->spans;
+    if (spans.reads < options.min_spanning) {
+        return alone;
+    }
+    const handle_t start = parts.sites->get_site_start(site.net);
+    const handle_t end = parts.sites->get_site_end(site.net);
+    if (graph.get_id(start) == graph.get_id(end)) {
+        return alone;
+    }
+    size_t shortest = std::numeric_limits<size_t>::max();
+    for (int strand = 0; strand < 2; ++strand) {
+        optional<string> called;
+        if (const optional<string> spelled = splicer.strand_sequence(site, strand)) {
+            called = between(*spelled, graph.get_length(start), graph.get_length(end));
+        }
+        if (called) {
+            alone.longest = std::max(alone.longest, called->size());
+            shortest = std::min(shortest, called->size());
+        }
+    }
+    if (shortest == std::numeric_limits<size_t>::max()) {
+        // No strand has a called sequence.
+        return alone;
+    }
+    alone.measured = true;
+    alone.start_gap = spans.start_gap;
+    alone.end_gap = spans.end_gap;
+    alone.signal = std::max(
+        spans.rank_bases > alone.longest ? spans.rank_bases - alone.longest : 0,
+        shortest > spans.low_bases ? shortest - spans.low_bases : 0);
+    // No read can disagree where neither a called sequence nor enough reads have `min_diff`
+    // bases between the bounds.
+    alone.can_disagree = alone.longest >= options.min_diff
+                         || spans.rank_bases >= options.min_diff;
+    return alone;
+}
+
 void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splicer,
                                   const vector<StagedSite*>& snarls,
-                                  const vector<Finding>& findings, vector<Run>& runs,
+                                  const vector<Alone>& alone, vector<Run>& runs,
                                   vector<RunFinding>& run_findings) {
     const HandleGraph& graph = *parts.graph;
     const size_t none = std::numeric_limits<size_t>::max();
     // A site can be in a run where it is given no allele on its own.
     auto can_join = [&](size_t i) {
-        const Finding& found = findings[i];
-        return found.measured && !found.proposes() && found.longest <= max_bases;
+        return alone[i].measured && !alone[i].treated && alone[i].longest <= max_bases;
     };
     // The signal of each site: that of its own span summary, or the gap its reads have inside
     // a node between it and a neighbour, if that is `min_diff` bases and more.
     vector<size_t> signal(snarls.size());
     for (size_t i = 0; i < snarls.size(); ++i) {
-        signal[i] = findings[i].signal;
+        signal[i] = alone[i].signal;
     }
     // A run grows from a site whose reads disagree with what is called: one with a candidate
     // strand, or one whose signal is a few bases of difference.
     auto is_seed = [&](size_t i) {
-        return findings[i].candidate() || signal[i] >= options.run_site_diff;
+        return alone[i].candidates > 0 || signal[i] >= options.run_site_diff;
     };
     // Two sites can be in one run where one phase orders the strands of both.
     auto same_phase = [&](size_t a, size_t b) {
@@ -445,8 +343,7 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
                 found != by_start.end() && found->second != i) {
                 // The two are neighbours across few bases, or across any number where the
                 // reads have a gap inside the node of a bound that faces the other.
-                const size_t gap = std::max(findings[i].end_gap,
-                                            findings[found->second].start_gap);
+                const size_t gap = std::max(alone[i].end_gap, alone[found->second].start_gap);
                 const bool gapped = gap >= options.min_diff;
                 if ((bases <= options.run_max_junction || gapped)
                     && same_phase(i, found->second) && !follows[found->second]) {
@@ -498,7 +395,7 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
         for (size_t at = i; at != none; at = next[at]) {
             stretch.push_back(at);
             signal_sum += signal[at];
-            candidate = candidate || findings[at].candidate();
+            candidate = candidate || alone[at].candidates > 0;
             seeded = seeded || is_seed(at);
         }
         if (seeded && (candidate || signal_sum >= options.min_diff)) {
@@ -525,7 +422,7 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
             }
             size_t first = seed;
             size_t last = seed;
-            size_t bases = findings[stretch[seed]].longest;
+            size_t bases = alone[stretch[seed]].longest;
             Run run;
             RunFinding found;
             // Return the bases the neighbour on `side` would add, or `none` where it cannot
@@ -536,9 +433,9 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
                                   : last + 1 == stretch.size() || used[last + 1])) {
                     return none;
                 }
-                const size_t more = side == 0 ? findings[stretch[first - 1]].longest
+                const size_t more = side == 0 ? alone[stretch[first - 1]].longest
                                                     + bases_after[stretch[first - 1]]
-                                              : findings[stretch[last + 1]].longest
+                                              : alone[stretch[last + 1]].longest
                                                     + bases_after[stretch[last]];
                 return bases + more > max_bases ? none : more;
             };
@@ -637,6 +534,8 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
     RunSequence called[2];
     bool crosses[2] = {true, true};
     vector<vector<string>> allele_bases(count);
+    // Whether an allele of a member has more bases between its bounds than the scorer aligns.
+    bool long_allele = false;
     for (size_t m = 0; m < count; ++m) {
         const StagedSite& site = *snarls[run.members[m]];
         const size_t before = graph.get_length(parts.sites->get_site_start(site.net));
@@ -667,14 +566,12 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
         }
         for (size_t a = 0; a < site.alleles.walks.size(); ++a) {
             optional<string> spelled = between(site.alleles.sequence(graph, a), before, after);
-            if (!spelled || spelled->size() > max_bases) {
-                found.over_cap = true;
-                return found;
-            }
-            allele_bases[m].push_back(std::move(*spelled));
+            long_allele = long_allele || !spelled || spelled->size() > max_bases;
+            allele_bases[m].push_back(spelled ? std::move(*spelled) : string());
         }
     }
     if (!crosses[0] && !crosses[1]) {
+        found.over_cap = long_allele;
         return found;
     }
     for (int strand = 0; strand < 2; ++strand) {
@@ -710,6 +607,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
     const MaterializedSite view{start, graph.get_length(start), end, 0, across};
     const vector<AlleleLikelihoodCalculator::SpanningRead> reads =
         parts.genotyper->calculator().spanning_reads(view);
+    found.fetched = true;
 
     // Put each read on the strand that its strand log-odds at the members, summed, favour.
     const bool one_strand = !crosses[0] || !crosses[1];
@@ -781,6 +679,23 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
     }
     found.too_few = found.strands[0].reads < options.min_spanning
                     && found.strands[1].reads < options.min_spanning;
+    if (long_allele) {
+        // The scorer cannot align the reads to every allele of each member.
+        found.over_cap = true;
+        for (RunFinding::Strand& on : found.strands) {
+            on.segments.clear();
+        }
+        return found;
+    }
+    if (count == 1) {
+        // A snarl on its own is treated only for a consensus that none of its alleles spells.
+        // The members of a longer run have their reads placed again whatever they gain.
+        for (RunFinding::Strand& on : found.strands) {
+            if (!on.segments.empty() && !on.is_new[0]) {
+                on.segments.clear();
+            }
+        }
+    }
     if ((found.strands[0].not_cuttable || found.strands[1].not_cuttable)
         && can_merge(parts, snarls, run, found)) {
         // The run becomes one site, with each strand's consensus whole. The scorer aligns the
@@ -824,6 +739,11 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
             }
             return found;
         }
+    }
+
+    if (count == 1) {
+        // A snarl on its own is scored on the bases each read has between its bounds.
+        return found;
     }
 
     // Place each read's bases in the members in one way: align them to each sequence known
@@ -1053,54 +973,59 @@ size_t ReadConsensusStep::run(const Parts& parts) {
     max_bases = limits.max_bases;
     max_alignments = limits.max_alignments;
     calculator.set_counted_fetches(false);
-    vector<Finding> findings(snarls.size());
+    // Test each site on its own, as a run of one, where a read of it can disagree.
+    vector<Alone> alone(snarls.size());
+    vector<unique_ptr<RunFinding>> found_alone(snarls.size());
 #pragma omp parallel for schedule(dynamic, 64)
     for (size_t i = 0; i < snarls.size(); ++i) {
-        findings[i] = examine(parts, splicer, *snarls[i]);
+        alone[i] = measure(parts, splicer, *snarls[i]);
+        if (!alone[i].can_disagree) {
+            continue;
+        }
+        RunFinding found = examine_run(parts, splicer, snarls, Run{{i}, {}});
+        alone[i].tested = found.fetched;
+        alone[i].over_cap = found.over_cap;
+        alone[i].candidates = (found.strands[0].candidate ? 1 : 0)
+                              + (found.strands[1].candidate ? 1 : 0);
+        alone[i].treated = found.treats();
+        if (alone[i].treated) {
+            found_alone[i] = std::make_unique<RunFinding>(std::move(found));
+        }
     }
 
-    // Grow the runs around the sites whose reads disagree and that gain no allele on their
-    // own.
+    // The runs that are treated: the sites with a consensus of their own, and the runs grown
+    // around the sites whose reads disagree and that gain no allele on their own.
     vector<Run> runs;
     vector<RunFinding> run_findings;
-    grow_runs(parts, splicer, snarls, findings, runs, run_findings);
-
-    // Give each difference to the innermost site that holds it: decide the deepest sites first,
-    // and leave a strand alone where a site under it gained an allele for the strand.
-    struct Proposal {
-        size_t level;
-        bool is_run;
-        size_t index;
-    };
-    vector<Proposal> proposing;
     for (size_t i = 0; i < snarls.size(); ++i) {
-        const Finding& found = findings[i];
-        counted.tested += found.tested ? 1 : 0;
-        counted.over_cap += found.over_cap ? 1 : 0;
-        for (const Finding::Strand& on : found.strands) {
-            counted.candidate_strands += on.candidate ? 1 : 0;
-        }
-        if (found.proposes()) {
-            proposing.push_back(Proposal{snarls[i]->placement.level, false, i});
+        counted.tested += alone[i].tested ? 1 : 0;
+        counted.over_cap += alone[i].over_cap ? 1 : 0;
+        counted.candidate_strands += alone[i].candidates;
+        if (found_alone[i]) {
+            runs.push_back(Run{{i}, {}});
+            run_findings.push_back(std::move(*found_alone[i]));
         }
     }
-    for (size_t r = 0; r < runs.size(); ++r) {
-        proposing.push_back(Proposal{snarls[runs[r].members.front()]->placement.level, true, r});
-    }
-    std::ranges::stable_sort(proposing, [](const Proposal& a, const Proposal& b) {
-        return a.level > b.level;
+    found_alone.clear();
+    grow_runs(parts, splicer, snarls, alone, runs, run_findings);
+
+    // Give each difference to the innermost site that holds it: decide the deepest runs first,
+    // and leave a strand alone where a site under it gained an allele for the strand.
+    vector<size_t> proposing(runs.size());
+    std::iota(proposing.begin(), proposing.end(), 0);
+    std::ranges::stable_sort(proposing, [&](size_t a, size_t b) {
+        return snarls[runs[a].members.front()]->placement.level
+               > snarls[runs[b].members.front()]->placement.level;
     });
     // The strands each site gains an allele for, as a mask, by record key. A member of a
     // treated run gains for the strands the run is treated on.
     unordered_map<size_t, int> gained;
-    // The sites to genotype again: each with its index, and its run and place in it if it is a
-    // member of one.
+    // The sites to genotype again: each with its index, its run and its place in the run.
     struct Task {
         size_t site;
         size_t run;
         size_t member;
     };
-    const size_t no_run = std::numeric_limits<size_t>::max();
     vector<Task> tasks;
     auto gained_under = [&](size_t i) {
         int under = 0;
@@ -1111,72 +1036,50 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         });
         return under;
     };
-    for (const Proposal& proposal : proposing) {
-        if (proposal.is_run) {
-            const Run& run = runs[proposal.index];
-            RunFinding& found = run_findings[proposal.index];
-            int under = 0;
-            for (const size_t i : run.members) {
-                under |= gained_under(i);
-            }
-            // One site takes the place of everything under its members, so a run that is to
-            // become one is left alone where anything under it gained an allele.
-            const bool merges = found.merges();
-            int mask = 0;
-            for (int strand = 0; strand < 2; ++strand) {
-                RunFinding::Strand& on = found.strands[strand];
-                if (!on.treated()) {
-                    continue;
-                }
-                if ((found.pooled || merges ? under : under & (1 << strand)) != 0) {
-                    on.segments.clear();
-                    on.whole.reset();
-                    ++counted.covered_by_nested;
-                } else {
-                    mask |= found.pooled ? 3 : 1 << strand;
-                }
-            }
-            if (mask != 0) {
-                ++counted.runs_treated;
-                for (size_t m = 0; m < run.members.size(); ++m) {
-                    gained[snarls[run.members[m]]->record_key] = mask;
-                    if (!merges) {
-                        tasks.push_back(Task{run.members[m], proposal.index, m});
-                    }
-                }
-                if (merges) {
-                    // The one site is made in the place of the run's first member.
-                    tasks.push_back(Task{run.members.front(), proposal.index, 0});
-                }
-            }
-            continue;
+    for (const size_t r : proposing) {
+        const Run& run = runs[r];
+        RunFinding& found = run_findings[r];
+        int under = 0;
+        for (const size_t i : run.members) {
+            under |= gained_under(i);
         }
-        const size_t i = proposal.index;
-        Finding& found = findings[i];
-        const int under = gained_under(i);
+        // One site takes the place of everything under its members, so a run that is to become
+        // one is left alone where anything under it gained an allele. Pooled reads are those of
+        // both strands.
+        const bool merges = found.merges();
         int mask = 0;
         for (int strand = 0; strand < 2; ++strand) {
-            Finding::Strand& on = found.strands[strand];
-            if (!on.allele) {
+            RunFinding::Strand& on = found.strands[strand];
+            if (!on.treated()) {
                 continue;
             }
-            // Pooled reads are those of both strands.
-            if ((found.pooled ? under : under & (1 << strand)) != 0) {
-                on.allele.reset();
+            if ((found.pooled || merges ? under : under & (1 << strand)) != 0) {
+                on.segments.clear();
+                on.whole.reset();
                 ++counted.covered_by_nested;
             } else {
                 mask |= found.pooled ? 3 : 1 << strand;
             }
         }
-        if (mask != 0) {
-            gained[snarls[i]->record_key] = mask;
-            tasks.push_back(Task{i, no_run, 0});
+        if (mask == 0) {
+            continue;
+        }
+        counted.runs_treated += run.members.size() > 1 ? 1 : 0;
+        for (size_t m = 0; m < run.members.size(); ++m) {
+            gained[snarls[run.members[m]]->record_key] = mask;
+            if (!merges) {
+                tasks.push_back(Task{run.members[m], r, m});
+            }
+        }
+        if (merges) {
+            // The one site is made in the place of the run's first member.
+            tasks.push_back(Task{run.members.front(), r, 0});
         }
     }
     std::ranges::sort(tasks, {}, &Task::site);
 
     // Add the alleles and genotype each site again. The sites differ, so they can be done at
-    // once. A member of a run is genotyped from the bases its reads were given there.
+    // once.
     vector<char> genotyped(tasks.size(), 0);
     vector<size_t> added(tasks.size(), 0);
     // The one site of each run that becomes one.
@@ -1184,8 +1087,10 @@ size_t ReadConsensusStep::run(const Parts& parts) {
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t t = 0; t < tasks.size(); ++t) {
         const Task& task = tasks[t];
-        if (task.run != no_run && run_findings[task.run].merges()) {
-            merged[t] = merge_run(parts, splicer, snarls, runs[task.run], run_findings[task.run]);
+        const Run& run = runs[task.run];
+        const RunFinding& found = run_findings[task.run];
+        if (found.merges()) {
+            merged[t] = merge_run(parts, splicer, snarls, run, found);
             genotyped[t] = merged[t] ? 1 : 0;
             continue;
         }
@@ -1196,14 +1101,9 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         // allele.
         const string* alleles[2] = {nullptr, nullptr};
         for (int strand = 0; strand < 2; ++strand) {
-            if (task.run == no_run) {
-                const optional<string>& allele = findings[task.site].strands[strand].allele;
-                alleles[strand] = allele ? &*allele : nullptr;
-            } else {
-                const RunFinding::Strand& on = run_findings[task.run].strands[strand];
-                alleles[strand] = !on.segments.empty() && on.is_new[task.member]
-                                      ? &on.segments[task.member] : nullptr;
-            }
+            const RunFinding::Strand& on = found.strands[strand];
+            alleles[strand] = !on.segments.empty() && on.is_new[task.member]
+                                  ? &on.segments[task.member] : nullptr;
         }
         for (int strand = 0; strand < 2; ++strand) {
             if (alleles[strand] != nullptr
@@ -1212,11 +1112,14 @@ size_t ReadConsensusStep::run(const Parts& parts) {
                                 ? 1 : 0;
             }
         }
-        const bool again = task.run == no_run
-                               ? added[t] > 0 && parts.tree_genotyper->regenotype(site, first_added)
-                               : parts.tree_genotyper->regenotype(
-                                     site, first_added,
-                                     &run_findings[task.run].interiors[task.member]);
+        // A member of a run of two or more is genotyped from the bases its reads were given
+        // there, whether or not it gained an allele. A snarl on its own is genotyped again
+        // where it gained one.
+        const bool alone_in_run = run.members.size() == 1;
+        const bool again = (!alone_in_run || added[t] > 0)
+                           && parts.tree_genotyper->regenotype(
+                                  site, first_added,
+                                  alone_in_run ? nullptr : &found.interiors[task.member]);
         if (again) {
             genotyped[t] = 1;
             if (added[t] > 0) {
