@@ -367,13 +367,11 @@ run inside a snarl too large to be treated itself is a run of the snarls of a ch
 1. A snarl can be in a run where the test above gives it no allele, at least 6 reads span it,
    and its called sequences have no more bases than the scorer aligns. Two such snarls are
    **neighbours** where they follow each other in a chain, one phase set orders the strands of
-   both, and their junction has at most 32 bases or holds a gap. A read's **gap** inside a node
-   is a run of bases it inserts between two bases of the node, or a run of the node's bases it
-   lacks. A junction holds a gap where `--consensus-min-reads` of the reads that span one of the
-   two snarls have a gap of `--consensus-min-diff` bases or more inside the node of its bound
-   that faces the other. A junction that holds a gap can have more than 32 bases, as long as its
-   nodes before the second snarl's start bound have at most 32: a bound node the two snarls share
-   can have any number. A **stretch** is a longest sequence of neighbours.
+   both, and their junction has at most 1,000 bases. A **stretch** is
+   a longest sequence of neighbours. A read's **gap** inside a node is a run of bases it inserts
+   between two bases of the node, or a run of the node's bases it lacks. A junction holds a gap
+   where `--consensus-min-reads` of the reads that span one of the two snarls have a gap of
+   `--consensus-min-diff` bases or more inside the node of its bound that faces the other.
 2. A snarl's **signal** is the number of bases by which `--consensus-min-reads` of its spanning
    reads have more between the bounds than its longest called sequence, or fewer than its
    shortest, whichever is more, or the length of the gap its junction with a neighbour holds, if

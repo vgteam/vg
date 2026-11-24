@@ -574,7 +574,7 @@ TEST_CASE("A run whose reads have bases inside the node between two snarls becom
         require_first_two_merged(make_unique, called, reads[0], reads[1]);
     }
 
-    SECTION("across a node of more bases than two snarls of a run have between them") {
+    SECTION("across a node of 80 bases") {
         // The node between the first two snarls has 80 bases.
         auto make_long = [](bdsg::HashGraph& graph) {
             std::mt19937 random(11);
@@ -584,7 +584,6 @@ TEST_CASE("A run whose reads have bases inside the node between two snarls becom
         };
         bdsg::HashGraph graph;
         make_long(graph);
-        REQUIRE(graph.get_length(graph.get_handle(4)) > options.run_max_junction);
         vector<Alignment> reads;
         for (size_t i = 0; i < 12; ++i) {
             reads.push_back(read_with(graph, "x" + std::to_string(i), THREE_PANEL[0], {}));

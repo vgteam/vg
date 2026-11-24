@@ -55,10 +55,8 @@ struct ReadConsensusOptions {
     /// shortest, as it does from a site with a candidate strand.
     static constexpr size_t run_site_diff = 3;
     /// The most bases that lie between two neighbouring sites of a run: their bound nodes, and
-    /// any nodes between those. Two sites whose reads have a gap of `min_diff` bases inside
-    /// the node of a bound that faces the other are neighbours across more, where the nodes
-    /// before the second site's start bound have at most this many.
-    static constexpr size_t run_max_junction = 32;
+    /// any nodes between those.
+    static constexpr size_t run_max_junction = 1000;
     /// The most sites a run has.
     static constexpr size_t run_max_members = 8;
 };
@@ -132,11 +130,10 @@ struct ReadConsensusCounts {
  * A snarl can be in a run where the single-snarl test gives it no allele, it has a called
  * sequence of no more bases than the scorer aligns, and at least `min_spanning` reads span it.
  * Two such snarls are neighbours where they follow each other in a chain, one phase set orders
- * the strands of both, and their junction has at most `run_max_junction` bases or holds a gap:
- * `min_reads` of the reads that span one of the two have a gap of `min_diff` bases or more
- * inside the node of its bound that faces the other (`SpanSummary::start_gap`, `end_gap`). A
- * junction that holds a gap can have more bases, where its nodes before the second snarl's
- * start bound have at most `run_max_junction`. A stretch is a longest sequence of neighbours.
+ * the strands of both, and their junction has at most `run_max_junction` bases.
+ * A stretch is a longest sequence of neighbours. A junction holds a gap where `min_reads` of
+ * the reads that span one of its two snarls have a gap of `min_diff` bases or more inside the
+ * node of its bound that faces the other (`SpanSummary::start_gap`, `end_gap`).
  *
  * A snarl's signal is the number of bases by which `min_reads` of its spanning reads have more
  * between the bounds than its longest called sequence, or fewer than its shortest, whichever is

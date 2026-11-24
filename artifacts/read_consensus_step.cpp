@@ -196,12 +196,12 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
         while (true) {
             if (const auto found = by_start.find(at);
                 found != by_start.end() && found->second != i) {
-                // The two are neighbours across few bases, or across any number where the
-                // reads have a gap inside the node of a bound that faces the other.
+                // A gap that the reads have inside the node of a bound that faces the other
+                // site is a signal of both.
                 const size_t gap = std::max(alone[i].end_gap, alone[found->second].start_gap);
                 const bool gapped = gap >= options.min_diff;
-                if ((bases <= options.run_max_junction || gapped)
-                    && same_phase(i, found->second) && !follows[found->second]) {
+                if (bases <= options.run_max_junction && same_phase(i, found->second)
+                    && !follows[found->second]) {
                     next[i] = found->second;
                     follows[found->second] = 1;
                     nodes_after[i] = nodes;
