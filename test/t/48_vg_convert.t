@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 97
+plan tests 99
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -507,4 +507,9 @@ diff <(vg convert -f unchop-pipe.vg | sort) <(vg convert -f unchop-fused.vg | so
 is $? 0 "fused GFA import and unchop match the two-step graph"
 vg convert -g -p --unchop -T unchop-trans.tsv unchop-input.gfa > /dev/null 2>&1
 isnt $? 0 "fused unchop rejects an import-time translation"
+vg convert -g -p --unchop --unchop-threads 1 unchop-input.gfa > unchop-fused.vg
+diff <(vg convert -f unchop-pipe.vg | sort) <(vg convert -f unchop-fused.vg | sort)
+is "$?" 0 "explicit one-thread unchop matches the serial pipeline"
+vg convert -g -p --unchop-threads 2 unchop-input.gfa > /dev/null 2>&1
+isnt "$?" 0 "a threaded unchop request requires --unchop"
 rm -f unchop-input.gfa unchop-pipe.vg unchop-fused.vg unchop-trans.tsv
