@@ -80,8 +80,8 @@ struct ReadConsensusCounts {
     /// Those whose chosen genotype has a consensus allele, after the last linkage pass.
     size_t sites_called = 0;
     /// Snarls left out because a called sequence has more bases between the bounds than the
-    /// scorer aligns, and tested snarls where an allele has, or where the reads and alleles need
-    /// more alignments than the scorer makes.
+    /// scorer aligns of a read, and tested snarls where a consensus has, or where the reads and
+    /// alleles need more alignments than the scorer makes.
     size_t over_cap = 0;
 };
 

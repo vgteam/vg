@@ -65,9 +65,8 @@ struct ReadConsensusStep::RunFinding {
     vector<size_t> edits_between;
     /// Whether the run's reads were fetched and compared with the called sequences.
     bool fetched = false;
-    /// Whether a called sequence, an allele of a member or a consensus has more bases between
-    /// the bounds than the scorer aligns, or the reads and alleles need more alignments than it
-    /// makes.
+    /// Whether a called sequence or a consensus has more bases between the bounds than the
+    /// scorer aligns of a read, or the reads and alleles need more alignments than it makes.
     bool over_cap = false;
     /// Whether no strand has `min_spanning` reads that span the run.
     bool too_few = false;
@@ -388,8 +387,6 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
     // the junctions between them.
     string called[2];
     bool crosses[2] = {true, true};
-    // Whether an allele of a member has more bases between its bounds than the scorer aligns.
-    bool long_allele = false;
     for (size_t m = 0; m < count; ++m) {
         const StagedSite& site = *snarls[run.members[m]];
         const size_t before = graph.get_length(parts.sites->get_site_start(site.net));
@@ -412,14 +409,8 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
                 called[strand] += junction + *interior;
             }
         }
-        for (size_t a = 0; a < site.alleles.walks.size(); ++a) {
-            const optional<string> spelled = between(site.alleles.sequence(graph, a), before,
-                                                     after);
-            long_allele = long_allele || !spelled || spelled->size() > max_bases;
-        }
     }
     if (!crosses[0] && !crosses[1]) {
-        found.over_cap = long_allele;
         return found;
     }
     for (int strand = 0; strand < 2; ++strand) {
@@ -516,12 +507,6 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
             on.consensus.reset();
         }
     };
-    if (long_allele) {
-        // The scorer cannot align the reads to every allele of each member.
-        found.over_cap = true;
-        leave_alone();
-        return found;
-    }
     if (!found.treats()) {
         return found;
     }
@@ -537,7 +522,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
                                                      graph.get_length(start),
                                                      graph.get_length(end));
             for (RunFinding::Strand& on : found.strands) {
-                if (on.consensus && *on.consensus == *spelled) {
+                if (on.consensus && spelled && *on.consensus == *spelled) {
                     on.consensus.reset();
                 }
             }

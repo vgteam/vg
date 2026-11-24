@@ -568,13 +568,12 @@ struct AlleleLikelihoodParams {
     bool collect_read_phasing = false;
 
     /**
-     * The most bases that are aligned at a snarl with a sequence allele, an allele that is given
-     * as a sequence between the snarl's bounds (see `add_sequence_allele`).
+     * The most bases of a read that are aligned at a snarl with a sequence allele, an allele
+     * that is given as a sequence between the snarl's bounds (see `add_sequence_allele`).
      *
      * A read that spans such a snarl is scored by aligning its bases between the bounds to each
-     * allele's. Where an allele has more bases than this between the bounds, the snarl's sequence
-     * alleles are not offered: no read can be placed on them. A read with more bases than this
-     * between the bounds is scored as a read that does not span the snarl.
+     * allele's. A read with more bases than this between the bounds is scored as a read that
+     * does not span the snarl. An allele can have any number of bases.
      */
     size_t sequence_allele_max_bases = 10000;
 
@@ -970,6 +969,11 @@ protected:
      * each mismatch and `2 * (gap_open - gap_extension) + (2 * gap_extension + match) * n` for
      * each gap. The string aligner finds the alignment of least such cost, which is the one of
      * the highest score.
+     *
+     * The read is not aligned to an allele whose length differs from that of the read's bases
+     * by more than the aligner's limit on cells lets it align (`SequenceAlleles::too_far`). Its
+     * entry for that allele is the most any alignment of the two could score: that of one gap
+     * of the bases one has more than the other, with every other base matched.
      *
      * @return False, leaving `row` as it was, if the read has more bases between the bounds
      * than `sequence_allele_max_bases`, or an alignment is not found within the aligner's limits.

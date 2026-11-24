@@ -308,20 +308,17 @@ TEST_CASE("Reads that span a snarl with a sequence allele are scored by aligning
         SECTION(optimal ? "Optimal pairing: past a limit the sequence allele is not offered"
                         : "Greedy pairing: past a limit the sequence allele is not offered") {
             AlleleLikelihoodParams few_bases = params;
-            few_bases.sequence_allele_max_bases = 79;
             AlleleLikelihoodParams few_alignments = params;
             // Eight reads span the snarl, and each is aligned to three alleles.
             few_alignments.sequence_allele_max_alignments = 23;
-            for (const AlleleLikelihoodParams& limited : {few_bases, few_alignments}) {
-                const AlleleReadLikelihoods capped = score(site, alleles, reads, limited);
-                REQUIRE(capped.num_reads() == reads.size());
-                for (size_t r = 0; r < reads.size(); ++r) {
-                    REQUIRE(capped.rel(r, 2) == 0.0);
-                    REQUIRE(capped.rel(r, 0) == Approx(walks_only.rel(r, 0)));
-                    REQUIRE(capped.rel(r, 1) == Approx(walks_only.rel(r, 1)));
-                    REQUIRE(capped.best_ln_likelihood(r)
-                            == Approx(walks_only.best_ln_likelihood(r)));
-                }
+            const AlleleReadLikelihoods capped = score(site, alleles, reads, few_alignments);
+            REQUIRE(capped.num_reads() == reads.size());
+            for (size_t r = 0; r < reads.size(); ++r) {
+                REQUIRE(capped.rel(r, 2) == 0.0);
+                REQUIRE(capped.rel(r, 0) == Approx(walks_only.rel(r, 0)));
+                REQUIRE(capped.rel(r, 1) == Approx(walks_only.rel(r, 1)));
+                REQUIRE(capped.best_ln_likelihood(r)
+                        == Approx(walks_only.best_ln_likelihood(r)));
             }
             few_alignments.sequence_allele_max_alignments = 24;
             const AlleleReadLikelihoods within = score(site, alleles, reads, few_alignments);
@@ -339,6 +336,30 @@ TEST_CASE("Reads that span a snarl with a sequence allele are scored by aligning
             REQUIRE(mixed.rel(longer, 1) == Approx(walks_only.rel(longer, 1)));
             REQUIRE(mixed.best_ln_likelihood(longer)
                     == Approx(walks_only.best_ln_likelihood(longer)));
+        }
+        SECTION(optimal ? "Optimal pairing: an allele too long to align a read to leaves the "
+                          "others as they are"
+                        : "Greedy pairing: an allele too long to align a read to leaves the "
+                          "others as they are") {
+            // An allele with 9,000 bases between the bounds, where the reads have under 100.
+            string long_bases;
+            for (size_t i = 0; i < 9000; ++i) {
+                long_bases += "ACGT"[(i * i + i / 7) % 4];
+            }
+            CandidateAlleles with_long = alleles;
+            REQUIRE(add_sequence_allele(site.graph, with_long, long_bases) == 3);
+            const AlleleReadLikelihoods scored = score(site, with_long, reads, params);
+            REQUIRE(scored.num_reads() == reads.size());
+            for (size_t r = 0; r < reads.size(); ++r) {
+                for (size_t a = 0; a < 3; ++a) {
+                    REQUIRE(scored.rel(r, a) == Approx(matrix.rel(r, a)));
+                }
+                REQUIRE(scored.best_ln_likelihood(r) == Approx(matrix.best_ln_likelihood(r)));
+            }
+            // A read that spans the snarl does not fit the long allele.
+            for (size_t r : {inserted, reversed, rerouted, longer}) {
+                REQUIRE(scored.rel(r, 3) < 1e-6);
+            }
         }
     }
 }

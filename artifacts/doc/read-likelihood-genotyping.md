@@ -434,9 +434,14 @@ A snarl is tested where at least 6 reads span it and either the first of those n
 or the length of a strand's called sequence between the bounds, is at least
 `--consensus-min-diff`. Every candidate
 snarl passes this, since a read can only differ by that many bases from a called sequence where
-one of the two has that many. The scorer aligns at most 10,000 bases between the bounds and makes
-at most 2,000 alignments at one snarl (see [Fixed constants](#fixed-constants)); a snarl over
-either limit gains no allele, and a run with a member over either is left alone. The step fetches
+one of the two has that many. The scorer aligns a read with at most 10,000 bases between the bounds, and makes at most 2,000
+alignments at one snarl (see [Fixed constants](#fixed-constants)). A snarl with a called sequence
+or a consensus of more bases than that, or whose reads and alleles need more alignments, gains no
+allele, and such a run is left alone. A read with more bases is scored as one that does not span
+the snarl. An allele can have any number of bases: a read is not aligned to an allele whose length
+differs from the read's by more than the aligner's memory limit lets it align (about 6,700 bases
+at an allele of 10,000), and is scored there by the most an alignment of the two could score, that
+of one gap of the difference with every other base matched. The step fetches
 reads without adding to the read-start counts of
 the [depth term](read-likelihood-direct-genotyping.md#depth-term) or to the off-panel candidates,
 so both are as the direct pass left them.
@@ -1312,7 +1317,7 @@ holds it.
 | `LinkageModel::Params::window`, `margin` | `artifacts/linkage_model.hpp` | the number of sites each forward–backward window keeps, and the extra sites decoded and discarded on each side |
 | `RATE_BUCKET`, `RATE_ID_WINDOW` | `artifacts/allele_likelihood.hpp` | reference bp per rate-window bucket (a rate window is three buckets), and node IDs per rate window when there are no reference positions |
 | `banded` and `band`, in `score_by_optimal_pairing` | `artifacts/allele_likelihood.cpp` | the grid size, in read visits times allele visits, above which optimal pairing is restricted to a band, and the band's half-width in allele visits |
-| `AlleleLikelihoodParams::sequence_allele_max_bases`, `sequence_allele_max_alignments` | `artifacts/allele_likelihood.hpp` | the most bases between a snarl's bounds, and the most alignments of a read to an allele at one snarl, at a snarl with an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) |
+| `AlleleLikelihoodParams::sequence_allele_max_bases`, `sequence_allele_max_alignments` | `artifacts/allele_likelihood.hpp` | the most bases of a read between a snarl's bounds that are aligned, and the most alignments of a read to an allele at one snarl, at a snarl with an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) |
 | `ReadConsensusOptions::min_diff_share` | `artifacts/read_consensus_step.hpp` | the share of the longer of a read and a called sequence that their differing bases are, at least, for a read of nearly the called length to disagree with it |
 | `ReadConsensusOptions::min_spanning`, `min_share` | `artifacts/read_consensus_step.hpp` | for a strand to be a candidate for an [allele built from the reads](#alleles-built-from-the-reads---read-consensus): the fewest of its reads that span the snarl, and the least share of them that disagree with what is called |
 | `ReadConsensusParams::max_reads`, `max_rounds`, `max_medoid` | `artifacts/read_consensus.hpp` | for a consensus of reads: the most reads it is built from, the most times they are aligned to it, and the most inserted strings compared to choose the bases of an insertion |

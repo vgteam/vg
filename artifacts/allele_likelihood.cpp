@@ -2172,8 +2172,17 @@ struct GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles : SnarlBounds {
     StringAlignerParams aligner;
     int32_t match = 0;
 
+    /// Return whether the lengths of an allele and of a read's bases differ by more than the
+    /// aligner's limit lets it align: the narrowest band that joins the two corners of their
+    /// alignment has more cells than `aligner.max_cells`.
+    bool too_far(size_t allele_bases, size_t read_bases) const {
+        const size_t apart = allele_bases > read_bases ? allele_bases - read_bases
+                                                       : read_bases - allele_bases;
+        return (allele_bases + 1) * (apart + 2 * aligner.first_band + 1) > aligner.max_cells;
+    }
+
     SequenceAlleles(const HandleGraph& graph, const MaterializedSite& site,
-                    const EditAlignmentScorer& scorer, const Params& params);
+                    const EditAlignmentScorer& scorer);
 
     /// Return whether the site has a sequence allele.
     bool any() const { return has_sequence; }
@@ -2185,8 +2194,7 @@ struct GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles : SnarlBounds {
 };
 
 GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::SequenceAlleles(
-    const HandleGraph& graph, const MaterializedSite& site, const EditAlignmentScorer& scorer,
-    const Params& params) {
+    const HandleGraph& graph, const MaterializedSite& site, const EditAlignmentScorer& scorer) {
     const CandidateAlleles& alleles = site.alleles;
     bool found = false;
     for (size_t a = 0; a < alleles.walks.size(); ++a) {
@@ -2209,8 +2217,7 @@ GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::SequenceAlleles(
         const Traversal& walk = alleles.walks[a];
         const string spelled = alleles.sequence(graph, a);
         if (walk.size() < 2 || walk.front() != site.start || walk.back() != site.end
-            || spelled.size() < before + after
-            || spelled.size() - before - after > params.sequence_allele_max_bases) {
+            || spelled.size() < before + after) {
             interiors.clear();
             return;
         }
@@ -2290,17 +2297,30 @@ bool GraphAlignedAlleleLikelihoodCalculator::score_spanning_read(
     vector<double> aligned(row.size());
     for (size_t a = 0; a < row.size(); ++a) {
         const string& allele = sequences.interiors[a];
-        const optional<StringAlignment> alignment = align_global(allele, bases,
-                                                                 sequences.aligner);
-        if (!alignment) {
-            return false;
+        // The cost of the alignment, and its gaps of read bases: runs of bases the read has and
+        // the allele lacks.
+        int64_t cost = 0;
+        size_t gaps = 0;
+        if (sequences.too_far(allele.size(), bases.size())) {
+            // The two are not aligned. Any alignment of them has a gap of the bases one has
+            // more than the other, so it costs at least what that one gap costs.
+            const bool read_longer = bases.size() > allele.size();
+            cost = sequences.aligner.gap_cost(read_longer ? bases.size() - allele.size()
+                                                          : allele.size() - bases.size());
+            gaps = read_longer ? 1 : 0;
+        } else {
+            const optional<StringAlignment> alignment = align_global(allele, bases,
+                                                                     sequences.aligner);
+            if (!alignment) {
+                return false;
+            }
+            cost = alignment->cost;
+            gaps = (size_t)std::ranges::count(alignment->runs, AlignmentOp::Insertion,
+                                              &AlignmentRun::op);
         }
-        // An insertion is a run of bases the read has and the allele lacks.
-        const auto gaps = std::ranges::count(alignment->runs, AlignmentOp::Insertion,
-                                             &AlignmentRun::op);
         const double interior = 0.5 * ((double)sequences.match
                                            * (double)(allele.size() + bases.size())
-                                       - (double)alignment->cost);
+                                       - (double)cost);
         aligned[a] = boundary + plain_scorer.get_log_base() * interior
                      + params.insertion_gap_nats * (double)gaps;
     }
@@ -2593,7 +2613,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     alleles.index(!params.optimal_pairing);
 
     vector<ReadStep> read_steps;
-    SequenceAlleles sequences(graph, site, plain_scorer, params);
+    SequenceAlleles sequences(graph, site, plain_scorer);
     if (sequences.aligned) {
         // Count the alignments the reads that span the snarl need, and do not offer the
         // sequence alleles if they are too many.
