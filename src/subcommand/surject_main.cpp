@@ -40,75 +40,101 @@ void help_surject(char** argv) {
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-name FILE        use this graph or XG index (required)" << endl
-         << "  -t, --threads N           number of threads to use" << endl
-         << "  -D, --read-length TYPE    read length preset: {short, long}" << endl
-         << "  -p, --into-path NAME      surject into this path or its subpaths (may repeat)" << endl
-         << "                            default: reference, then non-alt generic" << endl
-         << "  -F, --into-paths FILE     surject into path names listed in" << endl
-         << "                            HTSlib sequence dictionary or path list FILE" << endl
-         << "  -n, --into-ref NAME       surject into this reference assembly" << endl
-         << "  -d, --diploid-map NAME    jointly surject placements into a diploid" << endl
-         << "                            assembly NAME" << endl
-         << "                            use -i for consecutive interleaved placement pairs" << endl
-         << "      --fragment-mean X    paired diploid fragment mean (requires --fragment-stdev)" << endl
-         << "      --fragment-stdev X   paired diploid fragment standard deviation" << endl
-         << "                            default: learn from confident pairs; otherwise score-only" << endl
+         << "  -x, --xg-name FILE            use this graph or XG index (required)" << endl
+         << "  -t, --threads N               number of threads to use" << endl
+         << "  -D, --read-length TYPE        read length preset: {short, long}" << endl
+         << "  -p, --into-path NAME          surject into this path or its subpaths (may" << endl
+         << "                                  repeat)" << endl
+         << "                                  default: reference, then non-alt generic" << endl
+         << "  -F, --into-paths FILE         surject into path names listed in" << endl
+         << "                                  HTSlib sequence dictionary or path list" << endl
+         << "                                  FILE" << endl
+         << "  -n, --into-ref NAME           surject into this reference assembly" << endl
+         << "  -d, --diploid-map NAME        jointly surject placements into a diploid" << endl
+         << "                                  assembly NAME" << endl
+         << "                                  use -i for consecutive interleaved" << endl
+         << "                                  placement pairs" << endl
+         << "      --fragment-mean X         paired diploid fragment mean (requires" << endl
+         << "                                  --fragment-stdev)" << endl
+         << "      --fragment-stdev X        paired diploid fragment standard deviation" << endl
+         << "                                  default: learn from confident pairs;" << endl
+         << "                                  otherwise score-only" << endl
          << "      --fragment-sample-size N  confident pairs for learning [1000]" << endl
          << "      --fragment-buffer-size N  max read pairs to hold while learning" << endl
-         << "                            fragment lengths [10000]" << endl
-         << "  -M, --multimap            include secondary alignments to all" << endl
-         << "                            overlapping paths instead of just primary" << endl
-         << "  -G, --gaf-input           input file is GAF instead of GAM" << endl
-         << "  -m, --gamp-input          input file is GAMP instead of GAM" << endl
-         << "  -c, --cram-output         write CRAM instead of GAM to stdout" << endl
-         << "  -b, --bam-output          write BAM instead of GAM to stdout" << endl
-         << "  -s, --sam-output          write SAM instead of GAM to stdout" << endl
-         << "  -i, --interleaved         input is interleaved paired-ended, so pair reads" << endl
-         << "                            when outputting HTS formats (SAM/BAM/CRAM)" << endl
-         << "  -U, --force-unpaired      surject reads as unpaired even if they appear paired" << endl
-         << "  -f, --max-frag-len N      reads with fragment lengths greater than N won't be" << endl
-         << "                            marked properly paired in HTS formats." << endl
-         << "                            0 for unlimited. Paired diploid mode defaults to" << endl
-         << "                            mean + 6 standard deviations when a fragment-length" << endl
-         << "                            model is available; otherwise unlimited." << endl
-         << "  -u, --supplementary       divide into supplementary alignments as necessary" << endl
-         << "  -B, --left-align          attempt to left-align indels" << endl
-         << "  -l, --subpath-local       let the multipath mapping surjection produce local" << endl
-         << "                            (rather than global) alignments" << endl
-         << "  -T, --max-tail-len N      only align up to N bases of read tails [10000]" << endl
-         << "  -g, --max-graph-scale X   make reads unmapped if alignment target subgraph" << endl
-         << "                            size exceeds read length by a factor of X " << endl
-         << "                            (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT
+         << "                                  fragment lengths [10000]" << endl
+         << "  -M, --multimap                include secondary alignments to all" << endl
+         << "                                  overlapping paths instead of just primary" << endl
+         << "  -G, --gaf-input               input file is GAF instead of GAM" << endl
+         << "  -m, --gamp-input              input file is GAMP instead of GAM" << endl
+         << "  -c, --cram-output             write CRAM instead of GAM to stdout" << endl
+         << "  -b, --bam-output              write BAM instead of GAM to stdout" << endl
+         << "  -s, --sam-output              write SAM instead of GAM to stdout" << endl
+         << "  -i, --interleaved             input is interleaved paired-ended, so pair" << endl
+         << "                                  reads" << endl
+         << "                                  when outputting HTS formats (SAM/BAM/CRAM)" << endl
+         << "  -U, --force-unpaired          surject reads as unpaired even if they" << endl
+         << "                                  appear paired" << endl
+         << "  -f, --max-frag-len N          reads with fragment lengths greater than N" << endl
+         << "                                  won't be" << endl
+         << "                                  marked properly paired in HTS formats." << endl
+         << "                                  0 for unlimited. Paired diploid mode" << endl
+         << "                                  defaults to" << endl
+         << "                                  mean + 6 standard deviations when a" << endl
+         << "                                  fragment-length" << endl
+         << "                                  model is available; otherwise unlimited." << endl
+         << "  -u, --supplementary           divide into supplementary alignments as" << endl
+         << "                                  necessary" << endl
+         << "  -B, --left-align              attempt to left-align indels" << endl
+         << "  -l, --subpath-local           let the multipath mapping surjection produce" << endl
+         << "                                  local" << endl
+         << "                                  (rather than global) alignments" << endl
+         << "  -T, --max-tail-len N          only align up to N bases of read tails" << endl
+         << "                                  [10000]" << endl
+         << "  -g, --max-graph-scale X       make reads unmapped if alignment target" << endl
+         << "                                  subgraph" << endl
+         << "                                  size exceeds read length by a factor of X " << endl
+         << "                                  (default: " << Surjector::DEFAULT_SUBGRAPH_LIMIT
                                          << " or " << Surjector::SPLICED_DEFAULT_SUBGRAPH_LIMIT << " with -S)" << endl
-         << "  -P, --prune-low-cplx      prune short/low complexity anchors in realignment" << endl
-         << "                            (on by default for long reads)" << endl
-         << "      --no-prune-low-cplx   disable anchor pruning" << endl
-         << "  -j, --prune-tail-region   prune anchors lying fully inside mapper-declared" << endl
-         << "                            tail regions" << endl
-         << "  -I, --max-slide N         look for offset duplicates of anchors up to N bp" << endl
-         << "                            away when pruning "
+         << "  -P, --prune-low-cplx          prune short/low complexity anchors in" << endl
+         << "                                  realignment" << endl
+         << "                                  (on by default for long reads)" << endl
+         << "      --no-prune-low-cplx       disable anchor pruning" << endl
+         << "  -j, --prune-tail-region       prune anchors lying fully inside" << endl
+         << "                                  mapper-declared" << endl
+         << "                                  tail regions" << endl
+         << "  -I, --max-slide N             look for offset duplicates of anchors up to" << endl
+         << "                                  N bp" << endl
+         << "                                  away when pruning "
                                      << "(default: " << Surjector::DEFAULT_MAX_SLIDE << ")" << endl
-         << "  -a, --max-anchors N       use <= N anchors per target path [unlimited]" << endl
-         << "  -S, --spliced             interpret long deletions against paths" << endl
-         << "                            as spliced alignments" << endl
-         << "  -A, --qual-adj            adjust scoring for base qualities, if available" << endl
-         << "  -E, --extra-gap-cost N    for dynamic programming, add N to the gap open cost" << endl
-         << "                            of the 10x-scaled scoring parameters" << endl
-         << "  -N, --sample NAME         set this sample name for all reads" << endl
-         << "  -R, --read-group NAME     set this read group for all reads" << endl
-         << "  -L, --list-all-paths      annotate SAM records with a list of all attempted" << endl
-         << "                            re-alignments to paths in SS tag" << endl
-         << "  -H, --graph-aln           annotate SAM records with cs-style difference string" << endl
-         << "                            of the pre-surjected graph alignment in GR tag" << endl
-         << "      --off-ref-position    annotate SAM records that become unmapped during" << endl
-         << "                            surject with the nearest ref. position in the NR tag" << endl
-         << "  -C, --compression N       level for compression [0-9]" << endl
-         << "  -V, --no-validate         skip checking whether alignments plausibly are" << endl
-         << "                            against the provided graph" << endl
-         << "  -w, --watchdog-timeout N  warn when reads take more than N seconds to surject" << endl
-         << "  -r, --progress            show progress" << endl
-         << "  -h, --help                print this help message to stderr and exit" << endl;
+         << "  -a, --max-anchors N           use <= N anchors per target path [unlimited]" << endl
+         << "  -S, --spliced                 interpret long deletions against paths" << endl
+         << "                                  as spliced alignments" << endl
+         << "  -A, --qual-adj                adjust scoring for base qualities, if" << endl
+         << "                                  available" << endl
+         << "  -E, --extra-gap-cost N        for dynamic programming, add N to the gap" << endl
+         << "                                  open cost" << endl
+         << "                                  of the 10x-scaled scoring parameters" << endl
+         << "  -N, --sample NAME             set this sample name for all reads" << endl
+         << "  -R, --read-group NAME         set this read group for all reads" << endl
+         << "  -L, --list-all-paths          annotate SAM records with a list of all" << endl
+         << "                                  attempted" << endl
+         << "                                  re-alignments to paths in SS tag" << endl
+         << "  -H, --graph-aln               annotate SAM records with cs-style" << endl
+         << "                                  difference string" << endl
+         << "                                  of the pre-surjected graph alignment in GR" << endl
+         << "                                  tag" << endl
+         << "      --off-ref-position        annotate SAM records that become unmapped" << endl
+         << "                                  during" << endl
+         << "                                  surject with the nearest ref. position in" << endl
+         << "                                  the NR tag" << endl
+         << "  -C, --compression N           level for compression [0-9]" << endl
+         << "  -V, --no-validate             skip checking whether alignments plausibly" << endl
+         << "                                  are" << endl
+         << "                                  against the provided graph" << endl
+         << "  -w, --watchdog-timeout N      warn when reads take more than N seconds to" << endl
+         << "                                  surject" << endl
+         << "  -r, --progress                show progress" << endl
+         << "  -h, --help                    print this help message to stderr and exit" << endl;
 }
 
 /// If the given alignment doesn't make sense against the given graph (i.e.
