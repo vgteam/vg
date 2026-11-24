@@ -635,9 +635,6 @@ void help_call(char** argv) {
          << "      --consensus-min-reads=N" << endl
          << "                            build a consensus where at least N reads of a" << endl
          << "                            haplotype differ, at most 6 [3]" << endl
-         << "      --consensus-min-change=N" << endl
-         << "                            add a consensus that is more than N bases from" << endl
-         << "                            the called sequence [10]" << endl
          << "  read scoring:" << endl
          << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
          << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
@@ -1094,7 +1091,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_READ_CONSENSUS = 1126;
     constexpr int OPT_CONSENSUS_MIN_DIFF = 1127;
     constexpr int OPT_CONSENSUS_MIN_READS = 1128;
-    constexpr int OPT_CONSENSUS_MIN_CHANGE = 1131;
     optind = 2; // force optind past command positional argument
     // The long options, grouped by the subsystem they configure, by its name. Every subsystem with
     // a switch is part of the read-likelihood genotyper.
@@ -1242,7 +1238,6 @@ int main_call(int argc, char** argv) {
          [&] { return read_consensus.enabled; }, {
             {"consensus-min-diff", required_argument, nullptr, OPT_CONSENSUS_MIN_DIFF},
             {"consensus-min-reads", required_argument, nullptr, OPT_CONSENSUS_MIN_READS},
-            {"consensus-min-change", required_argument, nullptr, OPT_CONSENSUS_MIN_CHANGE},
         }}},
         {"re-genotyping", {"--regenotype", "the read-likelihood genotyper",
          [&] { return regenotype && read_phasing; }, {
@@ -1460,9 +1455,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_CONSENSUS_MIN_READS:
             read_consensus.min_reads = parse<size_t>(optarg);
-            break;
-        case OPT_CONSENSUS_MIN_CHANGE:
-            read_consensus.min_change = parse<size_t>(optarg);
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;

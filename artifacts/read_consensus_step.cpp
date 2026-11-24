@@ -503,9 +503,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
             continue;
         }
         optional<string> consensus = read_consensus(bases, called[strand]);
-        const optional<int64_t> change =
-            consensus ? edit_distance(*consensus, called[strand]) : std::nullopt;
-        if (change && (size_t)*change > options.min_change) {
+        if (consensus && disagrees(*consensus, called[strand])) {
             on.consensus = std::move(consensus);
         }
     }

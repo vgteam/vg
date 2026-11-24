@@ -333,8 +333,8 @@ on each snarl that has a phase, at any level, and on each of its strands:
    base becomes whichever of a base or a deletion most reads have there, and an insertion is made
    where more than half the reads insert bases; the result is aligned to again until it stops
    changing. A difference that only changes the length of a run of one base is undone.
-5. A consensus more than `--consensus-min-change` (10) differing bases from the called sequence
-   becomes an allele of the snarl, unless one of the snarl's alleles spells it already. Two strands
+5. A consensus that disagrees with the called sequence, as a read does in step 2, becomes an
+   allele of the snarl, unless one of the snarl's alleles spells it already. Two strands
    with the same consensus add one allele. The allele is given as its bases between the bounds. It
    visits no node between them, so it crosses no site nested in the snarl, as a deletion of
    everything between the bounds does, and no panel haplotype carries it.
@@ -388,8 +388,7 @@ run inside a snarl too large to be treated itself is a run of the snarls of a ch
    first member's start bound to the last member's end bound, and steps 1 to 4 above apply to the
    run as to one snarl, with each read put on the strand that its strand log-odds at the members,
    summed, favour.
-4. Growth stops at the first run with a consensus more than `--consensus-min-change` bases from
-   the called sequence. The run is then **treated** if it can become [one site](#a-run-as-one-site):
+4. Growth stops at the first run with a consensus that disagrees with the called sequence. The run is then **treated** if it can become [one site](#a-run-as-one-site):
    it is the smallest run around the seed that has such a consensus. Growth also stops where a
    member's alleles, the consensus or the run's reads are more than the scorer takes, where no
    strand has 6 reads that span the run, at 8 members, and where no neighbour keeps the bases
@@ -1285,7 +1284,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Mismapping](read-likelihood-direct-genotyping.md#mismapping-probability) | `--mismap-min`, `--mismap-max`, `--no-mismap-term` |
 | [Mixture weights](read-likelihood-direct-genotyping.md#mixture-weights) | `--flat-mixture` |
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
-| [Alleles built from the reads](#alleles-built-from-the-reads---read-consensus) | `--read-consensus`, `--consensus-min-diff`, `--consensus-min-reads`, `--consensus-min-change` |
+| [Alleles built from the reads](#alleles-built-from-the-reads---read-consensus) | `--read-consensus`, `--consensus-min-diff`, `--consensus-min-reads` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
 | [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--flatten-records`, `--no-off-ref-nesting` |
 | [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
