@@ -1042,6 +1042,10 @@ int main_paths(int argc, char** argv) {
             while (getline(nli, line)){
                 for (auto& idstr : split_delims(line, " \t")) {
                     nid_t node_id = parse<nid_t>(idstr.c_str());
+                    if (! path_position_graph->has_node(node_id)) {
+                        std::cerr << "[vg paths] warning: node id " << node_id << " is not in graph. Skipping..." << std::endl;
+                        continue;
+                    }
                     handle_t node_handle = path_position_graph->get_handle(node_id);
                     size_t node_length = path_position_graph->get_sequence(node_handle).size();
 
@@ -1059,9 +1063,7 @@ int main_paths(int argc, char** argv) {
                                           << node_offset + node_length << std::endl;  
 
                                 //return false to ignore the rest of the paths
-                                return false;
                             }
-                            return true;
                         });
                         return true;
                     });
