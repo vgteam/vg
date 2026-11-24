@@ -241,12 +241,11 @@ TEST_CASE("A snarl whose reads on one strand carry 60 bases no walk spells gains
 
     SECTION("with the step on, the snarl is called with the consensus and marked") {
         const Called called = call_chain(reads, true);
-        REQUIRE(called.counts.added == 1);
-        REQUIRE(called.counts.sites_with_added == 1);
+        REQUIRE(called.counts.sites_changed == 1);
         REQUIRE(called.counts.sites_called == 1);
         REQUIRE(called.counts.candidate_strands == 1);
+        REQUIRE(called.counts.runs_treated == 0);
         // Only the snarl with the 60 bases has its reads fetched again.
-        REQUIRE(called.counts.prefiltered == 1);
         REQUIRE(called.counts.tested == 1);
         REQUIRE(called.header.find("##INFO=<ID=RC,") != string::npos);
         const string record = record_of(called.records, ">4>7");
@@ -292,11 +291,10 @@ TEST_CASE("A snarl whose reads agree with what is called gains no allele",
     const Called with_step = call_chain(reads, true);
     REQUIRE(with_step.counts.sites == 3);
     REQUIRE(with_step.counts.candidate_strands == 0);
-    REQUIRE(with_step.counts.added == 0);
+    REQUIRE(with_step.counts.sites_changed == 0);
     REQUIRE(with_step.counts.sites_called == 0);
     // No read has 15 bases between the bounds of a snarl, and no called allele has, so no
     // snarl's reads are fetched again.
-    REQUIRE(with_step.counts.prefiltered == 0);
     REQUIRE(with_step.counts.tested == 0);
     // The records are those of a call without the step.
     REQUIRE(with_step.records == call_chain(reads, false).records);
@@ -463,20 +461,14 @@ TEST_CASE("A run of snarls in a tandem repeat gains an expansion its reads place
         // Each snarl has four reads of the strand with the expansion, and eight without, so
         // the consensus of its reads is what is called.
         REQUIRE(called.counts.candidate_strands == 3);
-        REQUIRE(called.counts.unchanged == 3);
-        REQUIRE(called.counts.added == 0);
         // The run of the first two snarls is treated, and the third snarl then gives it the
         // reads whose expansion the mapper put there.
-        REQUIRE(called.counts.runs_grown == 1);
-        REQUIRE(called.counts.runs_tested == 2);
-        REQUIRE(called.counts.run_candidate_strands == 1);
-        REQUIRE(called.counts.run_built == 1);
-        REQUIRE(called.counts.runs_not_cuttable == 0);
         REQUIRE(called.counts.runs_treated == 1);
+        REQUIRE(called.counts.runs_merged == 0);
         // The consensus is cut at the two nodes between the snarls, and the 60 bases fall in
         // one snarl.
-        REQUIRE(called.counts.run_sites_gained == 1);
-        REQUIRE(called.counts.run_sites_called == 1);
+        REQUIRE(called.counts.sites_changed == 1);
+        REQUIRE(called.counts.sites_called == 1);
         const string first = spelled_strand(make_repeat, called.records, 0);
         const string second = spelled_strand(make_repeat, called.records, 1);
         REQUIRE((first == reads[1].sequence() || second == reads[1].sequence()));
@@ -521,9 +513,8 @@ void require_first_two_merged(const function<void(bdsg::HashGraph&)>& make, cons
     REQUIRE(called.counts.runs_treated == 1);
     REQUIRE(called.counts.runs_merged == 1);
     // The second snarl is removed, and the one site takes the place of the first.
-    REQUIRE(called.counts.merged_removed == 1);
-    REQUIRE(called.counts.merged_called == 1);
-    REQUIRE(called.counts.run_sites_gained == 0);
+    REQUIRE(called.counts.sites_changed == 1);
+    REQUIRE(called.counts.sites_called == 1);
     REQUIRE(record_of(called.records, ">1>4").empty());
     REQUIRE(record_of(called.records, ">4>7").empty());
     const string merged = record_of(called.records, ">1>7");
@@ -558,10 +549,6 @@ TEST_CASE("A run whose consensus changes the node between two snarls becomes one
         const Called called = call_graph(make_unique, THREE_PANEL, reads, options, flatten);
         // No snarl has 15 bases of the difference.
         REQUIRE(called.counts.tested == 0);
-        REQUIRE(called.counts.runs_grown == 1);
-        REQUIRE(called.counts.run_candidate_strands == 1);
-        REQUIRE(called.counts.run_built == 1);
-        REQUIRE(called.counts.runs_not_cuttable == 1);
         require_first_two_merged(make_unique, called, reads[0], reads[1],
                                  flatten ? reads[0].sequence() : "");
     }
@@ -585,7 +572,6 @@ TEST_CASE("A run whose reads have bases inside the node between two snarls becom
         const Called called = call_graph(make_unique, THREE_PANEL, reads, options);
         // No read has a base more between the bounds of any snarl.
         REQUIRE(called.counts.tested == 0);
-        REQUIRE(called.counts.runs_grown >= 1);
         require_first_two_merged(make_unique, called, reads[0], reads[1]);
     }
 

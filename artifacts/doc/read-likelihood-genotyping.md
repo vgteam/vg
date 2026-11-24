@@ -465,12 +465,10 @@ so both are as the direct pass left them.
 A record whose snarl is called with such an allele has `INFO/RC`. It is the snarl's site record,
 not [block records](#block-records): the allele puts its bases after the start bound's node, which
 no block covers. Its `AT` walk is the two bound nodes alone. vg reports on standard error how many
-snarls it tested, how many strands were candidates, how many alleles it added and how many snarls
-were called with one, and how many were left alone for each reason; and, for runs, from how many
-seeds a run was grown and how many runs were tested on the way, then, counting the last run each
-seed grew to, how many strands were candidates, how many consensuses were built, how many runs
-could not be cut or were over a limit, how many were treated, and how many member snarls gained an
-allele and were called with one.
+snarls it tested on their own and how many strands were candidates at them, how many runs were
+treated and how many of those became one site, how many sites gained an allele or were made of a
+run and how many of them are called with such an allele, how many snarls were over a limit of the
+scorer, and how many candidate strands were left alone for a nested snarl.
 
 ## Ploidy
 

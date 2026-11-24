@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 350
+plan tests 349
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -2438,14 +2438,12 @@ is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' -v novel=$RCNOVEL '$3 == ">4>7" {prin
 is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7"' | cut -f1-5,8 | diff - <(grep -v '^#' rcn.off.vcf | cut -f1-5,8) | wc -l | tr -d ' ')/$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7" && $8 ~ /RC/' | wc -l | tr -d ' ')" \
    "0/0" \
    "and the other snarls are called as without it, unmarked"
-is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 passed the prefilter, 1 tested, 1 candidate strands at 1 sites, 1 consensuses built, 1 alleles added at 1 sites, 1 sites called with a consensus allele.*/found/p' rcn.on.err)" \
+is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 tested, 1 candidate strands, 0 runs treated, 0 of them made one site, 1 sites gained an allele or were made of a run, 1 of them called with a consensus allele; left alone: 0 snarls over a limit of the scorer, 0 strands covered by a nested site$/found/p' rcn.on.err)" \
    "found" \
-   "and reports what it did in one line"
+   "and reports what it did in one line, with the runs of neighbouring snarls, of which the chain has none"
 is "$($RCN_CALL --read-consensus 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.on.vcf) | wc -l | tr -d ' ')" "0" \
    "two runs with --read-consensus write the same records"
-is "$(grep -c 'runs: 0 grown, 0 tested, .* 0 treated, 0 member sites gained an allele' rcn.on.err)" "1" \
-   "--read-consensus reports the runs of neighbouring snarls, of which the chain has none"
-is "$($RCN_CALL --read-consensus --consensus-min-diff 61 2>&1 >/dev/null | grep -c 'read consensus: 3 phased snarls, 0 passed the prefilter')" "1" \
+is "$($RCN_CALL --read-consensus --consensus-min-diff 61 2>&1 >/dev/null | grep -c 'read consensus: 3 phased snarls, 0 tested, 0 candidate strands')" "1" \
    "a read that differs by fewer bases than --consensus-min-diff does not disagree"
 # With flat records, the record of the top-level snarl is a flat one, and is marked too.
 $RCN_CALL --read-consensus --flatten-records 2>/dev/null > rcn.flat.vcf
@@ -2500,8 +2498,8 @@ RCM_MERGED=G${RCN7:0:15}$RCNOVEL${RCN7:15}C
 is "$(grep -v '^#' rcm.vcf | cut -f3 | tr '\n' ' ')/$(awk -v alt=$RCM_MERGED '$3 == ">4>10" {print $2 "/" ($5 == alt) "/" ($8 ~ /;RC$/) "/" substr($10, 1, 3)}' rcm.vcf)" \
    ">1>4 >4>10 /72/1/1/0|1" \
    "with it the two snarls are one site, named by its outer bound nodes, whose called allele has the bases"
-is "$(sed -n 's/.* \([0-9]*\) made one site in place of \([0-9]*\) more sites, \([0-9]*\) of those called.*/\1,\2,\3/p' rcm.err)" \
-   "1,1,1" "and the step reports the run it made one site, the site that took the place of, and its call"
+is "$(sed -n 's/.* \([0-9]*\) runs treated, \([0-9]*\) of them made one site, \([0-9]*\) sites gained an allele or were made of a run, \([0-9]*\) of them called.*/\1,\2,\3,\4/p' rcm.err)" \
+   "1,1,1,1" "and the step reports the run it treated and made one site, and that site and its call"
 is "$(awk -F'\t' -v bases="*+$RCM_MERGED,*" '$1 == "A" {print $3 "/" $7 "/" ($8 == bases)}' rcm.mos.tsv)" \
    "1/>4>10/1" \
    "the exact mosaic gives the one site's consensus allele as an allele row over its two bound nodes"

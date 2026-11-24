@@ -66,77 +66,27 @@ struct ReadConsensusOptions {
 struct ReadConsensusCounts {
     /// Snarls with a phase and a read-likelihood call, which the step looked at.
     size_t sites = 0;
-    /// Those whose span summary says a read can disagree with a called sequence.
-    size_t prefiltered = 0;
-    /// Those whose reads were fetched and compared with the called sequences.
+    /// Those whose reads were fetched and compared with the called sequences, on their own.
     size_t tested = 0;
-    /// Strands that were candidates.
+    /// Strands that were candidates at one of those.
     size_t candidate_strands = 0;
-    /// The sites those strands are at.
-    size_t candidate_sites = 0;
-    /// Consensuses built.
-    size_t built = 0;
-    /// Alleles added.
-    size_t added = 0;
-    /// Sites that gained an allele.
-    size_t sites_with_added = 0;
-    /// Sites whose chosen genotype has an added allele, after the last linkage pass.
-    size_t sites_called = 0;
-    /// Sites not tested because a called sequence or an allele has more bases between the
-    /// bounds than the scorer aligns.
-    size_t over_base_cap = 0;
-    /// Candidate sites left alone because their reads and alleles need more alignments than
-    /// the scorer makes.
-    size_t over_alignment_cap = 0;
-    /// Candidate strands left alone because a site nested in theirs gained an allele for the
-    /// strand.
-    size_t covered_by_nested = 0;
-    /// Candidate strands with no consensus, for want of reads or of an alignment within the
-    /// aligner's limits.
-    size_t no_consensus = 0;
-    /// Consensuses within `min_change` bases of the called sequence.
-    size_t unchanged = 0;
-    /// Consensuses that an allele of the site already spells.
-    size_t already_allele = 0;
-    /// Sites that could not be genotyped with the added alleles, which keep their call.
-    size_t regenotype_failed = 0;
-
-    /// Seeds that a run was grown from. The counts below are of the last run each grew to.
-    size_t runs_grown = 0;
-    /// The runs whose reads were fetched and compared with the called sequences while those
-    /// grew.
-    size_t runs_tested = 0;
-    /// Strands that were candidates at a run.
-    size_t run_candidate_strands = 0;
-    /// Consensuses built across a run.
-    size_t run_built = 0;
-    /// Run consensuses within `min_change` bases of the called sequence.
-    size_t run_unchanged = 0;
-    /// Run consensuses that could not be cut into the member sites, because the bases between
-    /// two members are not found whole in the consensus. Such a run becomes one site where it
-    /// can.
-    size_t runs_not_cuttable = 0;
-    /// Runs, and seeds with no run, that stopped growing at the most bases the scorer aligns,
-    /// and runs left alone because a member's alleles or reads are more than the scorer takes.
-    size_t runs_over_cap = 0;
     /// Runs treated: their consensus was cut and their member sites genotyped again, or they
     /// became one site.
     size_t runs_treated = 0;
-    /// Member sites of treated runs that gained an allele.
-    size_t run_sites_gained = 0;
-    /// Those whose chosen genotype has an added allele, after the last linkage pass.
-    size_t run_sites_called = 0;
     /// Treated runs that became one site.
     size_t runs_merged = 0;
-    /// The staged sites those sites took the place of, less one for each: the other member
-    /// sites, the sites under any member, and the edit sites between two members.
-    size_t merged_removed = 0;
-    /// The sites made of a run whose chosen genotype has a consensus allele, after the last
-    /// linkage pass.
-    size_t merged_called = 0;
-    /// Runs whose consensus could not be cut and that did not become one site, because a
-    /// change is called at an edit site inside a node between two members.
-    size_t runs_edit_between = 0;
+    /// Sites that gained an allele, on their own or as a member of a treated run, and sites
+    /// made of a run.
+    size_t sites_changed = 0;
+    /// Those whose chosen genotype has a consensus allele, after the last linkage pass.
+    size_t sites_called = 0;
+    /// Snarls left out because a called sequence has more bases between the bounds than the
+    /// scorer aligns, and tested snarls where an allele has, or where the reads and alleles need
+    /// more alignments than the scorer makes.
+    size_t over_cap = 0;
+    /// Candidate strands left alone because a site nested in theirs gained an allele for the
+    /// strand.
+    size_t covered_by_nested = 0;
 };
 
 /**
@@ -301,8 +251,8 @@ public:
     bool is_consensus_allele(const EditSnarlDecompositionOverlay& sites, const StagedSite& site,
                              int allele) const;
 
-    /// Count the sites that gained an allele whose chosen genotype has one, once the last
-    /// linkage pass has chosen the genotypes.
+    /// Count the sites that gained an allele, and the sites made of a run, whose chosen genotype
+    /// has a consensus allele, once the last linkage pass has chosen the genotypes.
     void count_called(const Parts& parts);
 
     /// Write the step's one-line report.
@@ -320,8 +270,7 @@ private:
     struct RunFinding;
 
     /// Grow and test the runs among `snarls`, whose single-site findings are `findings`. Add
-    /// to `runs` the last run each seed's growth tested, and to `run_findings` what was found
-    /// at it.
+    /// to `runs` each run that is treated, and to `run_findings` what was found at it.
     void grow_runs(const Parts& parts, const AlleleSplicer& splicer,
                    const vector<StagedSite*>& snarls, const vector<Finding>& findings,
                    vector<Run>& runs, vector<RunFinding>& run_findings);
@@ -333,7 +282,7 @@ private:
                            const vector<StagedSite*>& snarls, const Run& run) const;
 
     /// Return whether `run` can become one site, and note in `found` the edit sites between its
-    /// members, or that a change called at one keeps it from becoming one.
+    /// members. It cannot where a change is called at one of them.
     bool can_merge(const Parts& parts, const vector<StagedSite*>& snarls, const Run& run,
                    RunFinding& found) const;
 
@@ -357,12 +306,8 @@ private:
 
     ReadConsensusOptions options;
     ReadConsensusCounts counted;
-    /// The record keys of the sites that gained an allele on their own.
+    /// The record keys of the sites that gained an allele, and of the sites made of a run.
     vector<size_t> changed;
-    /// The record keys of the member sites of treated runs that gained an allele.
-    vector<size_t> run_changed;
-    /// The record keys of the sites made of a run.
-    vector<size_t> merged_keys;
     /// The index of the first consensus allele of each site made of a run, by record key.
     unordered_map<size_t, size_t> merged_first_consensus;
     /// The staged edit sites inside each node, by node ID, while the step runs.
