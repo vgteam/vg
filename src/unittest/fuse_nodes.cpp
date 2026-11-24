@@ -68,7 +68,7 @@ TEST_CASE("can_fuse_nodes rejects two nodes already joined by an edge", "[fuse_n
     REQUIRE(!algorithms::can_fuse_nodes(graph, left, right));
 }
 
-TEST_CASE("fuse_nodes concatenates the sequences and keeps outer edges and paths", "[fuse_nodes][algorithms]") {
+TEST_CASE("fuse_nodes concatenates the sequences and moves outer edges and paths onto the fused node", "[fuse_nodes][algorithms]") {
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("AAA");
     handle_t n2 = graph.create_handle("CC");
@@ -128,6 +128,19 @@ TEST_CASE("fuse_nodes turns a cycle through the pair into a self-loop", "[fuse_n
     size_t edge_count = 0;
     graph.for_each_edge([&](const edge_t&) { edge_count++; });
     REQUIRE(edge_count == 2);
+}
+
+TEST_CASE("fuse_nodes moves a one-step circular path onto the fused node", "[fuse_nodes][algorithms]") {
+    bdsg::HashGraph graph;
+    handle_t left = graph.create_handle("CC");
+    handle_t right = graph.create_handle("GGGG");
+    // The path's only step is its own next step, since the path is circular.
+    path_handle_t loop = graph.create_path_handle("loop", true);
+    graph.append_step(loop, left);
+
+    handle_t fused = algorithms::fuse_nodes(&graph, left, right);
+    REQUIRE(graph.get_step_count(loop) == 1);
+    REQUIRE(graph.get_handle_of_step(graph.path_begin(loop)) == fused);
 }
 
 }

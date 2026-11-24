@@ -38,8 +38,8 @@ void help_combine(char** argv) {
          << "                                    Every path must run in the same direction" << endl
          << "                                    as the reference path, and start and end" << endl
          << "                                    on its end nodes where chunks are joined." << endl
-         << "  -u, --fuse            requires --seam trim. Fuse the boundary nodes into" << endl
-         << "                        one node instead of adding an edge." << endl
+         << "  -u, --fuse            requires --seam trim. Fuse the two nodes at each" << endl
+         << "                        seam into one node instead of adding an edge." << endl
          << "  -P, --phase-block-is-offset" << endl
          << "                        treat a path's phase block as a start coordinate, so" << endl
          << "                        fragments differing only by phase block are merged." << endl
@@ -123,6 +123,15 @@ int main_combine(int argc, char** argv) {
         logger.error() << "--fuse/-u requires --seam trim." << endl;
     }
 
+    // The combiner takes any number of graphs; refuse counts that are probably mistakes.
+    int input_count = argc - optind;
+    if (input_count == 0) {
+        logger.error() << "At least one input graph is required." << endl;
+    }
+    if (seam_policy == SeamPolicy::COORD_TRIM && input_count < 2) {
+        logger.error() << "--seam trim needs at least two input graphs." << endl;
+    }
+
     vector<GraphCombiner::Input> inputs;
     while (optind < argc) {
         GraphCombiner::Input in;
@@ -139,8 +148,6 @@ int main_combine(int argc, char** argv) {
         logger.error() << e.what() << " Without --fuse, --seam trim joins them with an "
                        << "edge instead and keeps everything." << endl;
     } catch (const CombineError& e) {
-        logger.error() << e.what() << endl;
-    } catch (const std::invalid_argument& e) {
         logger.error() << e.what() << endl;
     }
     vg::io::save_handle_graph(combined.get(), cout);

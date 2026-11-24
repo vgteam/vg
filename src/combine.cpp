@@ -10,6 +10,7 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <bdsg/hash_graph.hpp>
 #include <handlegraph/algorithms/path_length.hpp>
 
 #include "algorithms/fuse_nodes.hpp"
@@ -99,20 +100,14 @@ GraphCombiner::GraphCombiner(SeamPolicy seam_policy, bool fuse, bool phase_block
 
 unique_ptr<MutablePathDeletableHandleGraph> GraphCombiner::combine(vector<Input>&& inputs) {
 
-    // renumber and shared need at least one input graph; trim needs at least two.
+    // Combining no graphs gives an empty graph.
     if (inputs.empty()) {
-        throw std::invalid_argument("At least one input graph is required.");
-    }
-    if (seam_policy == SeamPolicy::COORD_TRIM && inputs.size() < 2) {
-        throw std::invalid_argument("Trimming measures overlap between inputs, so it needs "
-                                    "at least two input graphs.");
+        return make_unique<bdsg::HashGraph>();
     }
 
-    // Check each input: no path may have multiple fragments within one graph, and
-    // every subrange end must match the path's sequence length.
+    // Check each input: every subrange end must match the path's sequence length.
     for (const Input& in : inputs) {
-        check_no_split_paths(in);
-        check_subrange_matches_length(in);
+        validate_input(in);
     }
 
     if (seam_policy != SeamPolicy::COORD_TRIM) {
@@ -129,7 +124,7 @@ unique_ptr<MutablePathDeletableHandleGraph> GraphCombiner::combine(vector<Input>
             chunks.push_back(Chunk{std::move(in), std::move(ref)});
         }
         sort_by_base_path_offset(chunks);
-        check_overlaps_agree(chunks);
+        validate_chunks(chunks);
 
         for (size_t i = 0; i < chunks.size(); ++i) {
             Chunk& chunk = chunks[i];
@@ -141,49 +136,35 @@ unique_ptr<MutablePathDeletableHandleGraph> GraphCombiner::combine(vector<Input>
             bool is_last_of_ref = (i + 1 == chunks.size())
                 || chunks[i + 1].ref.base_path_key != chunk.ref.base_path_key;
 
-            if (!is_last_of_ref) {
-                check_all_paths_end_at_reference_last_node(chunk);
-            }
-            if (!is_first_of_ref) {
-                check_all_paths_start_at_reference_first_node(chunk);
-            }
-
             // Handles will be invalidated, so record IDs and orientations first.
             nid_t new_start_id = chunk.graph->get_id(chunk.ref.start_handle);
             bool start_is_reverse = chunk.graph->get_is_reverse(chunk.ref.start_handle);
             nid_t ref_end_id = chunk.graph->get_id(chunk.ref.end_handle);
             bool end_is_reverse = chunk.graph->get_is_reverse(chunk.ref.end_handle);
+            // A one-node reference path starts and ends on the node trim_and_shift replaces.
+            bool ref_is_one_node = (chunk.ref.start_handle == chunk.ref.end_handle);
 
-            // offset_t is unsigned, so check for a gap before subtracting; then
+            // Note where each path on the end node ends, for the next chunk to meet.
+            map<GroupKey, PathAtSeam> path_ends;
+            if (!is_last_of_ref) {
+                path_ends = paths_at_seam(chunk, chunk.ref.end_handle, false);
+            }
+
+            // validate_chunks() ruled out a gap, so the subtraction cannot wrap; then
             // trim_and_shift cuts the overlap away and gives the new start ID.
             if (!is_first_of_ref) {
                 const SeamState& running = found->second;
-
-                if (running.is_circular != chunk.ref.is_circular) {
-                    stringstream message;
-                    message << "Reference path \"" << chunk.ref.path_name << "\" in \""
-                            << chunk.name << "\" is "
-                            << (chunk.ref.is_circular ? "circular" : "not circular")
-                            << ", but its base path in \"" << running.last_input_name
-                            << "\" is " << (running.is_circular ? "circular" : "not circular")
-                            << ". Pieces of one path have to agree on whether it is circular.";
-                    throw InputConflictError(message.str());
-                }
-                if (running.end_offset < chunk.ref.start_offset) {
-                    stringstream message;
-                    message << "Base path offset gap of "
-                            << (chunk.ref.start_offset - running.end_offset)
-                            << " bp between \"" << running.last_input_name
-                            << "\" (its reference path ends at offset " << running.end_offset
-                            << ") and \"" << chunk.name << "\" (its reference path starts at offset "
-                            << chunk.ref.start_offset
-                            << "). Trimming does not fill in gaps.";
-                    throw ChunkOverlapError(message.str());
-                }
                 offset_t overlap = running.end_offset - chunk.ref.start_offset;
                 size_t left_end_node_len = dest->get_length(
                     dest->get_handle(running.end_id, running.end_is_reverse));
                 new_start_id = trim_and_shift(chunk, overlap, left_end_node_len);
+                if (ref_is_one_node) {
+                    ref_end_id = new_start_id;
+                }
+                check_paths_meet_at_seam(
+                    running,
+                    paths_at_seam(chunk, chunk.graph->get_handle(new_start_id, start_is_reverse), true),
+                    left_end_node_len, chunk.name);
             }
 
             // ingest() shifts the chunk's node IDs, so look up its end nodes in dest by
@@ -204,7 +185,7 @@ unique_ptr<MutablePathDeletableHandleGraph> GraphCombiner::combine(vector<Input>
                                                        dest->get_is_reverse(new_end),
                                                        chunk.ref.end_offset,
                                                        chunk.name,
-                                                       chunk.ref.is_circular};
+                                                       std::move(path_ends)};
         }
     }
     inputs.clear();
@@ -213,39 +194,7 @@ unique_ptr<MutablePathDeletableHandleGraph> GraphCombiner::combine(vector<Input>
     return std::move(dest);
 }
 
-void GraphCombiner::check_no_split_paths(const Input& input) const {
-
-    // Group by GroupKey, recording each path's start offset and name.
-    map<GroupKey, vector<pair<offset_t, string>>> groups;
-    input.graph->for_each_path_handle([&](const path_handle_t& path) {
-        groups[group_key_of(*input.graph, path)]
-            .emplace_back(path_start_offset(input.graph->get_subrange(path),
-                                            input.graph->get_phase_block(path)),
-                          input.graph->get_path_name(path));
-    });
-
-    for (auto& group : groups) {
-        vector<pair<offset_t, string>>& pieces = group.second;
-        if (pieces.size() <= 1) {
-            continue;
-        }
-
-        // Sort by offset then name, and build the list of names for the message.
-        std::sort(pieces.begin(), pieces.end());
-        string names;
-        for (const auto& piece : pieces) {
-            names += (names.empty() ? "\"" : ", \"") + piece.second + "\"";
-        }
-        stringstream message;
-        message << "\"" << input.name << "\" holds " << pieces.size()
-                << " pieces of one path (" << names << "). Only pieces that are in "
-                << "separate inputs are joined; a path already split inside one input is "
-                << "not reassembled.";
-        throw InputConflictError(message.str());
-    }
-}
-
-void GraphCombiner::check_subrange_matches_length(const Input& input) {
+void GraphCombiner::validate_input(const Input& input) {
     input.graph->for_each_path_handle([&](const path_handle_t& path) {
         subrange_t subrange = input.graph->get_subrange(path);
         if (subrange == PathMetadata::NO_SUBRANGE
@@ -302,16 +251,25 @@ GraphCombiner::ReferenceDescription GraphCombiner::describe_reference(const Inpu
                                          input.graph->get_phase_block(path));
     ref.end_offset = ref.start_offset + (offset_t)get_path_length(input.graph.get(), path);
 
+    // An empty path has no first or last node to read below.
+    if (input.graph->is_empty(path)) {
+        stringstream message;
+        message << "Reference path \"" << ref.path_name << "\" in \"" << input.name
+                << "\" has no steps; trimming needs its first and last nodes to join "
+                << "chunks at.";
+        throw ReferencePathError(message.str());
+    }
+
     ref.start_handle = input.graph->get_handle_of_step(input.graph->path_begin(path));
     ref.end_handle = input.graph->get_handle_of_step(input.graph->path_back(path));
 
-    // Check boundary orientation: the reference path must visit its first and last
+    // Check end node orientation: the reference path must visit its first and last
     // nodes forward.
     if (input.graph->get_is_reverse(ref.start_handle)
         || input.graph->get_is_reverse(ref.end_handle)) {
         stringstream message;
         message << "Reference path \"" << ref.path_name << "\" in \"" << input.name
-                << "\" visits its boundary node in reverse orientation; trimming only "
+                << "\" visits its first or last node in reverse orientation; trimming only "
                 << "supports forward-strand boundaries.";
         throw ReferencePathError(message.str());
     }
@@ -337,28 +295,79 @@ void GraphCombiner::sort_by_base_path_offset(vector<Chunk>& chunks) {
                      });
 }
 
-void GraphCombiner::check_overlaps_agree(const vector<Chunk>& chunks) const {
+void GraphCombiner::validate_chunks(const vector<Chunk>& chunks) const {
+    for (size_t i = 0; i < chunks.size(); ++i) {
+        const Chunk& chunk = chunks[i];
 
-    // The sort made each base path's chunks contiguous and offset-ascending, so only
-    // neighbours can overlap.
-    for (size_t i = 1; i < chunks.size(); ++i) {
-        const Chunk& left = chunks[i - 1];
-        const Chunk& right = chunks[i];
+        // The sort made each base path's chunks contiguous, so only neighbours are joined.
+        bool has_left = i > 0 && chunks[i - 1].ref.base_path_key == chunk.ref.base_path_key;
+        bool has_right = i + 1 < chunks.size()
+            && chunks[i + 1].ref.base_path_key == chunk.ref.base_path_key;
 
-        // Skip a different base path, and a gap, which combine() reports itself.
-        if (right.ref.base_path_key != left.ref.base_path_key
-            || left.ref.end_offset <= right.ref.start_offset) {
+        // Every step on an end node must run the same way as the reference path; at a seam
+        // it must also be its path's first (or last) step, since chunks are joined there.
+        const MutablePathDeletableHandleGraph& graph = *chunk.graph;
+        auto check_node = [&](handle_t node, bool at_start, bool at_seam) {
+            const char* end = at_start ? "start" : "end";
+            graph.for_each_step_on_handle(node, [&](const step_handle_t& step) {
+                path_handle_t p = graph.get_path_handle_of_step(step);
+                if (graph.get_is_reverse(graph.get_handle_of_step(step)) != graph.get_is_reverse(node)) {
+                    stringstream message;
+                    message << "Path \"" << graph.get_path_name(p) << "\" in \"" << chunk.name
+                            << "\" runs against the reference path on its " << end
+                            << " node (id " << graph.get_id(node)
+                            << "). Every path has to run the same way as the reference path.";
+                    throw ChunkOverlapError(message.str());
+                }
+                step_handle_t end_step = at_start ? graph.path_begin(p) : graph.path_back(p);
+                if (at_seam && step != end_step) {
+                    stringstream message;
+                    message << "Path \"" << graph.get_path_name(p) << "\" in \"" << chunk.name
+                            << "\" passes through the reference path's " << end
+                            << " node (id " << graph.get_id(node) << ") without "
+                            << (at_start ? "starting" : "ending") << " there. Chunks are joined "
+                            << "at that node, so every path on it has to " << end << " there.";
+                    throw ChunkOverlapError(message.str());
+                }
+            });
+        };
+        check_node(chunk.ref.start_handle, true, has_left);
+        check_node(chunk.ref.end_handle, false, has_right);
+
+        if (!has_left) {
             continue;
         }
-        offset_t overlap = left.ref.end_offset - right.ref.start_offset;
+        const Chunk& left = chunks[i - 1];
 
-        // Read the shared span off each side. A nested chunk reads short; the checks
+        if (left.ref.is_circular != chunk.ref.is_circular) {
+            stringstream message;
+            message << "Reference path \"" << chunk.ref.path_name << "\" in \""
+                    << chunk.name << "\" is "
+                    << (chunk.ref.is_circular ? "circular" : "not circular")
+                    << ", but its base path in \"" << left.name
+                    << "\" is " << (left.ref.is_circular ? "circular" : "not circular")
+                    << ". Pieces of one path have to agree on whether it is circular.";
+            throw InputConflictError(message.str());
+        }
+        if (left.ref.end_offset < chunk.ref.start_offset) {
+            stringstream message;
+            message << "Base path offset gap of "
+                    << (chunk.ref.start_offset - left.ref.end_offset)
+                    << " bp between \"" << left.name
+                    << "\" (its reference path ends at offset " << left.ref.end_offset
+                    << ") and \"" << chunk.name << "\" (its reference path starts at offset "
+                    << chunk.ref.start_offset
+                    << "). Trimming does not fill in gaps.";
+            throw ChunkOverlapError(message.str());
+        }
+
+        // Read the overlap off each side. A nested chunk reads short; the checks
         // in trim_and_shift catch that.
+        offset_t overlap = left.ref.end_offset - chunk.ref.start_offset;
         string from_left = path_suffix(*left.graph,
                                        left.graph->get_path_handle(left.ref.path_name),
                                        overlap);
-        string from_right = path_prefix(*right.graph,
-                                        right.graph->get_path_handle(right.ref.path_name),
+        string from_right = path_prefix(graph, graph.get_path_handle(chunk.ref.path_name),
                                         overlap);
 
         // Find the first base they disagree on, if any.
@@ -369,12 +378,12 @@ void GraphCombiner::check_overlaps_agree(const vector<Chunk>& chunks) const {
         }
         if (at < shared) {
             stringstream message;
-            message << "Chunks \"" << left.name << "\" and \"" << right.name
+            message << "Chunks \"" << left.name << "\" and \"" << chunk.name
                     << "\" overlap on base path coordinates ["
-                    << right.ref.start_offset << ", " << left.ref.end_offset
+                    << chunk.ref.start_offset << ", " << left.ref.end_offset
                     << ") but disagree there: at offset "
-                    << (right.ref.start_offset + at) << " \"" << left.name
-                    << "\" has " << from_left[at] << " and \"" << right.name
+                    << (chunk.ref.start_offset + at) << " \"" << left.name
+                    << "\" has " << from_left[at] << " and \"" << chunk.name
                     << "\" has " << from_right[at]
                     << ". Trimming drops the right chunk's copy of the overlap, "
                     << "so the two have to spell the same sequence.";
@@ -383,42 +392,19 @@ void GraphCombiner::check_overlaps_agree(const vector<Chunk>& chunks) const {
     }
 }
 
-void GraphCombiner::check_all_paths_start_at_reference_first_node(const Chunk& chunk) const {
-    chunk.graph->for_each_path_handle([&](const path_handle_t& p) {
-        handle_t first = chunk.graph->get_handle_of_step(chunk.graph->path_begin(p));
-        if (first != chunk.ref.start_handle) {
-            stringstream message;
-            message << "Path \"" << chunk.graph->get_path_name(p) << "\" in \""
-                    << chunk.name << "\" does not start at the reference path's start node "
-                    << "(id " << chunk.graph->get_id(chunk.ref.start_handle)
-                    << "). Trimming cuts and joins at that one node, so every path in a "
-                    << "chunk that has a chunk to its left has to begin there.";
-            throw ChunkOverlapError(message.str());
-        }
-    });
-}
-
-void GraphCombiner::check_all_paths_end_at_reference_last_node(const Chunk& chunk) const {
-    chunk.graph->for_each_path_handle([&](const path_handle_t& p) {
-        handle_t last = chunk.graph->get_handle_of_step(chunk.graph->path_back(p));
-        if (last != chunk.ref.end_handle) {
-            stringstream message;
-            message << "Path \"" << chunk.graph->get_path_name(p) << "\" in \""
-                    << chunk.name << "\" does not end at the reference path's end node "
-                    << "(id " << chunk.graph->get_id(chunk.ref.end_handle)
-                    << "). Trimming cuts and joins at that one node, so every path in a "
-                    << "chunk that has a chunk to its right has to end there.";
-            throw ChunkOverlapError(message.str());
-        }
-    });
-}
-
 nid_t GraphCombiner::trim_and_shift(Chunk& chunk, offset_t overlap,
                                     size_t left_end_node_len) {
 
     // A raw pointer to this chunk's graph, and the ID of its reference path's start node.
     MutablePathDeletableHandleGraph* graph = chunk.graph.get();
     nid_t new_start_id = graph->get_id(chunk.ref.start_handle);
+
+    // Only paths starting on the reference path's first node are trimmed and shifted;
+    // validate_chunks has made sure every path on it starts there.
+    vector<path_handle_t> trimmed_paths;
+    graph->for_each_step_on_handle(chunk.ref.start_handle, [&](const step_handle_t& step) {
+        trimmed_paths.push_back(graph->get_path_handle_of_step(step));
+    });
 
     // Two checks: the overlap must be strictly shorter than the first node.
     if (overlap > 0) {
@@ -448,12 +434,8 @@ nid_t GraphCombiner::trim_and_shift(Chunk& chunk, offset_t overlap,
         handle_t remainder = pieces[1];
         new_start_id = graph->get_id(remainder);
 
-        // Drop every path's first step, so each now starts at the remainder.
-        vector<path_handle_t> all_paths;
-        graph->for_each_path_handle([&](const path_handle_t& p) {
-            all_paths.push_back(p);
-        });
-        for (path_handle_t p : all_paths) {
+        // Drop the overlapping first step, so those paths now start at the remainder.
+        for (path_handle_t p : trimmed_paths) {
             graph->pop_front_step(p);
         }
 
@@ -467,8 +449,8 @@ nid_t GraphCombiner::trim_and_shift(Chunk& chunk, offset_t overlap,
                     << "\" overlap the chunk to its left and have to be trimmed, "
                     << "but " << inbound << " edge(s) attach to node "
                     << graph->get_id(overlapping)
-                    << " there and would be lost. Trimming needs the chunk "
-                    << "boundary to be a clean left edge.";
+                    << " there and would be lost. Trimming needs nothing "
+                    << "attached before the chunk's first node.";
             throw ChunkOverlapError(message.str());
         }
         graph->destroy_handle(overlapping);
@@ -480,7 +462,7 @@ nid_t GraphCombiner::trim_and_shift(Chunk& chunk, offset_t overlap,
         return new_start_id;
     }
 
-    // Collect every path's metadata and all steps.
+    // Collect those paths' metadata and steps.
     struct PathSnapshot {
         PathSense sense;         ///< Sense of the path.
         string sample;           ///< Sample name.
@@ -494,7 +476,7 @@ nid_t GraphCombiner::trim_and_shift(Chunk& chunk, offset_t overlap,
 
     vector<PathSnapshot> snapshots;
     vector<path_handle_t> to_destroy;
-    graph->for_each_path_handle([&](const path_handle_t& p) {
+    for (path_handle_t p : trimmed_paths) {
         PathSnapshot s;
         s.sense = graph->get_sense(p);
         s.sample = graph->get_sample_name(p);
@@ -523,7 +505,7 @@ nid_t GraphCombiner::trim_and_shift(Chunk& chunk, offset_t overlap,
         }
         snapshots.push_back(std::move(s));
         to_destroy.push_back(p);
-    });
+    }
     for (path_handle_t p : to_destroy) {
         graph->destroy_path(p);
     }
@@ -543,6 +525,80 @@ nid_t GraphCombiner::trim_and_shift(Chunk& chunk, offset_t overlap,
         }
     }
     return new_start_id;
+}
+
+map<GraphCombiner::GroupKey, GraphCombiner::PathAtSeam>
+GraphCombiner::paths_at_seam(const Chunk& chunk, handle_t node, bool at_start) const {
+    const MutablePathDeletableHandleGraph& graph = *chunk.graph;
+    map<GroupKey, PathAtSeam> paths;
+    graph.for_each_step_on_handle(node, [&](const step_handle_t& step) {
+        path_handle_t p = graph.get_path_handle_of_step(step);
+        subrange_t subrange = graph.get_subrange(p);
+        offset_t offset = path_start_offset(subrange, graph.get_phase_block(p));
+        if (!at_start) {
+            offset = (subrange != PathMetadata::NO_SUBRANGE
+                      && subrange.second != PathMetadata::NO_END_POSITION)
+                ? subrange.second : offset + (offset_t)get_path_length(&graph, p);
+        }
+        string name = graph.get_path_name(p);
+        if (!paths.emplace(group_key_of(graph, p), PathAtSeam{offset, name}).second) {
+            stringstream message;
+            message << "\"" << chunk.name << "\" has two pieces of one path on the reference "
+                    << "path's " << (at_start ? "start" : "end") << " node, one of them \""
+                    << name << "\". Only one piece of a path can meet another chunk there.";
+            throw ChunkOverlapError(message.str());
+        }
+    });
+    return paths;
+}
+
+void GraphCombiner::check_paths_meet_at_seam(const SeamState& left,
+                                             const map<GroupKey, PathAtSeam>& right,
+                                             size_t left_end_node_len,
+                                             const string& input_name) const {
+    // Fusing moves the right side's coordinates back by the left node's length.
+    offset_t fused_back = fuse ? (offset_t)left_end_node_len : 0;
+
+    // Each path ending on the left has to pick up on the right where it left off;
+    // when fusing, it also has to go on at all.
+    for (const auto& entry : left.path_ends) {
+        auto found = right.find(entry.first);
+        if (found == right.end()) {
+            if (fuse) {
+                stringstream message;
+                message << "Path \"" << entry.second.name << "\" in \"" << left.last_input_name
+                        << "\" ends on the node being fused with \"" << input_name
+                        << "\", but no piece of it starts there. Fusing would add sequence "
+                        << "that is not its own to its end.";
+                throw ChunkOverlapError(message.str());
+            }
+            continue;
+        }
+        offset_t right_start = found->second.offset + fused_back;
+        if (right_start != entry.second.offset) {
+            stringstream message;
+            message << "Path \"" << entry.second.name << "\" in \"" << left.last_input_name
+                    << "\" ends at offset " << entry.second.offset << ", but its next piece \""
+                    << found->second.name << "\" in \"" << input_name
+                    << "\" starts at offset " << right_start
+                    << " once the overlap is trimmed. The two pieces have to meet there.";
+            throw ChunkOverlapError(message.str());
+        }
+    }
+
+    // When fusing, each path starting on the right also has to come from the left.
+    if (fuse) {
+        for (const auto& entry : right) {
+            if (left.path_ends.count(entry.first) == 0) {
+                stringstream message;
+                message << "Path \"" << entry.second.name << "\" in \"" << input_name
+                        << "\" starts on the node being fused with \"" << left.last_input_name
+                        << "\", but no piece of it ends there. Fusing would add sequence "
+                        << "that is not its own to its start.";
+                throw ChunkOverlapError(message.str());
+            }
+        }
+    }
 }
 
 int64_t GraphCombiner::ingest(Input& input) {
@@ -648,8 +704,7 @@ void GraphCombiner::merge_path_fragments() {
         subrange_t subrange;             ///< Coordinate range.
         size_t phase_block;              ///< Phase block.
         size_t length;                   ///< Sequence length.
-        bool positioned_by_phase_block;  ///< Whether the phase block gives its position.
-        bool is_circular;                ///< Whether it is circular.
+        bool is_circular;               ///< Whether it is circular.
     };
     map<GroupKey, vector<Fragment>> groups;
 
@@ -660,9 +715,6 @@ void GraphCombiner::merge_path_fragments() {
         f.subrange = dest->get_subrange(path);
         f.phase_block = dest->get_phase_block(path);
         f.length = get_path_length(dest.get(), path);
-        f.positioned_by_phase_block = phase_block_is_offset
-            && f.subrange == PathMetadata::NO_SUBRANGE
-            && f.phase_block != PathMetadata::NO_PHASE_BLOCK;
         f.is_circular = dest->get_is_circular(path);
         groups[group_key_of(*dest, path)].push_back(std::move(f));
     });
@@ -710,134 +762,154 @@ void GraphCombiner::merge_path_fragments() {
                       return fragment_start(a) < fragment_start(b);
                   });
 
-        // Detect any gap, updating the furthest offset along the base path reached so far.
+        // Split the fragments at each gap into runs. A run is consecutive fragments with no
+        // gap between them, and is merged into one path. A reference or circular path may not have a gap.
+        vector<vector<Fragment>> runs(1, vector<Fragment>{frags.front()});
         offset_t covered_end = fragment_end(frags.front());
         for (size_t i = 1; i < frags.size(); ++i) {
             offset_t next_start = fragment_start(frags[i]);
             if (covered_end < next_start) {
-                stringstream message;
-                message << "Gap of " << (next_start - covered_end)
-                        << " bp before fragment \""
-                        << dest->get_path_name(frags[i].handle)
-                        << "\"; the fragments before it only reach offset "
-                        << covered_end << ". Gaps between fragments are not filled in.";
-                throw FragmentMergeError(message.str());
+                if (sense == PathSense::REFERENCE || is_circular) {
+                    stringstream message;
+                    message << "Gap of " << (next_start - covered_end)
+                            << " bp before fragment \""
+                            << dest->get_path_name(frags[i].handle)
+                            << "\"; the fragments before it only reach offset "
+                            << covered_end << ". "
+                            << (sense == PathSense::REFERENCE ? "A reference" : "A circular")
+                            << " path cannot have gaps.";
+                    throw FragmentMergeError(message.str());
+                }
+                logger.info() << "Gap of " << (next_start - covered_end)
+                              << " bp before fragment \""
+                              << dest->get_path_name(frags[i].handle)
+                              << "\"; it is kept as a separate path." << endl;
+                runs.emplace_back();
             }
+            runs.back().push_back(frags[i]);
             covered_end = std::max(covered_end, fragment_end(frags[i]));
         }
 
-        // With phase blocks read as coordinates, check they run continuously.
-        for (size_t i = 0; phase_block_is_offset && i + 1 < frags.size(); ++i) {
-            if (!frags[i].positioned_by_phase_block
-                || !frags[i + 1].positioned_by_phase_block) {
-                continue;
+        for (vector<Fragment>& run : runs) {
+            // Compute the merged subrange, phase block, and name.
+            offset_t combined_start = fragment_start(run.front());
+            offset_t combined_end = 0;
+            for (const Fragment& f : run) {
+                combined_end = std::max(combined_end, fragment_end(f));
             }
-            offset_t expected = (offset_t)frags[i].phase_block + (offset_t)frags[i].length;
-            if (expected != (offset_t)frags[i + 1].phase_block) {
-                stringstream message;
-                message << "Phase blocks are read as offsets, but phase blocks of \""
-                        << dest->get_path_name(frags[i].handle)
-                        << "\" do not line up as coordinates (block "
-                        << frags[i].phase_block << " + length " << frags[i].length
-                        << " != block " << frags[i + 1].phase_block
-                        << "). Are these phase block numbers rather than offsets?";
-                throw FragmentMergeError(message.str());
+            subrange_t combined_subrange{combined_start, combined_end};
+
+            // HAPLOTYPE requires a phase block. Keep the group's own; treating phase blocks
+            // as coordinates added it to the subrange, so 0 is used there.
+            size_t group_phase_block = std::get<4>(group.first);
+            size_t merged_phase_block = PathMetadata::NO_PHASE_BLOCK;
+            if (sense == PathSense::HAPLOTYPE) {
+                merged_phase_block = (group_phase_block == PathMetadata::NO_PHASE_BLOCK)
+                    ? 0 : group_phase_block;
             }
-        }
+            string merged_name = PathMetadata::create_path_name(sense, sample, locus, haplotype,
+                                                               merged_phase_block,
+                                                               combined_subrange);
 
-        // Compute the merged subrange, phase block, and name.
-        offset_t combined_start = fragment_start(frags.front());
-        offset_t combined_end = 0;
-        for (const Fragment& f : frags) {
-            combined_end = std::max(combined_end, fragment_end(f));
-        }
-        subrange_t combined_subrange{combined_start, combined_end};
-
-        // HAPLOTYPE requires a phase block. Keep the group's own; treating phase blocks
-        // as coordinates added it to the subrange, so 0 is used there.
-        size_t group_phase_block = std::get<4>(group.first);
-        size_t merged_phase_block = PathMetadata::NO_PHASE_BLOCK;
-        if (sense == PathSense::HAPLOTYPE) {
-            merged_phase_block = (group_phase_block == PathMetadata::NO_PHASE_BLOCK)
-                ? 0 : group_phase_block;
-        }
-        string merged_name = PathMetadata::create_path_name(sense, sample, locus, haplotype,
-                                                           merged_phase_block,
-                                                           combined_subrange);
-
-        // Can't lean on create_path(): PackedGraph throws on a duplicate, HashGraph
-        // leaves the old path unreachable by name, and VG just appends to it. So check here.
-        if (dest->has_path(merged_name)) {
-            bool is_own_fragment = false;
-            for (const Fragment& f : frags) {
-                if (dest->get_path_name(f.handle) == merged_name) {
-                    is_own_fragment = true;
-                    break;
-                }
-            }
-            if (!is_own_fragment) {
-                // A path with this name has the same GroupKey, so it is one of frags.
-                throw std::logic_error("merged path name collides with a path outside its group");
-            }
-        }
-
-        // Save each fragment's node steps into routes.
-        vector<vector<handle_t>> routes;
-        routes.reserve(frags.size());
-        for (const Fragment& f : frags) {
-            vector<handle_t> steps;
-            for (handle_t h : dest->scan_path(f.handle)) {
-                steps.push_back(h);
-            }
-            routes.push_back(std::move(steps));
-        }
-
-        // Destroy the old fragments, and create the merged path.
-        for (const Fragment& f : frags) {
-            dest->destroy_path(f.handle);
-        }
-
-        path_handle_t merged = dest->create_path(sense, sample, locus, haplotype,
-                                                merged_phase_block, combined_subrange,
-                                                is_circular);
-        const vector<handle_t>* previous = nullptr;
-        // Walk each fragment's steps in order, appending them to the merged path.
-        for (const vector<handle_t>& steps : routes) {
-            if (steps.empty()) {
-                continue;
-            }
-            // `skip` is how many steps at the start of `steps` repeat the end of `previous`.
-            // Try each length `run`, longest first, down to 1 (a run of 0 would always match);
-            // `k` goes through the run, comparing step k of `steps` with step k of `previous`'s last `run` steps.
-            size_t skip = 0;
-            if (previous != nullptr) {
-                size_t most = std::min(previous->size(), steps.size());
-                for (size_t run = most; run >= 1; --run) {
-                    bool same = true;
-                    for (size_t k = 0; k < run; ++k) {
-                        if ((*previous)[previous->size() - run + k] != steps[k]) {
-                            same = false;
-                            break;
-                        }
-                    }
-                    if (same) {
-                        skip = run;
+            // Can't lean on create_path(): PackedGraph throws on a duplicate, HashGraph
+            // leaves the old path unreachable by name, and VG just appends to it. So check here.
+            if (dest->has_path(merged_name)) {
+                bool is_own_fragment = false;
+                for (const Fragment& f : run) {
+                    if (dest->get_path_name(f.handle) == merged_name) {
+                        is_own_fragment = true;
                         break;
                     }
                 }
-                if (skip == 0) {
-                    // Nothing shared, so they abut and the graph must say so.
-                    dest->create_edge(previous->back(), steps.front());
+                if (!is_own_fragment) {
+                    // A path with this name has the same GroupKey and range, so it is in this run.
+                    throw std::logic_error("merged path name collides with a path outside its run");
                 }
             }
-            for (size_t k = skip; k < steps.size(); ++k) {
-                dest->append_step(merged, steps[k]);
-            }
-            previous = &steps;
-        }
 
-        logger.info() << "Merged " << frags.size() << " fragments into \"" << merged_name
-                      << "\"" << endl;
+            // Save each fragment's node steps into routes.
+            vector<vector<handle_t>> routes;
+            routes.reserve(run.size());
+            for (const Fragment& f : run) {
+                vector<handle_t> steps;
+                for (handle_t h : dest->scan_path(f.handle)) {
+                    steps.push_back(h);
+                }
+                routes.push_back(std::move(steps));
+            }
+
+            // Walk each fragment's steps in order, collecting the merged path's steps
+            // and the edges it needs, before changing dest.
+            vector<handle_t> merged_steps;
+            vector<edge_t> new_edges;
+            size_t merged_length = 0;
+            const vector<handle_t>* previous = nullptr;
+            for (const vector<handle_t>& steps : routes) {
+                if (steps.empty()) {
+                    continue;
+                }
+                // `skip` is how many steps at the start of `steps` repeat the end of `previous`.
+                // Try each length `len`, longest first, down to 1 (a length of 0 would always match);
+                // `k` goes through those steps, comparing step k of `steps` with step k of `previous`'s last `len` steps.
+                size_t skip = 0;
+                if (previous != nullptr) {
+                    size_t most = std::min(previous->size(), steps.size());
+                    for (size_t len = most; len >= 1; --len) {
+                        bool same = true;
+                        for (size_t k = 0; k < len; ++k) {
+                            if ((*previous)[previous->size() - len + k] != steps[k]) {
+                                same = false;
+                                break;
+                            }
+                        }
+                        if (same) {
+                            skip = len;
+                            break;
+                        }
+                    }
+                    if (skip == 0) {
+                        // Nothing shared, so they abut and the graph must say so.
+                        new_edges.emplace_back(previous->back(), steps.front());
+                    }
+                }
+                for (size_t k = skip; k < steps.size(); ++k) {
+                    merged_steps.push_back(steps[k]);
+                    merged_length += dest->get_length(steps[k]);
+                }
+                previous = &steps;
+            }
+
+            // Overlap not covered by shared steps would be spelled twice.
+            if (merged_length != combined_end - combined_start) {
+                stringstream message;
+                message << "Fragments merged as \"" << merged_name << "\" spell "
+                        << merged_length << " bp, but their coordinates span "
+                        << (combined_end - combined_start) << " bp. Pieces of one path "
+                        << "can only overlap on nodes they share.";
+                if (phase_block_is_offset) {
+                    message << " Phase blocks are read as offsets; are they block numbers instead?";
+                }
+                throw FragmentMergeError(message.str());
+            }
+
+            // Destroy the old fragments, and create the merged path.
+            for (const Fragment& f : run) {
+                dest->destroy_path(f.handle);
+            }
+            for (const edge_t& e : new_edges) {
+                dest->create_edge(e.first, e.second);
+            }
+            path_handle_t merged = dest->create_path(sense, sample, locus, haplotype,
+                                                    merged_phase_block, combined_subrange,
+                                                    is_circular);
+            for (handle_t h : merged_steps) {
+                dest->append_step(merged, h);
+            }
+
+            logger.info() << "Wrote " << run.size()
+                          << (run.size() == 1 ? " fragment" : " fragments")
+                          << " as \"" << merged_name << "\"" << endl;
+        }
     }
 }
 

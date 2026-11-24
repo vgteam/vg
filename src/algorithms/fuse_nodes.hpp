@@ -7,10 +7,10 @@
 namespace vg {
 namespace algorithms {
 
-/// Check whether two nodes can be fused.
+/// Check whether fuse_nodes() can join left and right without dropping an edge.
 bool can_fuse_nodes(const HandleGraph& graph, handle_t left, handle_t right);
 
-/// Fuse two nodes into one node.
+/// Replace left and right, which must pass can_fuse_nodes(), with one node spelling both; paths on either now visit it.
 handle_t fuse_nodes(handlegraph::MutablePathDeletableHandleGraph* graph,
                     handle_t left, handle_t right);
 

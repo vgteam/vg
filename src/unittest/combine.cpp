@@ -1,13 +1,6 @@
 /// \file combine.cpp
 ///
-/// Unit tests for GraphCombiner's internals.
-///
-/// GraphCombiner::combine() is covered end to end by test/t/51_vg_combine.t.
-/// These tests drive the steps underneath it, whose intermediate results -- the ID
-/// shifts, the trimmed boundary, the merged coordinates -- the command line cannot see.
-///
-/// Error branches are absent on purpose: logger.error() exits the process, which would
-/// take the whole test binary with it. They live in test/t/51_vg_combine.t.
+/// Unit tests for GraphCombiner.
 
 #include "catch.hpp"
 #include "../combine.hpp"
@@ -34,19 +27,19 @@ public:
     using GraphCombiner::SeamState;
     using GraphCombiner::BasePathKey;
     using GraphCombiner::GroupKey;
+    using GraphCombiner::PathAtSeam;
     using GraphCombiner::path_start_offset;
     using GraphCombiner::shift_ids_above;
     using GraphCombiner::group_key_of;
     using GraphCombiner::path_prefix;
     using GraphCombiner::path_suffix;
-    using GraphCombiner::check_no_split_paths;
-    using GraphCombiner::check_subrange_matches_length;
+    using GraphCombiner::validate_input;
+    using GraphCombiner::validate_chunks;
     using GraphCombiner::describe_reference;
     using GraphCombiner::sort_by_base_path_offset;
-    using GraphCombiner::check_overlaps_agree;
-    using GraphCombiner::check_all_paths_start_at_reference_first_node;
-    using GraphCombiner::check_all_paths_end_at_reference_last_node;
     using GraphCombiner::trim_and_shift;
+    using GraphCombiner::paths_at_seam;
+    using GraphCombiner::check_paths_meet_at_seam;
     using GraphCombiner::ingest;
     using GraphCombiner::share_nodes_by_id;
     using GraphCombiner::copy_paths_checked;
@@ -126,6 +119,31 @@ static TestGraphCombiner::Chunk chunk_on_base_path(const string& name,
     chunk.ref.base_path_key = base_path_key;
     chunk.ref.start_offset = start;
     return chunk;
+}
+
+/// Return `chunk` with one-base chunks of its base path joined on the sides asked for, sorted for validate_chunks().
+static vector<TestGraphCombiner::Chunk> with_neighbours(const TestGraphCombiner& combiner,
+                                                        TestGraphCombiner::Chunk&& chunk,
+                                                        bool left, bool right) {
+    TestGraphCombiner::BasePathKey key = chunk.ref.base_path_key;
+    auto neighbour = [&](const string& name, offset_t start) {
+        TestGraphCombiner::Chunk n = make_chunk(name);
+        add_ref_path(*n.graph, std::get<0>(key), std::get<1>(key), subrange_t{start, start + 1},
+                     {n.graph->create_handle("A")});
+        n.ref = combiner.describe_reference(n);
+        return n;
+    };
+    offset_t start = chunk.ref.start_offset;
+    offset_t end = chunk.ref.end_offset;
+    vector<TestGraphCombiner::Chunk> chunks;
+    if (left) {
+        chunks.push_back(neighbour("left.pg", start - 1));
+    }
+    chunks.push_back(std::move(chunk));
+    if (right) {
+        chunks.push_back(neighbour("right.pg", end));
+    }
+    return chunks;
 }
 
 TEST_CASE("path_start_offset reads the offset from a subrange", "[combine]") {
@@ -297,81 +315,15 @@ TEST_CASE("path_prefix and path_suffix read the ends of a path", "[combine]") {
     }
 }
 
-TEST_CASE("check_no_split_paths accepts a graph with a single path", "[combine]") {
-    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
-    TestGraphCombiner::Chunk chunk = make_chunk("one.pg");
-    handle_t n1 = chunk.graph->create_handle("AAAA");
-    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{0, 4}, {n1});
-    combiner.check_no_split_paths(chunk);
-    REQUIRE(chunk.graph->get_path_count() == 1);
-}
-
-TEST_CASE("check_no_split_paths accepts paths that differ only by haplotype", "[combine]") {
-    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
-    TestGraphCombiner::Chunk chunk = make_chunk("haps.pg");
-    handle_t n1 = chunk.graph->create_handle("AAAA");
-    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
-             subrange_t{0, 4}, {n1});
-    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 2, 0,
-             subrange_t{0, 4}, {n1});
-    combiner.check_no_split_paths(chunk);
-    REQUIRE(chunk.graph->get_path_count() == 2);
-}
-
-TEST_CASE("check_no_split_paths accepts paths that differ only by locus", "[combine]") {
-    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
-    TestGraphCombiner::Chunk chunk = make_chunk("loci.pg");
-    handle_t n1 = chunk.graph->create_handle("AAAA");
-    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{0, 4}, {n1});
-    add_ref_path(*chunk.graph, "GRCh38", "chr2", subrange_t{0, 4}, {n1});
-    combiner.check_no_split_paths(chunk);
-    REQUIRE(chunk.graph->get_path_count() == 2);
-}
-
-TEST_CASE("check_no_split_paths accepts paths that differ only by phase block when phase blocks are not offsets", "[combine]") {
-    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
-    TestGraphCombiner::Chunk chunk = make_chunk("blocks.pg");
-    handle_t n1 = chunk.graph->create_handle("AAAA");
-    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
-             PathMetadata::NO_SUBRANGE, {n1});
-    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 10,
-             PathMetadata::NO_SUBRANGE, {n1});
-    combiner.check_no_split_paths(chunk);
-    REQUIRE(chunk.graph->get_path_count() == 2);
-}
-
-TEST_CASE("check_no_split_paths rejects two pieces of one path in one graph", "[combine]") {
-    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
-    TestGraphCombiner::Chunk chunk = make_chunk("split.pg");
-    handle_t n1 = chunk.graph->create_handle("AAAA");
-    handle_t n2 = chunk.graph->create_handle("CCC");
-    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{0, 4}, {n1});
-    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{4, 7}, {n2});
-    REQUIRE_THROWS_AS(combiner.check_no_split_paths(chunk), InputConflictError);
-    REQUIRE_THROWS_WITH(combiner.check_no_split_paths(chunk), Catch::Contains("split.pg"));
-}
-
-TEST_CASE("check_no_split_paths rejects two phase blocks of one path when phase blocks are offsets", "[combine]") {
-    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, true);
-    TestGraphCombiner::Chunk chunk = make_chunk("blocks.pg");
-    handle_t n1 = chunk.graph->create_handle("AAAA");
-    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
-             PathMetadata::NO_SUBRANGE, {n1});
-    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 10,
-             PathMetadata::NO_SUBRANGE, {n1});
-    REQUIRE_THROWS_AS(combiner.check_no_split_paths(chunk), InputConflictError);
-    REQUIRE_THROWS_WITH(combiner.check_no_split_paths(chunk), Catch::Contains("blocks.pg"));
-}
-
-TEST_CASE("check_subrange_matches_length rejects a subrange end that disagrees with the sequence length", "[combine]") {
+TEST_CASE("validate_input rejects a subrange end that disagrees with the sequence length", "[combine]") {
     // A subrange claiming 100-999 over 11bp of sequence.
     TestGraphCombiner::Chunk chunk = make_chunk("claim.pg");
     handle_t n1 = chunk.graph->create_handle("AAAAAAAAAAA");
     add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{100, 999}, {n1});
 
-    REQUIRE_THROWS_AS(TestGraphCombiner::check_subrange_matches_length(chunk),
+    REQUIRE_THROWS_AS(TestGraphCombiner::validate_input(chunk),
                       PathLengthMismatchError);
-    REQUIRE_THROWS_WITH(TestGraphCombiner::check_subrange_matches_length(chunk),
+    REQUIRE_THROWS_WITH(TestGraphCombiner::validate_input(chunk),
                         Catch::Contains("GRCh38#0#chr1[100-999]"));
 }
 
@@ -459,6 +411,14 @@ TEST_CASE("describe_reference rejects an input with two reference paths", "[comb
     REQUIRE_THROWS_WITH(combiner.describe_reference(chunk), Catch::Contains("tworef.pg"));
 }
 
+TEST_CASE("describe_reference rejects an empty reference path", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+    TestGraphCombiner::Chunk chunk = make_chunk("empty.pg");
+    add_ref_path(*chunk.graph, "GRCh38", "chr1", PathMetadata::NO_SUBRANGE, {});
+    REQUIRE_THROWS_AS(combiner.describe_reference(chunk), ReferencePathError);
+    REQUIRE_THROWS_WITH(combiner.describe_reference(chunk), Catch::Contains("empty.pg"));
+}
+
 TEST_CASE("describe_reference rejects a reference path that visits its first node in reverse", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
     TestGraphCombiner::Chunk chunk = make_chunk("rev.pg");
@@ -528,7 +488,7 @@ TEST_CASE("sort_by_base_path_offset treats haplotypes of one locus as separate b
     REQUIRE(chunks[2].name == "hap0_late");
 }
 
-TEST_CASE("check_overlaps_agree rejects neighbouring chunks that spell different sequences over their overlap", "[combine]") {
+TEST_CASE("validate_chunks rejects neighbouring chunks that spell different sequences over their overlap", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
     vector<TestGraphCombiner::Chunk> chunks;
     chunks.push_back(make_chunk("left.pg"));
@@ -543,11 +503,11 @@ TEST_CASE("check_overlaps_agree rejects neighbouring chunks that spell different
     chunks[1].ref = combiner.describe_reference(chunks[1]);
 
     // The overlap is [6, 10): the left chunk has AAAA there and the right chunk AACC.
-    REQUIRE_THROWS_AS(combiner.check_overlaps_agree(chunks), ChunkOverlapError);
-    REQUIRE_THROWS_WITH(combiner.check_overlaps_agree(chunks), Catch::Contains("at offset 8"));
+    REQUIRE_THROWS_AS(combiner.validate_chunks(chunks), ChunkOverlapError);
+    REQUIRE_THROWS_WITH(combiner.validate_chunks(chunks), Catch::Contains("at offset 8"));
 }
 
-TEST_CASE("check_all_paths_start_at_reference_first_node and check_all_paths_end_at_reference_last_node pass chunks whose paths all start and end there", "[combine]") {
+TEST_CASE("validate_chunks accepts paths that start and end on the reference path's end nodes", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
 
     TestGraphCombiner::Chunk chunk = make_chunk("flush.pg");
@@ -560,42 +520,18 @@ TEST_CASE("check_all_paths_start_at_reference_first_node and check_all_paths_end
     chunk.graph->create_edge(n2, n4);
     chunk.graph->create_edge(n3, n4);
     // Three paths through a bubble: they take different alleles but share both ends.
-    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{0, 10}, {n1, n2, n4});
+    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{10, 20}, {n1, n2, n4});
     add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
-             subrange_t{0, 10}, {n1, n3, n4});
+             subrange_t{10, 20}, {n1, n3, n4});
     add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 2, 0,
-             subrange_t{0, 10}, {n1, n2, n4});
-    chunk.ref.start_handle = n1;
-    chunk.ref.end_handle = n4;
+             subrange_t{10, 20}, {n1, n2, n4});
+    chunk.ref = combiner.describe_reference(chunk);
 
-    SECTION("all paths beginning on the boundary node are accepted") {
-        combiner.check_all_paths_start_at_reference_first_node(chunk);
-        REQUIRE(chunk.graph->get_path_count() == 3);
-    }
-
-    SECTION("all paths ending on the boundary node are accepted") {
-        combiner.check_all_paths_end_at_reference_last_node(chunk);
-        REQUIRE(chunk.graph->get_path_count() == 3);
-    }
-
-    SECTION("a boundary the paths cross in reverse is matched by orientation too") {
-        // The check compares handles, so a reverse boundary needs reverse steps.
-        TestGraphCombiner::Chunk flipped = make_chunk("flipped.pg");
-        handle_t a = flipped.graph->create_handle("AAAA");
-        handle_t b = flipped.graph->create_handle("CCC");
-        flipped.graph->create_edge(flipped.graph->flip(a), b);
-        add_ref_path(*flipped.graph, "GRCh38", "chr1", subrange_t{0, 7},
-                     {flipped.graph->flip(a), b});
-        flipped.ref.start_handle = flipped.graph->flip(a);
-        flipped.ref.end_handle = b;
-
-        combiner.check_all_paths_start_at_reference_first_node(flipped);
-        combiner.check_all_paths_end_at_reference_last_node(flipped);
-        REQUIRE(flipped.graph->get_path_count() == 1);
-    }
+    vector<TestGraphCombiner::Chunk> chunks = with_neighbours(combiner, std::move(chunk), true, true);
+    REQUIRE_NOTHROW(combiner.validate_chunks(chunks));
 }
 
-TEST_CASE("check_all_paths_start_at_reference_first_node rejects a path running against the reference path", "[combine]") {
+TEST_CASE("validate_chunks rejects a path running against the reference path", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
     TestGraphCombiner::Chunk chunk = make_chunk("reverse.pg");
     handle_t a = chunk.graph->create_handle("AAAA");
@@ -604,45 +540,116 @@ TEST_CASE("check_all_paths_start_at_reference_first_node rejects a path running 
     add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{0, 7}, {a, b});
     add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
              subrange_t{0, 7}, {chunk.graph->flip(b), chunk.graph->flip(a)});
-    chunk.ref.start_handle = a;
-    chunk.ref.end_handle = b;
-    REQUIRE_THROWS_AS(combiner.check_all_paths_start_at_reference_first_node(chunk), ChunkOverlapError);
+    chunk.ref = combiner.describe_reference(chunk);
+
+    // With no neighbouring chunks, only the direction is checked.
+    vector<TestGraphCombiner::Chunk> chunks = with_neighbours(combiner, std::move(chunk), false, false);
+    REQUIRE_THROWS_AS(combiner.validate_chunks(chunks), ChunkOverlapError);
+    REQUIRE_THROWS_WITH(combiner.validate_chunks(chunks),
+                        Catch::Contains("runs against the reference path"));
 }
 
-TEST_CASE("check_all_paths_start_at_reference_first_node rejects a path that starts on a different node", "[combine]") {
+TEST_CASE("validate_chunks accepts a path that does not reach the start node", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
     TestGraphCombiner::Chunk chunk = make_chunk("other_start.pg");
     handle_t n1 = chunk.graph->create_handle("AAAA");
     handle_t n2 = chunk.graph->create_handle("CCC");
     handle_t n3 = chunk.graph->create_handle("T");
     chunk.graph->create_edge(n1, n2);
-    chunk.graph->create_edge(n3, n2);
-    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{0, 7}, {n1, n2});
+    chunk.graph->create_edge(n2, n3);
+    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{10, 18}, {n1, n2, n3});
     add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
-             subrange_t{3, 7}, {n3, n2});
-    chunk.ref.start_handle = n1;
-    chunk.ref.end_handle = n2;
-    REQUIRE_THROWS_AS(combiner.check_all_paths_start_at_reference_first_node(chunk), ChunkOverlapError);
-    REQUIRE_THROWS_WITH(combiner.check_all_paths_start_at_reference_first_node(chunk),
-                        Catch::Contains("HG002#1#chr1#0[3-7]"));
+             subrange_t{14, 18}, {n2, n3});
+    chunk.ref = combiner.describe_reference(chunk);
+
+    vector<TestGraphCombiner::Chunk> chunks = with_neighbours(combiner, std::move(chunk), true, true);
+    REQUIRE_NOTHROW(combiner.validate_chunks(chunks));
 }
 
-TEST_CASE("check_all_paths_end_at_reference_last_node rejects a path that ends on a different node", "[combine]") {
+TEST_CASE("validate_chunks accepts a path that does not reach the end node", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
     TestGraphCombiner::Chunk chunk = make_chunk("other_end.pg");
     handle_t n1 = chunk.graph->create_handle("AAAA");
     handle_t n2 = chunk.graph->create_handle("CCC");
     handle_t n3 = chunk.graph->create_handle("T");
     chunk.graph->create_edge(n1, n2);
-    chunk.graph->create_edge(n1, n3);
-    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{0, 7}, {n1, n2});
+    chunk.graph->create_edge(n2, n3);
+    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{10, 18}, {n1, n2, n3});
     add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
-             subrange_t{0, 5}, {n1, n3});
-    chunk.ref.start_handle = n1;
-    chunk.ref.end_handle = n2;
-    REQUIRE_THROWS_AS(combiner.check_all_paths_end_at_reference_last_node(chunk), ChunkOverlapError);
-    REQUIRE_THROWS_WITH(combiner.check_all_paths_end_at_reference_last_node(chunk),
-                        Catch::Contains("HG002#1#chr1#0[0-5]"));
+             subrange_t{10, 17}, {n1, n2});
+    chunk.ref = combiner.describe_reference(chunk);
+
+    vector<TestGraphCombiner::Chunk> chunks = with_neighbours(combiner, std::move(chunk), true, true);
+    REQUIRE_NOTHROW(combiner.validate_chunks(chunks));
+}
+
+TEST_CASE("validate_chunks rejects a path that does not start on the start node when there is a chunk to the left", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+    TestGraphCombiner::Chunk chunk = make_chunk("through_start.pg");
+    handle_t n1 = chunk.graph->create_handle("AAAA");
+    handle_t n2 = chunk.graph->create_handle("CCC");
+    handle_t n3 = chunk.graph->create_handle("T");
+    chunk.graph->create_edge(n1, n2);
+    chunk.graph->create_edge(n2, n3);
+    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{4, 8}, {n2, n3});
+    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             subrange_t{0, 8}, {n1, n2, n3});
+    chunk.ref = combiner.describe_reference(chunk);
+
+    SECTION("with a chunk to its left, the path has to start there") {
+        vector<TestGraphCombiner::Chunk> chunks = with_neighbours(combiner, std::move(chunk), true, false);
+        REQUIRE_THROWS_AS(combiner.validate_chunks(chunks), ChunkOverlapError);
+        REQUIRE_THROWS_WITH(combiner.validate_chunks(chunks),
+                            Catch::Contains("without starting there"));
+    }
+
+    SECTION("as the first chunk, the path may pass through the start node") {
+        vector<TestGraphCombiner::Chunk> chunks = with_neighbours(combiner, std::move(chunk), false, true);
+        REQUIRE_NOTHROW(combiner.validate_chunks(chunks));
+    }
+}
+
+TEST_CASE("validate_chunks rejects a path that does not end on the end node when there is a chunk to the right", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+    TestGraphCombiner::Chunk chunk = make_chunk("through_end.pg");
+    handle_t n1 = chunk.graph->create_handle("AAAA");
+    handle_t n2 = chunk.graph->create_handle("CCC");
+    handle_t n3 = chunk.graph->create_handle("T");
+    chunk.graph->create_edge(n1, n2);
+    chunk.graph->create_edge(n2, n3);
+    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{10, 17}, {n1, n2});
+    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             subrange_t{10, 18}, {n1, n2, n3});
+    chunk.ref = combiner.describe_reference(chunk);
+
+    SECTION("with a chunk to its right, the path has to end there") {
+        vector<TestGraphCombiner::Chunk> chunks = with_neighbours(combiner, std::move(chunk), false, true);
+        REQUIRE_THROWS_AS(combiner.validate_chunks(chunks), ChunkOverlapError);
+        REQUIRE_THROWS_WITH(combiner.validate_chunks(chunks),
+                            Catch::Contains("without ending there"));
+    }
+
+    SECTION("as the last chunk, the path may pass through the end node") {
+        vector<TestGraphCombiner::Chunk> chunks = with_neighbours(combiner, std::move(chunk), true, false);
+        REQUIRE_NOTHROW(combiner.validate_chunks(chunks));
+    }
+}
+
+TEST_CASE("validate_chunks rejects neighbouring chunks that disagree on circularity", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+    vector<TestGraphCombiner::Chunk> chunks;
+    chunks.push_back(make_chunk("left.pg"));
+    add_path(*chunks[0].graph, PathSense::REFERENCE, "GRCh38", "chrM", 0,
+             PathMetadata::NO_PHASE_BLOCK, subrange_t{0, 4},
+             {chunks[0].graph->create_handle("AAAA")}, true);
+    chunks[0].ref = combiner.describe_reference(chunks[0]);
+    chunks.push_back(make_chunk("right.pg"));
+    add_path(*chunks[1].graph, PathSense::REFERENCE, "GRCh38", "chrM", 0,
+             PathMetadata::NO_PHASE_BLOCK, subrange_t{4, 7},
+             {chunks[1].graph->create_handle("CCC")}, false);
+    chunks[1].ref = combiner.describe_reference(chunks[1]);
+
+    REQUIRE_THROWS_AS(combiner.validate_chunks(chunks), InputConflictError);
 }
 
 TEST_CASE("trim_and_shift with no overlap and no fusing leaves the chunk unchanged", "[combine]") {
@@ -662,7 +669,7 @@ TEST_CASE("trim_and_shift with no overlap and no fusing leaves the chunk unchang
     REQUIRE(sorted_path_names(*chunk.graph) == vector<string>{"GRCh38#0#chr1[100-107]"});
 }
 
-TEST_CASE("trim_and_shift with fusing and no overlap moves coordinates back by the left boundary node length", "[combine]") {
+TEST_CASE("trim_and_shift with fusing and no overlap moves coordinates back by the left seam node length", "[combine]") {
     // Fusing merges the left chunk's last node into this chunk's first, so
     // this chunk's coordinates move back by that node's length.
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, true, false);
@@ -775,6 +782,33 @@ TEST_CASE("trim_and_shift keeps each path on its own alleles through a bubble", 
     REQUIRE(spell_path(*chunk.graph, "HG002#1#chr1#0[104-112]") == "CCTTTTTT");
 }
 
+TEST_CASE("trim_and_shift does not trim or shift a path that does not pass through the first node", "[combine]") {
+    TestGraphCombiner::Chunk chunk = make_chunk("partial.pg");
+    handle_t n1 = chunk.graph->create_handle("AAAACC");
+    handle_t n2 = chunk.graph->create_handle("GGG");
+    handle_t n3 = chunk.graph->create_handle("T");
+    chunk.graph->create_edge(n1, n2);
+    chunk.graph->create_edge(n2, n3);
+    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{100, 110}, {n1, n2, n3});
+    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             subrange_t{106, 110}, {n2, n3});
+    chunk.ref.start_handle = n1;
+
+    SECTION("trimming the overlap") {
+        TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+        combiner.trim_and_shift(chunk, 4, 0);
+        REQUIRE(spell_path(*chunk.graph, "GRCh38#0#chr1[104-110]") == "CCGGGT");
+        REQUIRE(spell_path(*chunk.graph, "HG002#1#chr1#0[106-110]") == "GGGT");
+    }
+
+    SECTION("fusing with no overlap") {
+        TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, true, false);
+        combiner.trim_and_shift(chunk, 0, 5);
+        REQUIRE(spell_path(*chunk.graph, "GRCh38#0#chr1[95-110]") == "AAAACCGGGT");
+        REQUIRE(spell_path(*chunk.graph, "HG002#1#chr1#0[106-110]") == "GGGT");
+    }
+}
+
 TEST_CASE("trim_and_shift rejects an overlap longer than the first node", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
     TestGraphCombiner::Chunk chunk = make_chunk("short.pg");
@@ -804,6 +838,128 @@ TEST_CASE("trim_and_shift rejects an edge into the part of the first node it wou
     add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{0, 6}, {n1});
     chunk.ref.start_handle = n1;
     REQUIRE_THROWS_AS(combiner.trim_and_shift(chunk, 4, 0), ChunkOverlapError);
+}
+
+TEST_CASE("paths_at_seam returns where each path starts or ends", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+    TestGraphCombiner::Chunk chunk = make_chunk("seam.pg");
+    handle_t n1 = chunk.graph->create_handle("AAAA");
+    handle_t n2 = chunk.graph->create_handle("CCC");
+    chunk.graph->create_edge(n1, n2);
+    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{100, 107}, {n1, n2});
+    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             subrange_t{200, 207}, {n1, n2});
+    TestGraphCombiner::GroupKey ref_key = combiner.group_key_of(
+        *chunk.graph, chunk.graph->get_path_handle("GRCh38#0#chr1[100-107]"));
+    TestGraphCombiner::GroupKey hap_key = combiner.group_key_of(
+        *chunk.graph, chunk.graph->get_path_handle("HG002#1#chr1#0[200-207]"));
+
+    SECTION("on the start node, each path's start") {
+        auto starts = combiner.paths_at_seam(chunk, n1, true);
+        REQUIRE(starts.size() == 2);
+        REQUIRE(starts.at(ref_key).offset == 100);
+        REQUIRE(starts.at(hap_key).offset == 200);
+    }
+
+    SECTION("on the end node, each path's end") {
+        auto ends = combiner.paths_at_seam(chunk, n2, false);
+        REQUIRE(ends.size() == 2);
+        REQUIRE(ends.at(ref_key).offset == 107);
+        REQUIRE(ends.at(hap_key).offset == 207);
+    }
+}
+
+TEST_CASE("paths_at_seam rejects two pieces of one path on one node", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+    TestGraphCombiner::Chunk chunk = make_chunk("twice.pg");
+    handle_t n1 = chunk.graph->create_handle("AAAA");
+    handle_t n2 = chunk.graph->create_handle("CCC");
+    chunk.graph->create_edge(n1, n2);
+    add_ref_path(*chunk.graph, "GRCh38", "chr1", subrange_t{0, 7}, {n1, n2});
+    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             subrange_t{0, 4}, {n1});
+    add_path(*chunk.graph, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             subrange_t{0, 7}, {n1, n2});
+    REQUIRE_THROWS_AS(combiner.paths_at_seam(chunk, n1, true), ChunkOverlapError);
+    REQUIRE_THROWS_WITH(combiner.paths_at_seam(chunk, n1, true),
+                        Catch::Contains("two pieces of one path"));
+}
+
+TEST_CASE("check_paths_meet_at_seam accepts pieces that meet", "[combine]") {
+    TestGraphCombiner::GroupKey key{PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0};
+    TestGraphCombiner::SeamState left{1, false, 107, "left.pg"};
+    left.path_ends[key] = TestGraphCombiner::PathAtSeam{107, "HG002#1#chr1#0[100-107]"};
+
+    SECTION("without fusing, the right piece starts where the left one ends") {
+        TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+        map<TestGraphCombiner::GroupKey, TestGraphCombiner::PathAtSeam> right{
+            {key, {107, "HG002#1#chr1#0[107-110]"}}};
+        REQUIRE_NOTHROW(combiner.check_paths_meet_at_seam(left, right, 5, "right.pg"));
+    }
+
+    SECTION("with fusing, the right piece starts the left node's length earlier") {
+        TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, true, false);
+        map<TestGraphCombiner::GroupKey, TestGraphCombiner::PathAtSeam> right{
+            {key, {102, "HG002#1#chr1#0[102-110]"}}};
+        REQUIRE_NOTHROW(combiner.check_paths_meet_at_seam(left, right, 5, "right.pg"));
+    }
+}
+
+TEST_CASE("check_paths_meet_at_seam rejects pieces that do not meet", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+    TestGraphCombiner::GroupKey key{PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0};
+    TestGraphCombiner::SeamState left{1, false, 107, "left.pg"};
+    left.path_ends[key] = TestGraphCombiner::PathAtSeam{107, "HG002#1#chr1#0[100-107]"};
+    map<TestGraphCombiner::GroupKey, TestGraphCombiner::PathAtSeam> right{
+        {key, {110, "HG002#1#chr1#0[110-113]"}}};
+    REQUIRE_THROWS_AS(combiner.check_paths_meet_at_seam(left, right, 5, "right.pg"),
+                      ChunkOverlapError);
+    REQUIRE_THROWS_WITH(combiner.check_paths_meet_at_seam(left, right, 5, "right.pg"),
+                        Catch::Contains("have to meet there"));
+}
+
+TEST_CASE("check_paths_meet_at_seam accepts a path on only one side when not fusing", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+    TestGraphCombiner::GroupKey key{PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0};
+    map<TestGraphCombiner::GroupKey, TestGraphCombiner::PathAtSeam> none;
+
+    SECTION("only on the left") {
+        TestGraphCombiner::SeamState left{1, false, 107, "left.pg"};
+        left.path_ends[key] = TestGraphCombiner::PathAtSeam{107, "HG002#1#chr1#0[100-107]"};
+        REQUIRE_NOTHROW(combiner.check_paths_meet_at_seam(left, none, 5, "right.pg"));
+    }
+
+    SECTION("only on the right") {
+        TestGraphCombiner::SeamState left{1, false, 107, "left.pg"};  // No paths end on the left.
+        map<TestGraphCombiner::GroupKey, TestGraphCombiner::PathAtSeam> right{
+            {key, {107, "HG002#1#chr1#0[107-110]"}}};
+        REQUIRE_NOTHROW(combiner.check_paths_meet_at_seam(left, right, 5, "right.pg"));
+    }
+}
+
+TEST_CASE("check_paths_meet_at_seam rejects a path on only one side when fusing", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, true, false);
+    TestGraphCombiner::GroupKey key{PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0};
+    map<TestGraphCombiner::GroupKey, TestGraphCombiner::PathAtSeam> none;
+
+    SECTION("only on the left") {
+        TestGraphCombiner::SeamState left{1, false, 107, "left.pg"};
+        left.path_ends[key] = TestGraphCombiner::PathAtSeam{107, "HG002#1#chr1#0[100-107]"};
+        REQUIRE_THROWS_AS(combiner.check_paths_meet_at_seam(left, none, 5, "right.pg"),
+                          ChunkOverlapError);
+        REQUIRE_THROWS_WITH(combiner.check_paths_meet_at_seam(left, none, 5, "right.pg"),
+                            Catch::Contains("no piece of it starts there"));
+    }
+
+    SECTION("only on the right") {
+        TestGraphCombiner::SeamState left{1, false, 107, "left.pg"};  // No paths end on the left.
+        map<TestGraphCombiner::GroupKey, TestGraphCombiner::PathAtSeam> right{
+            {key, {102, "HG002#1#chr1#0[102-110]"}}};
+        REQUIRE_THROWS_AS(combiner.check_paths_meet_at_seam(left, right, 5, "right.pg"),
+                          ChunkOverlapError);
+        REQUIRE_THROWS_WITH(combiner.check_paths_meet_at_seam(left, right, 5, "right.pg"),
+                            Catch::Contains("no piece of it ends there"));
+    }
 }
 
 TEST_CASE("ingest makes the first input dest unchanged", "[combine]") {
@@ -1011,7 +1167,7 @@ TEST_CASE("connect_seam without fusing joins the chunk to the base path with an 
     REQUIRE(new_end == end);
 }
 
-TEST_CASE("connect_seam with fusing merges the two boundary nodes into one", "[combine]") {
+TEST_CASE("connect_seam with fusing merges the two seam nodes into one", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, true, false);
     combiner.dest = make_unique<bdsg::HashGraph>();
     handle_t before = combiner.dest->create_handle("TT", 1);
@@ -1050,7 +1206,7 @@ TEST_CASE("connect_seam fusing a single-node chunk returns the handle to the fus
     REQUIRE(combiner.max_node_id >= combiner.dest->max_node_id());
 }
 
-TEST_CASE("connect_seam rejects fusing a boundary node that has an edge on the side being fused", "[combine]") {
+TEST_CASE("connect_seam rejects fusing a seam node that has an edge on the side being fused", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, true, false);
     combiner.dest = make_unique<bdsg::HashGraph>();
     handle_t left = combiner.dest->create_handle("AAAA", 1);
@@ -1225,7 +1381,7 @@ TEST_CASE("merge_path_fragments rejects fragments that disagree on circularity",
     REQUIRE_THROWS_WITH(combiner.merge_path_fragments(), Catch::Contains("chrM"));
 }
 
-TEST_CASE("merge_path_fragments rejects a gap between fragments", "[combine]") {
+TEST_CASE("merge_path_fragments rejects a gap in a reference path", "[combine]") {
     TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
     combiner.dest = make_unique<bdsg::HashGraph>();
     add_ref_path(*combiner.dest, "GRCh38", "chr1", subrange_t{0, 4},
@@ -1234,6 +1390,62 @@ TEST_CASE("merge_path_fragments rejects a gap between fragments", "[combine]") {
                  {combiner.dest->create_handle("CCC")});
     REQUIRE_THROWS_AS(combiner.merge_path_fragments(), FragmentMergeError);
     REQUIRE_THROWS_WITH(combiner.merge_path_fragments(), Catch::Contains("Gap of 2 bp"));
+    REQUIRE_THROWS_WITH(combiner.merge_path_fragments(), Catch::Contains("A reference path cannot have gaps"));
+}
+
+TEST_CASE("merge_path_fragments keeps a haplotype's pieces on either side of a gap as separate paths", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
+    combiner.dest = make_unique<bdsg::HashGraph>();
+    handle_t n1 = combiner.dest->create_handle("AAAA");
+    handle_t n2 = combiner.dest->create_handle("CCC");
+    handle_t n3 = combiner.dest->create_handle("GGG");
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             subrange_t{0, 4}, {n1});
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             subrange_t{4, 7}, {n2});
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             subrange_t{10, 13}, {n3});
+
+    combiner.merge_path_fragments();
+
+    REQUIRE(sorted_path_names(*combiner.dest)
+            == vector<string>{"HG002#1#chr1#0[0-7]", "HG002#1#chr1#0[10-13]"});
+    REQUIRE(spell_path(*combiner.dest, "HG002#1#chr1#0[0-7]") == "AAAACCC");
+    REQUIRE(spell_path(*combiner.dest, "HG002#1#chr1#0[10-13]") == "GGG");
+    // The gap is not bridged.
+    REQUIRE(!combiner.dest->has_edge(n2, n3));
+}
+
+TEST_CASE("merge_path_fragments renames a lone piece after a gap when phase blocks are offsets", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, true);
+    combiner.dest = make_unique<bdsg::HashGraph>();
+    handle_t n1 = combiner.dest->create_handle("AAAA");
+    handle_t n2 = combiner.dest->create_handle("CCC");
+    handle_t n3 = combiner.dest->create_handle("GG");
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 0,
+             PathMetadata::NO_SUBRANGE, {n1});
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 4,
+             PathMetadata::NO_SUBRANGE, {n2});
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG002", "chr1", 1, 10,
+             PathMetadata::NO_SUBRANGE, {n3});
+
+    combiner.merge_path_fragments();
+
+    // The lone piece is renamed like the merged one, not left as HG002#1#chr1#10.
+    REQUIRE(sorted_path_names(*combiner.dest)
+            == vector<string>{"HG002#1#chr1#0[0-7]", "HG002#1#chr1#0[10-12]"});
+    REQUIRE(spell_path(*combiner.dest, "HG002#1#chr1#0[10-12]") == "GG");
+}
+
+TEST_CASE("merge_path_fragments rejects a gap in a circular path", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
+    combiner.dest = make_unique<bdsg::HashGraph>();
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG002", "chrM", 1, 0,
+             subrange_t{0, 4}, {combiner.dest->create_handle("AAAA")}, true);
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG002", "chrM", 1, 0,
+             subrange_t{6, 9}, {combiner.dest->create_handle("CCC")}, true);
+    REQUIRE_THROWS_AS(combiner.merge_path_fragments(), FragmentMergeError);
+    REQUIRE_THROWS_WITH(combiner.merge_path_fragments(), Catch::Contains("A circular path cannot have gaps"));
 }
 
 TEST_CASE("merge_path_fragments rejects phase blocks that do not line up as offsets", "[combine]") {
@@ -1248,21 +1460,186 @@ TEST_CASE("merge_path_fragments rejects phase blocks that do not line up as offs
     REQUIRE_THROWS_WITH(combiner.merge_path_fragments(), Catch::Contains("HG002#1#chr1#0"));
 }
 
-TEST_CASE("combine rejects chunks of one base path that disagree on circularity", "[combine]") {
+TEST_CASE("merge_path_fragments rejects fragments that overlap on nodes they do not share", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
+    combiner.dest = make_unique<bdsg::HashGraph>();
+    handle_t n1 = combiner.dest->create_handle("AAAAAAAAAA");
+    handle_t n2 = combiner.dest->create_handle("CCCCCCCCCC");
+    // Offsets 5-10 are in both fragments but on different nodes, so merging would spell them twice.
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG1", "chr1", 1, 0, subrange_t{0, 10}, {n1});
+    add_path(*combiner.dest, PathSense::HAPLOTYPE, "HG1", "chr1", 1, 0, subrange_t{5, 15}, {n2});
+
+    REQUIRE_THROWS_AS(combiner.merge_path_fragments(), FragmentMergeError);
+    // The check comes before any change, so dest is left as it was.
+    REQUIRE(sorted_path_names(*combiner.dest)
+            == vector<string>{"HG1#1#chr1#0[0-10]", "HG1#1#chr1#0[5-15]"});
+    REQUIRE(combiner.dest->get_edge_count() == 0);
+}
+
+TEST_CASE("merge_path_fragments rejects an overlap that shared steps only partly cover", "[combine]") {
+    TestGraphCombiner combiner(SeamPolicy::SHARED_IDS, false, false);
+    combiner.dest = make_unique<bdsg::HashGraph>();
+    handle_t n1 = combiner.dest->create_handle("AAAA");
+    handle_t n2 = combiner.dest->create_handle("CC");
+    handle_t y = combiner.dest->create_handle("AA");
+    handle_t n3 = combiner.dest->create_handle("GGG");
+    combiner.dest->create_edge(n1, n2);
+    combiner.dest->create_edge(y, n2);
+    combiner.dest->create_edge(n2, n3);
+    // The fragments overlap on offsets 2-6, but share only n2 (4-6) there.
+    add_ref_path(*combiner.dest, "GRCh38", "chr1", subrange_t{0, 6}, {n1, n2});
+    add_ref_path(*combiner.dest, "GRCh38", "chr1", subrange_t{2, 9}, {y, n2, n3});
+
+    REQUIRE_THROWS_AS(combiner.merge_path_fragments(), FragmentMergeError);
+}
+
+TEST_CASE("combine gives an empty graph for no inputs", "[combine]") {
+    SeamPolicy seam_policy = GENERATE(SeamPolicy::RENUMBER, SeamPolicy::SHARED_IDS,
+                                      SeamPolicy::COORD_TRIM);
+    CAPTURE(seam_policy);
+    TestGraphCombiner combiner(seam_policy, false, false);
+    unique_ptr<MutablePathDeletableHandleGraph> combined = combiner.combine({});
+    REQUIRE(combined != nullptr);
+    REQUIRE(combined->get_node_count() == 0);
+    REQUIRE(combined->get_path_count() == 0);
+}
+
+TEST_CASE("combine returns a lone input unchanged", "[combine]") {
+    SeamPolicy seam_policy = GENERATE(SeamPolicy::RENUMBER, SeamPolicy::SHARED_IDS,
+                                      SeamPolicy::COORD_TRIM);
+    CAPTURE(seam_policy);
+    vector<GraphCombiner::Input> inputs(1);
+    inputs[0].name = "only.pg";
+    inputs[0].graph = make_unique<bdsg::HashGraph>();
+    MutablePathDeletableHandleGraph& graph = *inputs[0].graph;
+    handle_t a = graph.create_handle("GATT");
+    handle_t b = graph.create_handle("ACA");
+    graph.create_edge(a, b);
+    add_ref_path(graph, "GRCh38", "chr1", subrange_t{100, 107}, {a, b});
+    MutablePathDeletableHandleGraph* original = inputs[0].graph.get();
+
+    TestGraphCombiner combiner(seam_policy, false, false);
+    unique_ptr<MutablePathDeletableHandleGraph> combined = combiner.combine(std::move(inputs));
+    REQUIRE(combined.get() == original);
+    REQUIRE(sorted_path_names(*combined) == vector<string>{"GRCh38#0#chr1[100-107]"});
+    REQUIRE(spell_path(*combined, "GRCh38#0#chr1[100-107]") == "GATTACA");
+}
+
+TEST_CASE("combine merges two adjoining pieces of a reference path from one input", "[combine]") {
+    vector<GraphCombiner::Input> inputs(1);
+    inputs[0].name = "split.pg";
+    inputs[0].graph = make_unique<bdsg::HashGraph>();
+    MutablePathDeletableHandleGraph& graph = *inputs[0].graph;
+    handle_t n1 = graph.create_handle("AAAA");
+    handle_t n2 = graph.create_handle("CCC");
+    nid_t id1 = graph.get_id(n1);
+    nid_t id2 = graph.get_id(n2);
+    add_ref_path(graph, "GRCh38", "chr1", subrange_t{0, 4}, {n1});
+    add_ref_path(graph, "GRCh38", "chr1", subrange_t{4, 7}, {n2});
+
+    TestGraphCombiner combiner(SeamPolicy::RENUMBER, false, false);
+    unique_ptr<MutablePathDeletableHandleGraph> combined = combiner.combine(std::move(inputs));
+    REQUIRE(sorted_path_names(*combined) == vector<string>{"GRCh38#0#chr1[0-7]"});
+    REQUIRE(spell_path(*combined, "GRCh38#0#chr1[0-7]") == "AAAACCC");
+    REQUIRE(combined->has_edge(combined->get_handle(id1), combined->get_handle(id2)));
+}
+
+TEST_CASE("combine trims a one-node chunk between two others", "[combine]") {
+    bool fuse = GENERATE(false, true);
+    CAPTURE(fuse);
+    vector<GraphCombiner::Input> inputs(3);
+
+    inputs[0].name = "a.pg";
+    inputs[0].graph = make_unique<bdsg::HashGraph>();
+    handle_t a1 = inputs[0].graph->create_handle("AAAA");
+    handle_t a2 = inputs[0].graph->create_handle("CCCC");
+    inputs[0].graph->create_edge(a1, a2);
+    add_ref_path(*inputs[0].graph, "GRCh38", "chr1", subrange_t{0, 8}, {a1, a2});
+
+    inputs[1].name = "b.pg";
+    inputs[1].graph = make_unique<bdsg::HashGraph>();
+    add_ref_path(*inputs[1].graph, "GRCh38", "chr1", subrange_t{6, 12},
+                 {inputs[1].graph->create_handle("CCGGGG")});
+
+    inputs[2].name = "c.pg";
+    inputs[2].graph = make_unique<bdsg::HashGraph>();
+    add_ref_path(*inputs[2].graph, "GRCh38", "chr1", subrange_t{10, 16},
+                 {inputs[2].graph->create_handle("GGTTTT")});
+
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, fuse, false);
+    unique_ptr<MutablePathDeletableHandleGraph> combined = combiner.combine(std::move(inputs));
+    REQUIRE(sorted_path_names(*combined) == vector<string>{"GRCh38#0#chr1[0-16]"});
+    REQUIRE(spell_path(*combined, "GRCh38#0#chr1[0-16]") == "AAAACCCCGGGGTTTT");
+    // Without fusing the four nodes are joined in a line; fusing leaves AAAA and one fused node.
+    REQUIRE(combined->get_node_count() == (fuse ? 2 : 4));
+    REQUIRE(combined->get_edge_count() == (fuse ? 1 : 3));
+}
+
+TEST_CASE("combine trims chunks of two reference paths in one run without joining them", "[combine]") {
+    bool fuse = GENERATE(false, true);
+    CAPTURE(fuse);
+    vector<GraphCombiner::Input> inputs(4);
+    // Given out of order and interleaved, so sorting has to group each reference path's chunks.
+    inputs[0].name = "chr1_right.pg";
+    inputs[0].graph = make_unique<bdsg::HashGraph>();
+    add_ref_path(*inputs[0].graph, "GRCh38", "chr1", subrange_t{6, 12},
+                 {inputs[0].graph->create_handle("CCGGGG")});
+
+    inputs[1].name = "chr2_left.pg";
+    inputs[1].graph = make_unique<bdsg::HashGraph>();
+    add_ref_path(*inputs[1].graph, "GRCh38", "chr2", subrange_t{0, 4},
+                 {inputs[1].graph->create_handle("TTTT")});
+
+    inputs[2].name = "chr1_left.pg";
+    inputs[2].graph = make_unique<bdsg::HashGraph>();
+    handle_t a1 = inputs[2].graph->create_handle("AAAA");
+    handle_t a2 = inputs[2].graph->create_handle("CCCC");
+    inputs[2].graph->create_edge(a1, a2);
+    add_ref_path(*inputs[2].graph, "GRCh38", "chr1", subrange_t{0, 8}, {a1, a2});
+
+    inputs[3].name = "chr2_right.pg";
+    inputs[3].graph = make_unique<bdsg::HashGraph>();
+    add_ref_path(*inputs[3].graph, "GRCh38", "chr2", subrange_t{2, 8},
+                 {inputs[3].graph->create_handle("TTGGGG")});
+
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, fuse, false);
+    unique_ptr<MutablePathDeletableHandleGraph> combined = combiner.combine(std::move(inputs));
+    REQUIRE(sorted_path_names(*combined)
+            == vector<string>{"GRCh38#0#chr1[0-12]", "GRCh38#0#chr2[0-8]"});
+    REQUIRE(spell_path(*combined, "GRCh38#0#chr1[0-12]") == "AAAACCCCGGGG");
+    REQUIRE(spell_path(*combined, "GRCh38#0#chr2[0-8]") == "TTTTGGGG");
+    // No edge joins chr1 to chr2: without fusing, two inside chr1 and one inside chr2.
+    REQUIRE(combined->get_node_count() == (fuse ? 3 : 5));
+    REQUIRE(combined->get_edge_count() == (fuse ? 1 : 3));
+}
+
+TEST_CASE("combine trims haplotype paths positioned by phase block", "[combine]") {
+    bool fuse = GENERATE(false, true);
+    CAPTURE(fuse);
     vector<GraphCombiner::Input> inputs(2);
+
     inputs[0].name = "left.pg";
     inputs[0].graph = make_unique<bdsg::HashGraph>();
-    add_path(*inputs[0].graph, PathSense::REFERENCE, "GRCh38", "chrM", 0,
-             PathMetadata::NO_PHASE_BLOCK, subrange_t{0, 4},
-             {inputs[0].graph->create_handle("AAAA")}, true);
+    handle_t a1 = inputs[0].graph->create_handle("AAAA");
+    handle_t a2 = inputs[0].graph->create_handle("CCCC");
+    inputs[0].graph->create_edge(a1, a2);
+    add_ref_path(*inputs[0].graph, "GRCh38", "chr1", subrange_t{0, 8}, {a1, a2});
+    add_path(*inputs[0].graph, PathSense::HAPLOTYPE, "HG1", "chr1", 1, 0,
+             PathMetadata::NO_SUBRANGE, {a1, a2});
+
     inputs[1].name = "right.pg";
     inputs[1].graph = make_unique<bdsg::HashGraph>();
-    add_path(*inputs[1].graph, PathSense::REFERENCE, "GRCh38", "chrM", 0,
-             PathMetadata::NO_PHASE_BLOCK, subrange_t{4, 7},
-             {inputs[1].graph->create_handle("CCC")}, false);
+    handle_t b = inputs[1].graph->create_handle("CCGGGG");
+    add_ref_path(*inputs[1].graph, "GRCh38", "chr1", subrange_t{6, 12}, {b});
+    add_path(*inputs[1].graph, PathSense::HAPLOTYPE, "HG1", "chr1", 1, 6,
+             PathMetadata::NO_SUBRANGE, {b});
 
-    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
-    REQUIRE_THROWS_AS(combiner.combine(std::move(inputs)), InputConflictError);
+    // Fusing makes the two haplotype pieces share the fused node, which merging must not reject.
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, fuse, true);
+    unique_ptr<MutablePathDeletableHandleGraph> combined = combiner.combine(std::move(inputs));
+    REQUIRE(sorted_path_names(*combined)
+            == vector<string>{"GRCh38#0#chr1[0-12]", "HG1#1#chr1#0[0-12]"});
+    REQUIRE(spell_path(*combined, "HG1#1#chr1#0[0-12]") == "AAAACCCCGGGG");
 }
 
 }

@@ -3,10 +3,14 @@
 
 /** \file combine.hpp
  *
- * Combining graphs that hold fragments of the same logical paths.
- * Seaming joins the next input onto the end of a base path built so far: the
- * overlap is trimmed off, and the two pieces are joined at the seam by an edge
- * or by fusing nodes.
+ * Combining graphs whose paths are fragments of the same paths, told apart by
+ * subrange, and merging the fragments back into whole paths.
+ *
+ * Fragment: one path in an input, which is a piece of a contig.
+ * Base path: the whole contig a reference path is a piece of.
+ * Chunk: an input graph, plus where its one reference path lies on the base path.
+ * Seam: where two neighbouring chunks are joined, after their overlap is trimmed off.
+ * Seam nodes: at a seam, the last node of the left chunk and the first node of the right chunk.
  */
 
 #include <map>
@@ -20,11 +24,6 @@
 #include "log.hpp"
 
 namespace vg {
-
-namespace unittest {
-/// Reaches into GraphCombiner's internals; see src/unittest/combine.cpp.
-class TestGraphCombiner;
-}
 
 /// How overlap between the inputs is resolved.
 enum class SeamPolicy {
@@ -57,7 +56,7 @@ public:
     using CombineError::CombineError;
 };
 
-/// Two boundary nodes cannot be fused into one.
+/// Two seam nodes cannot be fused into one.
 class FuseError : public CombineError {
 public:
     using CombineError::CombineError;
@@ -85,20 +84,29 @@ public:
     };
 
     /// Make a combiner. seam_policy is the mode for resolving overlap between the inputs;
-    /// fuse merges the two boundary nodes into one where trimmed inputs are joined,
+    /// fuse merges the two seam nodes into one where trimmed inputs are joined,
     /// instead of adding an edge; phase_block_is_offset reads a path's phase block
     /// as its start coordinate; log_context prefixes progress messages.
     GraphCombiner(SeamPolicy seam_policy, bool fuse, bool phase_block_is_offset,
                   const std::string& log_context);
 
-    /// Combine the input graphs.
-    /// Throws a CombineError if the graphs cannot be combined, or std::invalid_argument
-    /// if there are not enough graphs: none, or only one when trimming.
+    /// Combine the input graphs into one, which is empty if there are none, or throw a
+    /// CombineError if they cannot be combined.
     std::unique_ptr<MutablePathDeletableHandleGraph> combine(std::vector<Input>&& inputs);
 
-private:
+protected:
     /// Identity of a base path: sample, locus, haplotype.
     using BasePathKey = std::tuple<std::string, std::string, size_t>;
+
+    /// A path's identity as a comparable tuple: sense, sample, locus, haplotype, phase block.
+    using GroupKey = std::tuple<handlegraph::PathSense, std::string, std::string,
+                                size_t, size_t>;
+
+    /// A path meeting a seam: where it starts or ends on its own coordinates, and its name for error messages.
+    struct PathAtSeam {
+        handlegraph::offset_t offset;  ///< Its start or end coordinate.
+        std::string name;              ///< Its name.
+    };
 
     /// The current end of a base path in the combined graph, where the next input is seamed on.
     struct SeamState {
@@ -106,10 +114,10 @@ private:
         bool end_is_reverse;               ///< Its orientation.
         handlegraph::offset_t end_offset;  ///< Base path offset it ends at.
         std::string last_input_name;       ///< Name of the input that last extended this base path, for error messages.
-        bool is_circular = false;          ///< Whether this base path is circular.
+        std::map<GroupKey, PathAtSeam> path_ends;  ///< The paths ending on that node, by GroupKey: where each ends, and its name.
     };
 
-    /// An input's reference path: its name, its base path, its first and last nodes, where it starts and ends on that base path, and whether it is circular.
+    /// Metadata about an input's reference path, as it is in that input's graph.
     struct ReferenceDescription {
         std::string path_name;                   ///< Name of its reference path in this chunk's graph, such as GRCh38#0#chr1[100-200], for looking it up and for error reporting.
         BasePathKey base_path_key;               ///< The base path its reference path is a piece of, such as {"GRCh38", "chr1", 0}.
@@ -125,9 +133,6 @@ private:
         ReferenceDescription ref;
     };
 
-    /// A path's identity as a comparable tuple: sense, sample, locus, haplotype, phase block.
-    using GroupKey = std::tuple<handlegraph::PathSense, std::string, std::string,
-                                size_t, size_t>;
     /// Build a path's GroupKey.
     GroupKey group_key_of(const PathHandleGraph& graph, const path_handle_t& path) const;
 
@@ -144,25 +149,18 @@ private:
     static std::string path_suffix(const PathHandleGraph& graph, const path_handle_t& path,
                                    size_t length);
 
-    /// Throw InputConflictError if the input holds more than one fragment of a logical path.
-    void check_no_split_paths(const Input& input) const;
     /// Throw PathLengthMismatchError if a path in the input has a subrange end other than its start plus its sequence length.
-    static void check_subrange_matches_length(const Input& input);
+    static void validate_input(const Input& input);
+    /// Throw InputConflictError or ChunkOverlapError if `chunks` cannot be trimmed and joined end to end.
+    /// The chunks must already be sorted by sort_by_base_path_offset().
+    void validate_chunks(const std::vector<Chunk>& chunks) const;
     /// Describe `input`'s reference path. Throw ReferencePathError if it does not have
-    /// exactly one, or if that path visits its first or last node in reverse.
+    /// exactly one, or if that path is empty or visits its first or last node in reverse.
     ReferenceDescription describe_reference(const Input& input) const;
     /// Group each base path's chunks together and sort them by start position.
     void sort_by_base_path_offset(std::vector<Chunk>& chunks);
-    /// Throw ChunkOverlapError if two neighbouring chunks of one base path spell different sequences where they overlap.
-    /// The chunks must already be sorted by sort_by_base_path_offset().
-    void check_overlaps_agree(const std::vector<Chunk>& chunks) const;
 
-    /// Throw ChunkOverlapError if any path in the chunk does not start at its reference path's first node.
-    void check_all_paths_start_at_reference_first_node(const Chunk& chunk) const;
-    /// Throw ChunkOverlapError if any path in the chunk does not end at its reference path's last node.
-    void check_all_paths_end_at_reference_last_node(const Chunk& chunk) const;
-
-    /// Cut the overlap off the front of `chunk` and shift its paths' coordinates back to match.
+    /// Cut the overlap off the front of `chunk`, and shift the coordinates of the paths that start there to match.
     /// `chunk` is the right chunk, being joined onto the end of the base path built so far.
     /// `overlap` is how many bp of `chunk` the base path already covers; it must be shorter than `chunk`'s first node.
     /// `left_end_node_len` is the length of the base path's current last node, which fusing adds in front of `chunk`.
@@ -170,6 +168,15 @@ private:
     /// Throws ChunkOverlapError if the shift would move a path's start coordinate below 0.
     handlegraph::nid_t trim_and_shift(Chunk& chunk, handlegraph::offset_t overlap,
                                       size_t left_end_node_len);
+
+    /// Return each path on `node` with its start (at_start) or end coordinate, by GroupKey; throw ChunkOverlapError if one path has two pieces there.
+    std::map<GroupKey, PathAtSeam> paths_at_seam(const Chunk& chunk, handle_t node,
+                                                 bool at_start) const;
+    /// Throw ChunkOverlapError if a path's pieces on the two sides of a seam do not end and start at the same coordinate, or, when fusing, if a path is on only one side.
+    void check_paths_meet_at_seam(const SeamState& left,
+                                  const std::map<GroupKey, PathAtSeam>& right,
+                                  size_t left_end_node_len,
+                                  const std::string& input_name) const;
 
     /// Add `input`'s nodes, edges and paths to dest, and free its graph.
     /// Unless nodes are shared by ID, its node IDs are first shifted above every ID already in dest; returns the shift, or 0 if none.
@@ -189,20 +196,18 @@ private:
     handle_t connect_seam(const SeamState& base_path_end, handle_t chunk_start,
                           handle_t chunk_end, const std::string& input_name);
 
-    /// Merge fragments from the same path into a single path spanning their entire
-    /// coordinate range.
+    /// Merge each path's consecutive fragments with no gap between them into one path.
+    /// Throw FragmentMergeError on a gap in a reference or circular path.
     void merge_path_fragments();
 
     SeamPolicy seam_policy;      ///< The mode for resolving overlap between the inputs.
-    bool fuse;                   ///< Merge the two boundary nodes into one where trimmed inputs are joined, instead of adding an edge.
+    bool fuse;                   ///< Merge the two seam nodes into one where trimmed inputs are joined, instead of adding an edge.
     bool phase_block_is_offset;  ///< Read a path's phase block as its start coordinate.
     Logger logger;               ///< Reports progress.
 
     std::unique_ptr<MutablePathDeletableHandleGraph> dest;  ///< The combined graph built so far.
     int64_t max_node_id = 0;     ///< Largest node ID used in dest so far.
     std::map<BasePathKey, SeamState> seams;  ///< For each base path, the node, orientation, offset and input it ends at so far.
-
-    friend class unittest::TestGraphCombiner;
 };
 
 }

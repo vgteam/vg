@@ -1,7 +1,7 @@
 /**
  * \file fuse_nodes.cpp
  *
- * Defines an algorithm to fuse one pair of adjacent nodes into one node.
+ * Defines an algorithm to fuse two nodes, end to end, into one node.
  */
 
 #include "fuse_nodes.hpp"
@@ -14,7 +14,6 @@ namespace algorithms {
 
 using namespace std;
 
-/// Check whether two nodes can be fused.
 bool can_fuse_nodes(const HandleGraph& graph, handle_t left, handle_t right) {
     if (graph.get_id(left) == graph.get_id(right)) {
         // A node cannot be concatenated onto itself.
@@ -37,7 +36,6 @@ bool can_fuse_nodes(const HandleGraph& graph, handle_t left, handle_t right) {
     return clean;
 }
 
-/// Fuse two nodes into one node.
 handle_t fuse_nodes(handlegraph::MutablePathDeletableHandleGraph* graph,
                     handle_t left, handle_t right) {
 
@@ -91,9 +89,19 @@ handle_t fuse_nodes(handlegraph::MutablePathDeletableHandleGraph* graph,
     }
     // Rewrite each collected step to point at fused.
     for (const auto& step_and_flip : to_rewrite) {
-        graph->rewrite_segment(step_and_flip.first,
-                               graph->get_next_step(step_and_flip.first),
+        step_handle_t step = step_and_flip.first;
+        path_handle_t path = graph->get_path_handle_of_step(step);
+        // A one-step circular path's step is its own next step, which rewrite_segment
+        // reads as an empty range; open the circle so the range holds that step.
+        bool own_next = (graph->get_next_step(step) == step);
+        if (own_next) {
+            graph->set_circularity(path, false);
+        }
+        graph->rewrite_segment(step, graph->get_next_step(step),
                                {step_and_flip.second ? graph->flip(fused) : fused});
+        if (own_next) {
+            graph->set_circularity(path, true);
+        }
     }
 
     // Tear down the old nodes and the edges on them.
