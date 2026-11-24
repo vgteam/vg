@@ -371,7 +371,7 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
     if (read_consensus.enabled()) {
         auto called_in = [&](const StagedSite& at, const vector<int>& chosen) {
             return std::ranges::any_of(chosen, [&](int allele) {
-                return read_consensus.is_consensus_allele(sites, at, allele);
+                return at.is_consensus_allele(allele);
             });
         };
         consensus_called = called_in(site, genotype);

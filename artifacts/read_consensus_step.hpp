@@ -245,12 +245,6 @@ public:
      */
     size_t run(const Parts& parts);
 
-    /// Return whether allele `allele` of the staged site `site` is one the step adds: an allele
-    /// of a snarl that its walk does not spell, or a consensus allele of a site the step made
-    /// of a run.
-    bool is_consensus_allele(const EditSnarlDecompositionOverlay& sites, const StagedSite& site,
-                             int allele) const;
-
     /// Count the sites that gained an allele, and the sites made of a run, whose chosen genotype
     /// has a consensus allele, once the last linkage pass has chosen the genotypes.
     void count_called(const Parts& parts);
@@ -287,13 +281,12 @@ private:
                    RunFinding& found) const;
 
     /// Make the one site that `run` becomes, with what each strand is called as across the run
-    /// and each consensus in `found` as its alleles, and genotype it. Set `first_consensus` to
-    /// the index of its first consensus allele.
+    /// and each consensus in `found` as its alleles, and genotype it.
     ///
     /// @return Nothing if no consensus is a new allele, or the site could not be genotyped.
     optional<StagedSite> merge_run(const Parts& parts, const AlleleSplicer& splicer,
                                    const vector<StagedSite*>& snarls, const Run& run,
-                                   const RunFinding& found, size_t& first_consensus) const;
+                                   const RunFinding& found) const;
 
     /// Compare the reads of `site` with its called sequences, and build the consensus of each
     /// candidate strand.
@@ -308,8 +301,6 @@ private:
     ReadConsensusCounts counted;
     /// The record keys of the sites that gained an allele, and of the sites made of a run.
     vector<size_t> changed;
-    /// The index of the first consensus allele of each site made of a run, by record key.
-    unordered_map<size_t, size_t> merged_first_consensus;
     /// The staged edit sites inside each node, by node ID, while the step runs.
     unordered_map<nid_t, vector<const StagedSite*>> edit_sites_on;
     /// The most bases between the bounds, and the most alignments at one snarl, that the

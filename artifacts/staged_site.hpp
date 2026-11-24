@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -175,6 +176,17 @@ struct StagedSite {
     /// records (`--flatten-records`). The render sets them before it writes the site's records,
     /// and then frees them.
     optional<FlatSite> flat;
+
+    /// The index of the first allele that is a consensus of the site's reads (see
+    /// `ReadConsensusStep`), or the largest number where the site has none. Every allele from it
+    /// on is one.
+    size_t first_consensus_allele = std::numeric_limits<size_t>::max();
+
+    /// Return whether allele `allele` is a consensus of the site's reads.
+    bool is_consensus_allele(int allele) const {
+        return allele >= 0 && (size_t)allele >= first_consensus_allele
+               && (size_t)allele < alleles.walks.size();
+    }
 };
 
 /// The sources the passes read for what a staged site does not hold.

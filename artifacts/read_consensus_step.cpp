@@ -49,20 +49,6 @@ struct ReadConsensusStep::Finding {
     bool candidate() const { return strands[0].candidate || strands[1].candidate; }
 };
 
-bool ReadConsensusStep::is_consensus_allele(const EditSnarlDecompositionOverlay& sites,
-                                            const StagedSite& site, int allele) const {
-    if (allele < 0 || (size_t)allele >= site.alleles.walks.size() || sites.is_edit(site.net)) {
-        return false;
-    }
-    if (sites.is_merged_site(site.net)) {
-        // A merged site's first alleles spell what was called at its member sites, some of
-        // them as sequences.
-        const auto first = merged_first_consensus.find(site.record_key);
-        return first != merged_first_consensus.end() && (size_t)allele >= first->second;
-    }
-    return !site.alleles.spelled_by_walk((size_t)allele);
-}
-
 bool ReadConsensusStep::disagrees(const string& read, const string& called) const {
     const size_t longer = std::max(read.size(), called.size());
     if (longer - std::min(read.size(), called.size()) >= options.min_diff) {
@@ -936,8 +922,8 @@ bool ReadConsensusStep::can_merge(const Parts& parts, const vector<StagedSite*>&
 optional<StagedSite> ReadConsensusStep::merge_run(const Parts& parts,
                                                   const AlleleSplicer& splicer,
                                                   const vector<StagedSite*>& snarls,
-                                                  const Run& run, const RunFinding& found,
-                                                  size_t& first_consensus) const {
+                                                  const Run& run,
+                                                  const RunFinding& found) const {
     const HandleGraph& graph = *parts.graph;
     const StagedSite& first = *snarls[run.members.front()];
     const StagedSite& last = *snarls[run.members.back()];
@@ -1011,7 +997,8 @@ optional<StagedSite> ReadConsensusStep::merge_run(const Parts& parts,
                 }));
         }
     }
-    first_consensus = across.walks.size();
+    // The alleles so far spell what was called at the member sites, some of them as sequences.
+    const size_t first_consensus = across.walks.size();
     for (const RunFinding::Strand& on : found.strands) {
         if (on.whole) {
             add(*on.whole, std::nullopt);
@@ -1021,13 +1008,17 @@ optional<StagedSite> ReadConsensusStep::merge_run(const Parts& parts,
         // Each consensus is what the other strand is called as, or the reference.
         return std::nullopt;
     }
-    return parts.tree_genotyper->merged_site(first, last, std::move(across), first_consensus);
+    optional<StagedSite> site = parts.tree_genotyper->merged_site(first, last, std::move(across),
+                                                                  first_consensus);
+    if (site) {
+        site->first_consensus_allele = first_consensus;
+    }
+    return site;
 }
 
 size_t ReadConsensusStep::run(const Parts& parts) {
     counted = ReadConsensusCounts();
     changed.clear();
-    merged_first_consensus.clear();
     if (!options.enabled || parts.linker == nullptr || !parts.linker->enabled()) {
         return 0;
     }
@@ -1188,15 +1179,13 @@ size_t ReadConsensusStep::run(const Parts& parts) {
     // once. A member of a run is genotyped from the bases its reads were given there.
     vector<char> genotyped(tasks.size(), 0);
     vector<size_t> added(tasks.size(), 0);
-    // The one site of each run that becomes one, and its first consensus allele.
+    // The one site of each run that becomes one.
     vector<optional<StagedSite>> merged(tasks.size());
-    vector<size_t> first_consensus(tasks.size(), 0);
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t t = 0; t < tasks.size(); ++t) {
         const Task& task = tasks[t];
         if (task.run != no_run && run_findings[task.run].merges()) {
-            merged[t] = merge_run(parts, splicer, snarls, runs[task.run], run_findings[task.run],
-                                  first_consensus[t]);
+            merged[t] = merge_run(parts, splicer, snarls, runs[task.run], run_findings[task.run]);
             genotyped[t] = merged[t] ? 1 : 0;
             continue;
         }
@@ -1230,6 +1219,9 @@ size_t ReadConsensusStep::run(const Parts& parts) {
                                      &run_findings[task.run].interiors[task.member]);
         if (again) {
             genotyped[t] = 1;
+            if (added[t] > 0) {
+                site.first_consensus_allele = first_added;
+            }
         } else {
             site.alleles = kept;
         }
@@ -1260,7 +1252,6 @@ size_t ReadConsensusStep::run(const Parts& parts) {
             model->retract(site.record_key);
             site = std::move(*merged[t]);
             changed.push_back(site.record_key);
-            merged_first_consensus[site.record_key] = first_consensus[t];
             parts.linker->file(site, site.placement.level > 0 ? site.ploidy == 1
                                                               : site.placement.one_copy);
             continue;
@@ -1304,7 +1295,7 @@ void ReadConsensusStep::count_called(const Parts& parts) {
         const StagedSite& site = *found->second;
         const vector<int> genotype = parts.linker->chosen_genotype(site);
         counted.sites_called += std::ranges::any_of(genotype, [&](int allele) {
-            return is_consensus_allele(*parts.sites, site, allele);
+            return site.is_consensus_allele(allele);
         }) ? 1 : 0;
     }
 }
