@@ -38,6 +38,9 @@ struct ReadConsensusOptions {
     /// The fewest reads of a strand that disagree with its called sequence for the strand to be
     /// a candidate. It is at most `min_spanning`.
     size_t min_reads = 3;
+    /// A consensus becomes an allele where it differs from the called sequence by more bases
+    /// than this.
+    size_t min_change = 10;
 
     /// The share of the longer of a read and the called sequence that their differing bases
     /// are, at least, where a read of nearly the called length disagrees.
@@ -97,9 +100,9 @@ struct ReadConsensusCounts {
  * `ReadConsensusOptions::min_diff`). A strand is a candidate where at least `min_spanning` of its
  * reads span the snarl, and at least `min_reads` of them, and at least `min_share` of them,
  * disagree. A candidate strand gets the consensus of its spanning reads, with its called
- * sequence as the backbone (`read_consensus`). A consensus that disagrees with the called
- * sequence, as a read does, becomes a sequence allele of the snarl (`add_sequence_allele`),
- * unless an allele of the snarl spells it already. Two strands with one
+ * sequence as the backbone (`read_consensus`). A consensus more than `min_change` differing
+ * bases from the called sequence becomes a sequence allele of the snarl
+ * (`add_sequence_allele`), unless an allele of the snarl spells it already. Two strands with one
  * consensus add one allele.
  *
  * A snarl gains its consensus whatever the snarls staged under it gain. Its sequence allele

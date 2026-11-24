@@ -2469,8 +2469,8 @@ is "$(grep -c -- '--read-consensus only appl.* to the read-likelihood genotyper'
 vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --no-phased --read-consensus >/dev/null 2>rcn.refuse.txt
 is "$(grep -c -- '--read-consensus needs the phase' rcn.refuse.txt)" "1" \
    "--read-consensus is refused without --phased"
-vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --consensus-min-diff 15 >/dev/null 2>rcn.refuse.txt
-is "$(grep -c -- '--consensus-min-diff only applies to read consensus, which --read-consensus turns on' rcn.refuse.txt)" "1" \
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --consensus-min-change 10 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--consensus-min-change only applies to read consensus, which --read-consensus turns on' rcn.refuse.txt)" "1" \
    "the settings of --read-consensus are refused without it"
 vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --read-consensus --consensus-min-reads 7 >/dev/null 2>rcn.refuse.txt
 is "$(grep -c -- '--consensus-min-reads must be at least 1 and at most 6' rcn.refuse.txt)" "1" \
