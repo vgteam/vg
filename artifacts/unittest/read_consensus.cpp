@@ -130,16 +130,19 @@ TEST_CASE("A read consensus changes the length of a tandem repeat", "[read_conse
 
 TEST_CASE("A read consensus keeps the backbone's lengths of runs of one base when asked",
           "[read_consensus]") {
-    const string backbone = "ACGTACGGATTTTTTTCAGCATGCAGGCTAGCATCGA";
-    // One T fewer in the run, and a C in place of a G.
-    const string changed = "ACGTACGGATTTTTTCAGCATCCAGGCTAGCATCGA";
+    const string backbone = "ACGTACGGATTTTTTTTTCAGCATGCAGGCTAGCATCGA";
+    // One T fewer in the run of nine, and a C in place of a G.
+    const string changed = "ACGTACGGATTTTTTTTCAGCATCCAGGCTAGCATCGA";
     const vector<string> reads(6, changed);
 
     ReadConsensusParams params;
     params.keep_homopolymer_lengths = false;
     REQUIRE(read_consensus(reads, backbone, params) == changed);
     params.keep_homopolymer_lengths = true;
-    REQUIRE(read_consensus(reads, backbone, params) == "ACGTACGGATTTTTTTCAGCATCCAGGCTAGCATCGA");
+    REQUIRE(read_consensus(reads, backbone, params) == "ACGTACGGATTTTTTTTTCAGCATCCAGGCTAGCATCGA");
+    // A run shorter than the least kept takes the reads' length.
+    params.homopolymer_min_run = 10;
+    REQUIRE(read_consensus(reads, backbone, params) == changed);
 
     // A deleted base that is a whole run is not a change of length.
     REQUIRE(keep_homopolymer_lengths("ACTG", "ACGTG") == "ACTG");

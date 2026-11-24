@@ -195,7 +195,7 @@ optional<int64_t> edit_distance(const string& first, const string& second, size_
 }
 
 optional<string> keep_homopolymer_lengths(const string& sequence, const string& backbone,
-                                          const StringAlignerParams& aligner) {
+                                          const StringAlignerParams& aligner, size_t min_run) {
     optional<StringAlignment> alignment = align_global(backbone, sequence, aligner);
     if (!alignment) {
         return std::nullopt;
@@ -226,6 +226,18 @@ optional<string> keep_homopolymer_lengths(const string& sequence, const string& 
             const bool after = r + 1 < runs.size() && runs[r + 1].op == AlignmentOp::Match
                                && backbone[next] == base;
             in_run = before || after;
+        }
+        if (in_run) {
+            // The run in the backbone that the gap lengthens or shortens.
+            size_t first = i;
+            while (first > 0 && backbone[first - 1] == base) {
+                --first;
+            }
+            size_t past = i;
+            while (past < backbone.size() && backbone[past] == base) {
+                ++past;
+            }
+            in_run = past - first >= min_run;
         }
         if (insertion) {
             if (!in_run) {
@@ -297,7 +309,8 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
         current = std::move(*next);
     }
     if (params.keep_homopolymer_lengths) {
-        return keep_homopolymer_lengths(current, backbone, params.aligner);
+        return keep_homopolymer_lengths(current, backbone, params.aligner,
+                                        params.homopolymer_min_run);
     }
     return current;
 }

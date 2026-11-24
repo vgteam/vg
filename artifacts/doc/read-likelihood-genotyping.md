@@ -332,7 +332,8 @@ on each snarl that has a phase, at any level, and on each of its strands:
    nearest the median length. Each is aligned to the called sequence, each
    base becomes whichever of a base or a deletion most reads have there, and an insertion is made
    where more than half the reads insert bases; the result is aligned to again until it stops
-   changing. A difference that only changes the length of a run of one base is undone.
+   changing. A difference that only changes the length of a run of one base is undone where the
+   run has at least nine bases in the sequence now called; a shorter run takes the reads' length.
 5. A consensus more than `--consensus-min-change` (10) differing bases from the called sequence
    becomes an allele of the snarl, unless one of the snarl's alleles spells it already. Two strands
    with the same consensus add one allele. The allele is given as its bases between the bounds. It

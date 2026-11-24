@@ -35,6 +35,9 @@ struct ReadConsensusParams {
     /// Whether the consensus keeps the backbone's length of a run of one base wherever it
     /// differs from the backbone only in the length of that run.
     bool keep_homopolymer_lengths = true;
+    /// The fewest bases a run of one base has in the backbone for the consensus to keep its
+    /// length. A shorter run takes the length the reads give it.
+    size_t homopolymer_min_run = 9;
     /// The costs and limits of each alignment of a read to a backbone.
     StringAlignerParams aligner;
 };
@@ -62,13 +65,14 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
  *
  * The two are aligned and the gaps moved left. A gap whose bases are all one base, beside a
  * matched base of the backbone that is the same, changes only the length of a run, and the result
- * has the backbone's bases there.
+ * has the backbone's bases there if the backbone's run has at least `min_run` bases.
  *
  * @return Nothing if the alignment is not found within the limits of `aligner`.
  */
 optional<string> keep_homopolymer_lengths(const string& sequence, const string& backbone,
                                           const StringAlignerParams& aligner =
-                                              StringAlignerParams());
+                                              StringAlignerParams(),
+                                          size_t min_run = 1);
 
 /// Return the least number of single-base substitutions, insertions and deletions that turn
 /// `first` into `second`, or nothing if it is not found within `max_cells` cells.
