@@ -410,23 +410,26 @@ static void init_in_out(fstream& strm, const string& name) {
     }
 }
 
-/// Return true if a read file, possibly gzipped, is FASTA, and false if it is
-/// FASTQ. Exit with an error if it is neither, or cannot be read.
-static bool reads_are_fasta(const string& filepath) {
-    htsFile* file = hts_open(filepath.c_str(), "r");
-    if (!file) {
-        error(context) << "Failed to open read file " << filepath << endl;
+/// Return the KMC input format flag for a read file.
+/// Exit with an error if KMC cannot read the file.
+static string find_kmc_format(const string& filepath) {
+    htsFormat format = detect_file_format(context, filepath);
+    bool readable_compression = format.compression == no_compression
+        || format.compression == gzip || format.compression == bgzf;
+    if (readable_compression && format.format == fasta_format) {
+        // Use -fm for normal, multi-line FASTA
+        return "-fm";
     }
-    htsExactFormat format = hts_get_format(file)->format;
-    hts_close(file);
-    if (format == fasta_format) {
-        return true;
-    } else if (format == fastq_format) {
-        return false;
+    if (readable_compression && format.format == fastq_format) {
+        return "-fq";
     }
-    error(context) << "Read file " << filepath << " is not FASTA or FASTQ" << endl;
+    char* description_buffer = hts_format_description(&format);
+    string description = description_buffer;
+    free(description_buffer);
+    error(context) << "Cannot count k-mers from " << filepath << ", which is " << description
+                   << "; KMC needs plain or gzipped FASTA or FASTQ" << endl;
     // error() exits, so this is unreachable.
-    return false;
+    return "";
 }
 
 static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> {
@@ -4442,9 +4445,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
         // Find the format of the reads to tell KMC. KMC takes one format for
         // all its inputs.
-        bool fasta_input = reads_are_fasta(fastq_filenames.front());
+        // TODO: Add recipes that convert reads vg can read but KMC cannot,
+        // such as a mix of FASTA and FASTQ files, into a form KMC takes. That
+        // is a lot of fiddly work in the recipe system, so for now we refuse
+        // such input.
+        string kmc_format = find_kmc_format(fastq_filenames.front());
         for (const string& fq : fastq_filenames) {
-            if (reads_are_fasta(fq) != fasta_input) {
+            if (find_kmc_format(fq) != kmc_format) {
                 error(context) << "Cannot count k-mers from a mix of FASTA and FASTQ read files: "
                                << fastq_filenames.front() << " and " << fq << " differ" << endl;
             }
@@ -4508,8 +4515,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             "-m128",
             "-okff",
             "-hp",
-            // Use -fm for normal, multi-line FASTA
-            fasta_input ? "-fm" : "-fq"
+            kmc_format
         };
 
         if (kmc_gb != std::numeric_limits<size_t>::max()) {

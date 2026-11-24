@@ -22,6 +22,7 @@
 #include "sha1.hpp"
 #include "Variant.h"
 #include "log.hpp"
+#include <htslib/hts.h>
 
 namespace vg {
 
@@ -899,6 +900,10 @@ string require_non_gzipped(const Logger& logger, const string& filename);
 /// Check if a file can be written to and return its name (if so) or error.
 /// Uses file_can_be_written() and is intended to be called when parsing arguments.
 string ensure_writable(const Logger& logger, const string& filename);
+
+/// Return htslib's description of a file's format and compression.
+/// Error if the file cannot be read.
+htsFormat detect_file_format(const Logger& logger, const string& filename);
 
 /// A special parser for thread count which errors if non-positive
 /// If max_threads is non-zero, it will also decrease to that maximum.
