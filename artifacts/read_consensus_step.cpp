@@ -57,8 +57,9 @@ struct ReadConsensusStep::RunFinding {
         optional<string> consensus;
     };
     Strand strands[2];
-    /// The bases each strand is called as between the two outer bounds of a run of several
-    /// that is treated, where the strand crosses every member.
+    /// The bases each strand is called as between the two outer bounds of a run that is
+    /// treated, where the strand crosses every member: at a run of one, where no allele of the
+    /// snarl spells them.
     optional<string> called[2];
     /// The record keys of the edit sites inside the nodes between the members.
     vector<size_t> edits_between;
@@ -435,19 +436,31 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
     // The alleles the scorer aligns the spanning reads to, besides the consensuses.
     size_t alleles = 0;
     if (count == 1) {
-        // A snarl on its own gains a consensus that none of its alleles spells.
+        // A snarl on its own gains a consensus that none of its alleles spells. With it, it
+        // gains what each strand is called as, where the sites nested in the snarl make that
+        // a sequence none of its alleles spells, so that a strand can keep what it has.
         const StagedSite& site = *snarls[run.members.front()];
-        alleles = site.alleles.walks.size();
-        for (size_t a = 0; a < alleles; ++a) {
+        const size_t walks = site.alleles.walks.size();
+        for (int strand = 0; strand < 2; ++strand) {
+            if (crosses[strand] && !(strand == 1 && crosses[0] && called[0] == called[1])) {
+                found.called[strand] = called[strand];
+            }
+        }
+        for (size_t a = 0; a < walks; ++a) {
             const optional<string> spelled = between(site.alleles.sequence(graph, a),
                                                      graph.get_length(start),
                                                      graph.get_length(end));
-            for (RunFinding::Strand& on : found.strands) {
+            for (int strand = 0; strand < 2; ++strand) {
+                RunFinding::Strand& on = found.strands[strand];
                 if (on.consensus && spelled && *on.consensus == *spelled) {
                     on.consensus.reset();
                 }
+                if (found.called[strand] && spelled && *found.called[strand] == *spelled) {
+                    found.called[strand].reset();
+                }
             }
         }
+        alleles = walks + (found.called[0] ? 1 : 0) + (found.called[1] ? 1 : 0);
     } else if (can_merge(parts, snarls, run, found)) {
         // A run of several becomes one site, whose alleles are the reference across the run,
         // what each strand is called as, and each consensus.
@@ -730,6 +743,12 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         StagedSite& site = *snarls[run.members.front()];
         const CandidateAlleles kept = site.alleles;
         const size_t first_added = site.alleles.walks.size();
+        for (const optional<string>& called : found.called) {
+            if (called) {
+                add_sequence_allele(*parts.graph, site.alleles, *called);
+            }
+        }
+        const size_t first_consensus = site.alleles.walks.size();
         for (int strand = 0; strand < 2; ++strand) {
             const optional<string>& consensus = found.strands[strand].consensus;
             if (consensus && !(strand == 1 && consensus == found.strands[0].consensus)) {
@@ -738,7 +757,7 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         }
         if (added[t] > 0 && parts.tree_genotyper->regenotype(site, first_added)) {
             genotyped[t] = 1;
-            site.first_consensus_allele = first_added;
+            site.first_consensus_allele = first_consensus;
         } else {
             site.alleles = kept;
         }

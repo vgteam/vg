@@ -336,7 +336,9 @@ on each snarl that has a phase, at any level, and on each of its strands:
    run has at least nine bases in the sequence now called; a shorter run takes the reads' length.
 5. A consensus more than `--consensus-min-change` (10) differing bases from the called sequence
    becomes an allele of the snarl, unless one of the snarl's alleles spells it already. Two strands
-   with the same consensus add one allele. The allele is given as its bases between the bounds. It
+   with the same consensus add one allele. With a consensus, the snarl also gains what each
+   strand is called as, where the sites nested in the snarl make that a sequence none of its
+   alleles spells, so that a strand can keep what it has. The allele is given as its bases between the bounds. It
    visits no node between them, so it crosses no site nested in the snarl, as a deletion of
    everything between the bounds does, and no panel haplotype carries it.
 

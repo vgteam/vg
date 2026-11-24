@@ -99,7 +99,9 @@ struct ReadConsensusCounts {
  * disagree. A candidate strand gets the consensus of its spanning reads, with its called
  * sequence as the backbone (`read_consensus`). A consensus more than `min_change` differing
  * bases from the called sequence becomes a sequence allele of the snarl
- * (`add_sequence_allele`), unless an allele of the snarl spells it already. Two strands with one
+ * (`add_sequence_allele`), unless an allele of the snarl spells it already. With it, the snarl
+ * gains what each strand is called as, where the sites nested in the snarl make that a
+ * sequence that none of its alleles spells, so that a strand can keep what it has. Two strands with one
  * consensus add one allele.
  *
  * A snarl gains its consensus whatever the snarls staged under it gain. Its sequence allele
