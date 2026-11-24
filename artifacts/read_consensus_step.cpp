@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <map>
 #include <memory>
 #include <numeric>
 #include <unordered_set>
@@ -68,10 +67,6 @@ struct ReadConsensusStep::RunFinding {
     /// Whether a called sequence or a consensus has more bases between the bounds than the
     /// scorer aligns of a read, or the reads and alleles need more alignments than it makes.
     bool over_cap = false;
-    /// Whether no strand has `min_spanning` reads that span the run.
-    bool too_few = false;
-    /// Whether a strand of a run of several has a consensus and the run cannot become one site.
-    bool unmergeable = false;
 
     /// Return whether any strand has a consensus that the run is treated for.
     bool treats() const { return strands[0].consensus || strands[1].consensus; }
@@ -143,26 +138,16 @@ ReadConsensusStep::Alone ReadConsensusStep::measure(const Parts& parts,
     return alone;
 }
 
-void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splicer,
+void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splicer,
                                   const vector<StagedSite*>& snarls,
                                   const vector<Alone>& alone, vector<Run>& runs,
-                                  vector<RunFinding>& run_findings) {
+                                  vector<RunFinding>& run_findings) const {
     const HandleGraph& graph = *parts.graph;
     const size_t none = std::numeric_limits<size_t>::max();
-    // A site can be in a run where it is given no allele on its own.
+    // A site can be in a run where enough reads span it and it has a called sequence of no
+    // more bases than the scorer aligns of a read.
     auto can_join = [&](size_t i) {
-        return alone[i].measured && !alone[i].treated && alone[i].longest <= max_bases;
-    };
-    // The signal of each site: that of its own span summary, or the gap its reads have inside
-    // a node between it and a neighbour, if that is `min_diff` bases and more.
-    vector<size_t> signal(snarls.size());
-    for (size_t i = 0; i < snarls.size(); ++i) {
-        signal[i] = alone[i].signal;
-    }
-    // A run grows from a site whose reads disagree with what is called: one with a candidate
-    // strand, or one whose signal is a few bases of difference.
-    auto is_seed = [&](size_t i) {
-        return alone[i].candidates > 0 || signal[i] >= options.run_site_diff;
+        return alone[i].measured && alone[i].longest <= max_bases;
     };
     // Two sites can be in one run where one phase orders the strands of both.
     auto same_phase = [&](size_t a, size_t b) {
@@ -180,8 +165,14 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
             by_start[parts.sites->get_site_start(snarls[i]->net)] = i;
         }
     }
-    // The site after each site in its chain, where the two can be neighbours in a run, and the
-    // nodes from the one's end bound to the other's start bound.
+    // The signal of each site: that of its own span summary, or the gap its reads have inside
+    // a node between it and a neighbour, if that is `min_diff` bases and more.
+    vector<size_t> signal(snarls.size());
+    for (size_t i = 0; i < snarls.size(); ++i) {
+        signal[i] = alone[i].signal;
+    }
+    // The site after each site in its chain, where the two are neighbours, and the nodes from
+    // the one's end bound to the other's start bound.
     vector<size_t> next(snarls.size(), none);
     vector<char> follows(snarls.size(), 0);
     vector<vector<handle_t>> nodes_after(snarls.size());
@@ -193,27 +184,23 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
         handle_t at = parts.sites->get_site_end(snarls[i]->net);
         vector<handle_t> nodes{at};
         size_t bases = graph.get_length(at);
-        while (true) {
+        while (bases <= options.run_max_junction) {
             if (const auto found = by_start.find(at);
                 found != by_start.end() && found->second != i) {
-                // A gap that the reads have inside the node of a bound that faces the other
-                // site is a signal of both.
-                const size_t gap = std::max(alone[i].end_gap, alone[found->second].start_gap);
-                const bool gapped = gap >= options.min_diff;
-                if (bases <= options.run_max_junction && same_phase(i, found->second)
-                    && !follows[found->second]) {
+                if (same_phase(i, found->second) && !follows[found->second]) {
                     next[i] = found->second;
                     follows[found->second] = 1;
                     nodes_after[i] = nodes;
                     bases_after[i] = bases;
-                    if (gapped) {
+                    // A gap that the reads have inside the node of a bound that faces the
+                    // other site is a signal of both.
+                    const size_t gap = std::max(alone[i].end_gap,
+                                                alone[found->second].start_gap);
+                    if (gap >= options.min_diff) {
                         signal[i] = std::max(signal[i], gap);
                         signal[found->second] = std::max(signal[found->second], gap);
                     }
                 }
-                break;
-            }
-            if (bases > options.run_max_junction) {
                 break;
             }
             // Go on to the next node where every walk of the chain takes it from here.
@@ -235,142 +222,90 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
             bases += graph.get_length(at);
         }
     }
+    // A seed is a site whose reads disagree with what is called: one with a candidate strand,
+    // or one whose signal is a few bases of difference.
+    auto is_seed = [&](size_t i) {
+        return alone[i].candidates > 0 || signal[i] >= options.run_site_diff;
+    };
 
-    // The stretches of sites that follow each other, in which runs grow. A stretch is looked
-    // at where it has a site with a candidate strand, or its sites' signals sum to `min_diff`.
-    vector<vector<size_t>> stretches;
+    // A run begins and ends at a seed, and holds every site between two of its seeds. Two
+    // seeds that follow each other are in one run where at most `run_max_junction` bases lie
+    // between them, in the nodes of the junctions and in the sites that are no seeds, and the
+    // run has no more bases between its outer bounds than the scorer aligns of a read. The
+    // bases of a site are those of its longest called sequence. A run is tested where it has
+    // two or more members, and one has a candidate strand or their signals sum to `min_diff`:
+    // no read can disagree at any other.
+    vector<Run> tested;
     for (size_t i = 0; i < snarls.size(); ++i) {
-        if (!can_join(i) || follows[i] || next[i] == none) {
+        if (!can_join(i) || follows[i]) {
             continue;
         }
-        vector<size_t> stretch;
+        Run run;
+        size_t bases = 0;
         size_t signal_sum = 0;
         bool candidate = false;
-        bool seeded = false;
-        for (size_t at = i; at != none; at = next[at]) {
-            stretch.push_back(at);
-            signal_sum += signal[at];
-            candidate = candidate || alone[at].candidates > 0;
-            seeded = seeded || is_seed(at);
-        }
-        if (seeded && (candidate || signal_sum >= options.min_diff)) {
-            stretches.push_back(std::move(stretch));
-        }
-    }
-
-    // Grow a run from each seed of a stretch, in the stretch's order: take the neighbour with
-    // the greater signal, or on a tie the one on the side with fewer members, the later side if
-    // those tie too, and test the run. Keep the first run that is treated, and stop where one
-    // cannot be. The stretches share no site, so they are done at once.
-    vector<vector<Run>> grown(stretches.size());
-    vector<vector<RunFinding>> found_at(stretches.size());
-#pragma omp parallel for schedule(dynamic, 1)
-    for (size_t c = 0; c < stretches.size(); ++c) {
-        const vector<size_t>& stretch = stretches[c];
-        vector<char> used(stretch.size(), 0);
-        // What was found at each run tested so far that was not treated, by its first and
-        // last members, so that no run is tested twice.
-        map<pair<size_t, size_t>, RunFinding> tested;
-        for (size_t seed = 0; seed < stretch.size(); ++seed) {
-            if (used[seed] || !is_seed(stretch[seed])) {
+        // The sites after the run's last seed, which are no seeds, and the bases after that
+        // seed: theirs, and those of the junctions.
+        vector<size_t> skipped;
+        size_t between = 0;
+        auto close = [&]() {
+            if (run.members.size() > 1 && (candidate || signal_sum >= options.min_diff)) {
+                tested.push_back(std::move(run));
+            }
+            run = Run();
+            bases = 0;
+            signal_sum = 0;
+            candidate = false;
+            skipped.clear();
+            between = 0;
+        };
+        size_t before = none;
+        for (size_t at = i; at != none; before = at, at = next[at]) {
+            if (!run.members.empty()) {
+                between += bases_after[before];
+            }
+            if (!is_seed(at)) {
+                if (!run.members.empty()) {
+                    skipped.push_back(at);
+                    between += alone[at].longest;
+                }
                 continue;
             }
-            size_t first = seed;
-            size_t last = seed;
-            size_t bases = alone[stretch[seed]].longest;
-            Run run;
-            RunFinding found;
-            // Return the bases the neighbour on `side` would add, or `none` where it cannot
-            // join.
-            auto adds = [&](int side) {
-                if (last - first + 1 >= options.run_max_members
-                    || (side == 0 ? first == 0 || used[first - 1]
-                                  : last + 1 == stretch.size() || used[last + 1])) {
-                    return none;
-                }
-                const size_t more = side == 0 ? alone[stretch[first - 1]].longest
-                                                    + bases_after[stretch[first - 1]]
-                                              : alone[stretch[last + 1]].longest
-                                                    + bases_after[stretch[last]];
-                return bases + more > max_bases ? none : more;
-            };
-            // Return the run with the neighbour on `side` taken in, and what is found at it.
-            auto with = [&](int side) {
-                Run wider;
-                const size_t from = first - (side == 0 ? 1 : 0);
-                const size_t to = last + (side == 1 ? 1 : 0);
-                wider.members.assign(stretch.begin() + (ptrdiff_t)from,
-                                     stretch.begin() + (ptrdiff_t)to + 1);
-                for (size_t m = from; m < to; ++m) {
-                    wider.junctions.push_back(nodes_after[stretch[m]]);
-                }
-                if (const auto known = tested.find({from, to}); known != tested.end()) {
-                    return make_pair(std::move(wider), known->second);
-                }
-                RunFinding at_wider = examine_run(parts, splicer, snarls, wider);
-                if (!at_wider.treats()) {
-                    tested.emplace(make_pair(from, to), at_wider);
-                }
-                return make_pair(std::move(wider), std::move(at_wider));
-            };
-            auto take = [&](int side, size_t more, pair<Run, RunFinding>&& wider) {
-                bases += more;
-                first -= side == 0 ? 1 : 0;
-                last += side == 1 ? 1 : 0;
-                run = std::move(wider.first);
-                found = std::move(wider.second);
-            };
-            // Grow until a strand has a consensus that differs from what is called.
-            while (!found.treats() && !found.over_cap && !found.too_few && !found.unmergeable) {
-                const size_t more[2] = {adds(0), adds(1)};
-                if (more[0] == none && more[1] == none) {
-                    break;
-                }
-                int side = more[0] == none ? 1 : 0;
-                if (more[0] != none && more[1] != none) {
-                    const size_t before = signal[stretch[first - 1]];
-                    const size_t after = signal[stretch[last + 1]];
-                    side = after > before || (after == before && last - seed <= seed - first)
-                               ? 1 : 0;
-                }
-                take(side, more[side], with(side));
+            if (!run.members.empty()
+                && (between > options.run_max_junction
+                    || bases + between + alone[at].longest > max_bases)) {
+                close();
             }
-            // Then take in a neighbour while that gives the treated strands more reads that
-            // disagree with what is called: reads whose difference the mapper put there.
-            auto disagreeing = [](const RunFinding& at) {
-                size_t reads = 0;
-                for (const RunFinding::Strand& on : at.strands) {
-                    reads += on.consensus ? on.disagreeing : 0;
+            if (!run.members.empty()) {
+                skipped.push_back(at);
+                for (const size_t member : skipped) {
+                    run.junctions.push_back(nodes_after[run.members.back()]);
+                    run.members.push_back(member);
+                    signal_sum += signal[member];
                 }
-                return reads;
-            };
-            for (bool grew = found.treats(); grew;) {
-                grew = false;
-                for (const int side : {1, 0}) {
-                    const size_t more = adds(side);
-                    if (more == none) {
-                        continue;
-                    }
-                    pair<Run, RunFinding> wider = with(side);
-                    if (wider.second.treats()
-                        && disagreeing(wider.second) > disagreeing(found)) {
-                        take(side, more, std::move(wider));
-                        grew = true;
-                        break;
-                    }
-                }
+                bases += between;
+                skipped.clear();
+                between = 0;
+            } else {
+                run.members.push_back(at);
+                signal_sum += signal[at];
             }
-            if (found.treats()) {
-                std::fill(used.begin() + (ptrdiff_t)first, used.begin() + (ptrdiff_t)last + 1, 1);
-                grown[c].push_back(std::move(run));
-                found_at[c].push_back(std::move(found));
-            }
+            bases += alone[at].longest;
+            candidate = candidate || alone[at].candidates > 0;
         }
+        close();
     }
-    for (size_t c = 0; c < stretches.size(); ++c) {
-        for (size_t r = 0; r < grown[c].size(); ++r) {
-            runs.push_back(std::move(grown[c][r]));
-            run_findings.push_back(std::move(found_at[c][r]));
+
+    // The runs share no site, so they are tested at once.
+    vector<RunFinding> found_at(tested.size());
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t r = 0; r < tested.size(); ++r) {
+        found_at[r] = examine_run(parts, splicer, snarls, tested[r]);
+    }
+    for (size_t r = 0; r < tested.size(); ++r) {
+        if (found_at[r].treats()) {
+            runs.push_back(std::move(tested[r]));
+            run_findings.push_back(std::move(found_at[r]));
         }
     }
 }
@@ -500,8 +435,6 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
             on.consensus = std::move(consensus);
         }
     }
-    found.too_few = found.strands[0].reads < options.min_spanning
-                    && found.strands[1].reads < options.min_spanning;
     auto leave_alone = [&]() {
         for (RunFinding::Strand& on : found.strands) {
             on.consensus.reset();
@@ -537,7 +470,6 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
             }
         }
     } else {
-        found.unmergeable = true;
         leave_alone();
         return found;
     }
@@ -762,21 +694,27 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         }
     }
 
-    // The runs that are treated: the sites with a consensus of their own, and the runs grown
-    // around the sites whose reads disagree and that gain no allele on their own.
+    // The runs that are treated: the runs of several sites whose reads disagree, and each
+    // site with a consensus of its own that is in none of those.
     vector<Run> runs;
     vector<RunFinding> run_findings;
+    find_runs(parts, splicer, snarls, alone, runs, run_findings);
+    vector<char> in_run(snarls.size(), 0);
+    for (const Run& run : runs) {
+        for (const size_t i : run.members) {
+            in_run[i] = 1;
+        }
+    }
     for (size_t i = 0; i < snarls.size(); ++i) {
         counted.tested += alone[i].tested ? 1 : 0;
         counted.over_cap += alone[i].over_cap ? 1 : 0;
         counted.candidate_strands += alone[i].candidates;
-        if (found_alone[i]) {
+        if (found_alone[i] && !in_run[i]) {
             runs.push_back(Run{{i}, {}});
             run_findings.push_back(std::move(*found_alone[i]));
         }
     }
     found_alone.clear();
-    grow_runs(parts, splicer, snarls, alone, runs, run_findings);
 
     // Every treated run is genotyped again, whatever is treated under it: the consensus allele
     // of a snarl crosses no site nested in the snarl, and the sites nested in a run that becomes

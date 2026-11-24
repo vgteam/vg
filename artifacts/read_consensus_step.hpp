@@ -54,11 +54,10 @@ struct ReadConsensusOptions {
     /// more between its bounds than its longest called sequence, or this many fewer than its
     /// shortest, as it does from a site with a candidate strand.
     static constexpr size_t run_site_diff = 3;
-    /// The most bases that lie between two neighbouring sites of a run: their bound nodes, and
-    /// any nodes between those.
+    /// The most bases that lie between two neighbouring sites of a run, in their bound nodes
+    /// and any nodes between those, and the most that lie between two seeds of a run that
+    /// follow each other, in those nodes and in the sites between that are no seeds.
     static constexpr size_t run_max_junction = 1000;
-    /// The most sites a run has.
-    static constexpr size_t run_max_members = 8;
 };
 
 /// What the read-consensus step did, for its report.
@@ -118,42 +117,38 @@ struct ReadConsensusCounts {
  * ## Runs
  *
  * A mapper places a difference in a repeat in one of several neighbouring snarls, and not in
- * the same one for every read, so no one snarl need hold `min_diff` bases of it. A run is two or
- * more snarls that follow each other in one chain, at any level: each shares its bound node
- * with the next, or is joined to it by nodes that every walk of the chain takes. The junction
- * of two neighbours is the bases of those nodes, bound nodes included. A run is read from its
- * first member's start bound to its last member's end bound, and the same test, consensus and
- * threshold are applied to it as to one snarl: a strand's called sequence across the run is its
- * called sequence at each member with the junctions between, and a read's bases are those it
- * has between the run's two outer bounds.
+ * the same one for every read, so no one snarl need hold `min_diff` bases of it, and the bases
+ * that two reads have between the bounds of one snarl cannot be compared. So the step tests a
+ * run of snarls as it tests one snarl. A run is read from its first member's start bound to its
+ * last member's end bound: a strand's called sequence across the run is its called sequence at
+ * each member with the junctions between, and a read's bases are those it has between the
+ * run's two outer bounds.
  *
- * A snarl can be in a run where the single-snarl test gives it no allele, it has a called
- * sequence of no more bases than the scorer aligns, and at least `min_spanning` reads span it.
- * Two such snarls are neighbours where they follow each other in a chain, one phase set orders
- * the strands of both, and their junction has at most `run_max_junction` bases.
- * A stretch is a longest sequence of neighbours. A junction holds a gap where `min_reads` of
- * the reads that span one of its two snarls have a gap of `min_diff` bases or more inside the
- * node of its bound that faces the other (`SpanSummary::start_gap`, `end_gap`).
+ * Two snarls are neighbours where one follows the other in a chain, at any level: they share a
+ * bound node, or only nodes that every walk of the chain takes lie between them. One phase set
+ * orders the strands of both, at least `min_spanning` reads span each, and each has a called
+ * sequence of no more bases than the scorer aligns of a read. Their junction is the bases of
+ * the nodes from the one's end bound to the other's start bound, both included, which are at
+ * most `run_max_junction`.
  *
  * A snarl's signal is the number of bases by which `min_reads` of its spanning reads have more
  * between the bounds than its longest called sequence, or fewer than its shortest, whichever is
- * more, or the length of the gap its junction with a neighbour holds, if that is more; the
- * direct pass's span summary gives both. A seed is a snarl of a stretch with a
- * candidate strand, or with a signal of `run_site_diff` or more. Runs are grown in a stretch
- * that has a seed and either a snarl with a candidate strand or signals that sum to `min_diff`
- * or more, so that reads are fetched for few stretches.
+ * more. Where `min_reads` of the reads that span it have a gap of `min_diff` bases or more
+ * inside the node of a bound that faces a neighbour, the gap is the signal of both snarls if it
+ * is more (`SpanSummary::start_gap`, `end_gap`). A seed is a snarl whose reads disagree with
+ * what is called there: one with a candidate strand, or with a signal of `run_site_diff` or
+ * more.
  *
- * A run grows from each seed in turn, in the stretch's order, among the snarls of the stretch
- * that are in no treated run. It takes the neighbour with the greater signal, or on a tie the
- * one on the side where it has fewer members, the later side if those tie too, and is tested:
- * its reads are fetched and compared as above. It stops at the first run that is treated, so
- * the run is the smallest around the seed that is. It also stops where the run has a consensus
- * and cannot become one site, is over a limit of the scorer, has `min_spanning` reads on no
- * strand, has `run_max_members` members, or has no neighbour that keeps the bases between its
- * bounds within what the scorer aligns. A treated run then takes in one more neighbour, the later one first, for as long as
- * that leaves it treated and gives its treated strands more reads that disagree with what is
- * called: those are reads whose difference the mapper put in that neighbour. So a snarl is in
- * at most one treated run.
+ * A run begins and ends at a seed, and holds every snarl between two of its seeds. Two seeds
+ * that follow each other in a sequence of neighbours are in one run where at most
+ * `run_max_junction` bases lie between them, in the nodes of the junctions and in the snarls
+ * that are no seeds, and the run has no more bases between its outer bounds than the scorer
+ * aligns of a read. The bases of a snarl are those of its longest called sequence. Where one
+ * more seed would pass either number, the run ends and the next begins at that seed. A run of
+ * two or more is tested where a member has a candidate strand or the
+ * members' signals sum to `min_diff`, and is treated where a strand has a consensus that is to
+ * become an allele and the run can become one site. A snarl in no treated run is treated on
+ * its own where it has a consensus, so a snarl is in at most one treated run.
  *
  * ## A run as one site
  *
@@ -236,12 +231,12 @@ private:
     /// What the step found at one run.
     struct RunFinding;
 
-    /// Grow and test the runs of two or more among `snarls`, of each of which `alone` says what
+    /// Find and test the runs of two or more among `snarls`, of each of which `alone` says what
     /// is known on its own. Add to `runs` each run that is treated, and to `run_findings` what
     /// was found at it.
-    void grow_runs(const Parts& parts, const AlleleSplicer& splicer,
+    void find_runs(const Parts& parts, const AlleleSplicer& splicer,
                    const vector<StagedSite*>& snarls, const vector<Alone>& alone,
-                   vector<Run>& runs, vector<RunFinding>& run_findings);
+                   vector<Run>& runs, vector<RunFinding>& run_findings) const;
 
     /// Compare the reads that span `run` with each strand's called sequence across it, and
     /// build the consensus of each candidate strand. The run is treated for a consensus that
