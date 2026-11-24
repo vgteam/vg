@@ -1642,5 +1642,29 @@ TEST_CASE("combine trims haplotype paths positioned by phase block", "[combine]"
     REQUIRE(spell_path(*combined, "HG1#1#chr1#0[0-12]") == "AAAACCCCGGGG");
 }
 
+TEST_CASE("combine rejects haplotype paths with no coordinates in trimmed chunks", "[combine]") {
+    vector<GraphCombiner::Input> inputs(2);
+
+    inputs[0].name = "left.pg";
+    inputs[0].graph = make_unique<bdsg::HashGraph>();
+    handle_t a1 = inputs[0].graph->create_handle("AAAA");
+    handle_t a2 = inputs[0].graph->create_handle("CCCC");
+    inputs[0].graph->create_edge(a1, a2);
+    add_ref_path(*inputs[0].graph, "GRCh38", "chr1", subrange_t{0, 8}, {a1, a2});
+    add_path(*inputs[0].graph, PathSense::HAPLOTYPE, "HG1", "chr1", 1, 0,
+             PathMetadata::NO_SUBRANGE, {a1, a2});
+
+    inputs[1].name = "right.pg";
+    inputs[1].graph = make_unique<bdsg::HashGraph>();
+    handle_t b = inputs[1].graph->create_handle("CCGGGG");
+    add_ref_path(*inputs[1].graph, "GRCh38", "chr1", subrange_t{6, 12}, {b});
+    add_path(*inputs[1].graph, PathSense::HAPLOTYPE, "HG1", "chr1", 1, 0,
+             PathMetadata::NO_SUBRANGE, {b});
+
+    // Both pieces are named HG1#1#chr1#0 and so both start at 0; they cannot meet at the seam.
+    TestGraphCombiner combiner(SeamPolicy::COORD_TRIM, false, false);
+    REQUIRE_THROWS_AS(combiner.combine(std::move(inputs)), ChunkOverlapError);
+}
+
 }
 }
