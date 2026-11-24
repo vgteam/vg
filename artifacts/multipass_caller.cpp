@@ -535,16 +535,16 @@ bool MultiPassCaller::align_flat_run(const FlatRunPlan& plan, FlatRefusal& refus
         note_consensus(*site);
         splicer.for_each_under(site->record_key, note_consensus);
     }
-    // A site writes the clusters from its first base up to that of the next site.
-    size_t cluster = 0;
+    // A site writes the records from its first base up to that of the next site.
+    size_t cut = 0;
     for (size_t m = 0; m < plan.sites.size(); ++m) {
-        FlatSite flat{run, origins[m], {}, cluster, 0};
-        while (cluster < run->clusters.size()
+        FlatSite flat{run, origins[m], {}, cut, 0};
+        while (cut < run->cuts.size()
                && (m + 1 == plan.sites.size()
-                   || (size_t)run->clusters[cluster].first < origins[m + 1])) {
-            ++cluster;
+                   || (size_t)run->cuts[cut].begin() < origins[m + 1])) {
+            ++cut;
         }
-        flat.cluster_count = cluster - flat.first_cluster;
+        flat.cut_count = cut - flat.first_cut;
         for (int strand = 0; strand < (int)ploidy; ++strand) {
             flat.travs.push_back(*splicer.strand_traversal(*plan.sites[m], strand));
         }
@@ -746,8 +746,10 @@ static const char* const FL_HEADER_LINE =
     "with the called alleles of the sites of the run, of the sites nested in them and of the "
     "edit sites between them, which have no records of their own. Each strand is aligned to "
     "the reference by itself. A run of mismatches is one record, and so is a gap, with the "
-    "reference base before it; differences of the two strands that share a reference base "
-    "are one record. The ID is that of the one site, or names the start bound node of the "
+    "reference base before it. A difference both strands have is one record with GT 1|1, and "
+    "any other is a record of its own strand with GT 1|0 or 0|1, where 0 says only that the "
+    "other strand lacks this difference: two records can cover the same reference bases, one "
+    "for each strand. The ID is that of the one site, or names the start bound node of the "
     "run's first site and the end bound node of its last, with _ and the record's index among "
     "the run's records (INFO/SB) appended. AT is . for each allele, since no walk of the "
     "graph spells them. QUAL and the FORMAT fields other than GT are those of the site of "

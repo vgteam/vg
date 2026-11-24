@@ -704,11 +704,11 @@ cut from the differences:
 - A run of mismatches is one record (an MNP where it is longer than one base).
 - A gap is one record, with the reference base before it at the start of REF and of each ALT. A gap
   with mismatches touching it is one record that covers both.
-- Differences of the two strands that share a reference base, counting the base before a gap, are
-  one record. Each strand is spelled over that record's reference bases, and strands that spell the
-  same bases share an allele. So a difference on both strands is `1|1`, a difference on one strand
-  is `1|0` or `0|1`, and two different ones at the same place are one record with two ALTs and GT
-  `1|2`.
+- A difference that both strands have, with the same reference bases and the same bases in their
+  place, is one record with GT `1|1`. Any other difference is a record of its own strand, with GT
+  `1|0` or `0|1`. The `0` says only that the other strand lacks this difference: what the other
+  strand has at those reference bases is in its own records. So two records of a run can cover
+  the same reference bases, one for each strand, and no flat record has two ALTs.
 
 `POS` is the position of the record's first reference base on the reference path, as in every other
 record. A record belongs to the site of the run it starts in, or to the site before it where it

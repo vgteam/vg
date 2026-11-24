@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <limits>
+#include <map>
 #include <optional>
 #include <stdexcept>
 
@@ -215,7 +216,9 @@ public:
      * over the steps it matches. A matched chain step is only the same chain, which the slot may
      * cross by another route, and that route is for the record of the chain to report.
      */
-    ClusterSpelling spell_cluster(size_t rb, size_t re) const {
+    ClusterSpelling spell_cluster(const pair<int, int>& cluster) const {
+        const auto rb = (size_t)cluster.first;
+        const auto re = (size_t)cluster.second;
         ClusterSpelling spelling;
         spelling.vb = ref_visit(rb);
         spelling.ve = ref_visit(re);
@@ -374,12 +377,6 @@ private:
     optional<AtomizeRefusal> failure;
 };
 
-/// Return the range of reference offsets a record of `difference` alone would cover.
-pair<int, int> range_of(const FlatDifference& difference) {
-    return {(int)difference.ref_begin - (difference.needs_anchor() ? 1 : 0),
-            (int)difference.ref_end};
-}
-
 /**
  * The strands of a run of sites, each aligned base by base to the run's reference, as one site
  * of the run writes them.
@@ -405,40 +402,26 @@ public:
     /// Get the offset of reference offset `v` from the first base of the site.
     size_t ref_offset(int v) const { return (size_t)v - flat.origin; }
 
-    /// Return the clusters the site writes, as ranges of reference offsets.
-    std::span<const pair<int, int>> difference_clusters() const {
-        return std::span(run.clusters).subspan(flat.first_cluster, flat.cluster_count);
+    /// Return the records the site writes.
+    std::span<const FlatCut> difference_clusters() const {
+        return std::span(run.cuts).subspan(flat.first_cut, flat.cut_count);
     }
 
-    /// Return what the reference and each strand spell over the cluster of reference offsets
-    /// [rb, re).
-    ClusterSpelling spell_cluster(size_t rb, size_t re) const {
+    /// Return what the reference and each strand spell for the record `cut`: its difference on
+    /// the strands that have it, and the reference on the others.
+    ClusterSpelling spell_cluster(const FlatCut& cut) const {
+        const FlatDifference& difference = cut.difference;
         ClusterSpelling spelling;
-        spelling.vb = (int)rb;
-        spelling.ve = (int)re;
-        spelling.ref_str = run.reference.substr(rb, re - rb);
+        spelling.vb = cut.begin();
+        spelling.ve = (int)difference.ref_end;
+        spelling.ref_str = spell_reference(spelling.vb, spelling.ve);
         spelling.slot_span.resize(run.strands.size());
         spelling.slot_marker.assign(run.strands.size(), false);
-        for (const FlatStrand& strand : run.strands) {
-            string spelled;
-            size_t next = rb;
-            // The differences are in reference order, so those of the cluster follow the first
-            // that starts in it.
-            auto difference = std::ranges::lower_bound(strand.differences, rb, {},
-                                                       &FlatDifference::ref_begin);
-            for (; difference != strand.differences.end() && difference->ref_begin <= re;
-                 ++difference) {
-                const pair<int, int> range = range_of(*difference);
-                if ((size_t)range.first < rb || (size_t)range.second > re) {
-                    // The difference is in the cluster before or after.
-                    continue;
-                }
-                spelled += run.reference.substr(next, difference->ref_begin - next);
-                spelled += difference->alt;
-                next = difference->ref_end;
-            }
-            spelled += run.reference.substr(next, re - next);
-            spelling.slot_str.push_back(std::move(spelled));
+        for (size_t s = 0; s < run.strands.size(); ++s) {
+            spelling.slot_str.push_back(
+                cut.on_strand[s]
+                    ? spell_reference(spelling.vb, (int)difference.ref_begin) + difference.alt
+                    : spelling.ref_str);
         }
         return spelling;
     }
@@ -759,10 +742,11 @@ public:
     ///
     /// A cluster every strand spells as the reference gets no record. For each record, add to
     /// `one_to_one` whether no two of its alleles stand for one site allele.
-    optional<AtomizeRefusal> cut(std::span<const pair<int, int>> clusters,
-                                 vector<vcflib::Variant>& built, vector<bool>& one_to_one) const {
-        for (const auto& [rb, re] : clusters) {
-            ClusterSpelling spelling = alignment.spell_cluster((size_t)rb, (size_t)re);
+    template<typename Clusters>
+    optional<AtomizeRefusal> cut(const Clusters& clusters, vector<vcflib::Variant>& built,
+                                 vector<bool>& one_to_one) const {
+        for (const auto& cluster : clusters) {
+            ClusterSpelling spelling = alignment.spell_cluster(cluster);
             int64_t pos = record.unflattened_position + (int64_t)alignment.ref_offset(spelling.vb);
             if (needs_anchor_base(spelling)) {
                 if (optional<AtomizeRefusal> refused = add_anchor_base(spelling)) {
@@ -903,7 +887,7 @@ optional<AtomizeRefusal> single_block_refusal(const SiteAlignment& alignment,
 }
 
 void BlockRecordWriter::count_flat_run(const FlatRun& run, size_t sites) const {
-    ++(run.clusters.empty() ? flat_counters.reference_runs : flat_counters.runs);
+    ++(run.cuts.empty() ? flat_counters.reference_runs : flat_counters.runs);
     flat_counters.sites += sites;
     flat_counters.long_runs += (size_t)(sites > 1);
 }
@@ -1229,22 +1213,24 @@ static vector<FlatDifference> differences_of(const string& sequence,
     return differences;
 }
 
-void FlatRun::cluster_differences() {
-    vector<pair<int, int>> ranges;
-    for (const FlatStrand& strand : strands) {
-        for (const FlatDifference& difference : strand.differences) {
-            ranges.push_back(range_of(difference));
+void FlatRun::cut_differences() {
+    cuts.clear();
+    // The strands that have each difference.
+    map<tuple<size_t, size_t, string>, vector<bool>> strands_of;
+    for (size_t s = 0; s < strands.size(); ++s) {
+        for (const FlatDifference& difference : strands[s].differences) {
+            vector<bool>& on_strand =
+                strands_of[{difference.ref_begin, difference.ref_end, difference.alt}];
+            on_strand.resize(strands.size(), false);
+            on_strand[s] = true;
         }
     }
-    std::ranges::sort(ranges);
-    clusters.clear();
-    for (const pair<int, int>& range : ranges) {
-        if (!clusters.empty() && range.first < clusters.back().second) {
-            clusters.back().second = std::max(clusters.back().second, range.second);
-        } else {
-            clusters.push_back(range);
-        }
+    for (const auto& [difference, on_strand] : strands_of) {
+        cuts.push_back(FlatCut{{get<0>(difference), get<1>(difference), get<2>(difference)},
+                               on_strand});
     }
+    // A gap starts at the base before it, so it comes before a difference at its first base.
+    std::ranges::stable_sort(cuts, {}, &FlatCut::begin);
 }
 
 shared_ptr<FlatRun> BlockRecordWriter::align_flat(string reference, vector<string> strands,
@@ -1272,7 +1258,7 @@ shared_ptr<FlatRun> BlockRecordWriter::align_flat(string reference, vector<strin
         }
         run->strands.push_back(std::move(strand));
     }
-    run->cluster_differences();
+    run->cut_differences();
     return run;
 }
 
@@ -1286,15 +1272,15 @@ int BlockRecordWriter::write_flat(const PathPositionHandleGraph& graph, const Fl
     vector<bool> built_one_to_one;
     const BlockCutter cutter(graph, alignment, record, sample_name, translation, gl_layout);
     if (cutter.cut(alignment.difference_clusters(), built, built_one_to_one)
-        || built.size() != flat.cluster_count) {
-        // Every cluster holds a difference, and the base before a difference that needs one, so
-        // the cutter has no anchor base to look for and leaves no cluster out.
+        || built.size() != flat.cut_count) {
+        // Every record holds a difference, and the base before a difference that needs one, so
+        // the cutter has no anchor base to look for and leaves no record out.
         throw std::logic_error("a flat record of " + run.id + " has an empty allele");
     }
     for (size_t i = 0; i < built.size(); ++i) {
         // The records are numbered along the run.
-        built[i].info["SB"] = {std::to_string(flat.first_cluster + i),
-                               std::to_string(run.clusters.size())};
+        built[i].info["SB"] = {std::to_string(flat.first_cut + i),
+                               std::to_string(run.cuts.size())};
         built[i].id = run.id + "_" + built[i].info["SB"][0];
         built[i].infoFlags["FL"] = true;
     }
@@ -1314,7 +1300,7 @@ int BlockRecordWriter::write_flat(const PathPositionHandleGraph& graph, const Fl
     }
     int added = 0;
     for (size_t i = 0; i < built.size(); ++i) {
-        if (add_line(built[i], flat.first_cluster + i)) {
+        if (add_line(built[i], flat.first_cut + i)) {
             ++added;
         }
     }
@@ -1331,7 +1317,7 @@ bool BlockRecordWriter::flat_records_spell(const FlatRun& run,
         size_t next = 0;
         for (const vcflib::Variant& line : records) {
             const string* gt = site_gt_text(line, sample_name);
-            if (gt == nullptr || line.position < first_position + (int64_t)next) {
+            if (gt == nullptr || line.position < first_position) {
                 return false;
             }
             // The entry of the GT for this strand.
@@ -1352,6 +1338,13 @@ bool BlockRecordWriter::flat_records_spell(const FlatRun& run,
             const auto at = (size_t)(line.position - first_position);
             if (allele >= line.alleles.size() || at + line.ref.size() > run.reference.size()
                 || run.reference.compare(at, line.ref.size(), line.ref) != 0) {
+                return false;
+            }
+            if (allele == 0) {
+                // The strand lacks the record's difference, and may have another one there.
+                continue;
+            }
+            if (at < next) {
                 return false;
             }
             spelled += run.reference.substr(next, at - next);

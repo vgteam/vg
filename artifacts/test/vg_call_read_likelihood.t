@@ -1141,9 +1141,9 @@ is $(grep -c "collapsed sites phased with no line of their own" nestblk_mosaic.e
 
 # --flatten-records writes the top-level site 1..6 as the base-level differences of its two strands
 # from its reference, with the calls of the sites nested in it put in. Strand 0 crosses the chain
-# with three substitutions, at the nested sites 2..5 and 5..9, and strand 1 deletes the chain. The
-# deletion covers the substitutions, so the three differences are one record with two ALTs, and the
-# nested sites get no records.
+# with three substitutions, at the nested sites 2..5 and 5..9, and strand 1 deletes the chain. Each
+# difference is a record of its own strand: the deletion covers the substitutions, and the other
+# strand has allele 0 in each of them. The nested sites get no records.
 rm -f nestblk.flat.vcf nestblk.flat.err nestblk.flat.mosaic.tsv
 is "$(grep -c 'FL' nestblk.vcf)" "0" \
    "without --flatten-records no header line or record has INFO/FL"
@@ -1155,9 +1155,9 @@ is "$(bcftools view -H nestblk.flat.vcf 2>/dev/null | wc -l | tr -d ' ')/$(grep 
    "its VCF parses, and its header describes INFO/FL"
 is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '$2 < last {bad++} {last = $2} END {print bad+0}')" "0" \
    "its records are sorted by position"
-is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '{print $2 "/" $3 "/" split($5, alts, ",") "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)FL(;|$)/) "/" ($8 ~ /(^|;)SB=0,1(;|$)/)}')" \
-   "30/>1>6_0/2/1|2/1/1" \
-   "the site is one flat record, with the three substitutions of one strand and the deletion of the other"
+is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '{printf "%s/%s/%s/%s/%s ", $2, $3, split($5, alts, ","), substr($10, 1, 3), ($8 ~ /(^|;)FL(;|$)/)}')/$(grep -v '^#' nestblk.flat.vcf | grep -c 'SB=[0-3],4')" \
+   "30/>1>6_0/1/0|1/1 51/>1>6_1/1/1|0/1 72/>1>6_2/1/1|0/1 83/>1>6_3/1/1|0/1 /4" \
+   "the site is four flat records with one ALT each: the deletion of one strand, and the three substitutions of the other inside it"
 # A record of a nested site is one with another ID than the flat site's that starts inside the
 # stretch the flat site's records cover.
 is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '{id = $3; sub(/_[0-9]+$/, "", id); n++; pos[n] = $2; stem[n] = id
@@ -1165,7 +1165,7 @@ is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '{id = $3; sub(/_[0-9]+$/, "", 
               if (!(id in lo) || $2 < lo[id]) lo[id] = $2
               if (end > hi[id]) hi[id] = end }}
         END { for (i = 1; i <= n; i++) for (s in lo) if (stem[i] != s && pos[i] >= lo[s] && pos[i] <= hi[s]) bad++
-              print n "/" bad+0 }')" "1/0" \
+              print n "/" bad+0 }')" "4/0" \
    "no record of a nested site starts inside the stretch the flat records cover"
 is "$(sed -n 's/.*flatten check: \([0-9]*\) runs.* \([0-9]*\) FAILED.*/\1,\2/p' nestblk.flat.err)/$(sed -n 's/.* \([0-9]*\) nested sites and .* left without a line.*/\1/p' nestblk.flat.err)" \
    "1,0/2" \

@@ -51,7 +51,7 @@ static TopSiteFlatRecords flatten_top_site(StagedNestedSites& fixture,
         return out;
     }
     run->id = top.id;
-    out.flat = FlatSite{run, 0, travs, 0, run->clusters.size()};
+    out.flat = FlatSite{run, 0, travs, 0, run->cuts.size()};
     SiteRecord record{};
     record.variant.sequenceName = "ref";
     record.variant.position = 101;
@@ -79,7 +79,7 @@ TEST_CASE("Flat records put into the resolved reference spell each strand", "[fl
     StagedNestedSites fixture;
     BlockRecordWriter writer;
 
-    SECTION("Differences of the two strands that share reference bases are one record") {
+    SECTION("Differences of the two strands that share reference bases are a record each") {
         // Strand 0 leaves out node 4 at the inner site. Strand 1 takes node 6 at the middle
         // site, in place of nodes 3 to 5.
         fixture.phase(fixture.top_key, 0, 0);
@@ -88,19 +88,26 @@ TEST_CASE("Flat records put into the resolved reference spell each strand", "[fl
         fixture.index();
         const TopSiteFlatRecords top = flatten_top_site(fixture, writer, "0|0");
         REQUIRE(top.flat);
-        REQUIRE(top.written == 1);
+        REQUIRE(top.written == 2);
         REQUIRE(BlockRecordWriter::flat_records_spell(*top.flat->run, top.records, 101, "sample"));
+        // Strand 1 has T for eight bases, and strand 0 lacks four of them. A strand has allele
+        // 0 in the record of the other strand's difference.
         const vcflib::Variant& line = top.records[0];
         REQUIRE(line.position == 105);
         REQUIRE(line.ref == "GCTGAGCA");
-        REQUIRE(line.alt == vector<string>{"GGCA", "T"});
-        REQUIRE(line.samples.at("sample").at("GT") == vector<string>{"1|2"});
+        REQUIRE(line.alt == vector<string>{"T"});
+        REQUIRE(line.samples.at("sample").at("GT") == vector<string>{"0|1"});
         REQUIRE(line.samples.at("sample").at("PS") == vector<string>{"7"});
         REQUIRE(line.id == ">1>8_0");
-        REQUIRE(line.info.at("SB") == vector<string>{"0", "1"});
+        REQUIRE(line.info.at("SB") == vector<string>{"0", "2"});
         REQUIRE(line.infoFlags.at("FL"));
         // No walk spells a flat allele.
-        REQUIRE(line.info.at("AT") == vector<string>{".", ".", "."});
+        REQUIRE(line.info.at("AT") == vector<string>{".", "."});
+        REQUIRE(top.records[1].position == 105);
+        REQUIRE(top.records[1].ref == "GCTGA");
+        REQUIRE(top.records[1].alt == vector<string>{"G"});
+        REQUIRE(top.records[1].samples.at("sample").at("GT") == vector<string>{"1|0"});
+        REQUIRE(top.records[1].id == ">1>8_1");
 
         // The records stand in for those of every site staged under the top site.
         set<size_t> under;
@@ -152,9 +159,10 @@ TEST_CASE("Flat records put into the resolved reference spell each strand", "[fl
         const TopSiteFlatRecords top = flatten_top_site(fixture, writer, "1/0");
         REQUIRE(top.flat);
         REQUIRE(BlockRecordWriter::flat_records_spell(*top.flat->run, top.records, 101, "sample"));
-        // The deletion covers the changed base, so the two are one record.
-        REQUIRE(top.written == 1);
-        REQUIRE(top.records[0].samples.at("sample").at("GT") == vector<string>{"1/2"});
+        // The deletion covers the changed base, and each is a record of its strand.
+        REQUIRE(top.written == 2);
+        REQUIRE(top.records[0].samples.at("sample").at("GT") == vector<string>{"1/0"});
+        REQUIRE(top.records[1].samples.at("sample").at("GT") == vector<string>{"0/1"});
         REQUIRE(!top.records[0].samples.at("sample").contains("PS"));
     }
     SECTION("Strands that spell the reference write nothing") {
@@ -188,7 +196,7 @@ TEST_CASE("Flat records of a run of two sites are cut from one alignment of each
     FlatRefusal refused{};
     const shared_ptr<FlatRun> run = writer.align_flat(reference, {first, second}, refused);
     REQUIRE(run);
-    REQUIRE(run->clusters.size() == 3);
+    REQUIRE(run->cuts.size() == 3);
     bdsg::HashGraph graph;
     bdsg::PositionOverlay positioned(&graph);
     // The record of a site whose first base is at `position`, with the GT `gt`.

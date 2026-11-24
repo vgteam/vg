@@ -76,6 +76,19 @@ struct FlatDifference {
     bool needs_anchor() const { return ref_begin == ref_end || alt.empty(); }
 };
 
+/// One flat record of a run, before it is written: a difference, and the strands that have it.
+struct FlatCut {
+    FlatDifference difference;
+    /// Whether each strand has the difference.
+    vector<bool> on_strand;
+
+    /// Return the offset in the reference of the first base the record covers, which is the
+    /// base before the difference where a record of it needs one.
+    int begin() const {
+        return (int)difference.ref_begin - (difference.needs_anchor() ? 1 : 0);
+    }
+};
+
 /// One strand of a run of sites, aligned base by base to the run's reference.
 struct FlatStrand {
     /// The strand's sequence over the run (see `AlleleSplicer::sequence_along`).
@@ -98,21 +111,20 @@ struct FlatRun {
     string reference;
     /// The strands, strand 0 first.
     vector<FlatStrand> strands;
-    /// The clusters of the differences of all strands, as ranges of reference offsets, in
-    /// reference order (see `cluster_differences`). Each is one record.
-    vector<pair<int, int>> clusters;
+    /// The run's records, in reference order (see `cut_differences`).
+    vector<FlatCut> cuts;
     /// Whether the called genotype of a site of the run, or of a site nested in one, has an
     /// allele that is a consensus of reads.
     bool consensus_called = false;
 
     /**
-     * Set `clusters` from the differences of the strands.
+     * Set `cuts` from the differences of the strands.
      *
-     * The range of a difference is the reference bases it replaces, with the base before them
-     * if a record of it alone needs one. Differences whose ranges share a base go in one
-     * cluster, so that no two records of a run cover the same reference base.
+     * A difference that several strands have, with the same reference bases and the same bases
+     * in their place, is one record of those strands. Every other difference is a record of its
+     * own strand, whatever the other strands have at its reference bases.
      */
-    void cluster_differences();
+    void cut_differences();
 
     /// The records that the sites of the run have written, and the number of sites still to
     /// write theirs, for the check of the run's records. A site adds its records under the lock.
@@ -121,7 +133,7 @@ struct FlatRun {
     mutable size_t check_waiting = 0;
 };
 
-/// The part of the flat records of a run that one site of the run writes: the clusters that
+/// The part of the flat records of a run that one site of the run writes: the records that
 /// start in its reference allele, or after it and before the next site of the run.
 struct FlatSite {
     /// The run. Its sites share it.
@@ -132,9 +144,9 @@ struct FlatSite {
     /// The traversal of the site that each strand carries. A flat record that the site writes
     /// takes its AD and GL from the site allele of the traversal of each strand.
     vector<int> travs;
-    /// The index in `run->clusters` of the first cluster the site writes, and their number.
-    size_t first_cluster = 0;
-    size_t cluster_count = 0;
+    /// The index in `run->cuts` of the first record the site writes, and their number.
+    size_t first_cut = 0;
+    size_t cut_count = 0;
 };
 
 /// Why a site is not written as flat records, so that it and the sites nested in it are written
@@ -319,14 +331,14 @@ public:
      * Write the flat records of a run that the site of `flat` writes, giving each to `add_line`
      * with its index, and return the number of lines `add_line` accepted.
      *
-     * A flat record covers the differences from the run's reference that share a reference
-     * base, counting the base before a difference that needs it. A difference is a longest run
-     * of bases a strand does not match: a run of mismatches is one record, and so is a gap,
-     * with the reference base before it, or a gap with the mismatches that touch it. Each
-     * strand is spelled over the record's reference bases, and the strands that spell the same
-     * bases share an allele, so a difference on both strands is homozygous, and two different
-     * ones over the same bases make one record with two ALTs. The GT lists the strands in
-     * order. A run whose strands all spell the reference writes nothing.
+     * A flat record is one difference of a strand from the run's reference. A difference is a
+     * longest run of bases a strand does not match: a run of mismatches is one record, and so
+     * is a gap, with the reference base before it, or a gap with the mismatches that touch it.
+     * The GT lists the strands in order. A strand that has the difference has allele 1, so a
+     * difference on both strands is homozygous. A strand that lacks it has allele 0, whatever
+     * it has at those reference bases: another difference of that strand there is a record of
+     * its own, so two records of a run can cover the same reference bases. A run whose strands
+     * all spell the reference writes nothing.
      *
      * A record is placed by its offset in the reference from the site's first base, which is
      * at `record.unflattened_position`. It copies every field of `record`, the finished record
@@ -345,9 +357,9 @@ public:
      * Return whether `records`, in position order, spell every strand of `run`.
      *
      * Each strand is rebuilt from the reference of `run`, whose first base is at position
-     * `first_position`, by putting in place of the REF of each record the allele that the GT of
-     * `sample_name` gives the strand. The entries of a GT are taken as the strands in order,
-     * whichever separator it has.
+     * `first_position`, by putting in place of the REF of each record whose GT gives the strand
+     * an ALT that ALT. The entries of the GT of `sample_name` are taken as the strands in
+     * order, whichever separator it has.
      */
     static bool flat_records_spell(const FlatRun& run, const vector<vcflib::Variant>& records,
                                    int64_t first_position, const string& sample_name);
