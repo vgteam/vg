@@ -901,8 +901,8 @@ string require_non_gzipped(const Logger& logger, const string& filename);
 /// Uses file_can_be_written() and is intended to be called when parsing arguments.
 string ensure_writable(const Logger& logger, const string& filename);
 
-/// Return htslib's description of a file's format and compression.
-/// Error if the file cannot be read.
+/// Return the format and compression that htslib detects in a file.
+/// Error if the file cannot be read, or is standard input ("-").
 htsFormat detect_file_format(const Logger& logger, const string& filename);
 
 /// A special parser for thread count which errors if non-positive

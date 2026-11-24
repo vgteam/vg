@@ -820,6 +820,9 @@ string ensure_writable(const Logger& logger, const string& filename) {
 }
 
 htsFormat detect_file_format(const Logger& logger, const string& filename) {
+    if (filename == "-") {
+        logger.error() << "Cannot detect the format of standard input" << endl;
+    }
     hFILE* file = hopen(filename.c_str(), "r");
     if (!file) {
         logger.error() << "Failed to open " << filename << endl;
@@ -828,7 +831,9 @@ htsFormat detect_file_format(const Logger& logger, const string& filename) {
     if (hts_detect_format2(file, filename.c_str(), &format) < 0) {
         logger.error() << "Failed to read " << filename << endl;
     }
-    hclose(file);
+    if (hclose(file) != 0) {
+        logger.error() << "Failed to close " << filename << endl;
+    }
     return format;
 }
     
