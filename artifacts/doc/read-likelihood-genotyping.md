@@ -1022,92 +1022,86 @@ was called with another allele where it carries a
 haplotype is an [unknown allele](read-likelihood-linkage-model.md#mutation-and-escape), where the
 allele is one [no panel haplotype carries](read-likelihood-direct-genotyping.md), and at a site
 with no record that lies on a segment of a haplotype with another allele. With `--mosaic-exact` the
-file also has a row for each such strand and site, starting with `A`, and its version is 6. The
-`H` rows are the same with and without the option.
+file also has rows that start with `A`, which put the strand's own alleles on that walk, and its
+version is 6. The `H` rows are the same with and without the option.
+
+An `A` row gives one stretch of one strand. There are two kinds:
+
+- A row for a top-level site gives the strand from the site's start bound node to its end bound
+  node. It is the strand that the site's record spells: the allele the strand was called with,
+  with every site nested in it spelled by the allele the strand was called with there, with or
+  without a record of its own. With [`--flatten-records`](#flat-records), it is the strand whose
+  differences from the reference the site's flat records are.
+- A row for one node of the top-level chain gives the node's bases with the changes that the
+  strand's alleles make to them at the [edit sites](read-likelihood-direct-genotyping.md) on the
+  chain. Where two of those changes take one base of the node, the one further along the node is
+  made, as in the records.
 
 | Column | Meaning |
 |---|---|
 | `contig`, `strand` | as in an `H` row |
-| `fragment` | the mosaic fragment of the `H` row that the row follows |
-| `start_node`, `end_node` | the site's two bound nodes, as oriented node IDs, in the order the strand passes them |
-| `walk` | the allele the strand was called with, as its walk from `start_node` to `end_node`, both included: `>` and a node ID for a node read forwards, `<` and a node ID for one read backwards |
-| `sequence` | `.` where `walk` spells the allele; otherwise the strand's bases over `walk`, from the first base of `start_node` to the last base of `end_node`, with every change the strand's alleles make inside those nodes and between them. Bases that an allele puts before the first base of `start_node` or after the last base of `end_node` are not over `walk`; they are in the row of the walk they lie inside. Where two of the strand's changes take one base of a node, the one further along `walk` is made, as in the records |
+| `fragment` | the mosaic fragment whose walk the row is put on |
+| `start_node`, `end_node` | as oriented node IDs: the site's two bound nodes, in the order the strand passes them, or the one node twice |
+| `walk` | the strand's walk from `start_node` to `end_node`, both included: `>` and a node ID for a node read forwards, `<` and a node ID for one read backwards |
+| `bases` | `.` where `walk` is a walk of the graph and every step of it has the bases of its node; otherwise one entry for each step of `walk`, separated by commas |
 
-The row of an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) has
-the two bound nodes alone as its `walk`, and its `sequence` gives the bases between them. The
-graph need not have an edge from the one node to the other.
+An entry of `bases` gives the bases the strand has at its step, read along `walk`. Within an
+entry, `*` stands for the bases the visit already has, so `*` alone leaves the step as it is. An
+entry can end with `+` and bases, or with `+` alone: those bases, or none, lie after the step on no
+node, and the next step follows them without an edge of the graph. So `*+ACG` leaves the step as
+it is and puts `ACG` between it and the next step, and `*+` joins the two steps directly. The row
+of an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) has the two
+bound nodes alone as its `walk`, and the first entry of its `bases` has the bases between them.
 
-To rebuild a strand, expand its `H` rows to walks, and then apply its `A` rows in file order. An
-`A` row replaces every stretch of the strand's walks that runs from `start_node` to its next visit
-of `end_node` with `walk`. Where no walk of the strand has such a stretch, `walk` is a walk of its
-own that joins no row; this happens where the site's `H` row cannot be walked. The rebuilt strand
-then takes the allele it was called with at every genotyped site its walks cross. At a site with a
-phased record, that is the allele `GT` gives the strand.
+A site's row never changes the bases of its two bound nodes: their entries start with `*`. A
+change to a bound node is in that node's own row. So no two `A` rows of a strand change the same
+visit of a node, and the rows can be applied in any order.
 
-A sequence is given for an allele that changes bases inside nodes, which no walk can spell. Where
-several such alleles of one strand change the same node, each row's sequence has all their changes
-to the nodes of its walk. A site of this kind has an allele with no change too, and a strand with
-that allele gets no row from the site.
+To rebuild a strand:
 
-An `A` row is written for a strand and a site when, with the rows before it applied, the strand's
-walk between the site's bound nodes is not the walk of the allele the strand was called with, or
-when that allele has a sequence. Sites are taken enclosing site first, so a site inside a site with
-an `A` row is compared with that row's walk. Every genotyped site is compared, with or without a
-record, and so are nested sites under `--no-mosaic-nested`.
+1. Expand each fragment's `H` rows to walks, and join them on the nodes they share.
+2. For each `A` row of the fragment, find each visit of `start_node` on that walk, and the next
+   visit of `end_node` after it, which is the same visit for a row of one node.
+3. Replace the visits between the two with the steps of `walk` between its first and last.
+4. Give each step of `walk` its entry of `bases`.
 
-The rows are ordered so that each can be applied when it is read:
+A strand's `A` rows follow its `H` rows, in the order of the walk. A row is written only where
+it changes the walk of the `H` rows: for a site, where the strand's walk between the bound nodes
+is another one, or a step has an entry other than `*`; for a node, where the strand's alleles
+change its bases.
 
-- An `A` row for a stretch of the `H` rows' walk follows the first `H` row whose walk has the
-  site's end bound node. Where a strand crosses a site more than once, it follows the last of
-  those `H` rows.
-- An `A` row for a stretch of an earlier `A` row's walk follows that row, among the rows that
-  follow the same `H` row. So a site's row comes before the rows of the sites inside it.
-- After one `H` row, the outermost `A` rows are in order of nesting level and then of reference
-  position, and each is followed directly by the rows that apply to its walk, in the same order.
+Three things limit what the rebuilt strand says, and `vg call` reports the count of each:
 
-Three things limit what the rebuilt strand says:
+- A site gets no row where the strand's `H` rows do not join its two bound nodes in one walk, or
+  join them from end to start. The `H` rows run from a strand's first site with a record to its
+  last, so a site before or after them is one of these.
+- A top-level site with no phase gets no row, and neither do the sites nested in it.
+- A change of an edit site gets no row where the strand's walk does not visit the node, or
+  visits it between the bound nodes of a top-level site.
 
-- The `H` rows run from a strand's first site with a record to its last, so the strand has no walk
-  before and after them, and a genotyped site there gets no row. Nor does a site inside an
-  enclosing site's allele that the strand does not take. `vg call` reports the number of called
-  alleles left out for these reasons.
-- `AT` gives one walk for each allele of a record, and the walk a strand was called with can be
-  another one. Allele 0 also stands for a walk that differs from the reference walk only inside
-  nested sites. An allele's bases are spelled with the alleles chosen at the sites nested in it,
-  with or without records of their own, while its `AT` walk is the candidate walk it was scored
-  as. Walks that spell the same bases are one allele. So between a site's bound nodes the rebuilt
-  strand can differ from the `AT` walk of the strand's allele, inside the sites nested there. It
-  then spells the allele's bases, or differs only inside nested sites that have records.
-- `walk` is found by its bound nodes, so a strand that crosses one site several times, as inside
-  a duplicated stretch, gets the same allele at each crossing.
+`walk` is found by its bound nodes, so a strand that crosses one site several times in one
+fragment gets the same walk at each crossing.
 
 `artifacts/scripts/mosaic_to_path.py` rebuilds the strands of a mosaic of either version from the
-graph's paths, and checks that each is a walk in the graph. With `--gfa` it also reads each `A`
-row's `sequence` into the strand's bases. A sequence does not say which of its bases are over
-which node of `walk`, so the script settles a strand's rows together: a row over one node says
-that node's bases, a row whose nodes' bases are all known but one makes that one known, and
-otherwise a node at an end of `walk` whose own bases the sequence has there keeps them. Bases left
-between two nodes that keep theirs lie between them. Two rows that give one node different bases
-fail the check. With
-`--vcf` it compares each strand with the phased records of snarls, and counts the called alleles
-in four classes: `equal`, where the strand takes the allele's `AT` walk, and, where that walk is
-the two bound nodes alone, also has the allele's bases between them; `equal outside nested
-records`, where it takes the walk except inside nested sites that have records; `same bases`,
-where it takes another walk and has the record's allele's bases; and `different`. Bases are
-compared from the first base of the node of the site's start bound to the last base of the node
-of its end bound. The records of edit sites can change those two nodes, and an insertion in a
-repeat can be written inside a node and lie right after it, so the strand may have either the two
-nodes with every change those records make inside them, or the nodes' own bases with what those
-records put right beside them. A site written as [flat records](#flat-records) is compared by
-its bases in the same way: the reference from bound to bound, with each record's allele for the
-strand put in, is what the strand must have there. The records of edit sites have no walks that
-tell their alleles apart, so they are compared by node: a node whose bases a sequence changes
-must have its own bases with the changes that those records make inside it, taken together with
-the nodes beside it where a record puts a change across the end of a node. The script prints the
-number of records, alleles, strands and nodes it does not compare, by reason: block records,
-records with no phase, strands with no allele, nodes off the reference path, nodes where two
-records of edit sites change one base, and nodes whose bases the sequences of two rows that share
-them do not tell apart.
+graph's paths as above. It checks that every `A` row has a stretch to go on, that no two rows
+change the same visit, and, with `--gfa`, that every step of a rebuilt strand is an edge of the
+graph or is joined by a row's `+`. With `--vcf` it also compares the bases of each strand with
+the records:
+
+- For each site with records, top-level or nested, the reference from the first base of the start
+  bound node to the last base of the end bound node, with the strand's allele of each of the
+  site's records put in, must be what the strand has there. The two bound nodes count with their
+  own bases. A site written as [flat records](#flat-records) or as block records is compared with
+  all its records together.
+- For the nodes that the records of edit sites change, the reference over those nodes, with the
+  strand's alleles put in, must be what the strand's visits of those nodes have.
+- Where an `A` row makes a strand differ from the reference, a record must lie there.
+
+The script prints the number of strands, nodes and stretches it does not compare, by reason. A
+site with the records of other sites inside it is not compared, since its record spells each
+allele once, with the alleles that one strand has at the sites inside; the sites inside are
+compared. Records with no phase, strands with no allele at a record, sites and nodes the strand
+does not cross, and two records of edit sites that take one base are the other reasons.
 
 ### Assembly anchors (`--anchors-out`)
 

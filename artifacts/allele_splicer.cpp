@@ -146,6 +146,21 @@ optional<string> AlleleSplicer::strand_sequence(const StagedSite& site, int stra
                              phase_table.rendered(site.record_key)->ploidy == 1, false);
 }
 
+bool AlleleSplicer::strand_walk(const StagedSite& site, int strand, Traversal& walk,
+                                StepSequences& steps) const {
+    const optional<int> trav = strand_traversal(site, strand);
+    if (!trav) {
+        return false;
+    }
+    if (!spliced_allele(site, *trav, strand, phase_table.rendered(site.record_key)->ploidy == 1,
+                        false, walk, steps)) {
+        // No site under it changes the allele.
+        walk = site.alleles.walks[*trav];
+        steps = site.alleles.step_sequences(graph, *trav);
+    }
+    return true;
+}
+
 optional<string> AlleleSplicer::reference_sequence(const StagedSite& site) const {
     const int trav = site.alleles.ref_allele;
     if (trav < 0 || trav >= (int)site.alleles.walks.size()) {

@@ -6,6 +6,7 @@
 #include "../../src/unittest/catch.hpp"
 #include "../../src/integrated_snarl_finder.hpp"
 #include "../allele_splicer.hpp"
+#include "../mosaic_writer.hpp"
 #include "support/decomposition_pair.hpp"
 #include "support/nested_graph.hpp"
 #include "support/staged_nested_sites.hpp"
@@ -76,6 +77,106 @@ TEST_CASE("AlleleSplicer resolves each strand through the sites nested under a s
         REQUIRE(!fixture.splicer.strand_sequence(fixture.site(fixture.top_key), 0));
         REQUIRE(fixture.splicer.reference_sequence(fixture.site(fixture.top_key))
                 == "GCATGCTGAGCAGCTGA");
+    }
+}
+
+TEST_CASE("AlleleSplicer gives the walk of a strand and the bases of its steps",
+          "[allele_splicer][mosaic]") {
+    StagedNestedSites fixture;
+    const HandleGraph& graph = fixture.nested.graph;
+    auto ids = [&](const Traversal& walk) {
+        vector<nid_t> out;
+        for (const handle_t& step : walk) {
+            out.push_back(graph.get_id(step));
+        }
+        return out;
+    };
+    Traversal walk;
+    StepSequences steps;
+    SECTION("A strand takes the walks of the sites under its site") {
+        fixture.phase(fixture.top_key, 0, 0);
+        fixture.phase(fixture.middle_key, 0, 1);
+        fixture.phase(fixture.inner_key, 1, -1, 1, 0);
+        fixture.index();
+        REQUIRE(fixture.splicer.strand_walk(fixture.site(fixture.top_key), 0, walk, steps));
+        REQUIRE(ids(walk) == vector<nid_t>{1, 2, 3, 5, 7, 8});
+        REQUIRE(steps == StepSequences{"GCA", "T", "G", "GCA", "G", "CTGA"});
+        REQUIRE(fixture.splicer.strand_walk(fixture.site(fixture.top_key), 1, walk, steps));
+        REQUIRE(ids(walk) == vector<nid_t>{1, 2, 6, 7, 8});
+        // Strand 1 does not cross the inner site.
+        REQUIRE(!fixture.splicer.strand_walk(fixture.site(fixture.inner_key), 1, walk, steps));
+
+        // The mosaic keeps a walk that spells its strand with no bases.
+        StrandAlleles kept;
+        REQUIRE(kept.add_site(graph, fixture.top_key, 1, walk, steps));
+        StrandAlleles::Allele allele;
+        REQUIRE(kept.find(fixture.top_key, 1, allele));
+        REQUIRE(allele.walk.size() == 5);
+        REQUIRE(allele.walk[2] == gbwt::Node::encode(6, false));
+        REQUIRE(allele.changed.empty());
+        REQUIRE(!kept.find(fixture.top_key, 0, allele));
+    }
+    SECTION("A change inside a node is in the bases of its step") {
+        fixture.phase(fixture.top_key, 0, 0);
+        fixture.phase(fixture.middle_key, 0, 0);
+        fixture.phase(fixture.inner_key, 0, 0);
+        fixture.phase(fixture.edit_key, 1, 0);
+        fixture.index();
+        REQUIRE(fixture.splicer.strand_walk(fixture.site(fixture.top_key), 0, walk, steps));
+        REQUIRE(ids(walk) == vector<nid_t>{1, 2, 3, 4, 5, 7, 8});
+        REQUIRE(steps[3] == "CAGA");
+        StrandAlleles kept;
+        REQUIRE(kept.add_site(graph, fixture.top_key, 0, walk, steps));
+        StrandAlleles::Allele allele;
+        REQUIRE(kept.find(fixture.top_key, 0, allele));
+        REQUIRE(allele.changed.size() == 1);
+        REQUIRE(allele.changed[0].step == 3);
+        REQUIRE(allele.changed[0].entry == "CAGA");
+        // Strand 1 has no change, so its steps are left empty.
+        REQUIRE(fixture.splicer.strand_walk(fixture.site(fixture.top_key), 1, walk, steps));
+        REQUIRE(steps.empty());
+    }
+    SECTION("A site with no phase has no walk") {
+        fixture.phase(fixture.middle_key, 0, 1);
+        fixture.index();
+        REQUIRE(!fixture.splicer.strand_walk(fixture.site(fixture.top_key), 0, walk, steps));
+    }
+}
+
+TEST_CASE("StrandAlleles keeps what a row of the mosaic can say", "[allele_splicer][mosaic]") {
+    NestedGraph nested;
+    const HandleGraph& graph = nested.graph;
+    StrandAlleles kept;
+    StrandAlleles::Allele allele;
+    SECTION("Bases after the start bound node, and a step no edge leads from, are marked") {
+        // Nodes 1 and 7 have no edge, and nodes 1 and 8 have one.
+        REQUIRE(kept.add_site(graph, 1, 0, {nested.handle(1), nested.handle(7)}, {"GCA", "G"}));
+        REQUIRE(kept.find(1, 0, allele));
+        REQUIRE(allele.changed.size() == 1);
+        REQUIRE(allele.changed[0].entry == "*+");
+        REQUIRE(kept.add_site(graph, 2, 1, {nested.handle(1), nested.handle(8)},
+                              {"GCATT", "CTGA"}));
+        REQUIRE(kept.find(2, 1, allele));
+        REQUIRE(allele.changed[0].entry == "*+TT");
+        REQUIRE(kept.bound_changed == 0);
+    }
+    SECTION("A strand that changes the bases of a bound node is refused") {
+        REQUIRE(!kept.add_site(graph, 1, 0, {nested.handle(1), nested.handle(8)},
+                               {"GTA", "CTGA"}));
+        REQUIRE(!kept.add_site(graph, 1, 0, {nested.handle(1), nested.handle(8)},
+                               {"GCA", "CTGAT"}));
+        REQUIRE(kept.bound_changed == 2);
+        REQUIRE(!kept.find(1, 0, allele));
+    }
+    SECTION("The changes of an edit site are kept along the forward strand of their node") {
+        // Node 4 is CTGA. Read backwards, it is TCAG, and its second base is the third forwards.
+        kept.add_edit_site(graph, 3, 1, {nested.handle(4, true)}, {AlleleEdit{0, 1, 1, "A"}});
+        REQUIRE(kept.changes_of(3, 0).empty());
+        REQUIRE(kept.changes_of(3, 1).size() == 1);
+        REQUIRE(kept.changes_of(3, 1)[0].node == 4);
+        REQUIRE(kept.changes_of(3, 1)[0].at == 2);
+        REQUIRE(kept.changes_of(3, 1)[0].added == "T");
+        REQUIRE(kept.changes_of(9, 1).empty());
     }
 }
 

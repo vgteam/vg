@@ -690,18 +690,33 @@ void MultiPassCaller::render_retained_records() {
             rendered_sites = staged_sites.by_key();
             plan_flat_records();
             if (mosaic_writer.is_exact()) {
-                // An exact mosaic needs the walk of each strand's called allele at every
-                // genotyped site, and the sites are freed as they are rendered. The phase is
-                // final here, and the hand-off has sorted the sites into those to render and
-                // those held back.
-                auto keep_alleles = [&](const StagedSite& site) {
-                    if (const auto* phase = phase_table.rendered(site.record_key)) {
-                        mosaic_writer.called_alleles().add(graph, *phase, site.alleles,
-                                                           sites.is_edit(site.net));
+                // An exact mosaic needs each strand as the records spell it at every top-level
+                // site, and the sites are freed as they are rendered. The phase is final here.
+                StrandAlleles& kept = mosaic_writer.strand_alleles();
+                staged_sites.for_each([&](const StagedSite& site) {
+                    if (site.placement.parent_record_key != 0) {
+                        return;
                     }
-                };
-                staged_sites.for_each(keep_alleles);
-                std::ranges::for_each(staged_sites.unrendered(), keep_alleles);
+                    const bool edit_site = sites.is_edit(site.net);
+                    kept.unphased_parents += (size_t)(splicer.has_children(site.record_key)
+                                                      && !phase_table.rendered(site.record_key));
+                    for (int strand = 0; strand < 2; ++strand) {
+                        Traversal walk;
+                        StepSequences steps;
+                        const optional<int> trav = splicer.strand_traversal(site, strand);
+                        if (!trav) {
+                            continue;
+                        }
+                        if (!edit_site) {
+                            splicer.strand_walk(site, strand, walk, steps);
+                            kept.add_site(graph, site.record_key, strand, walk, steps);
+                        } else if (!site.alleles.spelled_by_walk(*trav)) {
+                            kept.add_edit_site(graph, site.record_key, strand,
+                                               site.alleles.walks[*trav],
+                                               site.alleles.edits[*trav]);
+                        }
+                    }
+                });
             }
         });
     rendered_sites.clear();

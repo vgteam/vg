@@ -99,6 +99,20 @@ public:
     optional<string> strand_sequence(const StagedSite& site, int strand) const;
 
     /**
+     * Get the walk that strand `strand` of the phase of `site` takes, from the start bound node
+     * of the site through its end bound node, and the bases of each of its steps.
+     *
+     * It is the walk and the bases that `strand_sequence` spells.
+     *
+     * @param walk Set to the walk.
+     * @param steps Set to the bases of each step of `walk`, or left empty where every step has
+     * the bases of its node.
+     * @return False if the site has no phase, or the strand does not cross the site.
+     */
+    bool strand_walk(const StagedSite& site, int strand, Traversal& walk,
+                     StepSequences& steps) const;
+
+    /**
      * Return the sequence of the reference allele of `site`, with every site staged under it
      * spelled by its own reference allele, recursively.
      *

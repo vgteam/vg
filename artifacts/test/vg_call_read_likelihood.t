@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 343
+plan tests 349
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -2358,16 +2358,35 @@ python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic mx.mosaic.tsv --gaf m
     --vcf mx.vcf --quiet >mx.expand.txt 2>&1
 is "$?/$(sed -n 's/.* \([0-9]*\) different.*/\1/p' mx.expand.txt)" "1/1" \
    "the H rows alone take another allele than the called one on one strand of one record"
+MX_CHECKED='s/.*: \([0-9]*\) site strands checked, \([0-9]*\) equal; .* \([0-9]*\) different/\1,\2,\3/p'
 is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic mx.exact.tsv --gaf mx.paths.gaf --gfa mx.graph.gfa \
-        --vcf mx.exact.vcf --quiet >mx.expand.txt 2>&1; echo $?)/$(sed -n 's/.*: \([0-9]*\) checked, \([0-9]*\) equal, .* \([0-9]*\) different, \([0-9]*\) strand does not cross/\1,\2,\3,\4/p' mx.expand.txt)" \
-   "0/6,6,0,0" \
-   "with the A rows applied, every strand takes the called allele of every phased record, on a walk in the graph"
+        --vcf mx.exact.vcf --quiet >mx.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" mx.expand.txt)" \
+   "0/6,6,0" \
+   "with the A rows applied, every strand has the bases of every phased record, on a walk in the graph"
 # The site with no record is covered too: strand T#0 is REF there and its haplotype is not.
-is "$(sed -n 's/.*mosaic: \([0-9]*\) allele rows .* \([0-9]*\) are at sites with no VCF line.*/\1,\2/p' mx.exact.err)" "2,1" \
-   "one of the two A rows is at a genotyped site that has no VCF line"
+is "$(sed -n 's/.*mosaic: \([0-9]*\) allele rows, .* and \([0-9]*\) are at sites with no VCF line.*/\1,\2/p' mx.exact.err)" "2,1" \
+   "one of the two A rows is at a top-level site that has no VCF line"
+is "$(awk -F'\t' '$1 == "A" {print $3 "/" $7 "/" $8}' mx.exact.tsv | tr '\n' ' ')" "0/>7>9>10/. 1/>4>5>7/. " \
+   "each A row gives its strand's walk between the bound nodes of its site, and no bases where the walk spells them"
+# The check has to fail on a wrong row, or passing it says nothing. Each of these changes one row.
+mx_check() {
+  python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic mx.bad.tsv --gaf mx.paths.gaf --gfa mx.graph.gfa \
+      --vcf mx.exact.vcf --quiet >mx.expand.txt 2>&1
+  echo "$?/$(grep -c "$1" mx.expand.txt)"
+}
+sed 's/>7>9>10/>7>8>10/' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check ' 1 different')" "1/1" "a row with another walk than the called allele's fails the check"
+sed 's/>4>5>7/>4>6>7/' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check ' 1 different')" "1/1" "and so does a row that leaves the reference at a site with no record"
+awk -F'\t' -v OFS='\t' '$7 == ">7>9>10" {$8 = "*,A,*"} {print}' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check ' 1 different')" "1/1" "a row with a wrong entry of bases fails the check"
+awk -F'\t' -v OFS='\t' '{print} $7 == ">7>9>10" {print}' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check 'FAIL *1  A rows that change the same visit')" "1/1" "two rows that change the same visit fail the check"
+sed 's/>7>9>10/>7>12>10/' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check 'FAIL *2  step is not an edge in the graph')" "1/1" "a row with a step that is not an edge fails the check"
 
 rm -f mx.gfa mx_sim.gfa mx.gbz mx_sim.gbz mx.gam mx.paths.gaf mx.graph.gfa mx.vcf mx.mosaic.tsv \
-      mx.exact.tsv mx.exact.err mx.exact.vcf mx.expand.txt
+      mx.exact.tsv mx.exact.err mx.exact.vcf mx.expand.txt mx.bad.tsv
 
 # --read-consensus gives a snarl the consensus of the reads of a strand that disagree with what is
 # called on it. The graph is a chain of three snarls, 1..4, 4..7 and 7..10, each a choice of two
@@ -2433,18 +2452,18 @@ $RCN_CALL --read-consensus --flatten-records 2>/dev/null > rcn.flat.vcf
 is "$(grep -v '^#' rcn.flat.vcf | awk -F'\t' -v novel=$RCNOVEL '$5 == novel {print $2 "/" $3 "/" $4 "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)RC(;|$)/) "/" ($8 ~ /(^|;)FL(;|$)/)}')" \
    "72/>4>7_0/C/0|1/1/1" \
    "--read-consensus with --flatten-records writes the consensus as a marked flat record"
-# In an exact mosaic, the allele row of the consensus gives its bases, from the first base of the
-# start bound's node to the last base of the end bound's, and its walk is the two nodes alone.
+# In an exact mosaic, the walk of the consensus's allele row is the two bound nodes alone, and its
+# bases put the consensus after the first of them, on no node.
 $RCN_CALL --read-consensus --mosaic-out rcn.mos.tsv --mosaic-exact 2>/dev/null > rcn.mos.vcf
-is "$(awk -F'\t' -v seq=$RCN4$RCNOVEL$RCN7 '$1 == "A" {print $3 "/" $7 "/" ($8 == seq)}' rcn.mos.tsv)" \
+is "$(awk -F'\t' -v bases="*+$RCNOVEL,*" '$1 == "A" {print $3 "/" $7 "/" ($8 == bases)}' rcn.mos.tsv)" \
    "1/>4>7/1" \
-   "the exact mosaic gives the consensus allele as an allele row with its sequence"
+   "the exact mosaic gives the consensus allele as an allele row with its bases"
 vg paths -x rcn.gbz -A > rcn.paths.gaf 2>/dev/null
 vg view -g rcn.gbz > rcn.graph.gfa 2>/dev/null
 is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcn.mos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
-        --vcf rcn.mos.vcf --quiet >rcn.expand.txt 2>&1; echo $?)/$(sed -n 's/.*: \([0-9]*\) checked, \([0-9]*\) equal, .* \([0-9]*\) different, \([0-9]*\) strand does not cross/\1,\2,\3,\4/p' rcn.expand.txt)/$(grep -c '1 steps joined by an A row.s sequence rather than an edge' rcn.expand.txt)" \
-   "0/6,6,0,0/1" \
-   "and the mosaic's paths take every called allele, the consensus joining its two nodes by its sequence"
+        --vcf rcn.mos.vcf --quiet >rcn.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" rcn.expand.txt)/$(grep -c '1 steps joined by an A row rather than an edge' rcn.expand.txt)" \
+   "0/6,6,0/1" \
+   "and the mosaic's strands have the bases of every record, the consensus joining its two nodes by its bases"
 # The step needs the read-likelihood genotyper and the phase, and its settings need the step.
 vg call rcn.gbz --gam rcn.gam -t 1 -s samp --read-consensus >/dev/null 2>rcn.refuse.txt
 is "$(grep -c -- '--read-consensus only appl.* to the read-likelihood genotyper' rcn.refuse.txt)" "1" \
@@ -2480,13 +2499,13 @@ is "$(grep -v '^#' rcm.vcf | cut -f3 | tr '\n' ' ')/$(awk -v alt=$RCM_MERGED '$3
    "with it the two snarls are one site, named by its outer bound nodes, whose called allele has the bases"
 is "$(sed -n 's/.* \([0-9]*\) made one site in place of \([0-9]*\) more sites, \([0-9]*\) of those called.*/\1,\2,\3/p' rcm.err)" \
    "1,1,1" "and the step reports the run it made one site, the site that took the place of, and its call"
-is "$(awk -F'\t' -v seq=$RCN4$RCM_MERGED$RCN10 '$1 == "A" {print $3 "/" $7 "/" ($8 == seq)}' rcm.mos.tsv)" \
+is "$(awk -F'\t' -v bases="*+$RCM_MERGED,*" '$1 == "A" {print $3 "/" $7 "/" ($8 == bases)}' rcm.mos.tsv)" \
    "1/>4>10/1" \
    "the exact mosaic gives the one site's consensus allele as an allele row over its two bound nodes"
 is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.mos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
-        --vcf rcm.vcf --quiet >rcm.expand.txt 2>&1; echo $?)/$(sed -n 's/.*: \([0-9]*\) checked, \([0-9]*\) equal, .* \([0-9]*\) different, \([0-9]*\) strand does not cross/\1,\2,\3,\4/p' rcm.expand.txt)/$(grep -c '1 of the equal, walks of two nodes whose bases were compared' rcm.expand.txt)" \
-   "0/4,4,0,0/1" \
-   "and the mosaic's paths take every called allele, with the consensus's bases between the two nodes"
+        --vcf rcm.vcf --quiet >rcm.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" rcm.expand.txt)/$(grep -c '1 steps joined by an A row rather than an edge' rcm.expand.txt)" \
+   "0/4,4,0/1" \
+   "and the mosaic's strands have the bases of every record, with the consensus's bases between the two nodes"
 # The nesting tags of -A are found by walking the sites, which has to reach the one site.
 is "$($RCM_CALL --read-consensus -A 2>/dev/null | awk '$3 == ">4>10" {print ($8 ~ /;LV=0;/)}')" "1" \
    "with -A the one site's record gets nesting tags as a snarl's does"
@@ -2495,18 +2514,18 @@ is "$(grep -v '^#' rcm.flat.vcf | cut -f3 | tr '\n' ' ')/$(grep -v '^#' rcm.flat
    ">1>4_0 >4>10_0 >4>10_1 >4>10_2 /3/1" \
    "written as flat records, the one site is its three differences from the reference, one of them the inserted bases"
 is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.fmos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
-        --vcf rcm.flat.vcf --quiet >rcm.expand.txt 2>&1; echo $?)/$(sed -n 's/.*flat records: \([0-9]*\) sites, \([0-9]*\) strands checked, \([0-9]*\) spell their records, \([0-9]*\) different.*/\1,\2,\3,\4/p' rcm.expand.txt)" \
-   "0/2,4,4,0" \
+        --vcf rcm.flat.vcf --quiet >rcm.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" rcm.expand.txt)" \
+   "0/4,4,0" \
    "and each strand of the mosaic has the bases its site's flat records give"
-# The two checks have to fail on a wrong sequence, or passing them says nothing.
+# The two checks have to fail on wrong bases, or passing them says nothing.
 sed "s/$RCNOVEL/A${RCNOVEL:1}/" rcm.mos.tsv > rcm.bad.tsv
 python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.bad.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
     --vcf rcm.vcf --quiet >rcm.expand.txt 2>&1
-RCM_BAD=$?/$(sed -n 's/.* \([0-9]*\) different, [0-9]* strand does not cross/\1/p' rcm.expand.txt)
+RCM_BAD=$?/$(sed -n "$MX_CHECKED" rcm.expand.txt)
 python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.bad.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
     --vcf rcm.flat.vcf --quiet >rcm.expand.txt 2>&1
-is "$RCM_BAD/$?/$(sed -n 's/.*spell their records, \([0-9]*\) different.*/\1/p' rcm.expand.txt)" "1/1/1/1" \
-   "with one base of the allele row's sequence changed, both checks find the strand different"
+is "$RCM_BAD/$?/$(sed -n "$MX_CHECKED" rcm.expand.txt)" "1/4,3,1/1/4,3,1" \
+   "with one base of the allele row's bases changed, both checks find the strand different"
 rm -f rcn.gfa rcn.gbz rcn.json rcn.gam rcn.off.vcf rcn.on.vcf rcn.on.err rcn.flat.vcf rcn.mos.tsv \
       rcn.mos.vcf rcn.paths.gaf rcn.graph.gfa rcn.expand.txt rcn.refuse.txt rcm.json rcm.gam \
       rcm.off.vcf rcm.vcf rcm.err rcm.mos.tsv rcm.expand.txt rcm.flat.vcf rcm.fmos.tsv rcm.bad.tsv
