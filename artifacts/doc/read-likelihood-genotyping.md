@@ -732,10 +732,11 @@ has no strands to spell (it has no genotype or no phase, or the strands of its p
 the genotype that is written), where a gap at the site's first base has no reference base before
 it, or where the
 aligner reaches its limit. The aligner fills a band of the alignment matrix and widens it until it
-can show that the alignment costs the least, and gives up when the band would hold more than
-$2^{27}$ cells, or the proof more than $2^{30}$. A run of several sites whose strands cannot be
-aligned, or spelled along it, is written as a run for each of its sites and for each edit site
-between them. The call reports on stderr, in lines starting `[vg call] flatten:`, the runs and
+can show that the alignment costs the least, keeping a byte for each cell of the band. A band of
+more than $2^{27}$ cells is filled for one strand at a time, and the aligner gives up when the
+band would hold more than $2^{30}$ cells, or the proof more than $2^{30}$. A run of several sites
+whose strands cannot be aligned, or spelled along it, is written as a run for each of its sites
+and for each edit site between them. The call reports on stderr, in lines starting `[vg call] flatten:`, the runs and
 lines written, the sites in the runs, the runs of several sites, the nested sites and the edit
 sites between sites left without a line, the runs of several sites written site by site, by
 reason, and the sites not flattened, by reason.

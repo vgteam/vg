@@ -1244,6 +1244,12 @@ shared_ptr<FlatRun> BlockRecordWriter::align_flat(string reference, vector<strin
         } else if (strand.sequence != run->reference) {
             optional<StringAlignment> aligned =
                 align_global(run->reference, strand.sequence, flat_aligner);
+            if (!aligned && flat_wide_cells > flat_aligner.max_cells) {
+                StringAlignerParams wide = flat_aligner;
+                wide.max_cells = flat_wide_cells;
+                std::scoped_lock lock(flat_wide_lock);
+                aligned = align_global(run->reference, strand.sequence, wide);
+            }
             if (!aligned) {
                 refused = FlatRefusal::AlignerLimit;
                 return nullptr;

@@ -182,6 +182,9 @@ TEST_CASE("Flat records put into the resolved reference spell each strand", "[fl
         tiny.max_cells = 4;
         writer.set_flat_aligner(tiny);
         REQUIRE(!flatten_top_site(fixture, writer, "0|0").flat);
+        // It is aligned again in a band of more cells, where the writer has one.
+        writer.set_flat_aligner(tiny, 1024);
+        REQUIRE(flatten_top_site(fixture, writer, "0|0").flat);
     }
 }
 

@@ -287,8 +287,12 @@ public:
               const function<bool(vcflib::Variant&, size_t)>& add_line,
               const AlleleSequences* sequences = nullptr) const;
 
-    /// Set the costs and limits of the aligner that `align_flat` uses.
-    void set_flat_aligner(const StringAlignerParams& params) { flat_aligner = params; }
+    /// Set the costs and limits of the aligner that `align_flat` uses, and the most cells of the
+    /// band of an alignment that does not fit `params.max_cells`, if that is more.
+    void set_flat_aligner(const StringAlignerParams& params, size_t wide_cells = 0) {
+        flat_aligner = params;
+        flat_wide_cells = std::max(params.max_cells, wide_cells);
+    }
 
     /// Set whether `write_flat` checks each run's records with `flat_records_spell`, once every
     /// site of the run has written its own, and counts the result for the report.
@@ -299,7 +303,9 @@ public:
      *
      * `strands` gives the sequence of each strand of the run, in the order of the phase. Each
      * strand is aligned by itself at the least cost (see `align_global`), and its gaps are
-     * moved as far left as they go without leaving the first base of the run.
+     * moved as far left as they go without leaving the first base of the run. An alignment
+     * whose band does not fit the aligner's cells is made again with up to `flat_wide_cells`,
+     * one such alignment at a time, since the aligner keeps a byte for each cell.
      *
      * @param refused Set to why, where nothing is returned.
      * @return Nothing if the aligner reaches its limit, or if a difference that needs the
@@ -390,6 +396,11 @@ private:
                                      .gap_extend = 7,
                                      .long_gap_open = 162,
                                      .long_gap_extend = 3};
+    /// The most cells of a band that `align_flat` traces for an alignment that does not fit
+    /// those of `flat_aligner`, and the lock that one such alignment at a time holds. A site
+    /// with a deletion of 10,000 of its 14,000 reference bases needs 140 million cells.
+    size_t flat_wide_cells = (size_t)1 << 30;
+    mutable std::mutex flat_wide_lock;
     /// Whether `write_flat` checks the records it writes.
     bool flat_check = false;
     /// What the writer has done with flat records, for the report.
