@@ -262,6 +262,25 @@ TEST_CASE("Flat records of a run of two sites are cut from one alignment of each
         records.pop_back();
         REQUIRE(!BlockRecordWriter::flat_records_spell(*run, records, 1, "sample"));
     }
+    SECTION("Strands are aligned at the costs of an alignment of two assemblies") {
+        // The strand has GGG five bases before where the reference has it. Five of the eight
+        // columns between would be mismatches, which cost 200, and the two gaps cost 198.
+        const string moved_reference = "TTCATCAACGGAGGGTCATTCA";
+        const string moved = "TTCATCAGGGACGGATCATTCA";
+        const shared_ptr<FlatRun> gaps = writer.align_flat(moved_reference, {moved}, refused);
+        REQUIRE(gaps);
+        REQUIRE(gaps->strands[0].differences.size() == 2);
+        REQUIRE(gaps->strands[0].differences[0].alt == "GGG");
+        REQUIRE(gaps->strands[0].differences[0].ref_begin == 7);
+        REQUIRE(gaps->strands[0].differences[0].ref_end == 7);
+        REQUIRE(gaps->strands[0].differences[1].alt.empty());
+        // At 4 for a mismatch and 6 + 2L for a gap, the mismatches cost less.
+        writer.set_flat_aligner(StringAlignerParams());
+        const shared_ptr<FlatRun> mismatches =
+            writer.align_flat(moved_reference, {moved}, refused);
+        REQUIRE(mismatches);
+        REQUIRE(mismatches->strands[0].differences.size() == 3);
+    }
     SECTION("A gap at the first base of a run has no base before it") {
         REQUIRE(!writer.align_flat("ACGT", {"CGT", "ACGT"}, refused));
         REQUIRE(refused == FlatRefusal::NoAnchorBase);

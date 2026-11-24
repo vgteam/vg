@@ -368,8 +368,16 @@ private:
     bool enabled = false;
     /// What the writer has done, for the report.
     mutable AtomizeCounters counters;
-    /// The costs and limits of the aligner that `align_flat` uses.
-    StringAlignerParams flat_aligner;
+    /// The costs and limits of the aligner that `align_flat` uses. A mismatch costs 40, and a gap
+    /// of L bases the lesser of 78 + 7L and 162 + 3L. Those are the scores minimap2 aligns two
+    /// assemblies of one species with (asm5: match 1, mismatch -19, gaps -39 - 3L and -81 - L),
+    /// as the costs of an alignment from end to end in which a match costs nothing, doubled so
+    /// that they are whole numbers.
+    StringAlignerParams flat_aligner{.mismatch = 40,
+                                     .gap_open = 78,
+                                     .gap_extend = 7,
+                                     .long_gap_open = 162,
+                                     .long_gap_extend = 3};
     /// Whether `write_flat` checks the records it writes.
     bool flat_check = false;
     /// What the writer has done with flat records, for the report.

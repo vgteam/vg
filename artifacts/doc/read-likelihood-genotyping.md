@@ -692,9 +692,11 @@ the last site's end boundary node: the allele the strand carries at each site of
 each nested site spelled by the allele that strand carries there, at every depth, the changes of
 the edit sites between the sites, and the nodes between the sites. The run's **reference** is the
 same with every site at its reference allele, which is the reference path through the run. vg
-aligns each strand's sequence to the reference by itself, end to end, at the least cost: 4 for a
-mismatch, and for a gap of $L$ bases the lesser of $6 + 2L$ and $24 + L$. It then moves each gap
-as far left as it goes within the run.
+aligns each strand's sequence to the reference by itself, end to end, at the least cost: 40 for a
+mismatch, and for a gap of $L$ bases the lesser of $78 + 7L$ and $162 + 3L$. These are the scores
+that minimap2 aligns two assemblies of one species with (its `asm5` preset), as costs of an
+end-to-end alignment, so that the records are cut as an assembly-to-reference alignment cuts
+them. It then moves each gap as far left as it goes within the run.
 
 Each maximal run of alignment columns that are not matches is a **difference**, and the records are
 cut from the differences:
