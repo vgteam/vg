@@ -53,6 +53,12 @@ struct ReadConsensusParams {
  * insert: the one with the least summed edit distance to the others. The result is the next
  * round's backbone, until a round changes nothing or `params.max_rounds` rounds are done.
  *
+ * The first round is from `backbone`. `backbone` is returned where that round changes nothing,
+ * or only what `params.keep_homopolymer_lengths` undoes, and `backbone` is no shorter than the
+ * shortest of the reads used and no longer than the longest. Otherwise, with
+ * `params.seed_from_reads`, the rounds start again from the medoid read where it is nearer
+ * the reads than `backbone` is.
+ *
  * @return Nothing if there are fewer than `params.min_reads` reads, or an alignment is not found
  * within the limits of `params.aligner`.
  */

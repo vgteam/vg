@@ -269,7 +269,25 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
         used.push_back(all[index]);
     }
 
+    // One round from the backbone. The backbone is the consensus where that round changes
+    // nothing, or only what `keep_homopolymer_lengths` undoes, and the reads are neither all
+    // longer than the backbone nor all shorter.
+    optional<string> first = vote(used, backbone, params);
+    if (!first) {
+        return std::nullopt;
+    }
+    const auto [shortest, longest] = std::ranges::minmax_element(
+        used, {}, [](const string* read) { return read->size(); });
+    if ((*shortest)->size() <= backbone.size() && backbone.size() <= (*longest)->size()
+        && (*first == backbone
+            || (params.keep_homopolymer_lengths
+                && keep_homopolymer_lengths(*first, backbone, params.aligner,
+                                            params.homopolymer_min_run) == backbone))) {
+        return backbone;
+    }
+
     string current = backbone;
+    bool seeded = false;
     if (params.seed_from_reads) {
         // Start from the medoid read where the backbone is further from the compared reads
         // than it is.
@@ -295,10 +313,17 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
         }
         if (backbone_distance > medoid->distance) {
             current = *compared[medoid->index];
+            seeded = true;
         }
     }
 
-    for (size_t round = 0; round < params.max_rounds; ++round) {
+    // The first round from the backbone is done, unless the rounds start from a read.
+    size_t round = 0;
+    if (!seeded) {
+        round = *first == backbone ? params.max_rounds : 1;
+        current = std::move(*first);
+    }
+    for (; round < params.max_rounds; ++round) {
         optional<string> next = vote(used, current, params);
         if (!next) {
             return std::nullopt;
