@@ -194,16 +194,6 @@ optional<int64_t> edit_distance(const string& first, const string& second, size_
     return alignment->cost;
 }
 
-string collapse_homopolymers(const string& sequence) {
-    string collapsed;
-    for (char base : sequence) {
-        if (collapsed.empty() || collapsed.back() != base) {
-            collapsed += base;
-        }
-    }
-    return collapsed;
-}
-
 optional<string> keep_homopolymer_lengths(const string& sequence, const string& backbone,
                                           const StringAlignerParams& aligner) {
     optional<StringAlignment> alignment = align_global(backbone, sequence, aligner);

@@ -428,16 +428,4 @@ void left_align_gaps(const string& first, const string& second, vector<Alignment
     }
 }
 
-int64_t alignment_cost(const vector<AlignmentRun>& runs, const StringAlignerParams& params) {
-    int64_t cost = 0;
-    for (const AlignmentRun& run : runs) {
-        if (run.op == AlignmentOp::Mismatch) {
-            cost += (int64_t)params.mismatch * (int64_t)run.length;
-        } else if (run.op != AlignmentOp::Match) {
-            cost += params.gap_cost(run.length);
-        }
-    }
-    return cost;
-}
-
 }

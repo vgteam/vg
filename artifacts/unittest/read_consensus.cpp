@@ -24,6 +24,17 @@ static string random_bases(size_t length, std::mt19937& generator) {
     return bases;
 }
 
+/// Return `sequence` with each run of one base cut to a single base.
+static string collapse_homopolymers(const string& sequence) {
+    string collapsed;
+    for (char base : sequence) {
+        if (collapsed.empty() || collapsed.back() != base) {
+            collapsed += base;
+        }
+    }
+    return collapsed;
+}
+
 /// Return `sequence` with about one base in `every` changed, removed or doubled.
 static string with_errors(const string& sequence, size_t every, std::mt19937& generator) {
     string read;
@@ -130,7 +141,6 @@ TEST_CASE("A read consensus keeps the backbone's lengths of runs of one base whe
     params.keep_homopolymer_lengths = true;
     REQUIRE(read_consensus(reads, backbone, params) == "ACGTACGGATTTTTTTCAGCATCCAGGCTAGCATCGA");
 
-    REQUIRE(collapse_homopolymers("AAACCGTTTA") == "ACGTA");
     // A deleted base that is a whole run is not a change of length.
     REQUIRE(keep_homopolymer_lengths("ACTG", "ACGTG") == "ACTG");
     REQUIRE(keep_homopolymer_lengths("ACGGGTG", "ACGTG") == "ACGTG");

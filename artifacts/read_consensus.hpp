@@ -25,10 +25,10 @@ struct ReadConsensusParams {
     /// The fewest reads a consensus is built from.
     size_t min_reads = 3;
     /// The most times the reads are aligned to a backbone.
-    size_t max_rounds = 4;
+    static constexpr size_t max_rounds = 4;
     /// The most inserted strings that are compared with each other to pick the one an insertion
     /// takes. With more, those whose lengths are nearest the median length are compared.
-    size_t max_medoid = 8;
+    static constexpr size_t max_medoid = 8;
     /// Whether the consensus starts from the read nearest the others, rather than from the
     /// backbone, where the backbone is further from the reads than that read is.
     bool seed_from_reads = true;
@@ -69,9 +69,6 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
 optional<string> keep_homopolymer_lengths(const string& sequence, const string& backbone,
                                           const StringAlignerParams& aligner =
                                               StringAlignerParams());
-
-/// Return `sequence` with each run of one base cut to a single base.
-string collapse_homopolymers(const string& sequence);
 
 /// Return the least number of single-base substitutions, insertions and deletions that turn
 /// `first` into `second`, or nothing if it is not found within `max_cells` cells.

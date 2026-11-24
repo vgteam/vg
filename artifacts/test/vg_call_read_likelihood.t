@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 349
+plan tests 350
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -2471,9 +2471,12 @@ is "$(grep -c -- '--read-consensus only appl.* to the read-likelihood genotyper'
 vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --no-phased --read-consensus >/dev/null 2>rcn.refuse.txt
 is "$(grep -c -- '--read-consensus needs the phase' rcn.refuse.txt)" "1" \
    "--read-consensus is refused without --phased"
-vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --consensus-max-reads 10 >/dev/null 2>rcn.refuse.txt
-is "$(grep -c -- '--consensus-max-reads only applies to read consensus, which --read-consensus turns on' rcn.refuse.txt)" "1" \
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --consensus-min-change 10 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--consensus-min-change only applies to read consensus, which --read-consensus turns on' rcn.refuse.txt)" "1" \
    "the settings of --read-consensus are refused without it"
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --read-consensus --consensus-min-reads 7 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--consensus-min-reads must be at least 1 and at most 6' rcn.refuse.txt)" "1" \
+   "--consensus-min-reads is refused above the reads a strand needs to span a snarl"
 
 # A difference inside the node between two snarls is in neither of them, so the two become one
 # site. Here strand Y takes the panel's walk >1>3>4>6>7>9>10, and has the 60 bases inside node 7,

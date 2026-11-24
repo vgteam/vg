@@ -168,8 +168,7 @@ Called call_graph(const function<void(bdsg::HashGraph&)>& make,
     RegenotypeParams regenotyping;
     regenotyping.temper = 1.0;
     caller.set_regenotype(true, regenotyping, 2);
-    caller.set_read_consensus(options, scoring.sequence_allele_max_bases,
-                              scoring.sequence_allele_max_alignments);
+    caller.set_read_consensus(options);
     caller.add_header_lines();
     genotyper.add_header_lines(output);
     // The caller reports to stderr.
@@ -246,6 +245,9 @@ TEST_CASE("A snarl whose reads on one strand carry 60 bases no walk spells gains
         REQUIRE(called.counts.sites_with_added == 1);
         REQUIRE(called.counts.sites_called == 1);
         REQUIRE(called.counts.candidate_strands == 1);
+        // Only the snarl with the 60 bases has its reads fetched again.
+        REQUIRE(called.counts.prefiltered == 1);
+        REQUIRE(called.counts.tested == 1);
         REQUIRE(called.header.find("##INFO=<ID=RC,") != string::npos);
         const string record = record_of(called.records, ">4>7");
         REQUIRE(!record.empty());
@@ -298,18 +300,6 @@ TEST_CASE("A snarl whose reads agree with what is called gains no allele",
     REQUIRE(with_step.counts.tested == 0);
     // The records are those of a call without the step.
     REQUIRE(with_step.records == call_chain(reads, false).records);
-}
-
-TEST_CASE("The read-consensus prefilter leaves out no snarl the step would give an allele",
-          "[read_consensus_step]") {
-    // The same sample, with every snarl tested.
-    bdsg::HashGraph graph;
-    make_chain(graph);
-    const vector<Alignment> reads = sample_reads(NOVEL);
-    const Called filtered = call_chain(reads, true);
-    REQUIRE(filtered.counts.prefiltered == 1);
-    REQUIRE(filtered.counts.tested == 1);
-    REQUIRE(filtered.counts.candidates_outside_prefilter == 0);
 }
 
 namespace {
@@ -468,21 +458,12 @@ TEST_CASE("A run of snarls in a tandem repeat gains an expansion its reads place
     ReadConsensusOptions options;
     options.enabled = true;
 
-    SECTION("no snarl gains an allele on its own") {
-        options.runs = false;
+    SECTION("no snarl gains an allele on its own, and the run does") {
         const Called called = call_graph(make_repeat, THREE_PANEL, reads, options);
-        // Each snarl has four reads of the strand with the expansion, and eight without.
+        // Each snarl has four reads of the strand with the expansion, and eight without, so
+        // the consensus of its reads is what is called.
         REQUIRE(called.counts.candidate_strands == 3);
         REQUIRE(called.counts.unchanged == 3);
-        REQUIRE(called.counts.added == 0);
-        REQUIRE(called.counts.runs_grown == 0);
-        const size_t expanded = spelled_strand(make_repeat, called.records, 0) == reads[1].sequence()
-                                    ? 0 : 1;
-        REQUIRE(spelled_strand(make_repeat, called.records, expanded) != reads[1].sequence());
-    }
-
-    SECTION("the run does, and the strand is called with the expansion") {
-        const Called called = call_graph(make_repeat, THREE_PANEL, reads, options);
         REQUIRE(called.counts.added == 0);
         // The run of the first two snarls is treated, and the third snarl then gives it the
         // reads whose expansion the mapper put there.
@@ -606,15 +587,6 @@ TEST_CASE("A run whose reads have bases inside the node between two snarls becom
         REQUIRE(called.counts.tested == 0);
         REQUIRE(called.counts.runs_grown >= 1);
         require_first_two_merged(make_unique, called, reads[0], reads[1]);
-
-        // Without runs the bases are in no record.
-        options.runs = false;
-        const Called alone = call_graph(make_unique, THREE_PANEL, reads, options);
-        REQUIRE(alone.counts.runs_grown == 0);
-        REQUIRE(spelled_strand(make_unique, alone.records, 0).size()
-                == reads[0].sequence().size());
-        REQUIRE(spelled_strand(make_unique, alone.records, 1).size()
-                == reads[0].sequence().size());
     }
 
     SECTION("across a node of more bases than two snarls of a run have between them") {

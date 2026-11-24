@@ -96,8 +96,7 @@ ReadConsensusStep::Finding ReadConsensusStep::examine(const Parts& parts,
     Finding found;
     const HandleGraph& graph = *parts.graph;
     const AlleleReadLikelihoods::SpanSummary& spans = site.score->spans;
-    const bool enough_span = spans.reads >= options.min_spanning;
-    if (options.prefilter && !enough_span) {
+    if (spans.reads < options.min_spanning) {
         return found;
     }
     const handle_t start = parts.sites->get_site_start(site.net);
@@ -120,27 +119,25 @@ ReadConsensusStep::Finding ReadConsensusStep::examine(const Parts& parts,
     if (!called[0] && !called[1]) {
         return found;
     }
-    if (enough_span) {
-        size_t shortest = std::numeric_limits<size_t>::max();
-        for (const optional<string>& sequence : called) {
-            if (sequence) {
-                found.longest = std::max(found.longest, sequence->size());
-                shortest = std::min(shortest, sequence->size());
-            }
+    size_t shortest = std::numeric_limits<size_t>::max();
+    for (const optional<string>& sequence : called) {
+        if (sequence) {
+            found.longest = std::max(found.longest, sequence->size());
+            shortest = std::min(shortest, sequence->size());
         }
-        found.measured = true;
-        found.start_gap = spans.start_gap;
-        found.end_gap = spans.end_gap;
-        found.signal = std::max(
-            spans.rank_bases > found.longest ? spans.rank_bases - found.longest : 0,
-            shortest > spans.low_bases ? shortest - spans.low_bases : 0);
     }
-    found.prefiltered = enough_span && (long_called || spans.rank_bases >= options.min_diff);
-    if (options.prefilter && !found.prefiltered) {
+    found.measured = true;
+    found.start_gap = spans.start_gap;
+    found.end_gap = spans.end_gap;
+    found.signal = std::max(
+        spans.rank_bases > found.longest ? spans.rank_bases - found.longest : 0,
+        shortest > spans.low_bases ? shortest - spans.low_bases : 0);
+    found.prefiltered = long_called || spans.rank_bases >= options.min_diff;
+    if (!found.prefiltered) {
         return found;
     }
     for (const optional<string>& sequence : called) {
-        if (sequence && sequence->size() > parts.max_bases) {
+        if (sequence && sequence->size() > max_bases) {
             found.over_base_cap = true;
             return found;
         }
@@ -180,7 +177,7 @@ ReadConsensusStep::Finding ReadConsensusStep::examine(const Parts& parts,
         vector<string> bases;
         for (size_t r = 0; r < reads.size(); ++r) {
             // A read with more bases than the scorer aligns does not span the site for it.
-            if (strand_of[r] == strand && reads[r].length <= parts.max_bases) {
+            if (strand_of[r] == strand && reads[r].length <= max_bases) {
                 bases.push_back(reads[r].bases);
                 on.disagreeing += disagrees(reads[r].bases, *called[strand]) ? 1 : 0;
             }
@@ -191,9 +188,7 @@ ReadConsensusStep::Finding ReadConsensusStep::examine(const Parts& parts,
         if (!on.candidate) {
             continue;
         }
-        ReadConsensusParams building;
-        building.max_reads = options.max_reads;
-        optional<string> consensus = read_consensus(bases, *called[strand], building);
+        optional<string> consensus = read_consensus(bases, *called[strand]);
         const optional<int64_t> change =
             consensus ? edit_distance(*consensus, *called[strand]) : std::nullopt;
         if (!change) {
@@ -214,7 +209,7 @@ ReadConsensusStep::Finding ReadConsensusStep::examine(const Parts& parts,
     size_t new_alleles = 0;
     for (size_t a = 0; a < site.alleles.walks.size(); ++a) {
         const optional<string> spelled = between(site.alleles.sequence(graph, a), before, after);
-        if (!spelled || spelled->size() > parts.max_bases) {
+        if (!spelled || spelled->size() > max_bases) {
             found.over_base_cap = true;
         }
         for (Finding::Strand& on : found.strands) {
@@ -232,7 +227,7 @@ ReadConsensusStep::Finding ReadConsensusStep::examine(const Parts& parts,
         --new_alleles;
     }
     if (new_alleles > 0 && !found.over_base_cap
-        && reads.size() * (site.alleles.walks.size() + new_alleles) > parts.max_alignments) {
+        && reads.size() * (site.alleles.walks.size() + new_alleles) > max_alignments) {
         found.over_alignment_cap = true;
     }
     if (found.over_base_cap || found.over_alignment_cap) {
@@ -438,7 +433,7 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
     // A site can be in a run where it is given no allele on its own.
     auto can_join = [&](size_t i) {
         const Finding& found = findings[i];
-        return found.measured && !found.proposes() && found.longest <= parts.max_bases;
+        return found.measured && !found.proposes() && found.longest <= max_bases;
     };
     // The signal of each site: that of its own span summary, or the gap its reads have inside
     // a node between it and a neighbour, if that is `min_diff` bases and more.
@@ -541,7 +536,7 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
             candidate = candidate || findings[at].candidate();
             seeded = seeded || is_seed(at);
         }
-        if (seeded && (candidate || signal_sum >= options.min_diff || !options.prefilter)) {
+        if (seeded && (candidate || signal_sum >= options.min_diff)) {
             stretches.push_back(std::move(stretch));
         }
     }
@@ -583,7 +578,7 @@ void ReadConsensusStep::grow_runs(const Parts& parts, const AlleleSplicer& splic
                                                     + bases_after[stretch[first - 1]]
                                               : findings[stretch[last + 1]].longest
                                                     + bases_after[stretch[last]];
-                if (bases + more > parts.max_bases) {
+                if (bases + more > max_bases) {
                     run.capped = true;
                     return none;
                 }
@@ -725,7 +720,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
         }
         for (size_t a = 0; a < site.alleles.walks.size(); ++a) {
             optional<string> spelled = between(site.alleles.sequence(graph, a), before, after);
-            if (!spelled || spelled->size() > parts.max_bases) {
+            if (!spelled || spelled->size() > max_bases) {
                 found.over_cap = true;
                 return found;
             }
@@ -736,7 +731,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
         return found;
     }
     for (int strand = 0; strand < 2; ++strand) {
-        if (crosses[strand] && called[strand].bases.size() > parts.max_bases) {
+        if (crosses[strand] && called[strand].bases.size() > max_bases) {
             found.over_cap = true;
             return found;
         }
@@ -797,8 +792,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
         }
     }
 
-    ReadConsensusParams building;
-    building.max_reads = options.max_reads;
+    const ReadConsensusParams building;
     optional<RunSequence> consensus[2];
     // Each strand's consensus across the run, where it is to become an allele.
     optional<string> whole[2];
@@ -809,7 +803,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
         RunFinding::Strand& on = found.strands[strand];
         vector<string> bases;
         for (size_t r = 0; r < reads.size(); ++r) {
-            if (strand_of[r] == strand && reads[r].length <= parts.max_bases) {
+            if (strand_of[r] == strand && reads[r].length <= max_bases) {
                 bases.push_back(reads[r].bases);
                 on.disagreeing += disagrees(reads[r].bases, called[strand].bases) ? 1 : 0;
             }
@@ -858,8 +852,8 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
             if (crosses[strand]) {
                 found.called[strand] = called[strand].bases;
             }
-            if (whole[strand] && whole[strand]->size() <= parts.max_bases
-                && reads.size() * most_alleles <= parts.max_alignments) {
+            if (whole[strand] && whole[strand]->size() <= max_bases
+                && reads.size() * most_alleles <= max_alignments) {
                 on.whole = std::move(whole[strand]);
             } else if (whole[strand]) {
                 found.over_cap = true;
@@ -881,7 +875,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
                                  && found.strands[0].segments[m] == on.segments[m];
             alleles += !on.segments.empty() && on.is_new[m] && !repeats ? 1 : 0;
         }
-        if (reads.size() * alleles > parts.max_alignments) {
+        if (reads.size() * alleles > max_alignments) {
             found.over_cap = true;
             for (RunFinding::Strand& on : found.strands) {
                 on.segments.clear();
@@ -906,7 +900,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
     }
     found.interiors.resize(count);
     for (const AlleleLikelihoodCalculator::SpanningRead& read : reads) {
-        if (read.length > parts.max_bases) {
+        if (read.length > max_bases) {
             continue;
         }
         optional<StringAlignment> best;
@@ -1101,17 +1095,19 @@ size_t ReadConsensusStep::run(const Parts& parts) {
     // The edit sites inside each node, which a run is not made one site across where a change
     // is called at one.
     edit_sites_on.clear();
-    if (options.runs) {
-        parts.staged_sites->for_each([&](StagedSite& site) {
-            if (!site.dropped && parts.sites->is_edit(site.net) && !site.alleles.walks.empty()) {
-                for (const handle_t& node : site.alleles.walks.front()) {
-                    edit_sites_on[parts.graph->get_id(node)].push_back(&site);
-                }
+    parts.staged_sites->for_each([&](StagedSite& site) {
+        if (!site.dropped && parts.sites->is_edit(site.net) && !site.alleles.walks.empty()) {
+            for (const handle_t& node : site.alleles.walks.front()) {
+                edit_sites_on[parts.graph->get_id(node)].push_back(&site);
             }
-        });
-    }
+        }
+    });
 
     AlleleLikelihoodCalculator& calculator = parts.genotyper->calculator();
+    const AlleleLikelihoodCalculator::SequenceAlleleLimits limits =
+        calculator.sequence_allele_limits();
+    max_bases = limits.max_bases;
+    max_alignments = limits.max_alignments;
     calculator.set_counted_fetches(false);
     vector<Finding> findings(snarls.size());
 #pragma omp parallel for schedule(dynamic, 64)
@@ -1123,9 +1119,7 @@ size_t ReadConsensusStep::run(const Parts& parts) {
     // own.
     vector<Run> runs;
     vector<RunFinding> run_findings;
-    if (options.runs) {
-        grow_runs(parts, splicer, snarls, findings, runs, run_findings);
-    }
+    grow_runs(parts, splicer, snarls, findings, runs, run_findings);
 
     // Give each difference to the innermost site that holds it: decide the deepest sites first,
     // and leave a strand alone where a site under it gained an allele for the strand.
@@ -1142,7 +1136,6 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         counted.over_base_cap += found.over_base_cap ? 1 : 0;
         counted.over_alignment_cap += found.over_alignment_cap ? 1 : 0;
         counted.candidate_sites += found.candidate() ? 1 : 0;
-        counted.candidates_outside_prefilter += found.candidate() && !found.prefiltered ? 1 : 0;
         for (const Finding::Strand& on : found.strands) {
             counted.candidate_strands += on.candidate ? 1 : 0;
             counted.built += on.built ? 1 : 0;
@@ -1421,12 +1414,7 @@ void ReadConsensusStep::report(ostream& out) const {
         << counted.runs_merged << " made one site in place of " << counted.merged_removed
         << " more sites, " << counted.merged_called
         << " of those called with a consensus allele, " << counted.runs_edit_between
-        << " left for a change called between their sites";
-    if (!options.prefilter) {
-        out << "; prefilter off: " << counted.candidates_outside_prefilter << " of "
-            << counted.candidate_sites << " candidate sites fail the prefilter";
-    }
-    out << endl;
+        << " left for a change called between their sites" << endl;
 }
 
 }

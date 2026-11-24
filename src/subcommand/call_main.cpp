@@ -634,17 +634,10 @@ void help_call(char** argv) {
          << "                            are N or more bases from the called ones [15]" << endl
          << "      --consensus-min-reads=N" << endl
          << "                            build a consensus where at least N reads of a" << endl
-         << "                            haplotype differ [3]" << endl
-         << "      --consensus-min-share=F" << endl
-         << "                            and they are at least F of its spanning reads" << endl
-         << "                            [0.25]" << endl
-         << "      --consensus-min-spanning=N" << endl
-         << "                            and at least N of its reads span the snarl [6]" << endl
+         << "                            haplotype differ, at most 6 [3]" << endl
          << "      --consensus-min-change=N" << endl
          << "                            add a consensus that is more than N bases from" << endl
          << "                            the called sequence [10]" << endl
-         << "      --consensus-max-reads=N" << endl
-         << "                            build a consensus from at most N reads [20]" << endl
          << "  read scoring:" << endl
          << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
          << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
@@ -1101,10 +1094,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_READ_CONSENSUS = 1126;
     constexpr int OPT_CONSENSUS_MIN_DIFF = 1127;
     constexpr int OPT_CONSENSUS_MIN_READS = 1128;
-    constexpr int OPT_CONSENSUS_MIN_SHARE = 1129;
-    constexpr int OPT_CONSENSUS_MIN_SPANNING = 1130;
     constexpr int OPT_CONSENSUS_MIN_CHANGE = 1131;
-    constexpr int OPT_CONSENSUS_MAX_READS = 1132;
     optind = 2; // force optind past command positional argument
     // The long options, grouped by the subsystem they configure, by its name. Every subsystem with
     // a switch is part of the read-likelihood genotyper.
@@ -1252,10 +1242,7 @@ int main_call(int argc, char** argv) {
          [&] { return read_consensus.enabled; }, {
             {"consensus-min-diff", required_argument, nullptr, OPT_CONSENSUS_MIN_DIFF},
             {"consensus-min-reads", required_argument, nullptr, OPT_CONSENSUS_MIN_READS},
-            {"consensus-min-share", required_argument, nullptr, OPT_CONSENSUS_MIN_SHARE},
-            {"consensus-min-spanning", required_argument, nullptr, OPT_CONSENSUS_MIN_SPANNING},
             {"consensus-min-change", required_argument, nullptr, OPT_CONSENSUS_MIN_CHANGE},
-            {"consensus-max-reads", required_argument, nullptr, OPT_CONSENSUS_MAX_READS},
         }}},
         {"re-genotyping", {"--regenotype", "the read-likelihood genotyper",
          [&] { return regenotype && read_phasing; }, {
@@ -1474,17 +1461,8 @@ int main_call(int argc, char** argv) {
         case OPT_CONSENSUS_MIN_READS:
             read_consensus.min_reads = parse<size_t>(optarg);
             break;
-        case OPT_CONSENSUS_MIN_SHARE:
-            read_consensus.min_share = parse<double>(optarg);
-            break;
-        case OPT_CONSENSUS_MIN_SPANNING:
-            read_consensus.min_spanning = parse<size_t>(optarg);
-            break;
         case OPT_CONSENSUS_MIN_CHANGE:
             read_consensus.min_change = parse<size_t>(optarg);
-            break;
-        case OPT_CONSENSUS_MAX_READS:
-            read_consensus.max_reads = parse<size_t>(optarg);
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
@@ -2943,14 +2921,7 @@ int main_call(int argc, char** argv) {
         multipass_caller->set_flatten_records(true);
     }
     if (read_consensus.enabled && multipass_caller != nullptr) {
-        // A developer switch: the step tests every snarl, and grows runs in every stretch
-        // with a seed, where this is set, to measure what its prefilter leaves out.
-        read_consensus.prefilter = getenv("VG_READ_CONSENSUS_NO_PREFILTER") == nullptr;
-        // The step keeps to the limits of the read scorer, which are its defaults.
-        const AlleleLikelihoodParams scorer_limits;
-        multipass_caller->set_read_consensus(read_consensus,
-                                             scorer_limits.sequence_allele_max_bases,
-                                             scorer_limits.sequence_allele_max_alignments);
+        multipass_caller->set_read_consensus(read_consensus);
     }
 
     if (nested_calling) {
@@ -3026,10 +2997,12 @@ int main_call(int argc, char** argv) {
             phased_output = false;
         }
         if (read_consensus.enabled
-            && (read_consensus.min_reads < 1 || read_consensus.min_share < 0.0
-                || read_consensus.min_share > 1.0)) {
-            logger.error() << "--consensus-min-reads must be at least 1 and "
-                           << "--consensus-min-share between 0 and 1" << endl;
+            && (read_consensus.min_reads < 1
+                || read_consensus.min_reads > read_consensus.min_spanning)) {
+            // A strand is a candidate only with `min_spanning` spanning reads, and the direct
+            // pass keeps the bases of the `min_reads`-th read of those that span a snarl.
+            logger.error() << "--consensus-min-reads must be at least 1 and at most "
+                           << read_consensus.min_spanning << endl;
         }
         if (read_consensus.enabled && !phased_output) {
             // The step compares the reads of a strand with what the phase puts on it.

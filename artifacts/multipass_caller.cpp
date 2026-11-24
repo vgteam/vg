@@ -616,8 +616,6 @@ ReadConsensusStep::Parts MultiPassCaller::read_consensus_parts() {
         .staged_sites = &staged_sites,
         .phase_table = &phase_table,
         .read_strands = &read_strands,
-        .max_bases = consensus_max_bases,
-        .max_alignments = consensus_max_alignments,
     };
 }
 

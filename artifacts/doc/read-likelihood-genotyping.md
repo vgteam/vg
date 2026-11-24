@@ -326,11 +326,10 @@ on each snarl that has a phase, at any level, and on each of its strands:
    there, as a [flat record](#flat-records) spells it. The two differ by that much where their
    lengths do, or where their edit distance is at least that many bases and at least 8% of the
    longer of the two.
-3. The strand is a **candidate** where at least `--consensus-min-spanning` (6) of its reads span
-   the snarl, and at least `--consensus-min-reads` (3) of them, and at least
-   `--consensus-min-share` (0.25) of them, disagree.
-4. A candidate strand gets the consensus of its spanning reads. At most `--consensus-max-reads`
-   (20) are used, those nearest the median length. Each is aligned to the called sequence, each
+3. The strand is a **candidate** where at least 6 of its reads span the snarl, and at least
+   `--consensus-min-reads` (3, and at most 6) of them, and at least a quarter of them, disagree.
+4. A candidate strand gets the consensus of its spanning reads. At most 20 are used, those
+   nearest the median length. Each is aligned to the called sequence, each
    base becomes whichever of a base or a deletion most reads have there, and an insertion is made
    where more than half the reads insert bases; the result is aligned to again until it stops
    changing. A difference that only changes the length of a run of one base is undone.
@@ -364,9 +363,8 @@ neighbours is those nodes' bases, the bound nodes included. Runs follow the chai
 positions. A run inside a snarl too large to be treated itself is a run of the snarls of a chain
 nested in it.
 
-1. A snarl can be in a run where the test above gives it no allele, at least
-   `--consensus-min-spanning` reads span it, and its called sequences have no more bases than the
-   scorer aligns. Two such snarls are **neighbours** where they follow each other in a chain, one
+1. A snarl can be in a run where the test above gives it no allele, at least 6 reads span it,
+   and its called sequences have no more bases than the scorer aligns. Two such snarls are **neighbours** where they follow each other in a chain, one
    phase set orders the strands of both, and their junction has at most 32 bases or holds a gap.
    A read's **gap** inside a node is a run of bases it inserts between two bases of the node, or a
    run of the node's bases it lacks. A junction holds a gap where `--consensus-min-reads` of the
@@ -399,7 +397,7 @@ nested in it.
    run is then **treated**: it is the smallest run around the seed that can be. Growth also stops
    where the run can neither be cut nor become one site, where
    a member's alleles or the run's reads are more than the scorer takes, where no strand has
-   `--consensus-min-spanning` reads that span the run, at 8 members, and where no neighbour keeps
+   6 reads that span the run, at 8 members, and where no neighbour keeps
    the bases between the run's outer bounds within the 10,000 the scorer aligns. A treated run then
    takes in one more neighbour at a time, the later one first, for as long as that leaves it
    treated and gives its treated strands more reads that disagree: reads whose difference the
@@ -453,9 +451,9 @@ strands' called sequences across the run do not have.
 The step fetches reads only at the snarls where a read can disagree. The direct pass keeps, for
 each snarl, the number of reads that span it and the numbers of bases that the reads with the
 `--consensus-min-reads`-th most and the `--consensus-min-reads`-th fewest have between the bounds.
-A snarl is tested where at least
-`--consensus-min-spanning` reads span it and either that number of bases, or the length of a
-strand's called sequence between the bounds, is at least `--consensus-min-diff`. Every candidate
+A snarl is tested where at least 6 reads span it and either the first of those numbers of bases,
+or the length of a strand's called sequence between the bounds, is at least
+`--consensus-min-diff`. Every candidate
 snarl passes this, since a read can only differ by that many bases from a called sequence where
 one of the two has that many. The scorer aligns at most 10,000 bases between the bounds and makes
 at most 2,000 alignments at one snarl (see [Fixed constants](#fixed-constants)); a snarl over
@@ -473,10 +471,6 @@ seeds a run was grown and how many runs were tested on the way, then, counting t
 seed grew to, how many strands were candidates, how many consensuses were built, how many runs
 could not be cut or were over a limit, how many were treated, and how many member snarls gained an
 allele and were called with one.
-
-`VG_READ_CONSENSUS_NO_PREFILTER`, set in the environment, is a developer switch: the step then
-tests every snarl, grows runs in every stretch that has a seed, and reports how many candidate
-snarls the span summaries would have left out.
 
 ## Ploidy
 
@@ -1314,7 +1308,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Mismapping](read-likelihood-direct-genotyping.md#mismapping-probability) | `--mismap-min`, `--mismap-max`, `--no-mismap-term` |
 | [Mixture weights](read-likelihood-direct-genotyping.md#mixture-weights) | `--flat-mixture` |
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
-| [Alleles built from the reads](#alleles-built-from-the-reads---read-consensus) | `--read-consensus`, `--consensus-min-diff`, `--consensus-min-reads`, `--consensus-min-share`, `--consensus-min-spanning`, `--consensus-min-change`, `--consensus-max-reads` |
+| [Alleles built from the reads](#alleles-built-from-the-reads---read-consensus) | `--read-consensus`, `--consensus-min-diff`, `--consensus-min-reads`, `--consensus-min-change` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
 | [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--flatten-records`, `--no-off-ref-nesting` |
 | [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
@@ -1340,6 +1334,8 @@ holds it.
 | `banded` and `band`, in `score_by_optimal_pairing` | `artifacts/allele_likelihood.cpp` | the grid size, in read visits times allele visits, above which optimal pairing is restricted to a band, and the band's half-width in allele visits |
 | `AlleleLikelihoodParams::sequence_allele_max_bases`, `sequence_allele_max_alignments` | `artifacts/allele_likelihood.hpp` | the most bases between a snarl's bounds, and the most alignments of a read to an allele at one snarl, at a snarl with an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) |
 | `ReadConsensusOptions::min_diff_share` | `artifacts/read_consensus_step.hpp` | the share of the longer of a read and a called sequence that their differing bases are, at least, for a read of nearly the called length to disagree with it |
+| `ReadConsensusOptions::min_spanning`, `min_share` | `artifacts/read_consensus_step.hpp` | for a strand to be a candidate for an [allele built from the reads](#alleles-built-from-the-reads---read-consensus): the fewest of its reads that span the snarl, and the least share of them that disagree with what is called |
+| `ReadConsensusParams::max_reads`, `max_rounds`, `max_medoid` | `artifacts/read_consensus.hpp` | for a consensus of reads: the most reads it is built from, the most times they are aligned to it, and the most inserted strings compared to choose the bases of an insertion |
 | `ReadConsensusOptions::run_site_diff`, `run_max_junction`, `run_max_members` | `artifacts/read_consensus_step.hpp` | for a [run](#runs-of-neighbouring-snarls): the least signal of a seed without a candidate strand, in bases, the most bases in a junction, and the most members |
 | `max_yens_traversals` | `src/subcommand/call_main.cpp` | the most candidate alleles support enumeration keeps |
 | the difference limit in `LinkageModel::run_length_site` | `artifacts/linkage_model.cpp` | the largest homopolymer length difference to which `--hp-prior` applies |

@@ -140,9 +140,6 @@ optional<StringAlignment> align_global_pinned(const string& first, const string&
 void left_align_gaps(const string& first, const string& second, vector<AlignmentRun>& runs,
                      bool keep_first = false);
 
-/// Return the cost of the alignment `runs` under `params`.
-int64_t alignment_cost(const vector<AlignmentRun>& runs, const StringAlignerParams& params);
-
 }
 
 #endif

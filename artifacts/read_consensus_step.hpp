@@ -35,38 +35,31 @@ struct ReadConsensusOptions {
     /// read to disagree with it: a difference in length of that many bases, or that many
     /// differing bases in an alignment of the two that are also `min_diff_share` of the longer.
     size_t min_diff = 15;
-    /// The share of the longer of a read and the called sequence that their differing bases
-    /// are, at least, where a read of nearly the called length disagrees.
-    double min_diff_share = 0.08;
     /// The fewest reads of a strand that disagree with its called sequence for the strand to be
-    /// a candidate.
+    /// a candidate. It is at most `min_spanning`.
     size_t min_reads = 3;
-    /// The least share of a strand's spanning reads that disagree, for the strand to be a
-    /// candidate.
-    double min_share = 0.25;
-    /// The fewest reads of a strand that span the site, for the strand to be a candidate.
-    size_t min_spanning = 6;
     /// A consensus becomes an allele where it differs from the called sequence by more bases
     /// than this.
     size_t min_change = 10;
-    /// The most reads a consensus is built from.
-    size_t max_reads = 20;
-    /// Whether a site is tested only where its span summary says a read can disagree, and a run
-    /// only where its sites' summaries do. Without it every site and every run is tested, which
-    /// measures what the summaries leave out.
-    bool prefilter = true;
-    /// Whether runs of neighbouring sites are treated, as well as single sites.
-    bool runs = true;
+
+    /// The share of the longer of a read and the called sequence that their differing bases
+    /// are, at least, where a read of nearly the called length disagrees.
+    static constexpr double min_diff_share = 0.08;
+    /// The least share of a strand's spanning reads that disagree, for the strand to be a
+    /// candidate.
+    static constexpr double min_share = 0.25;
+    /// The fewest reads of a strand that span the site, for the strand to be a candidate.
+    static constexpr size_t min_spanning = 6;
     /// A run grows from a site where `min_reads` of its spanning reads have this many bases
     /// more between its bounds than its longest called sequence, or this many fewer than its
     /// shortest, as it does from a site with a candidate strand.
-    size_t run_site_diff = 3;
+    static constexpr size_t run_site_diff = 3;
     /// The most bases that lie between two neighbouring sites of a run: their bound nodes, and
     /// any nodes between those. Two sites whose reads have a gap of `min_diff` bases inside
-    /// the node of a bound that faces the other are neighbours across any number.
-    size_t run_max_junction = 32;
+    /// the node of a bound that faces the other are neighbours across more.
+    static constexpr size_t run_max_junction = 32;
     /// The most sites a run has.
-    size_t run_max_members = 8;
+    static constexpr size_t run_max_members = 8;
 };
 
 /// What the read-consensus step did, for its report.
@@ -81,9 +74,6 @@ struct ReadConsensusCounts {
     size_t candidate_strands = 0;
     /// The sites those strands are at.
     size_t candidate_sites = 0;
-    /// The candidate sites the span summary would have left out. It is 0 with the prefilter
-    /// on, which tests no such site.
-    size_t candidates_outside_prefilter = 0;
     /// Consensuses built.
     size_t built = 0;
     /// Alleles added.
@@ -285,10 +275,6 @@ public:
         PhaseTable* phase_table = nullptr;
         /// The strand of each read, with its sums built (`ReadStrandTable::build_lambda`).
         const ReadStrandTable* read_strands = nullptr;
-        /// The most bases between the bounds, and the most alignments at one snarl, that the
-        /// scorer takes at a snarl with a sequence allele.
-        size_t max_bases = 10000;
-        size_t max_alignments = 2000;
     };
 
     /// Set the step's settings.
@@ -381,6 +367,11 @@ private:
     unordered_map<size_t, size_t> merged_first_consensus;
     /// The staged edit sites inside each node, by node ID, while the step runs.
     unordered_map<nid_t, vector<const StagedSite*>> edit_sites_on;
+    /// The most bases between the bounds, and the most alignments at one snarl, that the
+    /// calculator takes at a snarl with a sequence allele
+    /// (`AlleleLikelihoodCalculator::sequence_allele_limits`), while the step runs.
+    size_t max_bases = 0;
+    size_t max_alignments = 0;
 };
 
 }

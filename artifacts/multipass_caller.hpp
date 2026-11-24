@@ -234,18 +234,10 @@ public:
         rescorer.configure(on, params, passes);
     }
 
-    /**
-     * Set the read-consensus step (see `ReadConsensusStep`), which runs where `options.enabled`.
-     *
-     * @param max_bases The most bases between a snarl's bounds that the read scorer aligns at a
-     * snarl with a sequence allele (`AlleleLikelihoodParams::sequence_allele_max_bases`).
-     * @param max_alignments The most alignments it makes at one such snarl.
-     */
-    void set_read_consensus(const ReadConsensusOptions& options, size_t max_bases,
-                            size_t max_alignments) {
+    /// Set the read-consensus step (see `ReadConsensusStep`), which runs where
+    /// `options.enabled`.
+    void set_read_consensus(const ReadConsensusOptions& options) {
         read_consensus.set_options(options);
-        consensus_max_bases = max_bases;
-        consensus_max_alignments = max_alignments;
     }
 
     /// Get what the read-consensus step did.
@@ -553,9 +545,6 @@ private:
     GenotypeRescorer rescorer;
     /// The step that adds alleles built from the reads, if it is on.
     ReadConsensusStep read_consensus;
-    /// The limits of the read scorer at a snarl with a sequence allele, which the step keeps to.
-    size_t consensus_max_bases = 10000;
-    size_t consensus_max_alignments = 2000;
     /// Frees what the read source keeps for fetching reads (see `call`).
     function<void()> release_reads;
 

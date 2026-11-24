@@ -47,6 +47,20 @@ static void require_spells(const string& first, const string& second,
     REQUIRE(j == second.size());
 }
 
+/// Return the cost of the alignment `runs` under `params`.
+static int64_t alignment_cost(const vector<AlignmentRun>& runs,
+                              const StringAlignerParams& params) {
+    int64_t cost = 0;
+    for (const AlignmentRun& run : runs) {
+        if (run.op == Op::Mismatch) {
+            cost += (int64_t)params.mismatch * (int64_t)run.length;
+        } else if (run.op != Op::Match) {
+            cost += params.gap_cost(run.length);
+        }
+    }
+    return cost;
+}
+
 TEST_CASE("The string aligner aligns identical and empty strings", "[string_aligner]") {
     const optional<StringAlignment> same = align_global("GATTACA", "GATTACA");
     REQUIRE(same);

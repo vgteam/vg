@@ -658,6 +658,20 @@ public:
     virtual void set_counted_fetches(bool /*counted*/) {
         // A calculator that fetches no reads has nothing to set.
     }
+
+    /// The limits of `compute` at a snarl with a sequence allele.
+    struct SequenceAlleleLimits {
+        /// The most bases between the bounds that are aligned
+        /// (`AlleleLikelihoodParams::sequence_allele_max_bases`).
+        size_t max_bases = 0;
+        /// The most alignments of a read to an allele that are made at one snarl
+        /// (`AlleleLikelihoodParams::sequence_allele_max_alignments`).
+        size_t max_alignments = 0;
+    };
+
+    /// Get the limits of `compute` at a snarl with a sequence allele. The default, for a
+    /// calculator that aligns no read to a sequence allele, is 0 for both.
+    virtual SequenceAlleleLimits sequence_allele_limits() const { return {}; }
 };
 
 /**
@@ -729,6 +743,10 @@ public:
     vector<SpanningRead> spanning_reads(const MaterializedSite& site) const override;
 
     void set_counted_fetches(bool counted) override { counted_fetches = counted; }
+
+    SequenceAlleleLimits sequence_allele_limits() const override {
+        return {params.sequence_allele_max_bases, params.sequence_allele_max_alignments};
+    }
 
     /**
      * Place rate windows on reference paths.
