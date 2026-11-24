@@ -388,6 +388,50 @@ TEST_CASE("AlleleSplicer splices both of two nested sites that share a bound nod
     }
 }
 
+TEST_CASE("AlleleSplicer spells a strand along a run of sites", "[allele_splicer]") {
+    StagedChainSites fixture;
+    // The walk from the start bound of the first site to the end bound of the second, which
+    // share node 5, by the reference allele of each.
+    Traversal along;
+    for (const nid_t id : {2, 3, 5, 6, 8}) {
+        along.push_back(fixture.graph.get_handle(id));
+    }
+    fixture.phase(fixture.first_key, 0, 1);
+    fixture.phase(fixture.second_key, 1, 0);
+    fixture.phase(fixture.front_edit_key, 1, 0);
+
+    SECTION("Each site is spelled by the allele the strand carries there") {
+        fixture.index();
+        const vector<const StagedSite*> on_walk{&fixture.site(fixture.second_key),
+                                                &fixture.site(fixture.first_key),
+                                                &fixture.site(fixture.front_edit_key)};
+        // Strand 0 lacks the first three bases of node 2, and takes node 7 at the second site.
+        REQUIRE(fixture.splicer->sequence_along(along, on_walk, 0, false)
+                == "GGAGACT" + fixture.spell({3, 5, 7, 8}));
+        REQUIRE(fixture.splicer->sequence_along(along, on_walk, 1, false)
+                == fixture.spell({2, 4, 5, 6, 8}));
+        // One site alone is spelled as the site's strand is.
+        const StagedSite& first = fixture.site(fixture.first_key);
+        REQUIRE(fixture.splicer->sequence_along(first.alleles.walks[0], {&first}, 1, false)
+                == fixture.splicer->strand_sequence(first, 1));
+    }
+    SECTION("A walk whose sites all carry what it spells is spelled as it is") {
+        fixture.phase(fixture.back_edit_key, 0, 0);
+        fixture.index();
+        REQUIRE(fixture.splicer->sequence_along(along, {&fixture.site(fixture.back_edit_key)}, 0,
+                                                false)
+                == fixture.spell({2, 3, 5, 6, 8}));
+    }
+    SECTION("A site with no phase, or off the walk, leaves the strand unspelled") {
+        fixture.index();
+        REQUIRE(!fixture.splicer->sequence_along(along, {&fixture.site(fixture.back_edit_key)},
+                                                 0, false));
+        Traversal short_walk(along.begin(), along.begin() + 3);
+        REQUIRE(!fixture.splicer->sequence_along(short_walk,
+                                                 {&fixture.site(fixture.second_key)}, 0, false));
+    }
+}
+
 TEST_CASE("AlleleSplicer makes an edit that overlaps only an edit that was skipped",
           "[allele_splicer]") {
     // Three sites change one node of two bases: one deletes both, and two change one base

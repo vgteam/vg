@@ -35,6 +35,7 @@ static constexpr auto g_flat_refuse_name = std::to_array<const char*>({
     "the resolved reference is not the site's reference allele",
     "the aligner reached its limit",
     "a gap at the first base of the site has no reference base before it",
+    "a strand cannot be spelled along the run",
 });
 static_assert(g_flat_refuse_name.size() == (size_t)FlatRefusal::Count,
               "g_flat_refuse_name must have one entry per FlatRefusal value");
@@ -373,55 +374,40 @@ private:
     optional<AtomizeRefusal> failure;
 };
 
+/// Return the range of reference offsets a record of `difference` alone would cover.
+pair<int, int> range_of(const FlatDifference& difference) {
+    return {(int)difference.ref_begin - (difference.needs_anchor() ? 1 : 0),
+            (int)difference.ref_end};
+}
+
 /**
- * The strands of a site, each aligned base by base to the site's resolved reference.
+ * The strands of a run of sites, each aligned base by base to the run's reference, as one site
+ * of the run writes them.
  *
  * Flat records are cut from this alignment, as block records are cut from a `SiteAlignment`. Its
- * positions are offsets in the reference, and a slot is a strand of the site's phase. No walk
+ * positions are offsets in the run's reference, and a slot is a strand of the phase. No walk
  * spells what it cuts, so its visits are empty.
  */
 class FlatAlignment {
 public:
     /// Make the alignment of `flat`, which must outlive it.
-    explicit FlatAlignment(const FlatSite& flat) : flat(flat) {}
+    explicit FlatAlignment(const FlatSite& flat) : flat(flat), run(*flat.run) {}
 
-    /// The slots are the strands of the site's phase, in order.
+    /// The slots are the strands of the phase, in order.
     static constexpr bool slots_are_strands = true;
 
     /// Get the number of strands.
-    size_t slot_count() const { return flat.strands.size(); }
+    size_t slot_count() const { return run.strands.size(); }
 
-    /// Get the traversal strand `s` carries.
-    int traversal_of(size_t s) const { return flat.strands[s].trav; }
+    /// Get the traversal of the site that strand `s` carries.
+    int traversal_of(size_t s) const { return flat.travs[s]; }
 
-    /// Get the offset of reference offset `v` from the first base of the site, which is itself.
-    size_t ref_offset(int v) const { return (size_t)v; }
+    /// Get the offset of reference offset `v` from the first base of the site.
+    size_t ref_offset(int v) const { return (size_t)v - flat.origin; }
 
-    /**
-     * Return the clusters of the differences of all strands, as ranges of reference offsets.
-     *
-     * The range of a difference is the reference bases it replaces, with the base before them
-     * if a record of it alone needs one. Differences whose ranges share a base go in one
-     * cluster, so that no two records of a site cover the same reference base. The clusters are
-     * in reference order.
-     */
-    vector<pair<int, int>> difference_clusters() const {
-        vector<pair<int, int>> ranges;
-        for (const FlatStrand& strand : flat.strands) {
-            for (const FlatDifference& difference : strand.differences) {
-                ranges.push_back(range_of(difference));
-            }
-        }
-        std::ranges::sort(ranges);
-        vector<pair<int, int>> clusters;
-        for (const pair<int, int>& range : ranges) {
-            if (!clusters.empty() && range.first < clusters.back().second) {
-                clusters.back().second = std::max(clusters.back().second, range.second);
-            } else {
-                clusters.push_back(range);
-            }
-        }
-        return clusters;
+    /// Return the clusters the site writes, as ranges of reference offsets.
+    std::span<const pair<int, int>> difference_clusters() const {
+        return std::span(run.clusters).subspan(flat.first_cluster, flat.cluster_count);
     }
 
     /// Return what the reference and each strand spell over the cluster of reference offsets
@@ -430,10 +416,10 @@ public:
         ClusterSpelling spelling;
         spelling.vb = (int)rb;
         spelling.ve = (int)re;
-        spelling.ref_str = flat.reference.substr(rb, re - rb);
-        spelling.slot_span.resize(flat.strands.size());
-        spelling.slot_marker.assign(flat.strands.size(), false);
-        for (const FlatStrand& strand : flat.strands) {
+        spelling.ref_str = run.reference.substr(rb, re - rb);
+        spelling.slot_span.resize(run.strands.size());
+        spelling.slot_marker.assign(run.strands.size(), false);
+        for (const FlatStrand& strand : run.strands) {
             string spelled;
             size_t next = rb;
             // The differences are in reference order, so those of the cluster follow the first
@@ -447,11 +433,11 @@ public:
                     // The difference is in the cluster before or after.
                     continue;
                 }
-                spelled += flat.reference.substr(next, difference->ref_begin - next);
+                spelled += run.reference.substr(next, difference->ref_begin - next);
                 spelled += difference->alt;
                 next = difference->ref_end;
             }
-            spelled += flat.reference.substr(next, re - next);
+            spelled += run.reference.substr(next, re - next);
             spelling.slot_str.push_back(std::move(spelled));
         }
         return spelling;
@@ -459,20 +445,15 @@ public:
 
     /// Return the reference bases at offsets [vb, ve).
     string spell_reference(int vb, int ve) const {
-        return flat.reference.substr((size_t)vb, (size_t)(ve - vb));
+        return run.reference.substr((size_t)vb, (size_t)(ve - vb));
     }
 
     /// Return no visits, since no walk spells the reference between two offsets.
     Traversal reference_visits(int, int) const { return Traversal(); }
 
 private:
-    /// Return the range of reference offsets a record of `difference` alone would cover.
-    static pair<int, int> range_of(const FlatDifference& difference) {
-        return {(int)difference.ref_begin - (difference.needs_anchor() ? 1 : 0),
-                (int)difference.ref_end};
-    }
-
     const FlatSite& flat;
+    const FlatRun& run;
 };
 
 /// Return whether the alleles of a cluster need an anchor base, which VCF requires of an indel,
@@ -778,7 +759,7 @@ public:
     ///
     /// A cluster every strand spells as the reference gets no record. For each record, add to
     /// `one_to_one` whether no two of its alleles stand for one site allele.
-    optional<AtomizeRefusal> cut(const vector<pair<int, int>>& clusters,
+    optional<AtomizeRefusal> cut(std::span<const pair<int, int>> clusters,
                                  vector<vcflib::Variant>& built, vector<bool>& one_to_one) const {
         for (const auto& [rb, re] : clusters) {
             ClusterSpelling spelling = alignment.spell_cluster((size_t)rb, (size_t)re);
@@ -921,34 +902,55 @@ optional<AtomizeRefusal> single_block_refusal(const SiteAlignment& alignment,
 
 }
 
-void BlockRecordWriter::report_flat() const {
-    size_t refused = 0;
-    for (const std::atomic<size_t>& reason : flat_counters.refuse) {
-        refused += reason.load();
-    }
-    if (flat_counters.sites.load() + flat_counters.reference_sites.load() + refused == 0) {
-        return;
-    }
-    cerr << "[vg call] flatten: " << flat_counters.sites.load()
-         << " top-level sites written as flat records, " << flat_counters.lines.load()
-         << " lines; " << flat_counters.reference_sites.load()
-         << " sites whose strands spell the reference, with no line; "
-         << flat_counters.withheld.load()
-         << " nested sites left without a line because the flat records spell them" << endl;
-    cerr << "[vg call] flatten: " << refused << " sites written as without --flatten-records,"
-         << " with the sites nested in them";
-    // List only the reasons that occurred.
+void BlockRecordWriter::count_flat_run(const FlatRun& run, size_t sites) const {
+    ++(run.clusters.empty() ? flat_counters.reference_runs : flat_counters.runs);
+    flat_counters.sites += sites;
+    flat_counters.long_runs += (size_t)(sites > 1);
+}
+
+/// Print the reasons of `refused` that occurred, with their counts, and end the line.
+static void report_flat_reasons(
+    const std::array<std::atomic<size_t>, (size_t)FlatRefusal::Count>& refused) {
     bool first = true;
-    for (size_t i = 0; i < flat_counters.refuse.size(); ++i) {
-        if (const size_t n = flat_counters.refuse[i].load(); n > 0) {
+    for (size_t i = 0; i < refused.size(); ++i) {
+        if (const size_t n = refused[i].load(); n > 0) {
             cerr << (first ? ": " : "; ") << n << " " << g_flat_refuse_name[i];
             first = false;
         }
     }
     cerr << endl;
+}
+
+void BlockRecordWriter::report_flat() const {
+    size_t refused = 0;
+    for (const std::atomic<size_t>& reason : flat_counters.refuse) {
+        refused += reason.load();
+    }
+    size_t runs_refused = 0;
+    for (const std::atomic<size_t>& reason : flat_counters.run_refuse) {
+        runs_refused += reason.load();
+    }
+    if (flat_counters.runs.load() + flat_counters.reference_runs.load() + refused == 0) {
+        return;
+    }
+    cerr << "[vg call] flatten: " << flat_counters.runs.load()
+         << " runs of top-level sites written as flat records, " << flat_counters.lines.load()
+         << " lines; " << flat_counters.reference_runs.load()
+         << " runs whose strands spell the reference, with no line; " << flat_counters.sites.load()
+         << " sites in the runs, " << flat_counters.long_runs.load()
+         << " runs of two or more sites; " << flat_counters.withheld.load()
+         << " nested sites and " << flat_counters.withheld_between.load()
+         << " edit sites between the sites of a run left without a line because the flat records"
+         << " spell them" << endl;
+    cerr << "[vg call] flatten: " << runs_refused
+         << " runs of two or more sites written site by site";
+    report_flat_reasons(flat_counters.run_refuse);
+    cerr << "[vg call] flatten: " << refused << " sites written as without --flatten-records,"
+         << " with the sites nested in them";
+    report_flat_reasons(flat_counters.refuse);
     if (flat_check) {
         cerr << "[vg call] flatten check: " << flat_counters.checked.load()
-             << " sites whose flat records were put into the resolved reference, "
+             << " runs whose flat records were put into the reference, "
              << flat_counters.check_failed.load()
              << " FAILED to spell their strands" << endl;
     }
@@ -1227,79 +1229,103 @@ static vector<FlatDifference> differences_of(const string& sequence,
     return differences;
 }
 
-optional<FlatSite> BlockRecordWriter::align_flat(string reference,
-                                                 vector<pair<int, string>> strands) const {
-    FlatSite flat;
-    flat.reference = std::move(reference);
-    for (auto& [trav, sequence] : strands) {
-        FlatStrand strand{trav, std::move(sequence), {}};
-        if (!flat.strands.empty() && flat.strands.front().sequence == strand.sequence) {
-            strand.differences = flat.strands.front().differences;
-        } else if (strand.sequence != flat.reference) {
+void FlatRun::cluster_differences() {
+    vector<pair<int, int>> ranges;
+    for (const FlatStrand& strand : strands) {
+        for (const FlatDifference& difference : strand.differences) {
+            ranges.push_back(range_of(difference));
+        }
+    }
+    std::ranges::sort(ranges);
+    clusters.clear();
+    for (const pair<int, int>& range : ranges) {
+        if (!clusters.empty() && range.first < clusters.back().second) {
+            clusters.back().second = std::max(clusters.back().second, range.second);
+        } else {
+            clusters.push_back(range);
+        }
+    }
+}
+
+shared_ptr<FlatRun> BlockRecordWriter::align_flat(string reference, vector<string> strands,
+                                                  FlatRefusal& refused) const {
+    auto run = std::make_shared<FlatRun>();
+    run->reference = std::move(reference);
+    for (string& sequence : strands) {
+        FlatStrand strand{std::move(sequence), {}};
+        if (!run->strands.empty() && run->strands.front().sequence == strand.sequence) {
+            strand.differences = run->strands.front().differences;
+        } else if (strand.sequence != run->reference) {
             optional<StringAlignment> aligned =
-                align_global(flat.reference, strand.sequence, flat_aligner);
+                align_global(run->reference, strand.sequence, flat_aligner);
             if (!aligned) {
-                count_flat_refusal(FlatRefusal::AlignerLimit);
-                return std::nullopt;
+                refused = FlatRefusal::AlignerLimit;
+                return nullptr;
             }
-            left_align_gaps(flat.reference, strand.sequence, aligned->runs, true);
+            left_align_gaps(run->reference, strand.sequence, aligned->runs, true);
             strand.differences = differences_of(strand.sequence, aligned->runs);
             if (!strand.differences.empty() && strand.differences.front().needs_anchor()
                 && strand.differences.front().ref_begin == 0) {
-                count_flat_refusal(FlatRefusal::NoAnchorBase);
-                return std::nullopt;
+                refused = FlatRefusal::NoAnchorBase;
+                return nullptr;
             }
         }
-        flat.strands.push_back(std::move(strand));
+        run->strands.push_back(std::move(strand));
     }
-    return flat;
+    run->cluster_differences();
+    return run;
 }
 
 int BlockRecordWriter::write_flat(const PathPositionHandleGraph& graph, const FlatSite& flat,
                                   const string& sample_name, const NodeTranslation* translation,
                                   const SiteRecord& record, GLLayout gl_layout,
                                   const function<bool(vcflib::Variant&, size_t)>& add_line) const {
+    const FlatRun& run = *flat.run;
     const FlatAlignment alignment(flat);
     vector<vcflib::Variant> built;
     vector<bool> built_one_to_one;
     const BlockCutter cutter(graph, alignment, record, sample_name, translation, gl_layout);
-    if (cutter.cut(alignment.difference_clusters(), built, built_one_to_one)) {
-        // Every cluster holds the base before a difference that needs one, so the cutter has
-        // no anchor base to look for.
-        throw std::logic_error("a flat record of " + record.variant.id + " has an empty allele");
+    if (cutter.cut(alignment.difference_clusters(), built, built_one_to_one)
+        || built.size() != flat.cluster_count) {
+        // Every cluster holds a difference, and the base before a difference that needs one, so
+        // the cutter has no anchor base to look for and leaves no cluster out.
+        throw std::logic_error("a flat record of " + run.id + " has an empty allele");
     }
-    if (built.empty()) {
-        ++flat_counters.reference_sites;
-        return 0;
-    }
-    for (vcflib::Variant& line : built) {
-        line.info["SB"][1] = std::to_string(built.size());
-        line.id += "_" + line.info["SB"][0];
-        line.infoFlags["FL"] = true;
+    for (size_t i = 0; i < built.size(); ++i) {
+        // The records are numbered along the run.
+        built[i].info["SB"] = {std::to_string(flat.first_cluster + i),
+                               std::to_string(run.clusters.size())};
+        built[i].id = run.id + "_" + built[i].info["SB"][0];
+        built[i].infoFlags["FL"] = true;
     }
     if (flat_check) {
-        ++flat_counters.checked;
-        if (!flat_records_spell(flat, built, record.unflattened_position, sample_name)) {
-            ++flat_counters.check_failed;
+        std::scoped_lock lock(run.check_lock);
+        run.check_records.insert(run.check_records.end(), built.begin(), built.end());
+        if (--run.check_waiting == 0 && !run.check_records.empty()) {
+            std::ranges::sort(run.check_records, {}, &vcflib::Variant::position);
+            ++flat_counters.checked;
+            if (!flat_records_spell(run, run.check_records,
+                                    record.unflattened_position - (int64_t)flat.origin,
+                                    sample_name)) {
+                ++flat_counters.check_failed;
+            }
+            run.check_records.clear();
         }
     }
     int added = 0;
-    size_t index = 0;
-    for (vcflib::Variant& line : built) {
-        if (add_line(line, index)) {
+    for (size_t i = 0; i < built.size(); ++i) {
+        if (add_line(built[i], flat.first_cluster + i)) {
             ++added;
         }
-        ++index;
     }
-    ++flat_counters.sites;
     flat_counters.lines += (size_t)added;
     return added;
 }
 
-bool BlockRecordWriter::flat_records_spell(const FlatSite& flat,
+bool BlockRecordWriter::flat_records_spell(const FlatRun& run,
                                            const vector<vcflib::Variant>& records,
                                            int64_t first_position, const string& sample_name) {
-    for (size_t s = 0; s < flat.strands.size(); ++s) {
+    for (size_t s = 0; s < run.strands.size(); ++s) {
         string spelled;
         // The offset in the reference after the last record.
         size_t next = 0;
@@ -1317,26 +1343,26 @@ bool BlockRecordWriter::flat_records_spell(const FlatSite& flat,
                     entries.back() += c;
                 }
             }
-            if (entries.size() != flat.strands.size()
+            if (entries.size() != run.strands.size()
                 || !std::ranges::all_of(entries[s], [](unsigned char c) { return isdigit(c); })
                 || entries[s].empty()) {
                 return false;
             }
             const size_t allele = std::stoul(entries[s]);
             const auto at = (size_t)(line.position - first_position);
-            if (allele >= line.alleles.size() || at + line.ref.size() > flat.reference.size()
-                || flat.reference.compare(at, line.ref.size(), line.ref) != 0) {
+            if (allele >= line.alleles.size() || at + line.ref.size() > run.reference.size()
+                || run.reference.compare(at, line.ref.size(), line.ref) != 0) {
                 return false;
             }
-            spelled += flat.reference.substr(next, at - next);
+            spelled += run.reference.substr(next, at - next);
             spelled += line.alleles[allele];
             next = at + line.ref.size();
         }
-        if (next > flat.reference.size()) {
+        if (next > run.reference.size()) {
             return false;
         }
-        spelled += flat.reference.substr(next);
-        if (spelled != flat.strands[s].sequence) {
+        spelled += run.reference.substr(next);
+        if (spelled != run.strands[s].sequence) {
             return false;
         }
     }

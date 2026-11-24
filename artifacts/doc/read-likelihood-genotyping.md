@@ -664,18 +664,37 @@ two strands carry one walk.
 
 #### Flat records
 
-`--flatten-records`, off by default, writes each top-level site as the base-level differences of
-its called strands from its reference, and writes no records for the sites nested in it. It needs
-`--phased`, and cannot be combined with `--genotype-snarls`. Only the records change: the
+`--flatten-records`, off by default, writes the top-level sites as the base-level differences of
+their called strands from the reference, and writes no records for the sites nested in them. It
+needs `--phased`, and cannot be combined with `--genotype-snarls`. Only the records change: the
 genotypes, the phase, the anchors and the mosaic are what they are without it.
 
-A strand's **resolved sequence** is the allele the strand carries at the site, spelled from the
-site's start boundary node through its end boundary node, with each nested site spelled by the
-allele that strand carries there, at every depth, off-panel edit sites included. The site's
-**resolved reference** is its reference allele with each nested site at its own reference allele,
-which is the reference path through the site. vg aligns each strand's resolved sequence to the
-resolved reference, end to end, at the least cost: 4 for a mismatch, and for a gap of $L$ bases the
-lesser of $6 + 2L$ and $24 + L$. It then moves each gap as far left as it goes within the site.
+The records are cut over a **run** of sites. A run is a longest series of top-level snarls that
+follow each other in one chain, where:
+
+- the nodes from one snarl's end boundary node to the next snarl's start boundary node, both
+  included, have at most `--flatten-distance` bases (1000 by default). Two snarls that share a
+  boundary node have the bases of that node between them;
+- one phase set holds all of them, they have the same ploidy, and each heterozygous one has a
+  phased GT;
+- the reference path reads them one after another; and
+- the run's reference has at most 50,000 bases. A snarl that would take a run past that starts
+  the next run.
+
+A top-level [edit site](read-likelihood-direct-genotyping.md) in the nodes between two snarls of
+a run is in the run, and gets no records of its own. Where such an edit site cannot be, because
+it is in another phase set, has an unphased heterozygous GT, or has a node outside those nodes,
+the two snarls are in different runs. Every other top-level site is a run of its own, and with
+`--flatten-distance 0` every site is.
+
+A strand's **sequence over a run** is spelled from the first site's start boundary node through
+the last site's end boundary node: the allele the strand carries at each site of the run, with
+each nested site spelled by the allele that strand carries there, at every depth, the changes of
+the edit sites between the sites, and the nodes between the sites. The run's **reference** is the
+same with every site at its reference allele, which is the reference path through the run. vg
+aligns each strand's sequence to the reference by itself, end to end, at the least cost: 4 for a
+mismatch, and for a gap of $L$ bases the lesser of $6 + 2L$ and $24 + L$. It then moves each gap
+as far left as it goes within the run.
 
 Each maximal run of alignment columns that are not matches is a **difference**, and the records are
 cut from the differences:
@@ -690,18 +709,21 @@ cut from the differences:
   `1|2`.
 
 `POS` is the position of the record's first reference base on the reference path, as in every other
-record: the site's first base plus the record's offset in the resolved reference. The `GT` lists
-the strands in the order of the site's phase. It is phased, with the site's `PS`, where the site's
-own GT is phased, and is otherwise written with `/` and no `PS`. A site whose strands both spell
-the resolved reference writes nothing.
+record. A record belongs to the site of the run it starts in, or to the site before it where it
+starts in the nodes between two sites. The `GT` lists the strands in the order of the phase. It is
+phased, with that site's `PS`, where the site's own GT is phased, and is otherwise written with
+`/` and no `PS`. A run whose strands both spell the reference writes nothing.
 
-The other fields follow the [block records](#block-records). The ID is the site's ID followed by
-`_` and the record's index, and `INFO/SB` gives the index and the number of flat records the site
-writes. `QUAL`, `FILTER`, `DP`, `DR`, `BL`, `GQ`, `GQI`, `GQN` and `GP` are the top-level site's,
-repeated on each record, and `AD` and `GL` are copied from the site record through the site allele
-each strand carries. A difference that comes from a nested site therefore carries the top-level
-site's evidence, not the nested site's. `INFO/FL` marks a flat record. `INFO/AT` is `.` for each
-allele, since no walk of the graph spells a flat allele.
+The other fields follow the [block records](#block-records). The ID of a record of a run of one
+site is the site's ID, and that of a run of several is the ID of a site from the start boundary
+node of the run's first site to the end boundary node of its last, in both cases followed by `_`
+and the record's index among the run's records. `INFO/SB` gives that index and the number of flat
+records of the run. `QUAL`, `FILTER`, `DP`, `DR`, `BL`, `GQ`, `GQI`, `GQN` and `GP` are those of
+the site the record belongs to, and `AD` and `GL` are copied from that site's record through the
+site allele each strand carries. A difference that comes from a nested site, from an edit site
+between two sites, or from another site of the run therefore carries the evidence of the site it
+belongs to. `INFO/FL` marks a flat record. `INFO/AT` is `.` for each allele, since no walk of the
+graph spells a flat allele.
 
 A site is written as it is without `--flatten-records`, and so are the sites nested in it, where it
 has no strands to spell (it has no genotype or no phase, or the strands of its phase do not carry
@@ -709,14 +731,17 @@ the genotype that is written), where a gap at the site's first base has no refer
 it, or where the
 aligner reaches its limit. The aligner fills a band of the alignment matrix and widens it until it
 can show that the alignment costs the least, and gives up when the band would hold more than
-$2^{27}$ cells, or the proof more than $2^{30}$. The run reports on stderr, in lines starting
-`[vg call] flatten:`, the sites and lines written, the nested sites left without a line, and the
-sites not flattened, by reason.
+$2^{27}$ cells, or the proof more than $2^{30}$. A run of several sites whose strands cannot be
+aligned, or spelled along it, is written as a run for each of its sites and for each edit site
+between them. The call reports on stderr, in lines starting `[vg call] flatten:`, the runs and
+lines written, the sites in the runs, the runs of several sites, the nested sites and the edit
+sites between sites left without a line, the runs of several sites written site by site, by
+reason, and the sites not flattened, by reason.
 
-With the environment variable `VG_CHECK_FLAT_RECORDS` set, vg checks every flattened site as it
-writes it: it puts the site's flat records back into the resolved reference, taking for each strand
-the allele its GT entry names, and compares the result with the strand's resolved sequence. A
-`[vg call] flatten check:` line reports the sites checked and the sites that failed.
+With the environment variable `VG_CHECK_FLAT_RECORDS` set, vg checks every run once all its sites
+have written their records: it puts the run's flat records back into the run's reference, taking
+for each strand the allele its GT entry names, and compares the result with the strand's sequence
+over the run. A `[vg call] flatten check:` line reports the runs checked and the runs that failed.
 
 ### VCF fields
 
@@ -1003,7 +1028,8 @@ An `A` row gives one stretch of one strand. There are two kinds:
   node. It is the strand that the site's record spells: the allele the strand was called with,
   with every site nested in it spelled by the allele the strand was called with there, with or
   without a record of its own. With [`--flatten-records`](#flat-records), it is the strand whose
-  differences from the reference the site's flat records are.
+  differences from the reference the flat records of the site's run are, between those two
+  nodes.
 - A row for one node of the top-level chain gives the node's bases with the changes that the
   strand's alleles make to them at the [edit sites](read-likelihood-direct-genotyping.md) on the
   chain. Where two of those changes take one base of the node, the one further along the node is
@@ -1288,7 +1314,7 @@ are also rejected when those are not in use. Other general options used on this 
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
 | [Alleles built from the reads](#alleles-built-from-the-reads---read-consensus) | `--read-consensus`, `--consensus-min-diff`, `--consensus-min-reads`, `--consensus-min-change` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
-| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--flatten-records`, `--no-off-ref-nesting` |
+| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--flatten-records`, `--flatten-distance`, `--no-off-ref-nesting` |
 | [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
 | [Phasing](#phasing) | `--phased`, `--no-phased`, `--read-phasing`, `--no-read-phasing`, `--phase-min-q`, `--phase-coherence`, `--phase-coh-rounds`, `--phase-break`, `--phase-relink`, `--phase-hang`, `--phase-prior`, `--phase-cap` |
 | [Re-genotyping](#re-genotyping-from-the-phase) | `--regenotype`, `--no-regenotype`, `--regeno-temper`, `--regeno-ceiling`, `--regeno-passes`, `--regeno-haploid`, `--no-regeno-haploid`, `--regeno-ledger` |

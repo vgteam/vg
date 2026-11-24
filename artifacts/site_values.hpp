@@ -13,6 +13,7 @@
  * and the functions that read them from a decomposition.
  */
 
+#include <functional>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -187,6 +188,22 @@ NodePlacement placement_of_node(const SnarlDecomposition& decomposition, const H
 /// The key is the ID of the chain's first node. A trivial chain, of a node that bounds no site,
 /// has a key like any other chain. A key is never 0, since node IDs start at 1.
 size_t chain_key_of(const HandleGraph& graph, const ChildChain& chain);
+
+/**
+ * Walk from `end`, the end bound node of a site, to the start bound node of the next site of its
+ * chain.
+ *
+ * The walk goes on from a node where every walk of the chain takes the same node next. `nodes`
+ * is set to the nodes from `end` to the node the walk stops at, both included, and `bases` to
+ * the bases they have. They are the one node where the two sites share a bound.
+ *
+ * @param max_bases The most bases the nodes may have.
+ * @param starts_site Return whether a site starts at a node.
+ * @return Whether the walk stopped at a node that a site starts at.
+ */
+bool walk_to_next_site(const HandleGraph& graph, const handle_t& end, size_t max_bases,
+                       const function<bool(const handle_t&)>& starts_site,
+                       vector<handle_t>& nodes, size_t& bases);
 
 }
 }

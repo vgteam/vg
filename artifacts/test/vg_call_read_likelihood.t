@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 352
+plan tests 358
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -1167,7 +1167,7 @@ is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '{id = $3; sub(/_[0-9]+$/, "", 
         END { for (i = 1; i <= n; i++) for (s in lo) if (stem[i] != s && pos[i] >= lo[s] && pos[i] <= hi[s]) bad++
               print n "/" bad+0 }')" "1/0" \
    "no record of a nested site starts inside the stretch the flat records cover"
-is "$(sed -n 's/.*flatten check: \([0-9]*\) sites.* \([0-9]*\) FAILED.*/\1,\2/p' nestblk.flat.err)/$(sed -n 's/.* \([0-9]*\) nested sites left without a line.*/\1/p' nestblk.flat.err)" \
+is "$(sed -n 's/.*flatten check: \([0-9]*\) runs.* \([0-9]*\) FAILED.*/\1,\2/p' nestblk.flat.err)/$(sed -n 's/.* \([0-9]*\) nested sites and .* left without a line.*/\1/p' nestblk.flat.err)" \
    "1,0/2" \
    "the flat records put into the reference spell both strands, and stand in for the two nested sites"
 diff -q <(grep -v '^#graph' nestblk.flat.mosaic.tsv) <(grep -v '^#graph' nestblk.mosaic.tsv) >/dev/null
@@ -2493,10 +2493,29 @@ is "$($RCN_CALL --read-consensus 2>/dev/null | grep -v '^##' | diff - <(grep -v 
 is "$($RCN_CALL --read-consensus --consensus-min-diff 61 2>&1 >/dev/null | grep -c 'read consensus: 3 phased snarls, 0 tested, 0 candidate strands')" "1" \
    "a read that differs by fewer bases than --consensus-min-diff does not disagree"
 # With flat records, the record of the top-level snarl is a flat one, and is marked too.
-$RCN_CALL --read-consensus --flatten-records 2>/dev/null > rcn.flat.vcf
+# The three snarls follow each other in their chain, each sharing a bound node of 30 bases with
+# the next, so their flat records are those of one run, named by its two outer bound nodes.
+VG_CHECK_FLAT_RECORDS=1 $RCN_CALL --read-consensus --flatten-records 2>rcn.flat.err > rcn.flat.vcf
 is "$(grep -v '^#' rcn.flat.vcf | awk -F'\t' -v novel=$RCNOVEL '$5 == novel {print $2 "/" $3 "/" $4 "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)RC(;|$)/) "/" ($8 ~ /(^|;)FL(;|$)/)}')" \
-   "72/>4>7_0/C/0|1/1/1" \
+   "72/>1>10_1/C/0|1/1/1" \
    "--read-consensus with --flatten-records writes the consensus as a marked flat record"
+is "$(grep -v '^#' rcn.flat.vcf | awk -F'\t' '{printf "%s/%s/%s ", $2, $3, substr($10, 1, 3)}')/$(grep -v '^#' rcn.flat.vcf | grep -c 'SB=[012],3')" \
+   "41/>1>10_0/0|1 72/>1>10_1/0|1 103/>1>10_2/0|1 /3" \
+   "the flat records of a run of sites are numbered along the run, each placed and phased as its site's"
+is "$(grep -c ' 1 runs of two or more sites;' rcn.flat.err)/$(sed -n 's/.*flatten check: \([0-9]*\) runs.* \([0-9]*\) FAILED.*/\1,\2/p' rcn.flat.err)" \
+   "1/1,0" \
+   "and the run's records, put into the run's reference together, spell both strands"
+is "$($RCN_CALL --read-consensus --flatten-records --flatten-distance 30 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.flat.vcf) | wc -l | tr -d ' ')" "0" \
+   "two sites are in one run where the nodes between them have --flatten-distance bases"
+$RCN_CALL --read-consensus --flatten-records --flatten-distance 29 2>rcn.flat.err > rcn.flat.vcf
+is "$(grep -v '^#' rcn.flat.vcf | awk -F'\t' '{printf "%s/%s/%s ", $2, $3, ($8 ~ /(^|;)RC(;|$)/)}')/$(grep -c ' 0 runs of two or more sites;' rcn.flat.err)" \
+   "41/>1>4_0/0 72/>4>7_0/1 103/>7>10_0/0 /1" \
+   "and each is a run of its own where they have more"
+is "$($RCN_CALL --read-consensus --flatten-records --flatten-distance 0 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.flat.vcf) | wc -l | tr -d ' ')" "0" \
+   "as every site is with --flatten-distance 0"
+$RCN_CALL --flatten-distance 5 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--flatten-distance only applies to flat records, which --flatten-records turns on' rcn.refuse.txt)" "1" \
+   "--flatten-distance is refused without --flatten-records"
 # In an exact mosaic, the walk of the consensus's allele row is the two bound nodes alone, and its
 # bases put the consensus after the first of them, on no node.
 $RCN_CALL --read-consensus --mosaic-out rcn.mos.tsv --mosaic-exact 2>/dev/null > rcn.mos.vcf
@@ -2559,12 +2578,12 @@ is "$($RCM_CALL --read-consensus -A 2>/dev/null | awk '$3 == ">4>10" {print ($8 
    "with -A the one site's record gets nesting tags as a snarl's does"
 $RCM_CALL --read-consensus --flatten-records --mosaic-out rcm.fmos.tsv --mosaic-exact 2>/dev/null > rcm.flat.vcf
 is "$(grep -v '^#' rcm.flat.vcf | cut -f3 | tr '\n' ' ')/$(grep -v '^#' rcm.flat.vcf | grep -c ';RC;')/$(grep -c "C${RCNOVEL}" rcm.flat.vcf)" \
-   ">1>4_0 >4>10_0 >4>10_1 >4>10_2 /3/1" \
-   "written as flat records, the one site is its three differences from the reference, one of them the inserted bases"
+   ">1>10_0 >1>10_1 >1>10_2 >1>10_3 /4/1" \
+   "written as flat records, the two sites are one run of four differences from the reference, one of them the inserted bases"
 is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.fmos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
         --vcf rcm.flat.vcf --quiet >rcm.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" rcm.expand.txt)" \
-   "0/4,4,0" \
-   "and each strand of the mosaic has the bases its site's flat records give"
+   "0/2,2,0" \
+   "and each strand of the mosaic has the bases the run's flat records give, from the run's first bound node to its last"
 # The two checks have to fail on wrong bases, or passing them says nothing.
 sed "s/$RCNOVEL/A${RCNOVEL:1}/" rcm.mos.tsv > rcm.bad.tsv
 python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.bad.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
@@ -2572,10 +2591,11 @@ python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.bad.tsv --gaf rcn
 RCM_BAD=$?/$(sed -n "$MX_CHECKED" rcm.expand.txt)
 python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.bad.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
     --vcf rcm.flat.vcf --quiet >rcm.expand.txt 2>&1
-is "$RCM_BAD/$?/$(sed -n "$MX_CHECKED" rcm.expand.txt)" "1/4,3,1/1/4,3,1" \
+is "$RCM_BAD/$?/$(sed -n "$MX_CHECKED" rcm.expand.txt)" "1/4,3,1/1/2,1,1" \
    "with one base of the allele row's bases changed, both checks find the strand different"
 rm -f rcn.gfa rcn.gbz rcn.json rcn.gam rcn.off.vcf rcn.on.vcf rcn.on.err rcn.flat.vcf rcn.mos.tsv \
       rcn.mos.vcf rcn.paths.gaf rcn.graph.gfa rcn.expand.txt rcn.refuse.txt rcm.json rcm.gam \
+      rcn.flat.err \
       rcm.off.vcf rcm.vcf rcm.err rcm.mos.tsv rcm.expand.txt rcm.flat.vcf rcm.fmos.tsv rcm.bad.tsv
 
 # The cactus snarl finder makes a unary snarl for the loop off node 2 here, which the

@@ -618,11 +618,16 @@ void help_call(char** argv) {
          << "                            a called allele and the reference, rather than one" << endl
          << "                            per snarl [on]" << endl
          << "      --no-atomize-blocks   write one record per snarl" << endl
-         << "      --flatten-records     write each top-level snarl as the base-level" << endl
-         << "                            differences of its two called haplotypes, with" << endl
-         << "                            the calls in its nested snarls put in, from its" << endl
-         << "                            reference allele: one record per run of" << endl
-         << "                            mismatches or gap, and none for nested snarls" << endl
+         << "      --flatten-records     write the top-level snarls as the base-level" << endl
+         << "                            differences of each called haplotype from the" << endl
+         << "                            reference, with the calls in their nested snarls" << endl
+         << "                            put in, over each run of neighbouring snarls:" << endl
+         << "                            one record per run of mismatches or gap, and" << endl
+         << "                            none for nested snarls" << endl
+         << "      --flatten-distance N  put two snarls of a chain in one run of flat" << endl
+         << "                            records where the nodes from the end of one to" << endl
+         << "                            the start of the next have at most N bases;" << endl
+         << "                            with 0, each snarl is a run of its own [1000]" << endl
          << "  read consensus:" << endl
          << "      --read-consensus      add to a snarl, or to a run of neighbouring" << endl
          << "                            snarls of a chain, the consensus of the reads" << endl
@@ -895,6 +900,7 @@ int main_call(int argc, char** argv) {
     // Whether each top-level snarl is written as the base-level differences of its called
     // haplotypes from its reference allele.
     bool flatten_records = false;
+    size_t flatten_distance = 1000;
     // The step that adds alleles built from the reads to snarls.
     vg::multipass::ReadConsensusOptions read_consensus;
     string translation_file_name;
@@ -1095,6 +1101,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_CONSENSUS_MIN_DIFF = 1127;
     constexpr int OPT_CONSENSUS_MIN_READS = 1128;
     constexpr int OPT_CONSENSUS_MIN_CHANGE = 1131;
+    constexpr int OPT_FLATTEN_DISTANCE = 1132;
     optind = 2; // force optind past command positional argument
     // The long options, grouped by the subsystem they configure, by its name. Every subsystem with
     // a switch is part of the read-likelihood genotyper.
@@ -1238,6 +1245,10 @@ int main_call(int argc, char** argv) {
         }}},
         // Re-genotyping needs read phasing, so it is off without it, even where a preset turned it
         // on.
+        {"flat records", {"--flatten-records", "the read-likelihood genotyper",
+         [&] { return flatten_records; }, {
+            {"flatten-distance", required_argument, nullptr, OPT_FLATTEN_DISTANCE},
+        }}},
         {"read consensus", {"--read-consensus", "the read-likelihood genotyper",
          [&] { return read_consensus.enabled; }, {
             {"consensus-min-diff", required_argument, nullptr, OPT_CONSENSUS_MIN_DIFF},
@@ -1451,6 +1462,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_FLATTEN_RECORDS:
             flatten_records = true;
+            break;
+        case OPT_FLATTEN_DISTANCE:
+            flatten_distance = parse<size_t>(optarg);
             break;
         case OPT_READ_CONSENSUS:
             read_consensus.enabled = true;
@@ -2919,6 +2933,7 @@ int main_call(int argc, char** argv) {
 
     if (flatten_records && multipass_caller != nullptr) {
         multipass_caller->set_flatten_records(true);
+        multipass_caller->set_flatten_distance(flatten_distance);
     }
     if (read_consensus.enabled && multipass_caller != nullptr) {
         multipass_caller->set_read_consensus(read_consensus);

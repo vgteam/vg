@@ -172,9 +172,9 @@ struct StagedSite {
     /// frees them.
     optional<SplicedAlleles> spliced;
 
-    /// The strands of the site aligned to its resolved reference, if the site is written as flat
-    /// records (`--flatten-records`). The render sets them before it writes the site's records,
-    /// and then frees them.
+    /// The site's part of the flat records of its run, if the site is written as flat records
+    /// (`--flatten-records`). The render sets it before it writes any record, and frees it once
+    /// the site's records are written.
     optional<FlatSite> flat;
 
     /// The index of the first allele that is a consensus of the site's reads (see

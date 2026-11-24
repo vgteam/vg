@@ -189,5 +189,36 @@ size_t chain_key_of(const HandleGraph& graph, const ChildChain& chain) {
     return (size_t)graph.get_id(chain.start);
 }
 
+bool walk_to_next_site(const HandleGraph& graph, const handle_t& end, size_t max_bases,
+                       const function<bool(const handle_t&)>& starts_site,
+                       vector<handle_t>& nodes, size_t& bases) {
+    handle_t at = end;
+    nodes.assign(1, at);
+    bases = graph.get_length(at);
+    while (bases <= max_bases) {
+        if (starts_site(at)) {
+            return true;
+        }
+        // Go on to the next node where every walk of the chain takes it from here.
+        handle_t only = at;
+        size_t onward = 0;
+        graph.follow_edges(at, false, [&](const handle_t& to) {
+            only = to;
+            return ++onward < 2;
+        });
+        size_t back = 0;
+        if (onward == 1) {
+            graph.follow_edges(only, true, [&](const handle_t&) { return ++back < 2; });
+        }
+        if (onward != 1 || back != 1) {
+            return false;
+        }
+        at = only;
+        nodes.push_back(at);
+        bases += graph.get_length(at);
+    }
+    return false;
+}
+
 }
 }

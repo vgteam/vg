@@ -181,45 +181,32 @@ void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splic
         if (!can_join(i)) {
             continue;
         }
-        handle_t at = parts.sites->get_site_end(snarls[i]->net);
-        vector<handle_t> nodes{at};
-        size_t bases = graph.get_length(at);
-        while (bases <= options.run_max_junction) {
-            if (const auto found = by_start.find(at);
-                found != by_start.end() && found->second != i) {
-                if (same_phase(i, found->second) && !follows[found->second]) {
-                    next[i] = found->second;
-                    follows[found->second] = 1;
-                    nodes_after[i] = nodes;
-                    bases_after[i] = bases;
-                    // A gap that the reads have inside the node of a bound that faces the
-                    // other site is a signal of both.
-                    const size_t gap = std::max(alone[i].end_gap,
-                                                alone[found->second].start_gap);
-                    if (gap >= options.min_diff) {
-                        signal[i] = std::max(signal[i], gap);
-                        signal[found->second] = std::max(signal[found->second], gap);
-                    }
+        vector<handle_t> nodes;
+        size_t bases = 0;
+        size_t found = none;
+        const bool reached = walk_to_next_site(
+            graph, parts.sites->get_site_end(snarls[i]->net), options.run_max_junction,
+            [&](const handle_t& at) {
+                const auto starting = by_start.find(at);
+                if (starting == by_start.end() || starting->second == i) {
+                    return false;
                 }
-                break;
+                found = starting->second;
+                return true;
+            },
+            nodes, bases);
+        if (reached && same_phase(i, found) && !follows[found]) {
+            next[i] = found;
+            follows[found] = 1;
+            nodes_after[i] = nodes;
+            bases_after[i] = bases;
+            // A gap that the reads have inside the node of a bound that faces the other site
+            // is a signal of both.
+            const size_t gap = std::max(alone[i].end_gap, alone[found].start_gap);
+            if (gap >= options.min_diff) {
+                signal[i] = std::max(signal[i], gap);
+                signal[found] = std::max(signal[found], gap);
             }
-            // Go on to the next node where every walk of the chain takes it from here.
-            handle_t only = at;
-            size_t onward = 0;
-            graph.follow_edges(at, false, [&](const handle_t& to) {
-                only = to;
-                return ++onward < 2;
-            });
-            size_t back = 0;
-            if (onward == 1) {
-                graph.follow_edges(only, true, [&](const handle_t&) { return ++back < 2; });
-            }
-            if (onward != 1 || back != 1) {
-                break;
-            }
-            at = only;
-            nodes.push_back(at);
-            bases += graph.get_length(at);
         }
     }
     // A seed is a site whose reads disagree with what is called: one with a candidate strand,

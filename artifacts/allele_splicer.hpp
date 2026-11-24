@@ -113,6 +113,22 @@ public:
                      StepSequences& steps) const;
 
     /**
+     * Return the sequence that strand `strand` spells along the walk `along`, with each of the
+     * sites `on_walk` spelled by the allele the strand carries there.
+     *
+     * The sites are put on the walk as the sites staged under a site are put on its allele by
+     * `strand_sequence`: a snarl's allele in place of the walk from its start bound node to its
+     * end bound node, and the changes of an edit site's allele in the nodes of its walk.
+     *
+     * @param haploid Whether there is one strand, which every site of `on_walk` is on.
+     * @return Nothing if a site of `on_walk` has no allele on the strand, or its allele cannot
+     * be put on the walk.
+     */
+    optional<string> sequence_along(const Traversal& along,
+                                    const vector<const StagedSite*>& on_walk, int strand,
+                                    bool haploid) const;
+
+    /**
      * Return the sequence of the reference allele of `site`, with every site staged under it
      * spelled by its own reference allele, recursively.
      *
@@ -161,6 +177,21 @@ private:
     bool spliced_allele(const StagedSite& site, int trav, int strand, bool haploid,
                         bool reference, Traversal& walk, StepSequences& steps) const;
 
+    /**
+     * Spell the walk `parent_walk` on strand `strand`, with each site of `kids` spelled by its
+     * chosen allele on that strand, as `spliced_allele` spells an allele of a site with the
+     * sites staged under it.
+     *
+     * @param alleles The alleles that `parent_walk` is walk `trav` of, for the bases of its
+     * steps, or null if each step has the bases of its node.
+     * @param skipped If not null, increased by the number of sites of `kids` whose allele was
+     * not put on the walk.
+     */
+    bool spliced_walk(const Traversal& parent_walk, const CandidateAlleles* alleles, int trav,
+                      const vector<const StagedSite*>& kids, int strand, bool haploid,
+                      bool reference, Traversal& walk, StepSequences& steps,
+                      size_t* skipped) const;
+
     /// Return the sequence of allele `trav` of `site`, spliced as `spliced_allele` splices it.
     string resolved_sequence(const StagedSite& site, int trav, int strand, bool haploid,
                              bool reference) const;
@@ -190,9 +221,10 @@ private:
     /// @param own The step sequences of the parent's allele, or null if its walk spells it.
     /// @param routes Sorted by where they begin.
     /// @return True if any route changed the allele.
+    /// @param skipped If not null, increased by the number of routes skipped.
     bool splice_routes(const Traversal& parent_walk, const StepSequences* own,
                        const vector<Replacement>& routes, Traversal& walk,
-                       StepSequences& steps) const;
+                       StepSequences& steps, size_t* skipped) const;
 
     /// Find the changes that children inside nodes make to the steps of the spliced walk `walk`.
     ///
@@ -201,7 +233,11 @@ private:
     /// (`Replacement::changes`), at their own offsets, so that two changes to one node that
     /// touch no base in common are both made. A child with none of those changes the bases its
     /// step sequences differ from its nodes in.
-    vector<StepEdit> step_edits_of(const vector<Replacement>& edits, const Traversal& walk) const;
+    ///
+    /// @param skipped If not null, increased by the number of children whose walk `walk` does
+    /// not have.
+    vector<StepEdit> step_edits_of(const vector<Replacement>& edits, const Traversal& walk,
+                                   size_t* skipped) const;
 
 
     const HandleGraph& graph;

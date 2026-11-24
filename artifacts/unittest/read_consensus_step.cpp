@@ -277,9 +277,16 @@ TEST_CASE("A snarl whose reads on one strand carry 60 bases no walk spells gains
     SECTION("flat records spell the consensus and are marked") {
         const Called called = call_chain(reads, true, true);
         REQUIRE(called.counts.sites_called == 1);
-        const string record = record_of(called.records, ">4>7");
+        // The three snarls of the chain are one run of flat records, named by its two outer
+        // bound nodes.
+        string record;
+        for (const string& line : called.records) {
+            REQUIRE(field(line, 2).rfind(">1>10_", 0) == 0);
+            if (field(line, 4) == NOVEL) {
+                record = line;
+            }
+        }
         REQUIRE(!record.empty());
-        REQUIRE(field(record, 4) == NOVEL);
         REQUIRE((";" + field(record, 7) + ";").find(";RC;") != string::npos);
         REQUIRE((";" + field(record, 7) + ";").find(";FL;") != string::npos);
     }
@@ -516,7 +523,8 @@ void require_first_two_merged(const function<void(bdsg::HashGraph&)>& make, cons
     REQUIRE(called.counts.sites_called == 1);
     REQUIRE(record_of(called.records, ">1>4").empty());
     REQUIRE(record_of(called.records, ">4>7").empty());
-    const string merged = record_of(called.records, ">1>7");
+    // As flat records, the one site and the third snarl are one run.
+    const string merged = record_of(called.records, reference.empty() ? ">1>7" : ">1>10");
     REQUIRE(!merged.empty());
     REQUIRE((";" + field(merged, 7) + ";").find(";RC;") != string::npos);
     const string first = reference.empty()

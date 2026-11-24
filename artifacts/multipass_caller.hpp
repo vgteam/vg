@@ -170,20 +170,26 @@ public:
     void set_atomize_blocks(bool on) { block_records.set_enabled(on); }
 
     /**
-     * Set whether each top-level site is written as flat records: the base-level differences of
-     * each of its strands, with the called alleles of the sites nested in it spliced in, from
-     * its reference allele (see `BlockRecordWriter::write_flat`). The sites nested in it then
-     * get no lines of their own. Only the records change: the phase, the anchors and the mosaic
-     * are what they are with this off. Off by default.
+     * Set whether the top-level sites are written as flat records: the base-level differences
+     * of each strand from the reference, over a run of neighbouring sites, with the called
+     * alleles of the sites nested in them spliced in (see `plan_flat_records` and
+     * `BlockRecordWriter::write_flat`). The sites nested in them then get no lines of their
+     * own. Only the records change: the phase, the anchors and the mosaic are what they are
+     * with this off. Off by default.
      *
      * A site whose strands cannot be aligned to its reference is written as it is with this
      * off, and so are the sites nested in it.
      *
-     * With the environment variable `VG_CHECK_FLAT_RECORDS` set, the flat records of each site
+     * With the environment variable `VG_CHECK_FLAT_RECORDS` set, the flat records of each run
      * are put back into its reference and compared with its strands, and the report counts the
-     * sites checked and the sites that failed.
+     * runs checked and the runs that failed.
      */
     void set_flatten_records(bool on);
+
+    /// Set the most bases that the nodes from one site's end bound to the next site's start
+    /// bound, both included, can have for the two to be in one run of flat records. With 0,
+    /// every site is a run of its own.
+    void set_flatten_distance(size_t bases) { flatten_distance = bases; }
 
     /// File each site in the linkage model while calling, so that it can choose the genotypes
     /// afterwards.
@@ -306,7 +312,8 @@ private:
     RecordRenderer::WrittenAlleles write_site(StagedSite& site, const vector<int>& genotype);
 
     /// Return whether the records `site` has without `--flatten-records` are kept out of the
-    /// output: those of a site written as flat records, and of a site nested in one.
+    /// output: those of a site written as flat records, of a site nested in one, and of an edit
+    /// site between two sites of a run.
     ///
     /// Such a site is still rendered, with its lines dropped, so that the linkage model, the
     /// anchors and the mosaic are told what they are told without `--flatten-records`.
@@ -314,20 +321,56 @@ private:
         return site.flat.has_value() || flat_withheld.contains(site.record_key);
     }
 
-    /// Return whether `site` is one that `--flatten-records` writes as flat records: a site
-    /// staged as top level.
-    bool is_flat_root(const StagedSite& site) const {
-        return flatten_records && site.placement.parent_record_key == 0;
-    }
+    /// A run of sites that `--flatten-records` writes together, before its strands are spelled.
+    struct FlatRunPlan {
+        /// The sites that write the run's records: neighbouring top-level snarls of one chain,
+        /// in the order of the chain, or one top-level edit site.
+        vector<StagedSite*> sites;
+        /// The nodes from each site's end bound to the next site's start bound, both included.
+        vector<vector<handle_t>> junctions;
+        /// The top-level edit sites in the nodes of the junctions.
+        vector<StagedSite*> between;
+    };
 
     /**
-     * Align the strands of `site`, whose chosen genotype is `genotype`, to its resolved
-     * reference, for its flat records.
+     * Return whether the strands of the top-level site `site` can be spelled for flat records,
+     * counting why not.
      *
-     * @return Nothing, counting why, if the site has no strands that carry `genotype`, its
-     * resolved reference is not its reference allele, or the strands cannot be aligned.
+     * They can where the site has a genotype and a phase whose strands carry it, and its
+     * resolved reference is its reference allele, which its records are placed by.
      */
-    optional<FlatSite> flat_site_of(const StagedSite& site, const vector<int>& genotype) const;
+    bool can_flatten(const StagedSite& site) const;
+
+    /// Return whether the phase of the site with `phase` orders its two strands, so that its
+    /// record claims a phase.
+    bool orders_strands(const LinkageCollector::PhaseCall& phase) const;
+
+    /**
+     * Group the top-level sites `roots` into the runs that are written as flat records.
+     *
+     * A run is a longest series of snarls that follow each other in a chain, where at most
+     * `flatten_distance` bases lie in the nodes from one's end bound to the next one's start
+     * bound, one phase orders the strands of all of them, the reference path reads them one
+     * after another, and the run's reference has no more than `flat_run_max_bases` bases. The
+     * edit sites in the nodes between two sites of a run are in the run, and two snarls with an
+     * edit site between them that cannot be are in no run together. Every other site that can
+     * be written as flat records is a run of its own.
+     *
+     * @param can Whether each site of `roots` can be written as flat records.
+     */
+    vector<FlatRunPlan> flat_runs(const vector<StagedSite*>& roots, const vector<char>& can) const;
+
+    /**
+     * Spell each strand along the run of `plan`, align it to the run's reference, and give each
+     * site of the run its part of the run's records, in `StagedSite::flat`.
+     *
+     * A strand is spelled by the splicer, from the first site's start bound to the last site's
+     * end bound, with every site of the run in it.
+     *
+     * @param refused Set to why not, where false is returned.
+     * @return False, giving no site anything, if a strand cannot be spelled or aligned.
+     */
+    bool align_flat_run(const FlatRunPlan& plan, FlatRefusal& refused) const;
 
     /// Return the objects the read-consensus step works with.
     ReadConsensusStep::Parts read_consensus_parts();
@@ -337,11 +380,13 @@ private:
     void add_read_consensus_alleles();
 
     /**
-     * Decide, before any record is written, which top-level sites with sites nested in them are
-     * written as flat records, and so which nested sites get no line.
+     * Decide, before any record is written, which top-level sites are written as flat records,
+     * in which runs, and so which other sites get no line.
      *
-     * A nested site's line is left out only once the site above it is known to align, so this
-     * aligns each such top-level site and keeps the alignment in `StagedSite::flat`.
+     * The line of a site nested in a site of a run, or of an edit site between two sites of a
+     * run, is left out only once the run is known to align. A run of several sites that does
+     * not is written as a run for each of its sites. A site alone that does not is written as
+     * it is without flat records, with the sites nested in it.
      */
     void plan_flat_records();
 
@@ -504,10 +549,15 @@ private:
     /// Spells the alleles of each site with the chosen alleles of the sites under it, from
     /// `phase_table`.
     AlleleSplicer splicer;
-    /// Whether each top-level site is written as flat records (see `set_flatten_records`).
+    /// Whether the top-level sites are written as flat records (see `set_flatten_records`).
     bool flatten_records = false;
-    /// The record keys of the nested sites in the render queues whose lines are kept out of the
-    /// output, because the flat records of the top-level site above them spell them.
+    /// See `set_flatten_distance`.
+    size_t flatten_distance = 1000;
+    /// The most bases the reference of a run of several sites can have.
+    static constexpr size_t flat_run_max_bases = 50000;
+    /// The record keys of the sites in the render queues whose lines are kept out of the
+    /// output, because the flat records of a run spell them: the sites nested in a site of the
+    /// run, and the edit sites between two of its sites.
     unordered_set<size_t> flat_withheld;
 
     /// Which allele each panel haplotype carries at a site. Empty without the linkage model.
