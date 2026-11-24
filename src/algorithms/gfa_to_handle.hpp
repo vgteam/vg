@@ -11,6 +11,7 @@
 #include <cctype>
 #include <string_view>
 #include <vector>
+#include "gfa_numeric_ids.hpp"
 
 #include "../handle.hpp"
 
@@ -24,6 +25,9 @@ using namespace std;
  * are stored in the name_to_id map.
  */
 struct GFAIDMapInfo : public NamedNodeBackTranslation {
+    // Used by text imports that own their mapping. External maps keep the
+    // ordinary name table interface.
+    NumericGfaIds numeric_ids;
     /// If true, GFA string IDs are just graph numerical IDs.
     bool numeric_mode = true;
     /// If true, existing node lookups may resolve numeric IDs directly

@@ -344,6 +344,7 @@ void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
 
     
     GFAIDMapInfo id_map_info;
+    id_map_info.numeric_ids = NumericGfaIds(true);
     gfa_to_handle_graph(filename, graph, &id_map_info);
     id_map_info.write_gfa_translation(translation_filename);
 }
@@ -371,6 +372,7 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
                               unordered_set<PathSense>* ignore_sense) {
 
     GFAIDMapInfo id_map_info;
+    id_map_info.numeric_ids = NumericGfaIds(true);
     gfa_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank, ignore_sense);
     id_map_info.write_gfa_translation(translation_filename);
 
@@ -821,6 +823,17 @@ bool GFAParser::decode_rgfa_tags(const tag_list_t& tags,
 }
 
 nid_t GFAParser::assign_new_sequence_id(const string& str, GFAIDMapInfo& id_map_info) {
+    if (id_map_info.numeric_ids.active()) {
+        nid_t id = NumericGfaIds::parse(str);
+        if (id > 0 && id_map_info.numeric_ids.can_store(id)) {
+            if (!id_map_info.numeric_ids.insert(id)) return 0;
+            id_map_info.max_id = std::max(id, id_map_info.max_id);
+            return id;
+        }
+        // Recreate exactly the canonical names seen so far before switching to
+        // the original mixed-name/large-range assignment and translation rules.
+        id_map_info.numeric_ids.materialize(*id_map_info.name_to_id);
+    }
     
     auto found = id_map_info.name_to_id->find(str);
     if (found != id_map_info.name_to_id->end()) {
@@ -871,6 +884,10 @@ nid_t GFAParser::find_existing_sequence_id(std::string_view str, const GFAIDMapI
             return parsed_id;
         }
         return 0;
+    }
+    if (id_map_info.numeric_ids.active()) {
+        nid_t id = NumericGfaIds::parse(str);
+        return id > 0 && id_map_info.numeric_ids.contains(id) ? id : 0;
     }
     // unordered_map<string, nid_t>::find does not support heterogeneous lookup
     // before C++20, so we allocate only here on the slow path.
@@ -1401,6 +1418,7 @@ GFAIDMapInfo& GFAParser::id_map() {
     }
     if (!internal_id_map) {
         internal_id_map = make_unique<GFAIDMapInfo>();
+        internal_id_map->numeric_ids = NumericGfaIds(true);
     }
     return *internal_id_map;
 };
