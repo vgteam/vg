@@ -83,12 +83,15 @@ int main_convert(int argc, char** argv) {
         return 1;
     }
 
+    std::string required_path_sample;
+
     constexpr int OPT_REF_SAMPLE = 1000;
     constexpr int OPT_GBWTGRAPH_ALGORITHM = 1001;
     constexpr int OPT_VG_ALGORITHM = 1002;
     constexpr int OPT_NO_TRANSLATION = 1003;
     constexpr int OPT_HAP_LOCUS = 1004;
     constexpr int OPT_NEW_SAMPLE = 1005;
+    constexpr int OPT_REQUIRE_SAMPLE = 1010;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -99,6 +102,7 @@ int main_convert(int argc, char** argv) {
             {"gfa-in", no_argument, 0, 'g'},
             {"in-rgfa-rank", required_argument, 0, 'r'},
             {"ref-sample", required_argument, 0, OPT_REF_SAMPLE},
+            {"require-sample", required_argument, 0, OPT_REQUIRE_SAMPLE},
             {"hap-locus", required_argument, 0, OPT_HAP_LOCUS},
             {"new-sample", required_argument, 0, OPT_NEW_SAMPLE},
             {"drop-haplotypes", no_argument, 0, 'H'},
@@ -142,6 +146,12 @@ int main_convert(int argc, char** argv) {
             break;
         case 'r':
             input_rgfa_rank = stol(optarg);
+            break;
+        case OPT_REQUIRE_SAMPLE:
+            required_path_sample = optarg;
+            if (required_path_sample.empty()) {
+                logger.error() << "--require-sample needs a non-empty sample name" << endl;
+            }
             break;
         case OPT_REF_SAMPLE:
             ref_samples.insert(optarg);
@@ -398,6 +408,35 @@ int main_convert(int argc, char** argv) {
         }
     }
 
+    if (!required_path_sample.empty()) {
+        if (input != input_handlegraph || output_format != "gfa") {
+            logger.error() << "--require-sample requires graph input and GFA output (-f)" << endl;
+        }
+        const auto* paths = dynamic_cast<const PathHandleGraph*>(input_graph.get());
+        if (!paths) {
+            logger.error() << "--require-sample needs a graph with embedded paths" << endl;
+        }
+        bool found = false;
+        std::set<std::string> samples;
+        paths->for_each_path_handle([&](const path_handle_t& path) {
+            auto name = paths->get_path_name(path);
+            auto sample = name.substr(0, name.find('#'));
+            found = sample == required_path_sample;
+            if (!found) {
+                samples.insert(std::move(sample));
+            }
+            return !found;
+        });
+        if (!found) {
+            std::ostringstream message;
+            message << "sample "" << required_path_sample << "" has no path; samples:";
+            for (const auto& sample : samples) {
+                message << ' ' << sample;
+            }
+            logger.error() << message.str() << endl;
+        }
+    }
+
     // GFA output.
     if (output_format == "gfa") {
         // Determine if we have a GBZGraph wrapper for a GBZ graph as the HandleGraph.
@@ -486,6 +525,7 @@ void help_convert(char** argv) {
          << "  -a, --hash-out             output in HashGraph format" << endl
          << "  -p, --packed-out           output in PackedGraph format (default)" << endl
          << "  -x, --xg-out               output in XG format" << endl
+         << "      --require-sample STR check an embedded path name's sample before GFA export" << endl
          << "  -f, --gfa-out              output in GFA format" << endl
          << "  -H, --drop-haplotypes      do not include haplotype paths in the output" << endl
          << "                             (useful with GBWTGraph / GBZ inputs)" << endl
