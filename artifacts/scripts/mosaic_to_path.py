@@ -1,1250 +1,494 @@
 #!/usr/bin/env python3
-"""Expand a mosaic into one path per thread and check it is an exact walk in the graph.
+"""Rebuild the strands of a mosaic and check them against the graph and the VCF.
 
-This is the acceptance test the mosaic format exists to pass. Every other property -- segments
-chaining, orientation, walk order, patched gaps, nested excursions -- is a way for this to fail, so
-checking it directly subsumes checking them individually.
+Inputs: the mosaic of `vg call --mosaic-out`, with or without `--mosaic-exact`; the graph's
+paths, from `vg paths -x GRAPH -A`; optionally the graph, from `vg view -g GRAPH`, for its edges
+and its nodes' bases; and optionally the VCF of the same run, which needs the graph.
 
-Inputs are what `vg` can already produce, so this needs no new subcommand:
-  paths.gaf   vg paths -x GRAPH -A      one line per stored path, node walk in field 6
-  graph.gfa   vg view -g GRAPH          L-lines give the edges
-  mosaic.tsv  vg call --mosaic-out
+A strand is rebuilt as the file says. Each fragment's `H` rows are expanded along their
+haplotypes and joined on the nodes they share. Then every `A` row of the fragment is put on that
+walk: at each visit of its start node, the visits up to the next visit of its end node become the
+row's walk, and each step takes its entry of `bases`. In an entry `*` stands for the bases the
+visit already has, and `+` is followed by the bases that lie after the step on no node, which
+join it to the next step without an edge.
 
-Checks, in order of how much they tell you:
-  1. every segment names a haplotype the GAF carries, and its start/end nodes lie on that walk
-  2. the slice between them is taken in the haplotype's own direction of travel
-  3. consecutive segments of a path join -- the next begins where the previous ended
-  4. every step of the concatenated path is a real edge in the graph
-Exit status is non-zero if any check fails; the report says which and how often.
+Checks, any of which makes the exit status non-zero:
+  1. every `H` row names a haplotype the GAF carries, with its two end nodes on one of its walks,
+     and consecutive rows of a fragment share the node they meet at
+  2. every `A` row has a stretch to go on and one entry of bases per step, and no two rows of a
+     strand change the same visit
+  3. with --gfa, every step of a rebuilt strand is an edge of the graph or is joined by a `+`
+  4. with --vcf, every strand has the bases the records give it:
+     - a site, whose records' IDs name its two bound nodes (`>a>b`, or `>a>b_N`): the reference
+       from bound node to bound node, with the strand's alleles of the site's records put in, is
+       what the strand has there. The bound nodes count with their own bases, since a record can
+       lie on them and the changes to them are another site's.
+     - the nodes that the records of edit sites (`op...`) change: the reference over them, with
+       the strand's alleles put in, is what the strand's visits of them have.
+     - where an `A` row makes a strand differ from the reference, a record lies there.
 
-A path is one (contig, strand, fragment) triple: the format says so, and `fragment` only advances
-where a boundary was left open, so with --mosaic-patch-gaps on there is one path per strand.
-
---gfa is optional. Without it checks 1-3 still run, which is enough to say whether the rows tile;
-check 4 needs the graph's edges, and the GFA for a whole chromosome is large.
-
-A version 6 mosaic (`vg call --mosaic-exact`) also has `A` rows. Each gives the allele a strand was
-called with at one site, as a node walk between the site's two bound nodes. They are applied in
-file order to the paths the `H` rows expand to: every stretch of the strand's paths that runs from
-the row's start node to its next visit of the end node becomes the row's walk. A row whose start
-node the strand does not visit adds its walk as a path of its own. Check 4 then runs on the paths
-with the `A` rows applied, so it also says that every `A` row's walk is a walk in the graph. The
-one exception is a row that gives a sequence and whose walk is its two bound nodes alone, as the
-row of an allele built from the reads is (`vg call --read-consensus`): the sequence joins the two
-nodes, so the step between them need not be an edge, and it is counted apart.
-
-An `A` row's sequence is the strand's bases over the row's walk. With --gfa, which gives the
-nodes' bases, the sequences are read into the bases of the paths: `StrandWalk.settle` works out
-from all of a strand's rows together which bases each visit of a node has, and which lie between
-two visits. The number of sequences read, not read and left out is printed.
-
---vcf CALLS.vcf checks that the paths take the alleles the VCF calls. It reads each record whose ID
-names a snarl by its two bound nodes (`>a>b`, without the `_N` suffix of a block record), whose
-INFO/AT gives every allele's walk between those nodes, and whose GT is phased `x|y`. Strand 0 has
-allele x and strand 1 allele y, and a `.` is skipped. Between the snarl's two bound nodes, the
-strand's paths are compared with the called allele's AT walk, and, where that walk is the two
-bound nodes alone, the paths' bases there with the allele's. It counts the alleles checked, and
-of those the ones whose walk the paths take (`equal`), the ones they do not (`different`), and the
-ones whose snarl the strand's paths do not cross. Two more classes count the alleles whose AT walk
-is not the walk the genotyper chose for the strand, which the VCF itself shows; `check_vcf` defines
-them. A site written as flat records (`vg call --flatten-records`, INFO/FL) has no AT walks, and
-is compared by its bases: `check_site_records`. The bases that the sequences give inside nodes are
-compared with the records of edit sites, whose IDs name a node and not a snarl:
-`check_node_bases`. Any `different` allele, strand or node makes the exit status non-zero. Every record, allele and strand that is not compared is counted, by reason: block
-records, the records of edit sites inside nodes, records with no phase, and strands with no
-allele. The node IDs of AT are compared with those of the mosaic as they are, so the VCF must be
-written without a node translation.
+What is not compared is counted, by reason. A site with the records of other sites inside it is
+one such class: its record spells an allele once, with the alleles one strand has at the sites
+inside, so only those are compared. The VCF must be written without a node translation.
 """
 import sys, argparse, re, bisect
 from collections import defaultdict
 
-
-def read_walks(gaf):
-    """path name -> list of (node_id, is_reverse), from the GAF path field."""
-    walks = {}
-    # Haplotypes share most of their steps, so each distinct step is kept once.
-    shared = {}
-    for line in open(gaf):
-        if line.startswith('@') or not line.strip():
-            continue
-        f = line.rstrip('\n').split('\t')
-        if len(f) < 6:
-            continue
-        steps, i, p = [], 0, f[5]
-        while i < len(p):
-            if p[i] in '><':
-                rev = p[i] == '<'
-                j = i + 1
-                while j < len(p) and p[j] not in '><':
-                    j += 1
-                step = (int(p[i + 1:j]), rev)
-                steps.append(shared.setdefault(step, step))
-                i = j
-            else:
-                i += 1
-        walks[f[0]] = steps
-    return walks
-
-
-def read_edges(gfa, sequences):
-    """set of ((from, from_rev), (to, to_rev)), both orientations of each L-line.
-
-    Also fills `sequences` with each S-line's node ID and bases.
-    """
-    e = set()
-    for line in open(gfa):
-        if line.startswith('S\t'):
-            f = line.rstrip('\n').split('\t')
-            if f[1].isdigit():
-                sequences[int(f[1])] = f[2]
-            continue
-        if not line.startswith('L\t'):
-            continue
-        f = line.rstrip('\n').split('\t')
-        a, ao, b, bo = int(f[1]), f[2] == '-', int(f[3]), f[4] == '-'
-        e.add(((a, ao), (b, bo)))
-        e.add(((b, not bo), (a, not ao)))      # the same edge walked the other way
-    return e
-
-
-def pick_copy(w, starts, ends, srev, erev, resume):
-    """Pick which visit to the start and end nodes this segment means.
-
-    The file states the orientation at both ends, so a copy whose orientation disagrees is not the
-    one meant. Among those that agree, take the pair nearest the point the walk has reached -- the
-    segments of a fragment are given in walk order, so that is the copy the previous segment hands
-    over to. Returns (None, None) when no pair qualifies, which is a real failure and is counted.
-    """
-    best = None
-    for i in starts:
-        if w[i][1] != srev:
-            continue
-        for j in ends:
-            if w[j][1] != erev:
-                continue
-            # Distance from where the walk stands, then span, so a segment does not leap across
-            # the contig to a distant repeat copy when a near one fits.
-            cost = (abs(i - resume), abs(j - i))
-            if best is None or cost < best[0]:
-                best = (cost, i, j)
-    if best is None:
-        # Orientation may legitimately be the reverse-complement reading of the whole fragment, in
-        # which case both ends flip together. Try that before giving up.
-        for i in starts:
-            if w[i][1] == srev:
-                continue
-            for j in ends:
-                if w[j][1] == erev:
-                    continue
-                cost = (abs(i - resume), abs(j - i))
-                if best is None or cost < best[0]:
-                    best = (cost, i, j)
-    return (best[1], best[2]) if best else (None, None)
-
-
-def haplotype_walk(walks, name, wanted, _cache={}):
-    """Fragments of one haplotype, each with a node->offset index of the nodes in `wanted`.
-
-    Indexed once per haplotype and cached: a walk here is two million nodes, and rebuilding the
-    index per segment turns a linear check into 16 billion operations. Only the nodes that rows
-    start or end on are looked up, so only those are indexed.
-    """
-    if name in _cache:
-        return _cache[name]
-    out = [w for n, w in walks.items() if n == name or n.startswith(name + '#')
-           or n.split('[')[0] == name]
-    out.sort(key=len, reverse=True)
-    # EVERY occurrence, not just the last. A haplotype can visit a node more than once -- a
-    # tandem repeat, an inversion re-entering -- and `{n: i for ...}` silently keeps the final
-    # visit, so a segment anchored on an earlier one was sliced from the wrong copy. That is the
-    # checker's own ambiguity, not the file's: the file names the copy, by stating the orientation
-    # at both ends and by listing segments in walk order.
-    occ = []
-    for w in out:
-        d = defaultdict(list)
-        for i, (n, _) in enumerate(w):
-            if n in wanted:
-                d[n].append(i)
-        occ.append((w, d))
-    _cache[name] = occ
-    return _cache[name]
-
-
 STEP = re.compile(r'([<>])(\d+)')
-WALK = re.compile(r'(?:[<>]\d+)+$')
 SNARL_ID = re.compile(r'([<>]\d+[<>]\d+)(_\d+)?$')
-
-
-def parse_walk(text):
-    """'>1<2' -> [(1, False), (2, True)], or None if the text is not a walk."""
-    if not WALK.match(text):
-        return None
-    return [(int(i), o == '<') for o, i in STEP.findall(text)]
-
-
-def backwards(walk):
-    """The same walk read from its end to its start."""
-    return [(n, not r) for n, r in reversed(walk)]
-
-
-class StrandWalk:
-    """One strand's paths, held so that a stretch can be replaced without moving the rest.
-
-    Each visit of a node is a slot that points at the next one. A replaced slot is dead.
-    """
-
-    def __init__(self):
-        self.node, self.next, self.live = [], [], bytearray()
-        self.heads = []                    # (fragment, first slot) of each path
-        self.at = defaultdict(list)        # node -> slots, for the nodes asked for
-        self.joined = set()                # (node, node) steps that an A row's sequence joins
-        # What the A rows' sequences say, which the nodes of a walk do not:
-        self.bases = {}                    # slot -> the strand's bases over that visit
-        self.after = {}                    # slot -> its bases between that visit and the next
-        self.fused = {}                    # slot -> the slot before it that holds its bases
-        self.unclear = set()               # slots whose bases two sequences give differently
-        self.given = []                    # (slots, sequence) of each A row with a sequence
-        self.covered = set()               # slots between the bounds of a site compared by bases
-        self.disagree = 0                  # A rows whose sequence disagrees with another row's
-        self.shared = 0                    # A rows that share fused visits with another row
-
-    def add_path(self, fragment, steps):
-        first = len(self.node)
-        self.node.extend(steps)
-        self.next.extend(range(first + 1, first + len(steps)))
-        self.next.append(-1)
-        self.live.extend(b'\x01' * len(steps))
-        self.heads.append((fragment, first))
-        return first
-
-    def index(self, wanted):
-        """Index the live slots of the nodes in `wanted`. Slots added later are indexed too."""
-        self.at = defaultdict(list)
-        for slot, n in enumerate(self.node):
-            if self.live[slot] and n in wanted:
-                self.at[n].append(slot)
-
-    def crossings(self, start, end):
-        """Each stretch from `start` to the next visit of `end`, as (first slot, last slot)."""
-        found = []
-        for slot in self.at.get(start, ()):
-            if not self.live[slot]:
-                continue
-            at = slot
-            while at >= 0 and self.node[at] != end:
-                at = self.next[at]
-                if at >= 0 and self.node[at][0] == start[0]:
-                    at = -1                # back at the start node before reaching the end
-            if at >= 0:
-                found.append((slot, at))
-        return found
-
-    def slots(self, crossing):
-        out, at = [crossing[0]], crossing[0]
-        while at != crossing[1]:
-            at = self.next[at]
-            out.append(at)
-        return out
-
-    def taken(self, crossing):
-        return [self.node[slot] for slot in self.slots(crossing)]
-
-    def give(self, slots, text):
-        """Note that the visits in `slots`, the walk of an A row, have the row's sequence `text`
-        between them. `settle` then works out which bases each visit has."""
-        self.given.append((tuple(slots), text))
-
-    def settle(self, sequences, counts):
-        """Work out the bases of each visit from the sequences that `give` noted.
-
-        A sequence is the strand's bases over a whole walk, and does not say which are over
-        which node. Rows share nodes, and each has every change the strand makes to its nodes,
-        so the rows are settled together: a row is settled once the bases of all its visits but
-        one are known, which makes the last one known, and a row of one visit says its bases
-        outright. Where no row can be settled that way, the first one left is settled by taking
-        each visit not yet known, from the two ends of the walk, to have its node's own bases if
-        the sequence has them there.
-
-        Bases left over between two visits that keep theirs lie between the two nodes, as the
-        bases of an allele built from the reads lie between its two bound nodes. Visits that
-        cannot be told apart share their bases: the first holds them, and the others are fused
-        to it. A row that disagrees with what is known makes its visits unclear, and is counted
-        in `disagree`. A row that shares some of the visits fused by another row does not say
-        which bases are theirs; the visits of both are unclear, and it is counted in `shared`.
-        """
-        known = {}
-        pending = [row for row in dict.fromkeys(self.given)
-                   if all(self.live[slot] for slot in row[0])]
-        counts['A row sequences left out, their walk being replaced by a later row'] += \
-            len(set(self.given)) - len(pending)
-        own = {}
-        for slots, text in pending:
-            for slot in slots:
-                if slot not in own:
-                    own[slot] = oriented(self.node[slot], sequences)
-        # A row of one visit says its bases outright, so those are settled before any other.
-        pending.sort(key=lambda row: len(row[0]) > 1)
-        while pending:
-            settled = [row for row in pending if self.place(row, known, own, False)]
-            if settled:
-                pending = [row for row in pending if row not in settled]
-            else:
-                self.place(pending.pop(0), known, own, True)
-        for slot, bases in known.items():
-            if bases != own[slot]:
-                self.bases[slot] = bases
-        self.given = []
-
-    def place(self, row, known, own, guess):
-        """Settle one row, if it can be: see `settle`. With `guess`, it always can."""
-        slots, text = row
-        lo, hi, a, b = 0, len(slots) - 1, 0, len(text)
-
-        holders = set(self.fused.values())
-
-        def bases(i):
-            if slots[i] in self.fused or slots[i] in holders:
-                # Its bases are shared with the visits fused to it, so they are not known.
-                return None
-            if slots[i] in known:
-                return known[slots[i]]
-            return own[slots[i]] if guess else None
-
-        # Take the visits whose bases are known off the two ends, with the bases already known
-        # to lie between two of them.
-        while hi > lo and bases(hi) is not None and text.endswith(bases(hi), a, b):
-            between = self.after.get(slots[hi - 1], '')
-            if not text.endswith(between, a, b - len(bases(hi))):
-                break
-            b -= len(bases(hi)) + len(between)
-            hi -= 1
-        while lo <= hi and bases(lo) is not None and text.startswith(bases(lo), a, b):
-            between = self.after.get(slots[lo], '') if lo < hi else ''
-            if not text.startswith(between, a + len(bases(lo)), b):
-                break
-            a += len(bases(lo)) + len(between)
-            lo += 1
-        rest = text[a:b]
-        if lo > hi:
-            # Every visit has bases. What is left lies between two of them, or after the last.
-            for slot in slots:
-                known.setdefault(slot, own[slot])
-            if rest and lo < len(slots):
-                if self.after.setdefault(slots[lo - 1], rest) != rest:
-                    self.unclear.update(slots)
-                    self.disagree += 1
-            elif rest:
-                self.unclear.update(slots)
-                self.disagree += 1
-            return True
-        taken = [slots[i] for i in range(lo, hi + 1) if slots[i] in known]
-        if taken:
-            if lo < hi and not guess:
-                return False
-            self.unclear.update(slots)
-            groups = {self.fused.get(slot, slot) for slot in taken
-                      if slot in self.fused or slot in holders}
-            if groups:
-                # The row shares visits with a row whose visits are fused. Neither says which
-                # bases are the shared visits', so the bases of all of them stay unknown.
-                self.unclear.update(groups)
-                self.unclear.update(m for m, holder in self.fused.items() if holder in groups)
-                self.shared += 1
-            else:
-                # A visit between lo and hi has bases that this row does not have there.
-                self.disagree += 1
-            return True
-        if lo < hi and not guess:
-            return False
-        for i in list(range(lo)) + list(range(hi + 1, len(slots))):
-            known.setdefault(slots[i], own[slots[i]])
-        if lo == hi:
-            # One visit is left. Bases beside its node's own lie between it and the visit
-            # next to it in the walk, if the row has one there.
-            mine = own[slots[lo]]
-            if rest != mine and rest.endswith(mine) and lo > 0:
-                self.after[slots[lo - 1]] = rest[:len(rest) - len(mine)]
-                rest = mine
-            elif rest != mine and rest.startswith(mine) and lo + 1 < len(slots):
-                self.after[slots[lo]] = rest[len(mine):]
-                rest = mine
-            known[slots[lo]] = rest
-            return True
-        known[slots[lo]] = rest
-        for i in range(lo + 1, hi + 1):
-            known[slots[i]] = ''
-            self.fused[slots[i]] = slots[lo]
-        return True
-
-    def order(self, holder, member):
-        """How many visits after `holder` the visit `member` is, on the holder's path."""
-        at, steps = holder, 0
-        while at >= 0 and at != member:
-            at, steps = self.next[at], steps + 1
-        return steps
-
-    def spanned(self, crossing, sequences, own_bounds=False):
-        """The strand's bases over a stretch, from the first base of its first visit to the last
-        base of its last, with what the A rows' sequences say, or None if a node's bases are not
-        known, or the sequences do not say which bases lie in the stretch. With `own_bounds`,
-        the first and the last visit are given their nodes' own bases."""
-        slots = self.slots(crossing)
-        if own_bounds:
-            # Only the visits between the two bounds have to be told apart from the bounds.
-            if len(slots) < 2 or slots[1] in self.fused or slots[-1] in self.fused \
-                    or not self.unclear.isdisjoint(slots[1:-1]):
-                return None
-        elif slots[0] in self.fused or self.next[slots[-1]] in self.fused \
-                or not self.unclear.isdisjoint(slots):
-            return None
-        out = []
-        try:
-            for slot in slots:
-                bound = own_bounds and slot in (slots[0], slots[-1])
-                out.append(self.bases[slot] if slot in self.bases and not bound
-                           else oriented(self.node[slot], sequences))
-                out.append(self.after.get(slot, '') if slot != slots[-1] else '')
-        except KeyError:
-            return None
-        return ''.join(out)
-
-    def replace(self, crossing, walk):
-        if crossing[0] == crossing[1]:
-            return
-        at = self.next[crossing[0]]
-        while at != crossing[1]:
-            self.live[at] = 0
-            at = self.next[at]
-        before = crossing[0]
-        for n in walk[1:-1]:
-            slot = len(self.node)
-            self.node.append(n)
-            self.next.append(-1)
-            self.live.append(1)
-            self.at[n].append(slot)
-            self.next[before] = slot
-            before = slot
-        self.next[before] = crossing[1]
-
-    def paths(self):
-        for fragment, first in self.heads:
-            path, at = [], first
-            while at >= 0:
-                path.append(self.node[at])
-                at = self.next[at]
-            yield fragment, path
-
-
-def apply_allele_rows(strand_walk, rows, fail, counts, sequences):
-    """Apply one strand's `A` rows, in file order: the walk of each, and its sequence."""
-    wanted = set()
-    for f in rows:
-        wanted.add((int(f[4]) // 2, bool(int(f[4]) & 1)))
-    strand_walk.index(wanted)
-    for f in rows:
-        # A: contig strand fragment start_node end_node walk sequence
-        if len(f) != 8:
-            fail['A row does not have 8 columns'] += 1
-            continue
-        walk = parse_walk(f[6])
-        start = (int(f[4]) // 2, bool(int(f[4]) & 1))
-        end = (int(f[5]) // 2, bool(int(f[5]) & 1))
-        if not walk or walk[0] != start or walk[-1] != end:
-            fail['A row walk does not run from its start_node to its end_node'] += 1
-            continue
-        counts['A rows'] += 1
-        text = None if f[7] == '.' else f[7].upper()
-        counts['A rows with a sequence'] += text is not None
-        if text is not None and not re.fullmatch('[ACGTN]*', text):
-            fail['A row sequence is not bases'] += 1
-            continue
-        if text is not None and len(walk) == 2:
-            # The sequence gives the bases between the two bound nodes.
-            strand_walk.joined.add((walk[0], walk[1]))
-        found = strand_walk.crossings(start, end) if len(walk) == 1 or start != end else []
-        if not found:
-            # The strand has no path here, so the walk is a path of its own.
-            first = strand_walk.add_path(f[3], walk)
-            for i, n in enumerate(walk):
-                strand_walk.at[n].append(first + i)
-            counts['A rows that join no H row'] += 1
-            found = [(first, first + len(walk) - 1)]
-        else:
-            for crossing in found:
-                strand_walk.replace(crossing, walk)
-        if text is None:
-            continue
-        if not sequences:
-            counts['A row sequences not read, for want of --gfa'] += 1
-        elif all(n in sequences for n, _ in walk):
-            for crossing in found:
-                strand_walk.give(strand_walk.slots(crossing), text)
-            counts['A row sequences read'] += 1
-        else:
-            fail['A row sequence is over a node the graph does not have'] += 1
-    if sequences:
-        strand_walk.settle(sequences, counts)
-        counts['A row sequences that share fused nodes with another row, so that the bases of '
-               'neither row\'s nodes are known'] += strand_walk.shared
-        if strand_walk.disagree:
-            # Each row has every change the strand makes to its nodes, so two rows that share a
-            # node must give it the same bases.
-            fail["A row sequence gives a node other bases than another row's does"] += \
-                strand_walk.disagree
-
-
-def outside_nested(walk, nested, own):
-    """`walk` with each stretch that crosses a snarl of `nested` cut down to its two bound nodes.
-
-    `nested` maps a start bound to the end bounds of the snarls that start there, and `own` is the
-    (start, end) of the snarl `walk` itself crosses, which is left alone. A snarl inside a cut
-    stretch goes with it.
-    """
-    out, i = [], 0
-    while i < len(walk):
-        out.append(walk[i])
-        ends = nested.get(walk[i], ())
-        j = next((k for k in range(i + 1, len(walk))
-                  if walk[k] in ends and (walk[i], walk[k]) != own), -1) if ends else -1
-        if j < 0:
-            i += 1
-        elif j + 1 < len(walk) and walk[j] in nested:
-            i = j                          # the end bound may start the next snarl
-        else:
-            out.append(walk[j])
-            i = j + 1
-    return out
-
-
-def divergence(path, walk, limit=12):
-    """Where two walks between the same bound nodes first part and last rejoin, as text."""
-    a = next((i for i, (x, y) in enumerate(zip(path, walk)) if x != y), min(len(path), len(walk)))
-    b = next((i for i, (x, y) in enumerate(zip(reversed(path), reversed(walk))) if x != y),
-             min(len(path), len(walk)))
-    text = lambda w: ''.join(('<' if r else '>') + str(n) for n, r in w[:limit]) + \
-        ('...' if len(w) > limit else '')
-    return (f"path takes {text(path[max(a - 1, 0):len(path) - b + 1])} where the allele has "
-            f"{text(walk[max(a - 1, 0):len(walk) - b + 1])}")
-
-
 COMPLEMENT = str.maketrans('ACGTNacgtn', 'TGCANtgcan')
 
 
+def parse_walk(text):
+    """'>1<2' -> [(1, False), (2, True)]."""
+    return [(int(i), o == '<') for o, i in STEP.findall(text)]
+
+
+def read_walks(gaf):
+    """path name -> list of (node_id, is_reverse), from the GAF path field."""
+    walks, shared = {}, {}
+    for line in open(gaf):
+        f = line.rstrip('\n').split('\t')
+        if line.startswith('@') or len(f) < 6:
+            continue
+        # Haplotypes share most of their steps, so each distinct step is kept once.
+        walks[f[0]] = [shared.setdefault(step, step) for step in parse_walk(f[5])]
+    return walks
+
+
+def read_graph(gfa):
+    """(edges, sequences): each L-line in both orientations, and each node's bases."""
+    edges, sequences = set(), {}
+    for line in open(gfa):
+        f = line.rstrip('\n').split('\t')
+        if f[0] == 'S' and f[1].isdigit():
+            sequences[int(f[1])] = f[2]
+        elif f[0] == 'L':
+            a, b = (int(f[1]), f[2] == '-'), (int(f[3]), f[4] == '-')
+            edges.add((a, b))
+            edges.add(((b[0], not b[1]), (a[0], not a[1])))
+    return edges, sequences
+
+
+def haplotype_walks(walks, name, wanted, cache={}):
+    """The walks of one haplotype, longest first, each with the places of the nodes in `wanted`."""
+    if name not in cache:
+        cache[name] = []
+        for w in sorted((w for n, w in walks.items() if n == name or n.startswith(name + '#')
+                         or n.split('[')[0] == name), key=len, reverse=True):
+            places = defaultdict(list)
+            for i, (node, _) in enumerate(w):
+                if node in wanted:
+                    places[node].append(i)
+            cache[name].append((w, places))
+    return cache[name]
+
+
+def pick_copy(w, starts, ends, start_reverse, end_reverse, resume):
+    """Pick the visits of a row's start and end nodes that the row means: those with the stated
+    orientations, or both flipped where the haplotype is stored the other way, nearest to where
+    the fragment's walk has reached. Returns (None, None) if there are none."""
+    for flip in (False, True):
+        pairs = [(abs(i - resume), abs(j - i), i, j)
+                 for i in starts if (w[i][1] != start_reverse) == flip
+                 for j in ends if (w[j][1] != end_reverse) == flip]
+        if pairs:
+            return min(pairs)[2:]
+    return None, None
+
+
+def expand_fragment(rows, contig, walks, row_ends, fail, counts):
+    """The node walk that the `H` rows of one fragment spell."""
+    path, resume = [], 0
+    for f in rows:
+        # A row gives an oriented node as id * 2 + is_reverse.
+        (start, start_reverse), (end, end_reverse) = divmod(int(f[6]), 2), divmod(int(f[7]), 2)
+        found = [] if f[8] == '*' else (haplotype_walks(walks, f[9], row_ends)
+                                        or haplotype_walks(walks, f[9] + '#' + contig, row_ends))
+        if not found:
+            fail['row names no haplotype that the graph has'] += 1
+            continue
+        piece = None
+        for w, places in found:
+            i, j = pick_copy(w, places.get(start, ()), places.get(end, ()), start_reverse,
+                             end_reverse, resume)
+            if i is None:
+                continue
+            resume = j
+            if i <= j:
+                piece = w[i:j + 1]
+            else:
+                piece = [(n, not r) for n, r in reversed(w[j:i + 1])]
+                counts['H rows that run against the direction their haplotype is stored in'] += 1
+            if piece[0][1] != start_reverse or piece[-1][1] != end_reverse:
+                fail["row's stated orientation is not the walk's"] += 1
+            break
+        if piece is None:
+            fail['row ends are not both on one walk of its haplotype'] += 1
+            continue
+        if path and path[-1] != piece[0]:
+            fail['rows do not share the node they meet at'] += 1
+        path.extend(piece if not path else piece[1:])
+    return path
+
+
+def crossings(places, start, end):
+    """Each visit of `start` with the next visit of `end`, the same visit where the two are one
+    node, unless the walk comes back to the node of `start` on the way. `places` has the visits
+    of each oriented node."""
+    again, turned = places.get(end, ()), (start[0], not start[1])
+    for i in places.get(start, ()):
+        k = bisect.bisect_left(again, i if start == end else i + 1)
+        if k < len(again) and not any(i < p < again[k] for step in (start, turned)
+                                      for p in places.get(step, ())):
+            yield i, again[k]
+
+
 def oriented(step, sequences):
-    """The bases of one visit of a node, in upper case, read the way the visit reads it."""
-    node, reverse = step
-    bases = sequences[node].upper()
-    return bases[::-1].translate(COMPLEMENT) if reverse else bases
+    """The bases of a node, read the way `step` reads it."""
+    return sequences[step[0]][::-1].translate(COMPLEMENT) if step[1] else sequences[step[0]]
 
 
-def spell(walk, sequences):
-    """The bases of a walk, or None if a node's bases are not known."""
-    try:
-        return ''.join(sequences[n][::-1].translate(COMPLEMENT) if r else sequences[n]
-                       for n, r in walk)
-    except KeyError:
-        return None
+class Fragment:
+    """One fragment of a strand: the visit of each node, with the bases a row gave it (None for
+    the node's own), the bases a row put after it on no node (None unless a row joins it to the
+    next visit), and whether a row made it."""
 
+    def __init__(self, path, rows, fail, counts):
+        places = defaultdict(list)
+        for i, step in enumerate(path):
+            places[step].append(i)
+        # Each row's stretches of the walk, as (first visit, last visit, walk, entries).
+        stretches = []
+        for f in rows:
+            walk = parse_walk(f[6])
+            entries = ['*'] * len(walk) if f[7] == '.' else f[7].split(',')
+            counts['A rows of one node' if len(walk) == 1 else 'A rows of sites'] += 1
+            if not walk or [walk[0], walk[-1]] != [divmod(int(f[4]), 2), divmod(int(f[5]), 2)]:
+                fail['A row whose walk does not run from its start node to its end node'] += 1
+                continue
+            if len(entries) != len(walk) or not all(
+                    re.fullmatch(r'(\*|[ACGTNacgtn]*)(\+[ACGTNacgtn]*)?', e) for e in entries):
+                fail['A row whose bases are not one entry for each step of its walk'] += 1
+                continue
+            found = [(i, j, walk, entries) for i, j in crossings(places, walk[0], walk[-1])]
+            if not found:
+                fail['A row with no stretch of its fragment to go on'] += 1
+            stretches += found
+        self.nodes, self.bases, self.after, self.made = [], [], [], []
+        at, site_end, node_row = 0, -1, -1
+        for first, last, walk, entries in sorted(stretches, key=lambda s: s[:2]):
+            if first < site_end or (first == last and first == node_row):
+                fail['A rows that change the same visit'] += 1
+                continue
+            self.extend(path[at:first + 1])
+            at = max(at, first + 1)
+            # The visits the row's entries are for.
+            steps = [len(self.nodes) - 1]
+            if first == last:
+                node_row = first
+            else:
+                steps += range(len(self.nodes), len(self.nodes) + len(walk) - 2)
+                self.extend(walk[1:-1], True)
+                self.extend(path[last:last + 1])
+                steps.append(len(self.nodes) - 1)
+                at, site_end = last + 1, last
+            for k, entry in zip(steps, entries):
+                own, joined, after = entry.partition('+')
+                if (own != '*' and self.bases[k] is not None) or (joined
+                                                                  and self.after[k] is not None):
+                    fail['A rows that change the same visit'] += 1
+                if own != '*':
+                    self.bases[k] = own
+                if joined:
+                    self.after[k] = after
+                self.made[k] = self.made[k] or entry != '*'
+        self.extend(path[at:])
+        self.places = defaultdict(list)
+        for i, step in enumerate(self.nodes):
+            self.places[step].append(i)
 
-def revcomp(bases):
-    return bases[::-1].translate(COMPLEMENT)
+    def extend(self, steps, made=False):
+        self.nodes += steps
+        self.bases += [None] * len(steps)
+        self.after += [None] * len(steps)
+        self.made += [made] * len(steps)
+
+    def spell(self, i, sequences):
+        """The bases of visit `i`."""
+        return self.bases[i] if self.bases[i] is not None else oriented(self.nodes[i], sequences)
+
+    def between(self, i, j, sequences):
+        """The bases after visit `i` and before visit `j`."""
+        return (self.after[i] or '') + ''.join(self.spell(k, sequences) + (self.after[k] or '')
+                                               for k in range(i + 1, j))
 
 
 class Reference:
-    """One contig's reference path: where each node it visits once starts on it."""
+    """One contig's reference path: where each of its steps starts, and the step of each node
+    it visits once."""
 
     def __init__(self, walk, sequences):
-        self.walk, self.index, self.offset, self.length = walk, {}, {}, {}
-        seen, at = set(), 0
-        for i, (node, reverse) in enumerate(walk):
-            if node in seen:
-                self.index.pop(node, None)
-                self.offset.pop(node, None)
-            else:
-                seen.add(node)
-                self.index[node], self.offset[node] = i, at
-                self.length[node] = len(sequences.get(node, ''))
-            at += len(sequences.get(node, ''))
+        self.walk, self.sequences, self.starts, self.step = walk, sequences, [], {}
+        at = 0
+        for i, (node, _) in enumerate(walk):
+            self.starts.append(at)
+            at += len(sequences[node])
+            self.step[node] = None if node in self.step else i
 
-    def between(self, bounds, sequences):
-        """(offset of the first base after the start bound's node, the bases from there to the
-        end bound's node), or None unless the path visits both nodes once, forwards, in order."""
-        (a, a_reverse), (b, b_reverse) = bounds
-        i, j = self.index.get(a), self.index.get(b)
-        if i is None or j is None or j <= i or self.walk[i] != (a, a_reverse) \
-                or self.walk[j] != (b, b_reverse):
-            return None
-        bases = spell(self.walk[i + 1:j], sequences)
-        return None if bases is None else (self.offset[a] + len(sequences[a]), bases.upper())
+    def on(self, step):
+        """The index of the path's step at `step`, if it visits that node once, the same way."""
+        i = self.step.get(step[0])
+        return i if i is not None and self.walk[i] == step else None
+
+    def spell(self, i, j):
+        """The bases of the path's steps `i` up to `j`."""
+        return ''.join(oriented(s, self.sequences) for s in self.walk[i:j]).upper()
 
 
-def expected_interior(reference_walk, ref, allele, pos, start_offset, sequences):
-    """The bases a record's allele has between its site's bound nodes, or None if they cannot
-    be told. A list of them, one for each place REF can lie, where the record's POS cannot say.
-
-    A record's alleles are what is left of its walks' bases once the bases all of them start and
-    end with are cut off, so the reference walk spells some bases, REF, and some more bases.
-    `start_offset` is where the reference walk's first node starts on the reference path, or None.
-    """
-    reference = spell(reference_walk, sequences)
-    if reference is None or not ref or not re.fullmatch('[ACGTNacgtn]+', allele):
-        return None
-    reference, ref, allele = reference.upper(), ref.upper(), allele.upper()
-    first = len(sequences[reference_walk[0][0]])
-    last = len(sequences[reference_walk[-1][0]])
-    places = []
-    if start_offset is not None and reference.startswith(ref, pos - 1 - start_offset) \
-            and pos - 1 >= start_offset:
-        places.append(pos - 1 - start_offset)
-    else:
-        at = reference.find(ref)
-        while at >= 0:
-            places.append(at)
-            at = reference.find(ref, at + 1)
-    out = []
-    for at in places:
-        whole = reference[:at] + allele + reference[at + len(ref):]
-        # The bound nodes' own bases are not the site's, and stay as they are.
-        if len(whole) >= first + last and whole.startswith(reference[:first]) \
-                and whole.endswith(reference[len(reference) - last:]):
-            out.append(whole[first:len(whole) - last])
-    return out or None
-
-
-def with_changes(own, lo, changes):
-    """The bases `own`, which start at place `lo` on the reference path, with each of `changes`
-    made: (place, bases removed, bases put in), in order of place. Bases a change inserts before
-    the first base or after the last can be given to these bases or lie beside them, so the
-    result is a set, of each way. It is empty if two changes take the same base.
-    """
-    hi = lo + len(own)
-    expected = set()
-    for before in (False, True):
-        for after in (False, True):
-            out, at, good = [], lo, True
-            for place, removed, added in changes:
-                if place + removed < lo or place > hi or (removed and place + removed == lo) \
-                        or (removed and place == hi):
-                    continue
-                if not removed and ((place == lo and not before) or (place == hi and not after)):
-                    continue
-                start, end = max(place, lo), min(place + removed, hi)
-                if start < at:
-                    good = False
-                    break
-                out.append(own[at - lo:start - lo])
-                out.append(added if place >= lo else '')
-                at = end
-            out.append(own[at - lo:])
-            if good:
-                expected.add(''.join(out))
-    return expected
-
-
-class Changes:
-    """The changes that the records of edit sites make on one strand, by place on the reference
-    path: (place, bases removed, bases put in), in order."""
-
-    def __init__(self, changes):
-        self.changes = sorted(changes)
-        self.places = [change[0] for change in self.changes]
-        self.longest = max((change[1] for change in self.changes), default=0)
-
-    def near(self, lo, hi):
-        """The changes that can touch the bases from place `lo` up to place `hi`."""
-        return self.changes[bisect.bisect_left(self.places, lo - self.longest):
-                            bisect.bisect_right(self.places, hi)]
-
-
-def bound_bases(bound, reference, changes, sequences):
-    """The bases a strand can have over the node of a site's bound: the node's own, with the
-    changes that the records of edit sites make inside it, each way `with_changes` gives. A
-    node off the reference path, or read backwards, is taken to have its own bases."""
-    node, reverse = bound
-    own = oriented(bound, sequences)
-    if reverse or reference is None or node not in reference.offset or changes is None:
-        return {own}
-    lo = reference.offset[node]
-    return with_changes(own, lo, changes.near(lo, lo + len(own))) or {own}
-
-
-def put_beside(first, last, reference, changes):
-    """The bases that the records of edit sites put right after the node of a site's start
-    bound `first`, and right before the node of its end bound `last`, on one strand."""
-    (a, a_reverse), (b, b_reverse) = first, last
-    if changes is None or reference is None or a_reverse or b_reverse \
-            or a not in reference.offset or b not in reference.offset:
-        return '', ''
-    inner, outer = reference.offset[a] + reference.length[a], reference.offset[b]
-    found = {place: added for place, removed, added in changes.near(inner, outer) if not removed}
-    return found.get(inner, ''), ('' if inner == outer else found.get(outer, ''))
-
-
-def check_site_records(name, records, strand, strand_walk, reference, sequences, counts,
-                       changes):
-    """Compare one strand with the flat records one site is written as.
-
-    Each record replaces its REF, at its POS on the reference, with the allele the strand is
-    called with. The reference from the first base of the node of the site's start bound to the
-    last base of the node of its end bound, with every record's allele put in, is what the
-    strand must spell there: a record can lie on the bound nodes, since a gap is written as far
-    left as it can go. The records of edit sites inside the two bound nodes, which are no part
-    of the site, are put in with them (`changes`). Returns a description of a difference, or
-    None.
-    """
-    bounds = parse_walk(name)
-    forwards = [(c, False) for c in strand_walk.crossings(bounds[0], bounds[1])]
-    flipped = backwards(bounds)
-    crossings = forwards + [(c, True) for c in strand_walk.crossings(flipped[0], flipped[1])]
-    for crossing, turned in crossings:
-        # The edit sites between the bounds have no records of their own: the flat records
-        # spell their changes. So the nodes there are this comparison's, whatever it finds.
-        strand_walk.covered.update(strand_walk.slots(crossing)[1:-1])
-    span = reference.between(bounds, sequences) if reference and sequences else None
-    if span is None:
-        counts['strands not compared: the reference path does not give the site'] += 1
-        return None
-    first, last = (oriented(bound, sequences) for bound in bounds)
-    start, bases = span[0] - len(first), first + span[1] + last
-    made = []
-    for pos, ref, alts, gt in records:
-        if '|' not in gt:
-            called = gt.split('/')
-            if len(set(called)) > 1:
-                counts['strands not compared: a record of the site is not phased'] += 1
-                return None
-            called = called * 2
-        else:
-            called = gt.split('|')
-        g = called[strand] if strand < len(called) else called[0]
-        if g == '.':
-            counts['strands not compared: a record of the site has no allele for the strand'] += 1
-            return None
-        if g == '0':
-            continue
-        allele = alts[int(g) - 1].upper()
-        if not re.fullmatch('[ACGTN]+', allele):
-            counts['strands not compared: a record of the site has a symbolic allele'] += 1
-            return None
-        ref = ref.upper()
-        k = 0
-        while k < len(ref) and k < len(allele) and ref[k] == allele[k]:
-            k += 1
-        made.append((pos - 1 + k, len(ref) - k, allele[k:]))
-    if any(place < start or place + removed > start + len(bases) for place, removed, _ in made):
-        return f"{name}: a record's allele lies outside the site"
-    # The edit sites' changes inside the two bound nodes, and right beside them. A change can
-    # be read in two ways. As the records give it: the strand's bases from bound to bound have
-    # every change. Or, since a change in a repeat can be put in more than one place, as bases
-    # put right beside a bound node, with the node's own bases left as they are.
-    inner, outer = start + len(first), start + len(bases) - len(last)
-    beside = [] if changes is None else [
-        change for change in changes.near(start, start + len(bases))
-        if change[0] <= inner or change[0] >= outer]
-    put_beside = [change for change in beside if not change[1] and change[0] in (inner, outer)]
-    expected = with_changes(bases, start, sorted(made + beside))
-    expected_own = with_changes(bases, start, sorted(made + put_beside))
-    if not expected and not expected_own:
-        counts['strands not compared: two records there change the same base'] += 1
-        return None
-    if not crossings:
-        counts['strand does not cross'] += 1
-        return None
-    for crossing, turned in crossings:
-        spelled = strand_walk.spanned(crossing, sequences)
-        kept = strand_walk.spanned(crossing, sequences, True)
-        if spelled is None and kept is None:
-            counts['strands not compared: a sequence does not say which bases lie in the site'] += 1
-            return None
-        if (spelled is None or (revcomp(spelled) if turned else spelled) not in expected) \
-                and (kept is None or (revcomp(kept) if turned else kept) not in expected_own):
-            return (f"{name}: the strand has {len(spelled or kept)} bases from bound to bound, and the "
-                    f"records give {' or '.join(sorted({str(len(e)) for e in expected | expected_own}))}")
-    counts['checked'] += 1
-    counts['equal'] += 1
-    if beside:
-        counts["with an edit site's changes on or beside a bound node"] += 1
-    return None
-
-
-def check_node_bases(strand_walk, changes, unphased, reference, sequences, counts):
-    """Compare the bases that the A rows' sequences give one strand inside nodes with the records
-    of edit sites, which are the records that change bases inside nodes.
-
-    `changes` is the strand's (place on the reference path, bases removed, bases put in) of each
-    such record, and `unphased` the (place, end) of each record that is on no known strand. A
-    visit of a node whose bases a sequence changes must have the node's own bases with the
-    changes the records make inside the node (`with_changes`). Visits fused to one another are
-    compared together. A sequence and a record can put one change in two places of a repeat, on
-    either side of the end of a node, so where a visit differs it is compared again together
-    with the visits beside it on the reference path. A visit between the bounds of a site
-    written as flat records is left to that site's comparison, since the flat records spell the
-    changes there and the edit sites have no records. Returns descriptions of the differences.
-    """
-    problems = []
-    members = defaultdict(list)
-    for slot, holder in strand_walk.fused.items():
-        members[holder].append(slot)
-    before = {}
-    for slot, after in enumerate(strand_walk.next):
-        if after >= 0 and strand_walk.live[slot]:
-            before[after] = slot
-
-    def on_reference(slots):
-        """The reference index of each visit, if they follow each other forwards on the path."""
-        index = [None if strand_walk.node[m][1] else reference.index.get(strand_walk.node[m][0])
-                 for m in slots] if reference else [None]
-        if None in index or any(b != a + 1 for a, b in zip(index, index[1:])):
-            return None
-        return index
-
-    def compare(slots):
-        """Whether the visits have the bases the records give: True, False, or the reason they
-        are not compared."""
-        nodes = [strand_walk.node[m][0] for m in slots]
-        lo = reference.offset[nodes[0]]
-        own = ''.join(sequences[n].upper() for n in nodes)
-        if any(start <= lo + len(own) and end >= lo for start, end in unphased):
-            return 'a record of an edit site there has no phase'
-        expected = with_changes(own, lo, changes)
-        if not expected:
-            return 'two records of edit sites there change the same base'
-        given = ''.join(strand_walk.bases.get(m, sequences[n].upper())
-                        + (strand_walk.after.get(m, '') if m != slots[-1] else '')
-                        for m, n in zip(slots, nodes))
-        return given in expected
-
-    for slot in list(strand_walk.bases):
-        if not strand_walk.live[slot] or slot in strand_walk.fused:
-            continue
-        if slot in strand_walk.covered:
-            counts['node visits inside a site written as flat records, left to that comparison'] += 1
-            continue
-        group = [slot] + sorted(members.get(slot, ()), key=lambda m: strand_walk.order(slot, m))
-        if not strand_walk.unclear.isdisjoint(group):
-            counts['node visits not compared: the sequences do not say which bases are theirs'] += 1
-            continue
-        if on_reference(group) is None:
-            counts['node visits not compared: not on the reference path, forwards'] += 1
-            continue
-        result = compare(group)
-        for reach in (1, 2, 4, 8):
-            if result is not False:
-                break
-            # Take in the visits beside these on the path, on each side for as long as they
-            # follow each other on the reference path, and all of any fused to them.
-            wider = list(group)
-            for _ in range(reach):
-                if wider[0] in before and on_reference([before[wider[0]], wider[0]]):
-                    wider.insert(0, before[wider[0]])
-            for _ in range(reach):
-                after = strand_walk.next[wider[-1]]
-                if after >= 0 and on_reference([wider[-1], after]):
-                    wider.append(after)
-            while wider[0] in strand_walk.fused and wider[0] in before:
-                wider.insert(0, before[wider[0]])
-            while strand_walk.next[wider[-1]] in strand_walk.fused:
-                wider.append(strand_walk.next[wider[-1]])
-            if on_reference(wider) is not None and strand_walk.unclear.isdisjoint(wider):
-                result = compare(wider)
-                if result is True:
-                    counts['of the equal, compared together with the visits beside them'] += 1
-        if result is True:
-            counts['checked'] += 1
-            counts['equal'] += 1
-        elif result is False:
-            counts['checked'] += 1
-            counts['different'] += 1
-            problems.append(f"node {strand_walk.node[slot][0]}: a sequence gives it "
-                            f"{len(strand_walk.bases[slot])} bases, which the records of edit "
-                            f"sites do not")
-        else:
-            counts['node visits not compared: ' + result] += 1
-    return problems
-
-
-def check_vcf(vcf, strands, sequences, references, quiet):
-    """Compare the paths with the phased snarl records of a VCF. Returns two sets of counts.
-
-    Each called allele of a record whose ID names a snarl is put in the first of these classes
-    that holds at every crossing of its snarl:
-      equal                         the path takes the allele's AT walk. Where that walk is the
-                                    two bound nodes alone, as the walk of an allele built from
-                                    the reads is, the path must also have the allele's bases
-                                    between them, when the nodes' bases are known (--gfa).
-      equal outside nested records  it does so except inside snarls that other records call an
-                                    allele of on this strand; those records are checked
-                                    themselves
-      same bases                    it takes another walk, and has the allele's bases between
-                                    the snarl's bound nodes. This needs the nodes' bases, so
-                                    only with --gfa.
-      different                     none of these
-    AT gives one walk for each allele, and the genotyper's walk for a strand can be another one:
-    allele 0 also stands for walks that differ from the reference walk only inside nested sites,
-    an allele's bases are spelled with the alleles chosen at the sites nested in it on the first
-    strand that carries it, and walks that spell the same bases are one allele. So a path that
-    takes a walk of three nodes or more is not held to the record's bases. The bases a path has
-    are those of its nodes, with what the A rows' sequences give.
-
-    A site written as flat records (INFO/FL, `_N` after the site's ID) is compared by its bases
-    alone (`check_site_records`), since its records give no walk and spell each strand whole.
-    The second set of counts is of the strands of those sites. A block record, which has `_N`
-    and no FL, gives part of its site's walk, and is counted and not compared.
-    """
-    records = []
-    site_records = defaultdict(list)
-    wanted = defaultdict(set)
-    counts = defaultdict(int)
-    site_counts = defaultdict(int)
-    # For each strand, the snarls a record calls an allele of there, read both ways.
-    nested = defaultdict(lambda: defaultdict(set))
-    # For each strand, the changes the records of edit sites make, by place on the reference:
-    # (place, bases removed, bases put in).
-    changes = defaultdict(list)
-    unphased = defaultdict(list)
-    node_counts = defaultdict(int)
+def read_vcf(vcf, counts):
+    """contig -> (the records of each snarl by its bound nodes, the records of edit sites, the
+    place, REF length and site of each record). A record is (place of first base, REF, ALTs, GT)."""
+    out = defaultdict(lambda: (defaultdict(list), [], []))
     for line in open(vcf):
         if line.startswith('#'):
             continue
-        t = line.rstrip('\n').split('\t')
-        snarl = SNARL_ID.match(t[2]) if len(t) >= 10 else None
-        gt = t[9].split(':')[0] if len(t) >= 10 else ''
-        if not snarl:
-            # The record of an edit site, whose ID names a node and an offset. Its changes are
-            # inside nodes, where no walk tells one allele from another.
-            counts['records skipped: the ID names no snarl'] += 1
-            alleles = [t[3].upper()] + t[4].upper().split(',')
-            called = gt.split('|') if '|' in gt else gt.split('/')
-            if '|' not in gt and len(set(called)) > 1:
-                node_counts['records of edit sites with no phase, whose changes are not known '
-                            'to a strand'] += 1
-                unphased[t[0]].append((int(t[1]) - 1, int(t[1]) - 1 + len(t[3])))
-                continue
-            for strand, g in enumerate(called):
-                if g in ('.', '0'):
-                    continue
-                k = 0
-                while k < len(alleles[0]) and k < len(alleles[int(g)]) \
-                        and alleles[0][k] == alleles[int(g)][k]:
-                    k += 1
-                changes[(t[0], str(strand))].append(
-                    (int(t[1]) - 1 + k, len(alleles[0]) - k, alleles[int(g)][k:]))
+        f = line.rstrip('\n').split('\t')
+        record = (int(f[1]) - 1, f[3].upper(), f[4].upper().split(','), f[9].split(':')[0])
+        sites, edits, footprints = out[f[0]]
+        named = SNARL_ID.match(f[2])
+        if named:
+            sites[named.group(1)].append(record)
+        elif f[2].startswith('op'):
+            edits.append(record)
+        else:
+            counts['records not compared: the ID names neither a snarl nor an edit site'] += 1
+        footprints.append((record[0], len(record[1]), f[2].split('_')[0]))
+    return out
+
+
+def change_of(record, strand):
+    """The change a record makes on one strand, as (place, bases removed, bases put in, None),
+    which removes and puts in nothing for the reference allele. Where the record does not say
+    what the strand has, the last is the reason, and the change is the record's whole REF."""
+    place, ref, alts, gt = record
+    called = gt.split('|') if '|' in gt else gt.split('/')
+    allele = called[strand] if strand < len(called) else called[0]
+    if '|' not in gt and len(set(called)) > 1:
+        return place, len(ref), '', 'a record there is not phased'
+    if allele == '.':
+        return place, len(ref), '', 'a record there has no allele for the strand'
+    alt, k = (alts[int(allele) - 1] if allele != '0' else ref), 0
+    if not re.fullmatch('[ACGTN]+', alt):
+        return place, len(ref), '', 'a record there has a symbolic allele'
+    while k < len(ref) and k < len(alt) and ref[k] == alt[k]:
+        k += 1
+    return place + k, len(ref) - k, alt[k:], None
+
+
+def with_changes(bases, start, made):
+    """`bases`, which start at place `start` of the reference, with the changes made, or None
+    if two of them take the same base or one lies outside the bases."""
+    out, at = [], start
+    for place, removed, added, _ in sorted(change for change in made if change[1] or change[2]):
+        if place < at or place + removed > start + len(bases):
+            return None
+        out += [bases[at - start:place - start], added]
+        at = place + removed
+    return ''.join(out) + bases[at - start:]
+
+
+def check_strand(fragments, strand, vcf, reference, sequences, counts):
+    """Compare one strand with the records of its contig. Returns the differences."""
+    sites, edits, footprints = vcf
+    different = []
+    differs = different.append
+
+    # Sites, from bound node to bound node.
+    places = sorted((place, name) for place, _, name in footprints)
+    for name, records in sites.items():
+        first, last = bounds = parse_walk(name)
+        i, j = reference.on(first), reference.on(last)
+        if i is None or j is None or j <= i:
+            counts['site strands not compared: the reference path does not give the site'] += 1
             continue
-        at = [x[3:] for x in t[7].split(';') if x.startswith('AT=')]
-        bounds = parse_walk(snarl.group(1))
-        flipped = backwards(bounds)
-        wanted[t[0]].update((bounds[0], flipped[0]))
-        if snarl.group(2):
-            # One of several records of its site. The site still counts as one that has
-            # records, for the sites around it.
-            for strand, g in enumerate(gt.replace('/', '|').split('|')):
-                if g != '.':
-                    nested[(t[0], str(strand))][bounds[0]].add(bounds[1])
-                    nested[(t[0], str(strand))][flipped[0]].add(flipped[1])
-            if 'FL' in t[7].split(';'):
-                site_records[(t[0], snarl.group(1))].append(
-                    (int(t[1]), t[3], t[4].split(','), gt))
+        inside = places[bisect.bisect_left(places, (reference.starts[i + 1], '')):
+                        bisect.bisect_left(places, (reference.starts[j], ''))]
+        if any(other != name for _, other in inside):
+            counts['site strands not compared: records of other sites lie inside the site'] += 1
+            continue
+        made = [change_of(record, strand) for record in records]
+        reasons = [change[3] for change in made if change[3]]
+        if reasons:
+            counts[f'site strands not compared: {reasons[0]}'] += 1
+            continue
+        expected = with_changes(reference.spell(i, j + 1), reference.starts[i], made)
+        found = [(f, c) for f in fragments for c in crossings(f.places, first, last)]
+        if not found:
+            counts['site strands not compared: the strand does not cross the site from start to '
+                   'end'] += 1
+            continue
+        counts['site strands checked'] += 1
+        ends = [oriented(bound, sequences).upper() for bound in bounds]
+        # Records that take the same base, or lie outside the site, give no bases to have.
+        if expected is not None and all(
+                ends[0] + f.between(a, b, sequences).upper() + ends[1] == expected
+                for f, (a, b) in found):
+            counts['site strands equal'] += 1
+        else:
+            differs(f"{name}: the strand does not have the bases its records give")
+
+    # The nodes that the records of edit sites change, taken together where they share a node.
+    groups = []
+    # A change that takes and puts in nothing is the reference allele.
+    for change in sorted(filter(lambda c: c[1] or c[2], (change_of(r, strand) for r in edits))):
+        place, removed = change[:2]
+        # The steps of the reference with the first and the last base the change takes. Inserted
+        # bases are with the node of the base before them.
+        steps = [bisect.bisect_right(reference.starts, at) - 1
+                 for at in ((place, place + removed - 1) if removed else (place - 1, place - 1))]
+        if groups and steps[0] <= groups[-1][1]:
+            groups[-1][1] = max(groups[-1][1], steps[1])
+            groups[-1][2].append(change)
+        else:
+            groups.append([steps[0], steps[1], [change]])
+    for i, j, group in groups:
+        visits = [[(f, v) for f in fragments for v in f.places.get(step, ())]
+                  for step in reference.walk[i:j + 1]]
+        expected = with_changes(reference.spell(i, j + 1), reference.starts[i], group)
+        reasons = [change[3] for change in group if change[3]]
+        if reasons:
+            counts[f'edit site nodes not compared: {reasons[0]}'] += 1
+        elif any(len(visit) != 1 for visit in visits):
+            counts['edit site nodes not compared: the strand does not visit each node once'] += 1
+        elif expected is None:
+            counts['edit site nodes not compared: two records there take the same base'] += 1
+        else:
+            counts['edit site nodes checked'] += 1
+            # Bases put after the last node can be the edit site's, written as lying after it.
+            (f, v), = visits[-1]
+            spelled = ''.join(f.spell(v, sequences) for (f, v), in visits).upper()
+            if expected in (spelled, spelled + (f.after[v] or '').upper()):
+                counts['edit site nodes equal'] += 1
             else:
-                counts['block records not checked'] += 1
-            continue
-        if '|' not in gt:
-            counts['records skipped: the genotype is not phased'] += 1
-            continue
-        if not at:
-            counts['records skipped: no AT'] += 1
-            continue
-        for strand, g in enumerate(gt.split('|')):
-            if g != '.':
-                nested[(t[0], str(strand))][bounds[0]].add(bounds[1])
-                nested[(t[0], str(strand))][flipped[0]].add(flipped[1])
-        alleles = [parse_walk(x) for x in at[0].split(',')]
-        if any(w is None or w[0] != bounds[0] or w[-1] != bounds[1] for w in alleles):
-            counts['records skipped: an allele has no full walk in AT'] += 1
-            continue
-        records.append((t[0], int(t[1]), t[2], gt, alleles, [t[3]] + t[4].split(',')))
-    changes = {key: Changes(made) for key, made in changes.items()}
-    for (contig, strand), strand_walk in strands.items():
-        strand_walk.index(wanted.get(contig, ()))
-    shown = 0
-    classes = ['equal', 'equal outside nested records', 'same bases', 'different']
-    for contig, pos, name, gt, alleles, strings in records:
-        reference = references.get(contig)
-        for strand, g in enumerate(gt.split('|')):
-            if g == '.':
-                counts['alleles skipped: the strand has none'] += 1
+                differs(f"node {reference.walk[i][0]}: the strand does not have the bases the "
+                        f"records of edit sites give")
+
+    # Where an A row makes the strand differ from the reference, a record lies: its REF is
+    # there, past its first base, which an insertion keeps, or its site is, between the bounds.
+    spans = []
+    for place, length, name in footprints:
+        ends = [reference.on(bound) for bound in parse_walk(name)]
+        if len(ends) == 2 and None not in ends and ends[0] < ends[1]:
+            spans.append((reference.starts[ends[0] + 1], reference.starts[ends[1]]))
+        spans.append((place + 1, place + length))
+    covered = []
+    for lo, hi in sorted(spans):
+        if covered and lo <= covered[-1][1]:
+            covered[-1][1] = max(covered[-1][1], hi)
+        else:
+            covered.append([lo, hi])
+
+    def recorded(lo, hi):
+        k = bisect.bisect_right(covered, [hi, float('inf')]) - 1
+        return k >= 0 and covered[k][1] >= lo
+
+    for f in fragments:
+        before = None
+        for v, step in enumerate(f.nodes):
+            r = reference.on(step)
+            if r is None:
                 continue
-            if (contig, str(strand)) not in strands:
-                counts['alleles skipped: the mosaic has no such strand'] += 1
-                continue
-            strand_walk = strands[(contig, str(strand))]
-            called = alleles[int(g)]
-            counts['checked'] += 1
-            # A strand can cross a snarl from its end to its start, inside an inverted allele of
-            # an enclosing snarl, and then it takes the called walk read backwards.
-            taken = [(c, called) for c in strand_walk.crossings(called[0], called[-1])]
-            flipped = backwards(called)
-            taken += [(c, flipped) for c in strand_walk.crossings(flipped[0], flipped[-1])]
-            inside = nested[(contig, str(strand))]
-            if not taken:
-                counts['strand does not cross'] += 1
-                continue
-            expected = None
-            if sequences and int(g) < len(strings):
-                between = expected_interior(
-                    alleles[0], strings[0], strings[int(g)], pos,
-                    reference.offset.get(alleles[0][0][0]) if reference else None, sequences)
-                if between:
-                    # From bound to bound, in the two ways `check_site_records` describes: with
-                    # the edit sites' changes inside the two nodes, or with the bases they put
-                    # right beside the nodes.
-                    mine = changes.get((contig, str(strand)))
-                    expected = {first + middle + last
-                                for first in bound_bases(called[0], reference, mine, sequences)
-                                for middle in between
-                                for last in bound_bases(called[-1], reference, mine, sequences)}
-                    after, before = put_beside(called[0], called[-1], reference, mine)
-                    expected_own = {oriented(called[0], sequences) + after + middle + before
-                                    + oriented(called[-1], sequences) for middle in between}
-            worst, bare = 0, False
-            for crossing, walk in taken:
-                path = strand_walk.taken(crossing)
-                own = (walk[0], walk[-1])
-                same = None
-                if expected:
-                    turn = (lambda bases: revcomp(bases)) if walk is not called else (lambda bases: bases)
-                    spelled = strand_walk.spanned(crossing, sequences)
-                    kept = strand_walk.spanned(crossing, sequences, True)
-                    if spelled is not None or kept is not None:
-                        same = (spelled is not None and turn(spelled) in expected) \
-                            or (kept is not None and turn(kept) in expected_own)
-                if path == walk and len(walk) == 2:
-                    # The walk does not say what lies between the two nodes.
-                    found = 3 if same is False else 0
-                    bare = bare or same is None
-                elif path == walk:
-                    found = 0
-                elif outside_nested(path, inside, own) == outside_nested(walk, inside, own):
-                    found = 1
-                elif same:
-                    found = 2
-                else:
-                    found = 3
-                if found >= worst:
-                    worst = found
-                    example = (path, walk, same)
-            counts[classes[worst]] += 1
-            if len(called) == 2 and worst == 0:
-                counts['of the equal, walks of two nodes whose bases were '
-                       + ('not compared' if bare else 'compared')] += 1
-            if worst == 3 and shown < 10 and not quiet:
-                shown += 1
-                why = ('takes the walk, with other bases than the allele: '
-                       if example[2] is False and example[0] == example[1] else '')
-                print(f"  DIFFERENT  {contig}:{pos} {name} GT {gt} strand {strand}: {why}"
-                      f"{divergence(example[0], example[1])}", file=sys.stderr)
-    for (contig, name), group in site_records.items():
-        site_counts['sites'] += 1
-        for strand in (0, 1):
-            if (contig, str(strand)) not in strands:
-                continue
-            problem = check_site_records(name, group, strand, strands[(contig, str(strand))],
-                                         references.get(contig), sequences, site_counts,
-                                         changes.get((contig, str(strand))))
-            if problem:
-                site_counts['different'] += 1
-                if shown < 10 and not quiet:
-                    shown += 1
-                    print(f"  DIFFERENT  {contig} strand {strand} {problem}", file=sys.stderr)
-    if sequences:
-        for (contig, strand), strand_walk in sorted(strands.items()):
-            mine = changes.get((contig, strand))
-            for problem in check_node_bases(strand_walk, mine.changes if mine else [],
-                                            unphased.get(contig, ()), references.get(contig),
-                                            sequences, node_counts):
-                if shown < 10 and not quiet:
-                    shown += 1
-                    print(f"  DIFFERENT  {contig} strand {strand} {problem}", file=sys.stderr)
-    return counts, site_counts, node_counts
+            lo, hi = reference.starts[r], reference.starts[r] + len(sequences[step[0]])
+            if f.bases[v] is not None and f.bases[v].upper() != reference.spell(r, r + 1) \
+                    and not recorded(lo, hi):
+                differs(f"node {step[0]}: an A row changes it where no record lies")
+            if before is not None and (v > before[0] + 1 or r != before[1] + 1
+                                       or f.after[before[0]] is not None):
+                if r <= before[1]:
+                    counts['stretches not compared: the strand does not follow the reference '
+                           'path there'] += 1
+                elif f.between(before[0], v, sequences).upper() \
+                        != reference.spell(before[1] + 1, r) and not recorded(before[2], lo):
+                    if any(f.made[before[0]:v + 1]):
+                        differs(f"between nodes {f.nodes[before[0]][0]} and {step[0]}: an A row "
+                                f"makes the strand differ from the reference where no record lies")
+                    else:
+                        counts['stretches not compared: the H rows leave the reference where no '
+                               'record lies, and no A row changes them'] += 1
+            before = (v, r, hi)
+    return different
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--mosaic', required=True)
     ap.add_argument('--gaf', required=True)
-    ap.add_argument('--gfa', help='optional; without it check 4 is skipped')
-    ap.add_argument('--vcf', help='optional; the calls the mosaic was written with, to check '
-                                  'that the paths take the called alleles')
+    ap.add_argument('--gfa', help='optional; without it the steps are not checked to be edges')
+    ap.add_argument('--vcf', help='optional; the calls the mosaic was written with')
     ap.add_argument('--quiet', action='store_true')
     a = ap.parse_args()
 
     walks = read_walks(a.gaf)
-    sequences = {}
-    edges = read_edges(a.gfa, sequences) if a.gfa else None
-    hapname, threads, reference_names = {}, defaultdict(list), []
-    allele_rows = defaultdict(list)
+    edges, sequences = read_graph(a.gfa) if a.gfa else (None, None)
+    h_rows, a_rows, reference_names = defaultdict(list), defaultdict(list), []
     for line in open(a.mosaic):
         f = line.rstrip('\n').split('\t')
-        if f[0] == '#haplotype':
-            hapname[f[1]] = f[2]
-        elif f[0] == '#reference':
+        if f[0] == '#reference':
             reference_names += f[1:]
         elif f[0] == '#mosaic-version' and f[1] not in ('5', '6'):
             print(f"  FAIL  mosaic version {f[1]} is not one this script reads (5 or 6)")
             return 1
-        elif f[0] == 'H':
-            threads[(f[1], f[2], f[3])].append(f)      # contig, strand, fragment
-        elif f[0] == 'A':
-            allele_rows[(f[1], f[2])].append(f)        # contig, strand, in file order
+        elif f[0] in ('H', 'A'):
+            (h_rows if f[0] == 'H' else a_rows)[(f[1], f[2], f[3])].append(f)
 
-    fail = defaultdict(int)
-    strands = defaultdict(StrandWalk)
-    row_ends = {int(f[c]) // 2 for segs in threads.values() for f in segs for c in (6, 7)}
-    reversed_slices = [0]
-    orient_mismatch = [0]
-    total_steps = 0
-    for (contig, strand, frag), segs in sorted(threads.items()):
-        path = []
-        pick_copy.at = 0          # each fragment starts its own walk
-        for f in segs:
-            # H: contig strand fragment ref_start ref_end start_node end_node
-            #     hap_index haplotype sites gbwt_offset
-            # start_node and end_node are ORIENTED: id * 2 + is_reverse.
-            hap = f[9]
-            start, srev = int(f[6]) // 2, bool(int(f[6]) & 1)
-            end,   erev = int(f[7]) // 2, bool(int(f[7]) & 1)
-            if f[8] == '*':
-                fail['segment has no haplotype to walk'] += 1
-                continue
-            frags = (haplotype_walk(walks, hap, row_ends)
-                     or haplotype_walk(walks, hap + '#' + contig, row_ends))
-            if not frags:
-                fail['haplotype not found in the graph'] += 1
-                continue
-            piece = None
-            # Where the previous segment left off, so the copy chosen here is the one the walk
-            # actually reaches rather than whichever happens to be last in the fragment.
-            resume = getattr(pick_copy, 'at', 0)
-            for w, idx in frags:
-                if start in idx and end in idx:
-                    i, j = pick_copy(w, idx[start], idx[end], srev, erev, resume)
-                    if i is None:
-                        continue
-                    pick_copy.at = j
-                    if i <= j:
-                        piece = w[i:j + 1]
-                    else:
-                        # The segment runs against the haplotype's stored direction. That is not an
-                        # error and not rare: on this graph whole haplotypes are stored reversed --
-                        # recombination#17 is '<' at every one of its 2.0 M steps -- so a segment
-                        # given in reference order is a walk along the reverse complement. Take the
-                        # slice and flip both the order and every step's orientation.
-                        piece = [(n, not r) for n, r in reversed(w[j:i + 1])]
-                        reversed_slices[0] += 1
-                    # The file states the orientation at both ends; the haplotype's own walk states
-                    # it too. They have to agree, or the row's oriented anchors are not the walk's.
-                    if piece and (piece[0][1] != srev or piece[-1][1] != erev):
-                        orient_mismatch[0] += 1
-                        print(f"  ORIENT  {f}  walk_start={piece[0]} walk_end={piece[-1]} "
-                              f"stated=({start},{srev})->({end},{erev})", file=sys.stderr)
-                    break
-            if piece is None:
-                fail['segment endpoints not both on one fragment of its haplotype'] += 1
-                continue
-            if path and path[-1] != piece[0]:
-                if edges is not None and (path[-1], piece[0]) in edges:
-                    fail['segments abut by an edge rather than sharing a node'] += 1
-                else:
-                    fail['segments do not join'] += 1
-                    print(f"  NOJOIN  {f}  prev_end={path[-1]} this_start={piece[0]}",
-                          file=sys.stderr)
-            path.extend(piece if not path else piece[1:])
-        if path:
-            strands[(contig, strand)].add_path(frag, path)
+    fail, counts, strands, steps = defaultdict(int), defaultdict(int), defaultdict(list), 0
+    row_ends = {int(f[c]) // 2 for rows in h_rows.values() for f in rows for c in (6, 7)}
+    for key in sorted(set(h_rows) | set(a_rows)):
+        contig, strand, fragment = key
+        path = expand_fragment(h_rows[key], contig, walks, row_ends, fail, counts)
+        built = Fragment(path, a_rows[key], fail, counts)
+        strands[(contig, int(strand))].append(built)
         if not a.quiet:
-            print(f"  {contig} strand {strand} fragment {frag}: "
-                  f"{len(segs)} segments -> {len(path)} node steps")
+            print(f"  {contig} strand {strand} fragment {fragment}: {len(h_rows[key])} H rows, "
+                  f"{len(a_rows[key])} A rows, {len(built.nodes)} node steps")
+        for i in range(len(built.nodes) - 1):
+            steps += 1
+            if built.after[i] is not None:
+                counts['steps joined by an A row rather than an edge'] += 1
+            elif edges is not None and (built.nodes[i], built.nodes[i + 1]) not in edges:
+                fail['step is not an edge in the graph'] += 1
 
-    # The A rows change the paths, so they are applied before the paths are checked against the
-    # graph's edges.
-    allele_counts = defaultdict(int)
-    for key, rows in allele_rows.items():
-        apply_allele_rows(strands[key], rows, fail, allele_counts, sequences)
-    for (contig, strand), strand_walk in sorted(strands.items()):
-        for frag, path in strand_walk.paths():
-            for i in range(len(path) - 1):
-                total_steps += 1
-                if (path[i], path[i + 1]) in strand_walk.joined:
-                    allele_counts['steps joined by a sequence'] += 1
-                elif edges is not None and (path[i], path[i + 1]) not in edges:
-                    fail['step is not an edge in the graph'] += 1
-                    print(f"  NOEDGE  {contig} strand {strand} frag {frag} step {i}: "
-                          f"{path[i]} -> {path[i+1]}", file=sys.stderr)
-
-    against = (f"against {len(edges)//2} edges" if edges is not None
-               else "(no --gfa given: edges unchecked)")
-    print(f"\n  {len(threads)} paths, {total_steps} steps {against}")
-    print(f"  {reversed_slices[0]} segments walk against their haplotype's stored direction")
-    if orient_mismatch[0]:
-        print(f"  {orient_mismatch[0]} segments whose stated orientation disagrees with the walk")
-    if allele_counts:
-        print(f"  {allele_counts['A rows']} A rows applied, of which "
-              f"{allele_counts['A rows with a sequence']} give a sequence and "
-              f"{allele_counts['A rows that join no H row']} join no H row")
-    if allele_counts['steps joined by a sequence']:
-        print(f"  {allele_counts['steps joined by a sequence']} steps joined by an A row's "
-              f"sequence rather than an edge")
-    if allele_counts['A rows with a sequence']:
-        left_out = 'A row sequences left out, their walk being replaced by a later row'
-        print(f"  {allele_counts['A row sequences read']} A row sequences read into the paths' "
-              f"bases, {allele_counts['A row sequences not read, for want of --gfa']} not read "
-              f"for want of --gfa, {allele_counts[left_out]} left out, their walk being replaced "
-              f"by a later row")
-        for k, v in sorted(allele_counts.items()):
-            if k.startswith('A row sequences that share') and v:
-                print(f"  {v} {k}")
+    print(f"\n  {len(h_rows)} fragments, {steps} steps "
+          + (f"against {len(edges) // 2} edges" if edges is not None else "(no --gfa: unchecked)"))
+    if a.vcf and sequences is None:
+        ap.error("--vcf needs --gfa, for the nodes' bases")
     if a.vcf:
-        # The reference path of each contig, as the VCF names the contig.
-        references = {}
-        for name in reference_names if sequences else ():
-            if name in walks:
-                references[name.split('#')[-1]] = Reference(walks[name], sequences)
-        vcf_counts, site_counts, node_counts = check_vcf(a.vcf, strands, sequences, references,
-                                                         a.quiet)
-        print(f"  called alleles against {a.vcf}: {vcf_counts['checked']} checked, "
-              f"{vcf_counts['equal']} equal, "
-              f"{vcf_counts['equal outside nested records']} equal outside nested records, "
-              f"{vcf_counts['same bases']} same bases by another walk, "
-              f"{vcf_counts['different']} different, "
-              f"{vcf_counts['strand does not cross']} strand does not cross")
-        for k, v in sorted(vcf_counts.items()):
-            if k.startswith(('records skipped', 'alleles skipped', 'of the equal',
-                             'block records', 'with an edit')):
-                print(f"  {v} {k}")
-        if vcf_counts['different']:
-            fail['called allele is not what the path takes'] = vcf_counts['different']
-        if site_counts['sites']:
-            print(f"  sites written as flat records: {site_counts['sites']} sites, "
-                  f"{site_counts['checked']} strands checked, {site_counts['equal']} spell "
-                  f"their records, {site_counts['different']} different, "
-                  f"{site_counts['strand does not cross']} strand does not cross")
-            for k, v in sorted(site_counts.items()):
-                if k.startswith(('strands not compared', 'with an edit')):
-                    print(f"  {v} {k}")
-            if site_counts['different']:
-                fail["strand does not spell its site's records"] = site_counts['different']
-        if node_counts:
-            print(f"  bases the A rows' sequences give inside nodes, against the records of edit "
-                  f"sites: {node_counts['checked']} node visits checked, {node_counts['equal']} "
-                  f"equal, {node_counts['different']} different")
-            for k, v in sorted(node_counts.items()):
-                if k.startswith(('node visits not compared', 'node visits inside',
-                                 'records of edit sites', 'of the equal')):
-                    print(f"  {v} {k}")
-            if node_counts['different']:
-                fail['bases inside a node are not those of the records of edit sites'] = \
-                    node_counts['different']
+        records = read_vcf(a.vcf, counts)
+        different = []
+        for (contig, strand), fragments in sorted(strands.items()):
+            name = next((n for n in reference_names if n.split('#')[-1] == contig and n in walks),
+                        None)
+            if name is None or contig not in records:
+                counts['strands not compared: no reference path, or no records'] += 1
+                continue
+            different += [f"{contig} strand {strand} {what}" for what in check_strand(
+                fragments, strand, records[contig], Reference(walks[name], sequences), sequences,
+                counts)]
+        for what in different if not a.quiet else ():
+            print(f"  DIFFERENT  {what}", file=sys.stderr)
+        print(f"  against {a.vcf}: {counts['site strands checked']} site strands checked, "
+              f"{counts['site strands equal']} equal; {counts['edit site nodes checked']} "
+              f"stretches of nodes of edit sites checked, {counts['edit site nodes equal']} "
+              f"equal; {len(different)} different")
+        if different:
+            fail['strand does not have the bases the records give'] = len(different)
+    for k, v in sorted(counts.items()):
+        if not k.endswith((' checked', ' equal')):
+            print(f"  {v} {k}")
     if not fail:
-        print("  OK: every path expands to an exact walk in the graph")
+        print("  OK: every strand is a walk in the graph"
+              + (", with the bases the records give" if a.vcf else ""))
         return 0
     for k, v in sorted(fail.items(), key=lambda kv: -kv[1]):
         print(f"  FAIL {v:>7}  {k}")
