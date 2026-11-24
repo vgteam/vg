@@ -2490,8 +2490,8 @@ is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 tested, 1 candidate strands
    "and reports what it did in one line, with the runs of neighbouring snarls, of which the chain has none"
 is "$($RCN_CALL --read-consensus 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.on.vcf) | wc -l | tr -d ' ')" "0" \
    "two runs with --read-consensus write the same records"
-is "$($RCN_CALL --read-consensus --consensus-min-diff 61 2>&1 >/dev/null | grep -c 'read consensus: 3 phased snarls, 0 tested, 0 candidate strands')" "1" \
-   "a read that differs by fewer bases than --consensus-min-diff does not disagree"
+is "$($RCN_CALL --read-consensus --consensus-min-gain 1000 2>&1 >/dev/null | grep -c 'read consensus: 3 phased snarls, 0 tested, 0 candidate strands')" "1" \
+   "reads that cannot gain --consensus-min-gain nats leave a snarl untested"
 # With flat records, the record of the top-level snarl is a flat one, and is marked too.
 # The three snarls follow each other in their chain, each sharing a bound node of 30 bases with
 # the next, so their flat records are those of one run, named by its two outer bound nodes.
@@ -2535,12 +2535,12 @@ is "$(grep -c -- '--read-consensus only appl.* to the read-likelihood genotyper'
 vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --no-phased --read-consensus >/dev/null 2>rcn.refuse.txt
 is "$(grep -c -- '--read-consensus needs the phase' rcn.refuse.txt)" "1" \
    "--read-consensus is refused without --phased"
-vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --consensus-min-change 10 >/dev/null 2>rcn.refuse.txt
-is "$(grep -c -- '--consensus-min-change only applies to read consensus, which --read-consensus turns on' rcn.refuse.txt)" "1" \
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --consensus-min-gain 9 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--consensus-min-gain only applies to read consensus, which --read-consensus turns on' rcn.refuse.txt)" "1" \
    "the settings of --read-consensus are refused without it"
-vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --read-consensus --consensus-min-reads 7 >/dev/null 2>rcn.refuse.txt
-is "$(grep -c -- '--consensus-min-reads must be at least 1 and at most 6' rcn.refuse.txt)" "1" \
-   "--consensus-min-reads is refused above the reads a strand needs to span a snarl"
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --read-consensus --consensus-min-gain 0 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--consensus-min-gain must be more than 0' rcn.refuse.txt)" "1" \
+   "--consensus-min-gain is refused at 0"
 
 # A difference inside the node between two snarls is in neither of them, so the two become one
 # site. Here strand Y takes the panel's walk >1>3>4>6>7>9>10, and has the 60 bases inside node 7,

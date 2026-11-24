@@ -6,9 +6,11 @@
  * one chain, an allele built from its reads.
  */
 
+#include <cmath>
 #include <cstddef>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -31,29 +33,18 @@ using namespace std;
 struct ReadConsensusOptions {
     /// Whether the step runs.
     bool enabled = false;
-    /// The fewest bases by which a read differs from the sequence called on its strand for the
-    /// read to disagree with it: a difference in length of that many bases, or that many
-    /// differing bases in an alignment of the two that are also `min_diff_share` of the longer.
-    size_t min_diff = 15;
-    /// The fewest reads of a strand that disagree with its called sequence for the strand to be
-    /// a candidate. It is at most `min_spanning`.
-    size_t min_reads = 3;
-    /// A consensus becomes an allele where it differs from the called sequence by more bases
-    /// than this.
-    size_t min_change = 10;
+    /// The fewest nats that the reads of a strand gain by a consensus, in all, for it to
+    /// become an allele. A read gains what it scores more against the consensus than against
+    /// what the strand is called as, and no more than one read's say
+    /// (`AlleleLikelihoodCalculator::read_clamp`), and loses likewise.
+    double min_gain = 9.0;
 
-    /// The share of the longer of a read and the called sequence that their differing bases
-    /// are, at least, where a read of nearly the called length disagrees.
-    static constexpr double min_diff_share = 0.08;
-    /// The least share of a strand's spanning reads that disagree, for the strand to be a
-    /// candidate.
-    static constexpr double min_share = 0.25;
-    /// The fewest reads of a strand that span the site, for the strand to be a candidate.
-    static constexpr size_t min_spanning = 6;
-    /// A run grows from a site where `min_reads` of its spanning reads have this many bases
-    /// more between its bounds than its longest called sequence, or this many fewer than its
-    /// shortest, as it does from a site with a candidate strand.
-    static constexpr size_t run_site_diff = 3;
+    /// Return the fewest reads that can gain `min_gain` nats, where one read's say is `clamp`.
+    size_t reads_needed(double clamp) const {
+        return clamp > 0.0 ? (size_t)std::ceil(min_gain / clamp)
+                           : std::numeric_limits<size_t>::max();
+    }
+
     /// The most bases that lie between two neighbouring sites of a run, in their bound nodes
     /// and any nodes between those, and the most that lie between two seeds of a run that
     /// follow each other, in those nodes and in the sites between that are no seeds.
@@ -66,7 +57,7 @@ struct ReadConsensusCounts {
     size_t sites = 0;
     /// Those whose reads were fetched and compared with the called sequences, on their own.
     size_t tested = 0;
-    /// Strands that were candidates at one of those.
+    /// Strands at one of those whose consensus differs from what the strand is called as.
     size_t candidate_strands = 0;
     /// Runs of several snarls that were treated: each is to become one site.
     size_t runs_treated = 0;
@@ -83,8 +74,8 @@ struct ReadConsensusCounts {
 };
 
 /**
- * The step that adds to a snarl, or to the snarls of a run, the consensus of the reads that
- * disagree with what is called there, and genotypes them again.
+ * The step that adds to a snarl, or to the snarls of a run, the consensus of the reads of a
+ * strand where the reads gain by it, and genotypes them again.
  *
  * It runs after the first linkage pass and read phasing, on the staged snarls that have a phase.
  * At each, a strand's reads are the reads that span the snarl from bound to bound and that the
@@ -92,17 +83,21 @@ struct ReadConsensusCounts {
  * the spanning reads, all of them are taken to be on strand 0. A snarl with one strand has all
  * of them on it.
  *
- * A read disagrees with a strand where its bases between the bounds differ from the strand's
- * called sequence there (`AlleleSplicer::strand_sequence`) by `min_diff` bases or more (see
- * `ReadConsensusOptions::min_diff`). A strand is a candidate where at least `min_spanning` of its
- * reads span the snarl, and at least `min_reads` of them, and at least `min_share` of them,
- * disagree. A candidate strand gets the consensus of its spanning reads, with its called
- * sequence as the backbone (`read_consensus`). A consensus more than `min_change` differing
- * bases from the called sequence becomes a sequence allele of the snarl
- * (`add_sequence_allele`), unless an allele of the snarl spells it already. With it, the snarl
- * gains what each strand is called as, where the sites nested in the snarl make that a
- * sequence that none of its alleles spells, so that a strand can keep what it has. Two strands with one
- * consensus add one allele.
+ * One threshold decides what is built and what is kept: `min_gain`, in nats. One read's say is
+ * the most nats by which the genotyper lets one read favour an allele
+ * (`AlleleLikelihoodCalculator::read_clamp`). A read's gain by a sequence is what it scores
+ * more against that sequence than against its strand's called sequence
+ * (`AlleleSplicer::strand_sequence`), each scored as a read is against a sequence allele
+ * (`AlleleLikelihoodCalculator::sequence_nats`). It is no more than one read's say, and no less
+ * than that below zero. So `reads_needed` reads at least gain `min_gain` nats.
+ *
+ * A strand with `reads_needed` spanning reads gets their consensus, with its called sequence as
+ * the backbone (`read_consensus`). The strand is a candidate where the consensus differs from
+ * the called sequence. The consensus becomes a sequence allele of the snarl
+ * (`add_sequence_allele`) where the strand's reads gain `min_gain` nats by it in all, unless
+ * an allele of the snarl spells it already. With it, the snarl gains what each strand is
+ * called as, where the sites nested in the snarl make that a sequence that none of its alleles
+ * spells, so that a strand can keep what it has. Two strands with one consensus add one allele.
  *
  * A snarl gains its consensus whatever the snarls staged under it gain. Its sequence allele
  * crosses none of them, and the genotypes the linkage pass chooses say which is called.
@@ -111,36 +106,36 @@ struct ReadConsensusCounts {
  * to every allele, and filed again in the linkage model in place of its entry. The caller then
  * runs the linkage pass and read phasing again.
  *
- * Before any read is fetched, a snarl is left out where no read can disagree: where fewer than
- * `min_spanning` reads span it, or where every called sequence has fewer than `min_diff` bases
- * between the bounds and fewer than `min_reads` spanning reads have that many. The direct pass
- * keeps the numbers this needs with each snarl's call (`AlleleLikelihoodParams::span_rank`).
+ * Before any read is fetched, a snarl is left out where its reads cannot gain `min_gain` nats
+ * by an allele. No allele explains a spanning read that, between the bounds, scores `min_gain`
+ * nats or more below a sequence that spells it against the allele it fits best. The direct
+ * pass counts those reads with each snarl's call (`SpanSummary::unexplained`). Each can gain
+ * one read's say, and a snarl is tested where that sums to `min_gain`.
  *
  * ## Runs
  *
  * A mapper places a difference in a repeat in one of several neighbouring snarls, and not in
- * the same one for every read, so no one snarl need hold `min_diff` bases of it, and the bases
- * that two reads have between the bounds of one snarl cannot be compared. So the step tests a
- * run of snarls as it tests one snarl. A run is read from its first member's start bound to its
- * last member's end bound: a strand's called sequence across the run is its called sequence at
- * each member with the junctions between, and a read's bases are those it has between the
- * run's two outer bounds.
+ * the same one for every read, so no one snarl need hold the difference in enough reads, and
+ * the bases that two reads have between the bounds of one snarl cannot be compared. So the step
+ * tests a run of snarls as it tests one snarl. A run is read from its first member's start
+ * bound to its last member's end bound: a strand's called sequence across the run is its
+ * called sequence at each member with the junctions between, and a read's bases are those it
+ * has between the run's two outer bounds.
  *
  * Two snarls are neighbours where one follows the other in a chain, at any level: they share a
  * bound node, or only nodes that every walk of the chain takes lie between them. One phase set
- * orders the strands of both, at least `min_spanning` reads span each, and each has a called
- * sequence of no more bases than the scorer aligns of a read. Their junction is the bases of
- * the nodes from the one's end bound to the other's start bound, both included, which are at
- * most `run_max_junction`.
+ * orders the strands of both, `reads_needed` reads span each, and each has a called sequence of
+ * no more bases than the scorer aligns of a read. Their junction is the bases of the nodes from
+ * the one's end bound to the other's start bound, both included, which are at most
+ * `run_max_junction`.
  *
- * A snarl's signal is the number of bases by which `min_reads` of its spanning reads have more
- * between the bounds than its longest called sequence, or fewer than its shortest, whichever is
- * more. Where `min_reads` of the reads that span it have a gap of `min_diff` bases or more
- * inside the node of a bound that faces a neighbour, or in the nodes of their junction beyond
- * it, the gap is the signal of both snarls if it is more
- * (`SpanSummary::start_gap`, `end_gap`). A seed is a snarl whose reads disagree with
- * what is called there: one with a candidate strand, or with a signal of `run_site_diff` or
- * more.
+ * A snarl's signal is one read's say for each spanning read that no allele explains. A read's
+ * gap is a run of bases it inserts in a node or beside it, or a run of a node's bases it
+ * lacks. Where `reads_needed` of the reads that span a snarl have a gap inside the node of a
+ * bound that faces a neighbour, or in the nodes of their junction beyond it
+ * (`SpanSummary::start_gap`, `end_gap`), and a gap of that length costs a read `min_gain` nats,
+ * the signal of both snarls is the say of that many reads at least. A seed is a snarl with a
+ * signal of `min_gain` or more.
  *
  * A run begins and ends at a seed, and holds every snarl between two of its seeds. Two seeds
  * that follow each other in a sequence of neighbours are in one run where at most
@@ -148,10 +143,9 @@ struct ReadConsensusCounts {
  * that are no seeds, and the run has no more bases between its outer bounds than the scorer
  * aligns of a read. The bases of a snarl are those of its longest called sequence. Where one
  * more seed would pass either number, the run ends and the next begins at that seed. A run of
- * two or more is tested where a member has a candidate strand or the
- * members' signals sum to `min_diff`, and is treated where a strand has a consensus that is to
- * become an allele and the run can become one site. A snarl in no treated run is treated on
- * its own where it has a consensus, so a snarl is in at most one treated run.
+ * two or more is tested, and is treated where a strand has a consensus that is to become an
+ * allele and the run can become one site. A snarl in no treated run is treated on its own
+ * where it has a consensus, so a snarl is in at most one treated run.
  *
  * ## A run as one site
  *
@@ -241,10 +235,10 @@ private:
                    const vector<StagedSite*>& snarls, const vector<Alone>& alone,
                    vector<Run>& runs, vector<RunFinding>& run_findings) const;
 
-    /// Compare the reads that span `run` with each strand's called sequence across it, and
-    /// build the consensus of each candidate strand. The run is treated for a consensus that
-    /// is to become an allele: of the snarl, for a run of one, and of the one site that a run of
-    /// several becomes.
+    /// Fetch the reads that span `run`, build the consensus of each strand's, and score the
+    /// reads against it and against the strand's called sequence across the run. The run is
+    /// treated for a consensus that is to become an allele: of the snarl, for a run of one, and
+    /// of the one site that a run of several becomes.
     RunFinding examine_run(const Parts& parts, const AlleleSplicer& splicer,
                            const vector<StagedSite*>& snarls, const Run& run) const;
 
@@ -261,13 +255,9 @@ private:
                                    const vector<StagedSite*>& snarls, const Run& run,
                                    const RunFinding& found) const;
 
-    /// Return what the span summary of `site` says of it: whether a read of it can disagree
-    /// with a called sequence, and what it adds to the signal of a run.
+    /// Return what the span summary of `site` says of it: whether its reads can gain
+    /// `min_gain` nats by an allele, and its signal in a run.
     Alone measure(const Parts& parts, const AlleleSplicer& splicer, const StagedSite& site) const;
-
-    /// Return whether a read with the bases `read` between the bounds disagrees with the called
-    /// sequence `called`.
-    bool disagrees(const string& read, const string& called) const;
 
     ReadConsensusOptions options;
     ReadConsensusCounts counted;
@@ -280,6 +270,9 @@ private:
     /// (`AlleleLikelihoodCalculator::sequence_allele_limits`), while the step runs.
     size_t max_bases = 0;
     size_t max_alignments = 0;
+    /// The most nats by which one read can favour one allele over another
+    /// (`AlleleLikelihoodCalculator::read_clamp`), while the step runs.
+    double clamp = 0.0;
 };
 
 }

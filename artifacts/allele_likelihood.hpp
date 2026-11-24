@@ -11,12 +11,14 @@
  * is described in artifacts/doc/read-likelihood-direct-genotyping.md.
  */
 
+#include <cmath>
 #include <functional>
 #include <iostream>
 #include <limits>
 #include <atomic>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -306,13 +308,12 @@ public:
     struct SpanSummary {
         /// The number of reads that span the snarl.
         uint32_t reads = 0;
-        /// The number of bases that the read with the `AlleleLikelihoodParams::span_rank`-th
-        /// most has between the bounds, or 0 where fewer reads than that span the snarl.
-        uint32_t rank_bases = 0;
-        /// The number of bases that the read with the `span_rank`-th fewest has between the
-        /// bounds, or 0 where fewer reads than that span the snarl.
-        uint32_t low_bases = 0;
-        /// The longest gap that the read with the `span_rank`-th longest has inside the node of
+        /// The number of those reads that no allele explains: whose score between the bounds
+        /// under their best allele is at least `AlleleLikelihoodParams::span_unexplained_nats`
+        /// below the score of a read that an allele spells base for base there.
+        uint32_t unexplained = 0;
+        /// The longest gap that the read with the `AlleleLikelihoodParams::span_rank`-th
+        /// longest has inside the node of
         /// the start bound or in the nodes that every walk takes before that node, for up to
         /// `AlleleLikelihoodParams::span_gap_reach` bases of them, in bases, or 0 where fewer
         /// reads than that span the snarl.
@@ -585,11 +586,16 @@ struct AlleleLikelihoodParams {
     size_t sequence_allele_max_alignments = 2000;
 
     /**
-     * If not 0, the matrix of a snarl keeps how many reads span the snarl, and the number of
-     * bases the read with the `span_rank`-th most has between its bounds (see
+     * If not 0, the matrix of a snarl keeps a summary of the reads that span the snarl, and
+     * the gaps the read with the `span_rank`-th longest has around each bound (see
      * `AlleleReadLikelihoods::SpanSummary`).
      */
     size_t span_rank = 0;
+
+    /// The nats by which a spanning read's score between a snarl's bounds, under its best
+    /// allele, is below that of a read an allele spells, for the summary to count the read as
+    /// one that no allele explains. 0 counts none.
+    double span_unexplained_nats = 0.0;
 
     /// The most bases of the nodes that every walk takes before a snarl's start bound, and
     /// after its end bound, in which a spanning read's gaps count towards
@@ -676,6 +682,23 @@ public:
     /// Get the limits of `compute` at a snarl with a sequence allele. The default, for a
     /// calculator that aligns no read to a sequence allele, is 0 for both.
     virtual SequenceAlleleLimits sequence_allele_limits() const { return {}; }
+
+    /**
+     * Return the ln-likelihood score of a read that has `bases` between the bounds of a snarl
+     * against an allele that has `sequence` there, as `compute` scores a spanning read at a
+     * snarl with a sequence allele, without the read's score on the bound nodes. The default,
+     * for a calculator that aligns no read to a sequence, is nothing.
+     *
+     * @return Nothing if the two cannot be aligned within the aligner's limits.
+     */
+    virtual optional<double> sequence_nats(const string& /*bases*/,
+                                           const string& /*sequence*/) const {
+        return std::nullopt;
+    }
+
+    /// Return the most nats by which one read can favour one allele over another: the least
+    /// chance that a read is mismapped bounds its say. The default is 0.
+    virtual double read_clamp() const { return 0.0; }
 };
 
 /**
@@ -747,6 +770,10 @@ public:
     vector<SpanningRead> spanning_reads(const MaterializedSite& site) const override;
 
     void set_counted_fetches(bool counted) override { counted_fetches = counted; }
+
+    optional<double> sequence_nats(const string& bases, const string& sequence) const override;
+
+    double read_clamp() const override { return -std::log(params.min_mismap_prob); }
 
     SequenceAlleleLimits sequence_allele_limits() const override {
         return {params.sequence_allele_max_bases, params.sequence_allele_max_alignments};
@@ -978,7 +1005,7 @@ protected:
      * the highest score.
      *
      * The read is not aligned to an allele whose length differs from that of the read's bases
-     * by more than the aligner's limit on cells lets it align (`SequenceAlleles::too_far`). Its
+     * by more than the aligner's limit on cells lets it align (see `sequence_nats`). Its
      * entry for that allele is the most any alignment of the two could score: that of one gap
      * of the bases one has more than the other, with every other base matched.
      *

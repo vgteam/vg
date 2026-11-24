@@ -630,19 +630,15 @@ void help_call(char** argv) {
          << "                            with 0, each snarl is a run of its own [1000]" << endl
          << "  read consensus:" << endl
          << "      --read-consensus      add to a snarl, or to a run of neighbouring" << endl
-         << "                            snarls of a chain, the consensus of the reads" << endl
-         << "                            spanning it, where enough reads of a called" << endl
-         << "                            haplotype differ from what is called on it, and" << endl
-         << "                            genotype the snarls again; needs --phased" << endl
-         << "      --consensus-min-diff=N" << endl
-         << "                            a read differs where its bases across the snarl" << endl
-         << "                            are N or more bases from the called ones [15]" << endl
-         << "      --consensus-min-reads=N" << endl
-         << "                            build a consensus where at least N reads of a" << endl
-         << "                            haplotype differ, at most 6 [3]" << endl
-         << "      --consensus-min-change=N" << endl
-         << "                            add a consensus that is more than N bases from" << endl
-         << "                            the called sequence [10]" << endl
+         << "                            snarls of a chain, the consensus of the reads of" << endl
+         << "                            a called haplotype that span it, where they gain" << endl
+         << "                            by it over what is called on it, and genotype" << endl
+         << "                            the snarls again; needs --phased" << endl
+         << "      --consensus-min-gain=N" << endl
+         << "                            add a consensus by which the reads of a" << endl
+         << "                            haplotype gain N nats or more over what is" << endl
+         << "                            called, each read counting at most the say" << endl
+         << "                            that --mismap-min leaves one read [9]" << endl
          << "  read scoring:" << endl
          << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
          << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
@@ -1098,9 +1094,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MOSAIC_EXACT = 1124;
     constexpr int OPT_FLATTEN_RECORDS = 1125;
     constexpr int OPT_READ_CONSENSUS = 1126;
-    constexpr int OPT_CONSENSUS_MIN_DIFF = 1127;
-    constexpr int OPT_CONSENSUS_MIN_READS = 1128;
-    constexpr int OPT_CONSENSUS_MIN_CHANGE = 1131;
+    constexpr int OPT_CONSENSUS_MIN_GAIN = 1127;
     constexpr int OPT_FLATTEN_DISTANCE = 1132;
     optind = 2; // force optind past command positional argument
     // The long options, grouped by the subsystem they configure, by its name. Every subsystem with
@@ -1251,9 +1245,7 @@ int main_call(int argc, char** argv) {
         }}},
         {"read consensus", {"--read-consensus", "the read-likelihood genotyper",
          [&] { return read_consensus.enabled; }, {
-            {"consensus-min-diff", required_argument, nullptr, OPT_CONSENSUS_MIN_DIFF},
-            {"consensus-min-reads", required_argument, nullptr, OPT_CONSENSUS_MIN_READS},
-            {"consensus-min-change", required_argument, nullptr, OPT_CONSENSUS_MIN_CHANGE},
+            {"consensus-min-gain", required_argument, nullptr, OPT_CONSENSUS_MIN_GAIN},
         }}},
         {"re-genotyping", {"--regenotype", "the read-likelihood genotyper",
          [&] { return regenotype && read_phasing; }, {
@@ -1469,14 +1461,8 @@ int main_call(int argc, char** argv) {
         case OPT_READ_CONSENSUS:
             read_consensus.enabled = true;
             break;
-        case OPT_CONSENSUS_MIN_DIFF:
-            read_consensus.min_diff = parse<size_t>(optarg);
-            break;
-        case OPT_CONSENSUS_MIN_READS:
-            read_consensus.min_reads = parse<size_t>(optarg);
-            break;
-        case OPT_CONSENSUS_MIN_CHANGE:
-            read_consensus.min_change = parse<size_t>(optarg);
+        case OPT_CONSENSUS_MIN_GAIN:
+            read_consensus.min_gain = parse<double>(optarg);
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
@@ -2601,10 +2587,15 @@ int main_call(int argc, char** argv) {
             likelihood_params.anchor_counters = &anchor_run_counters;
             anchor_params.counters = &anchor_run_counters;
             likelihood_params.collect_read_phasing = read_phasing;
-            // The read-consensus step leaves out the snarls where fewer reads than it needs to
-            // differ have enough bases between the bounds.
-            likelihood_params.span_rank = read_consensus.enabled ? read_consensus.min_reads : 0;
-            likelihood_params.span_gap_reach = read_consensus.run_max_junction;
+            if (read_consensus.enabled) {
+                // The read-consensus step tests the snarls whose reads no allele explains. The
+                // direct pass counts those reads, and keeps the gaps around the bounds of as
+                // many reads as can gain the step's least gain.
+                likelihood_params.span_rank =
+                    read_consensus.reads_needed(-std::log(min_mismap_prob));
+                likelihood_params.span_unexplained_nats = read_consensus.min_gain;
+                likelihood_params.span_gap_reach = read_consensus.run_max_junction;
+            }
 
             auto owned_calculator = make_unique<GraphAlignedAlleleLikelihoodCalculator>(
                 *graph, *read_source, *qual_scorer, *plain_scorer,
@@ -3012,13 +3003,8 @@ int main_call(int argc, char** argv) {
             }
             phased_output = false;
         }
-        if (read_consensus.enabled
-            && (read_consensus.min_reads < 1
-                || read_consensus.min_reads > read_consensus.min_spanning)) {
-            // A strand is a candidate only with `min_spanning` spanning reads, and the direct
-            // pass keeps the bases of the `min_reads`-th read of those that span a snarl.
-            logger.error() << "--consensus-min-reads must be at least 1 and at most "
-                           << read_consensus.min_spanning << endl;
+        if (read_consensus.enabled && read_consensus.min_gain <= 0.0) {
+            logger.error() << "--consensus-min-gain must be more than 0" << endl;
         }
         if (read_consensus.enabled && !phased_output) {
             // The step compares the reads of a strand with what the phase puts on it.

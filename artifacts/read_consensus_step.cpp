@@ -12,20 +12,6 @@ namespace vg::multipass {
 
 using namespace std;
 
-bool ReadConsensusStep::disagrees(const string& read, const string& called) const {
-    const size_t longer = std::max(read.size(), called.size());
-    if (longer - std::min(read.size(), called.size()) >= options.min_diff) {
-        return true;
-    }
-    if (longer < options.min_diff) {
-        // The two cannot differ by that many bases.
-        return false;
-    }
-    const optional<int64_t> differing = edit_distance(read, called);
-    return differing && (size_t)*differing >= options.min_diff
-           && (double)*differing >= options.min_diff_share * (double)longer;
-}
-
 /// Return the bases `sequence` has between its first `before` and its last `after`, or nothing
 /// if it has fewer bases than those.
 static optional<string> between(const string& sequence, size_t before, size_t after) {
@@ -47,9 +33,10 @@ struct ReadConsensusStep::Run {
 struct ReadConsensusStep::RunFinding {
     /// What the step found on one strand.
     struct Strand {
-        /// The strand's spanning reads, and how many of them disagree.
+        /// The strand's spanning reads.
         size_t reads = 0;
-        size_t disagreeing = 0;
+        /// Whether the consensus of the strand's reads differs from what the strand is called
+        /// as.
         bool candidate = false;
         /// The bases the consensus puts between the run's two outer bounds, where the run is
         /// treated for it: it is to become an allele of the snarl, or of the one site that a
@@ -76,16 +63,15 @@ struct ReadConsensusStep::RunFinding {
 struct ReadConsensusStep::Alone {
     /// Whether the site has a called sequence and enough spanning reads to be in a run.
     bool measured = false;
-    /// Whether the span summary says a read of the site can disagree with a called sequence.
+    /// Whether the span summary says the site's reads can gain `min_gain` nats by an allele.
     bool can_disagree = false;
     /// The most bases a called sequence has between the bounds.
     size_t longest = 0;
-    /// The number of bases by which `min_reads` of the spanning reads have more between the
-    /// bounds than the longest called sequence, or fewer than the shortest, whichever is more.
-    size_t signal = 0;
-    /// The longest gap that `min_reads` of the spanning reads have inside the node of the start
-    /// bound or in the nodes before it, and inside that of the end bound or in the nodes after
-    /// it (`SpanSummary::start_gap`, `end_gap`).
+    /// One read's say for each spanning read that no allele explains.
+    double signal = 0.0;
+    /// The longest gap that enough reads to gain `min_gain` nats have inside the node of the
+    /// start bound or in the nodes before it, and inside that of the end bound or in the nodes
+    /// after it (`SpanSummary::start_gap`, `end_gap`).
     size_t start_gap = 0;
     size_t end_gap = 0;
     /// Whether the site's reads were fetched and compared with the called sequences.
@@ -104,7 +90,8 @@ ReadConsensusStep::Alone ReadConsensusStep::measure(const Parts& parts,
     Alone alone;
     const HandleGraph& graph = *parts.graph;
     const AlleleReadLikelihoods::SpanSummary& spans = site.score->spans;
-    if (spans.reads < options.min_spanning) {
+    if (spans.reads < options.reads_needed(clamp)) {
+        // Too few reads span the site to gain `min_gain` nats from any allele.
         return alone;
     }
     const handle_t start = parts.sites->get_site_start(site.net);
@@ -130,13 +117,9 @@ ReadConsensusStep::Alone ReadConsensusStep::measure(const Parts& parts,
     alone.measured = true;
     alone.start_gap = spans.start_gap;
     alone.end_gap = spans.end_gap;
-    alone.signal = std::max(
-        spans.rank_bases > alone.longest ? spans.rank_bases - alone.longest : 0,
-        shortest > spans.low_bases ? shortest - spans.low_bases : 0);
-    // No read can disagree where neither a called sequence nor enough reads have `min_diff`
-    // bases between the bounds.
-    alone.can_disagree = alone.longest >= options.min_diff
-                         || spans.rank_bases >= options.min_diff;
+    // Each read that no allele explains can gain a new allele one read's say.
+    alone.signal = clamp * (double)spans.unexplained;
+    alone.can_disagree = alone.signal >= options.min_gain;
     return alone;
 }
 
@@ -167,9 +150,20 @@ void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splic
             by_start[parts.sites->get_site_start(snarls[i]->net)] = i;
         }
     }
-    // The signal of each site: that of its own span summary, or the gap its reads have inside
-    // a node between it and a neighbour, if that is `min_diff` bases and more.
-    vector<size_t> signal(snarls.size());
+    // The signal of each site: the unexplained nats of its own span summary, or those of the
+    // gap its reads have in a node between it and a neighbour, if that is more.
+    vector<double> signal(snarls.size());
+    const AlleleLikelihoodCalculator& calculator = parts.genotyper->calculator();
+    // Return whether a gap of `bases` bases leaves a read unexplained: it costs the read
+    // `min_gain` nats.
+    auto unexplained_gap = [&](size_t bases) {
+        const string gap(bases, 'A');
+        const optional<double> spelled = calculator.sequence_nats(gap, gap);
+        const optional<double> lacking = calculator.sequence_nats(gap, "");
+        return bases > 0 && spelled && lacking && *spelled - *lacking >= options.min_gain;
+    };
+    // The nats of a gap that enough reads to gain `min_gain` have.
+    const double gap_signal = clamp * (double)options.reads_needed(clamp);
     for (size_t i = 0; i < snarls.size(); ++i) {
         signal[i] = alone[i].signal;
     }
@@ -204,26 +198,21 @@ void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splic
             bases_after[i] = bases;
             // A gap that the reads have on the side of a bound that faces the other site is a
             // signal of both.
-            const size_t gap = std::max(alone[i].end_gap, alone[found].start_gap);
-            if (gap >= options.min_diff) {
-                signal[i] = std::max(signal[i], gap);
-                signal[found] = std::max(signal[found], gap);
+            if (unexplained_gap(std::max(alone[i].end_gap, alone[found].start_gap))) {
+                signal[i] = std::max(signal[i], gap_signal);
+                signal[found] = std::max(signal[found], gap_signal);
             }
         }
     }
-    // A seed is a site whose reads disagree with what is called: one with a candidate strand,
-    // or one whose signal is a few bases of difference.
-    auto is_seed = [&](size_t i) {
-        return alone[i].candidates > 0 || signal[i] >= options.run_site_diff;
-    };
+    // A seed is a site whose reads have `min_gain` nats that nothing called explains.
+    auto is_seed = [&](size_t i) { return signal[i] >= options.min_gain; };
 
     // A run begins and ends at a seed, and holds every site between two of its seeds. Two
     // seeds that follow each other are in one run where at most `run_max_junction` bases lie
     // between them, in the nodes of the junctions and in the sites that are no seeds, and the
     // run has no more bases between its outer bounds than the scorer aligns of a read. The
     // bases of a site are those of its longest called sequence. A run is tested where it has
-    // two or more members, and one has a candidate strand or their signals sum to `min_diff`:
-    // no read can disagree at any other.
+    // two or more members.
     vector<Run> tested;
     for (size_t i = 0; i < snarls.size(); ++i) {
         if (!can_join(i) || follows[i]) {
@@ -231,20 +220,16 @@ void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splic
         }
         Run run;
         size_t bases = 0;
-        size_t signal_sum = 0;
-        bool candidate = false;
         // The sites after the run's last seed, which are no seeds, and the bases after that
         // seed: theirs, and those of the junctions.
         vector<size_t> skipped;
         size_t between = 0;
         auto close = [&]() {
-            if (run.members.size() > 1 && (candidate || signal_sum >= options.min_diff)) {
+            if (run.members.size() > 1) {
                 tested.push_back(std::move(run));
             }
             run = Run();
             bases = 0;
-            signal_sum = 0;
-            candidate = false;
             skipped.clear();
             between = 0;
         };
@@ -270,17 +255,14 @@ void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splic
                 for (const size_t member : skipped) {
                     run.junctions.push_back(nodes_after[run.members.back()]);
                     run.members.push_back(member);
-                    signal_sum += signal[member];
                 }
                 bases += between;
                 skipped.clear();
                 between = 0;
             } else {
                 run.members.push_back(at);
-                signal_sum += signal[at];
             }
             bases += alone[at].longest;
-            candidate = candidate || alone[at].candidates > 0;
         }
         close();
     }
@@ -371,6 +353,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
     const vector<AlleleLikelihoodCalculator::SpanningRead> reads =
         parts.genotyper->calculator().spanning_reads(view);
     found.fetched = true;
+    const AlleleLikelihoodCalculator& calculator = parts.genotyper->calculator();
 
     // Put each read on the strand that its strand log-odds at the members, summed, favour.
     const bool one_strand = !crosses[0] || !crosses[1];
@@ -404,23 +387,33 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
             continue;
         }
         RunFinding::Strand& on = found.strands[strand];
+        // The strand's reads. Each gains one read's say at most.
         vector<string> bases;
         for (size_t r = 0; r < reads.size(); ++r) {
-            if (strand_of[r] == strand && reads[r].length <= max_bases) {
-                bases.push_back(reads[r].bases);
-                on.disagreeing += disagrees(reads[r].bases, called[strand]) ? 1 : 0;
+            if (strand_of[r] != strand || reads[r].length > max_bases) {
+                continue;
             }
+            bases.push_back(reads[r].bases);
         }
         on.reads = bases.size();
-        on.candidate = on.reads >= options.min_spanning && on.disagreeing >= options.min_reads
-                       && (double)on.disagreeing >= options.min_share * (double)on.reads;
-        if (!on.candidate) {
+        if (clamp * (double)on.reads < options.min_gain) {
             continue;
         }
         optional<string> consensus = read_consensus(bases, called[strand]);
-        const optional<int64_t> change =
-            consensus ? edit_distance(*consensus, called[strand]) : std::nullopt;
-        if (change && (size_t)*change > options.min_change) {
+        if (!consensus || *consensus == called[strand]) {
+            continue;
+        }
+        on.candidate = true;
+        // The consensus becomes an allele where the reads gain `min_gain` nats by it.
+        double gain = 0.0;
+        for (size_t r = 0; r < bases.size(); ++r) {
+            const optional<double> against = calculator.sequence_nats(bases[r], called[strand]);
+            const optional<double> with = calculator.sequence_nats(bases[r], *consensus);
+            if (with && against) {
+                gain += std::clamp(*with - *against, -clamp, clamp);
+            }
+        }
+        if (gain >= options.min_gain) {
             on.consensus = std::move(consensus);
         }
     }
@@ -674,8 +667,9 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         calculator.sequence_allele_limits();
     max_bases = limits.max_bases;
     max_alignments = limits.max_alignments;
+    clamp = calculator.read_clamp();
     calculator.set_counted_fetches(false);
-    // Test each site on its own, as a run of one, where a read of it can disagree.
+    // Test each site on its own, as a run of one, where its reads can gain by an allele.
     vector<Alone> alone(snarls.size());
     vector<unique_ptr<RunFinding>> found_alone(snarls.size());
 #pragma omp parallel for schedule(dynamic, 64)
@@ -695,7 +689,7 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         }
     }
 
-    // The runs that are treated: the runs of several sites whose reads disagree, and each
+    // The runs that are treated: the runs of several sites with a consensus, and each
     // site with a consensus of its own that is in none of those.
     vector<Run> runs;
     vector<RunFinding> run_findings;

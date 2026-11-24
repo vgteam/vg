@@ -149,8 +149,11 @@ Called call_graph(const function<void(bdsg::HashGraph&)>& make,
     MatrixAlignmentScorer plain_scorer;
     AlleleLikelihoodParams scoring;
     scoring.collect_read_phasing = true;
-    scoring.span_rank = consensus ? options.min_reads : 0;
-    scoring.span_gap_reach = options.run_max_junction;
+    if (consensus) {
+        scoring.span_rank = options.reads_needed(-std::log(scoring.min_mismap_prob));
+        scoring.span_unexplained_nats = options.min_gain;
+        scoring.span_gap_reach = options.run_max_junction;
+    }
     GraphAlignedAlleleLikelihoodCalculator calculator(positioned, source, qual_scorer,
                                                       plain_scorer, scoring);
     ReadLikelihoodSnarlCaller genotyper(positioned, calculator);
@@ -468,7 +471,7 @@ TEST_CASE("A run of snarls in a tandem repeat gains an expansion its reads place
         const Called called = call_graph(make_repeat, THREE_PANEL, reads, options);
         // Each snarl has four reads of the strand with the expansion, and eight without, so
         // the consensus of its reads is what is called.
-        REQUIRE(called.counts.candidate_strands == 3);
+        REQUIRE(called.counts.candidate_strands == 0);
         // The run of the first two snarls is treated, and the third snarl then gives it the
         // reads whose expansion the mapper put there. The three become one site.
         REQUIRE(called.counts.runs_treated == 1);
@@ -555,8 +558,9 @@ TEST_CASE("A run whose consensus changes the node between two snarls becomes one
     // The reference path takes the first haplotype's walk.
     for (const bool flatten : {false, true}) {
         const Called called = call_graph(make_unique, THREE_PANEL, reads, options, flatten);
-        // No snarl has 15 bases of the difference.
-        REQUIRE(called.counts.tested == 0);
+        // Each of the two snarls has reads that no allele explains, and the run of the two is
+        // treated before either.
+        REQUIRE(called.counts.tested == 2);
         require_first_two_merged(make_unique, called, reads[0], reads[1],
                                  flatten ? reads[0].sequence() : "");
     }
