@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 349
+plan tests 352
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -1354,6 +1354,53 @@ is $(grep -v "^#" chainblk.vcf | cut -f3 | sort | uniq -d | wc -l | tr -d ' ') "
    "and no ID is on more than one record"
 is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 == ">3>6" && $5 == "T"' | wc -l | tr -d ' ') "1" \
    "and the chain's own record reports the second strand's route through it"
+
+# A chain that every called strand crosses inside a difference block has no line of its own, since
+# the block's ALT spells it. That ALT is spelled once for a traversal both strands carry, so it
+# cannot spell a chain at which the two strands differ. Here both strands take the parent's
+# inverted walk, 2, 7, the chain backwards, 4, 9, which only p2#0 has, and they differ at the
+# chain's SNP. The chain keeps its line. Where both strands have the same SNP allele, it has none.
+rm -f invhet.gfa invhet_sim.gfa invhet.gbz invhet_sim.gbz invhet.gam invhet.vcf invhet.err
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTATTGACCAGTT\n'
+  printf 'S\t2\tGGCATTAGCCTTAGACCGATCAGGACTTAC\n'
+  printf 'S\t3\tTTGACCAGTTCAGGACTTAC\n'
+  printf 'S\t4\tGATCCATGCAAGTCGTACGATGCAAGCTTG\n'
+  printf 'S\t5\tA\nS\t6\tT\n'
+  printf 'S\t7\tCAGTTGACCTAGGCATCAGGACCTAGCCAT\n'
+  printf 'S\t8\tAAAAAAAAAACCCCCCCCCC\n'
+  printf 'S\t9\tAACCGGTTACGTTGCAATCGTGCAAGTCCA\n'
+  printf 'S\t10\tGGATCCTAGCATTCGGATCCAAGTTCCAGATTCAGGCATA\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t3\t+\t4\t+\t0M\n'
+  printf 'L\t4\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\nL\t5\t+\t7\t+\t0M\nL\t6\t+\t7\t+\t0M\n'
+  printf 'L\t7\t+\t8\t+\t0M\nL\t8\t+\t9\t+\t0M\nL\t9\t+\t10\t+\t0M\n'
+  printf 'L\t2\t+\t7\t-\t0M\nL\t4\t-\t9\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,3+,4+,5+,7+,8+,9+,10+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t241\t>1>2>3>4>5>7>8>9>10\n'
+  printf 'W\tp1\t1\tchr1\t0\t241\t>1>2>3>4>6>7>8>9>10\n'
+  printf 'W\tp2\t0\tchr1\t0\t201\t>1>2<7<5<4>9>10\n'
+} > invhet.gfa
+cp invhet.gfa invhet_sim.gfa
+printf 'W\tT\t0\tchr1\t0\t201\t>1>2<7<5<4>9>10\n' >> invhet_sim.gfa
+printf 'W\tT\t1\tchr1\t0\t201\t>1>2<7<6<4>9>10\n' >> invhet_sim.gfa
+vg gbwt -G invhet.gfa --gbz-format -g invhet.gbz --set-reference GRCh 2>/dev/null
+vg gbwt -G invhet_sim.gfa --gbz-format -g invhet_sim.gbz --set-reference GRCh 2>/dev/null >/dev/null
+vg sim -x invhet_sim.gbz -n 300 -l 60 -a -s 17 --path "T#0#chr1#0" >  invhet.gam 2>/dev/null
+vg sim -x invhet_sim.gbz -n 300 -l 60 -a -s 23 --path "T#1#chr1#0" >> invhet.gam 2>/dev/null
+INVHET_CALL="vg call invhet.gbz --read-likelihood -t 1 -s samp --nested --phased --mismap-max 0.05 --progress"
+$INVHET_CALL --gam invhet.gam 2>invhet.err > invhet.vcf
+is "$(grep -v '^#' invhet.vcf | awk -F'\t' '{split($10, f, ":"); gsub(/[|\/]/, "", f[1]); printf "%s/%s/%s ", $3, (length($4) == 1 ? $4 $5 : "long"), f[1]}')" \
+   ">2>9/long/11 >4>7/AT/10 " \
+   "a chain at which the strands differ keeps its line under a parent whose strands share one inverted walk"
+is "$(grep -c 'left unrendered because an enclosing block' invhet.err)" "0" \
+   "and is not counted as spelled by the parent's record"
+vg sim -x invhet_sim.gbz -n 600 -l 60 -a -s 23 --path "T#1#chr1#0" > invhet.gam 2>/dev/null
+$INVHET_CALL --gam invhet.gam 2>invhet.err > invhet.vcf
+is "$(grep -v '^#' invhet.vcf | cut -f3 | tr '\n' ' ')/$(grep -c 'block emission: 1 chains .* left unrendered' invhet.err)" \
+   ">2>9 /1" \
+   "a chain at which the strands agree is still spelled by the parent's record alone"
+rm -f invhet.gfa invhet_sim.gfa invhet.gbz invhet_sim.gbz invhet.gam invhet.vcf invhet.err
 
 # --- assembly anchors -------------------------------------------------------
 # An anchor is a zero-length pin at a snarl boundary, or beside an off-panel change, holding the

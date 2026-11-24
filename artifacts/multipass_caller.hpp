@@ -395,8 +395,8 @@ private:
     /// Decide again which chains an enclosing block spells (`StagedSite::reported_inline`), from
     /// the chosen genotypes the render builds each parent's blocks from.
     ///
-    /// Without the linkage model every chosen genotype is the direct call, which the direct pass
-    /// tested, so there is nothing to redo.
+    /// A chain whose two strands carry different alleles is not spelled by a record that spells
+    /// one traversal for both strands, so its line is not held back.
     ///
     /// @return The number of chains whose flag changed.
     size_t rederive_reported_inline();

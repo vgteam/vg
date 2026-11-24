@@ -729,7 +729,7 @@ void MultiPassCaller::render_retained_records() {
 }
 
 size_t MultiPassCaller::rederive_reported_inline() {
-    if (!linker.enabled() || !staged_sites.has_children()) {
+    if (!staged_sites.has_children()) {
         return 0;
     }
     vector<StagedSite>& pending = staged_sites.nested();
@@ -737,6 +737,8 @@ size_t MultiPassCaller::rederive_reported_inline() {
     const unordered_map<size_t, StagedSite*> record_by_key = staged_sites.by_key();
     // Count the chains held back from here, so that the report gives the chains held back now.
     block_records.restart_inline_count();
+    // Whether the record that spells each chain held back spells one traversal for both strands.
+    unordered_map<size_t, bool> spelled_once;
     // Visit parents before their children, so that a chain inherits its parent's final flag.
     staged_sites.for_each_parent_top_down(record_by_key, [&](const StagedSite& parent,
                                                              const vector<size_t>& children) {
@@ -744,19 +746,30 @@ size_t MultiPassCaller::rederive_reported_inline() {
             // Its children were dropped with it.
             return;
         }
+        const vector<int> parent_genotype = linker.chosen_genotype(parent);
         const BlockRecordWriter::ChainInlineContext ctx = block_records.chain_inline_context(
-            graph, parent.children, parent.alleles.walks, linker.chosen_genotype(parent),
+            graph, parent.children, parent.alleles.walks, parent_genotype,
             parent.alleles.ref_allele);
+        // A record spells a traversal that both strands carry once, as the first strand has it.
+        // A chain whose strands differ is then not spelled for both, and keeps its line.
+        const bool once = parent.placement.reported_inline
+                              ? spelled_once[parent.record_key]
+                              : parent_genotype.size() == 2
+                                    && parent_genotype[0] == parent_genotype[1];
         for (size_t ci : children) {
             StagedSite& child = pending[ci];
             if (child.dropped) {
                 continue;
             }
+            const vector<int> genotype = linker.chosen_genotype(child);
+            const bool differs = genotype.size() == 2 && genotype[0] != genotype[1];
             const bool was = child.placement.reported_inline;
             child.placement.reported_inline =
-                parent.placement.reported_inline
-                || block_records.chain_reported_inline(graph, ctx,
-                                                       chain_holding(sites, graph, child.net));
+                !(once && differs)
+                && (parent.placement.reported_inline
+                    || block_records.chain_reported_inline(
+                        graph, ctx, chain_holding(sites, graph, child.net)));
+            spelled_once[child.record_key] = once;
             if (was != child.placement.reported_inline) {
                 ++rederived;
             }

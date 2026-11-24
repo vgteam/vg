@@ -659,7 +659,10 @@ When every crossing of a child chain by the alleles of the parent's settled geno
 block, the block's ALT spells out the chain. The records of the chain, and of the sites nested in
 it, would repeat that ALT, so they are not written. The chain is still genotyped and phased from
 the panel, and its sites get anchors. Each linkage pass decides again, from the parent's chosen
-genotype, whether a block spells the chain out.
+genotype, whether a block spells the chain out. An ALT that both strands carry is spelled once, as
+the first strand has it, so it does not spell a site at which the two strands carry different
+alleles. Such a site keeps its record where the record that would spell it out is of a site whose
+two strands carry one walk.
 
 #### Flat records
 
