@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 90
+plan tests 93
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -76,12 +76,18 @@ rm -f x.longread.zipcodes
 vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi >mapped.gam
 is "$(vg view -aj mapped.gam | jq '.annotation.chain.rec_count')" "1" "recombinations are counted by default when mapping with the hifi preset"
 
+vg filter --tsv-out "annotation.left_tail_length;annotation.right_tail_length;annotation.longest_attempted_connection" mapped.gam | tail -1 > annots.txt
+is "$(cut -f1 annots.txt)" "67" "left tail length is set"
+is "$(cut -f2 annots.txt)" "33" "right tail length is set"
+is "$(cut -f3 annots.txt)" "71" "longest attempted connection is set"
+
 vg giraffe -Z x.giraffe.gbz -f reads/small.recombined.fq -b hifi --rec-penalty-aln 9999 >mapped.gam
 is "$(vg view -aj mapped.gam | jq '.score // 0')" "0" "recombination alignment score penalty is used by default and can unmap a read"
 
 rm -f mapped.gam
 rm -f x.longread.withzip.min
 rm -f x.longread.zipcodes
+rm -f annots.txt
 
 rm -Rf grid-out
 mkdir grid-out
@@ -192,7 +198,7 @@ is "${?}" "0" "mapping to manually-generated indexes and automatically-generated
 
 is "$(jq '.path' mapped1.json)" "$(jq '.path' mapped.sync.json)" "mapping with syncmers produces the same alignment as mapping with minimizers"
 
-rm -rf mapped1.gam mapped1.json mapped2.gam mapped2.json mapped.sync.gam mapped.sync.json
+rm -rf mapped1.gam mapped1.json mapped2.gam mapped2.json mapped.sync.gam mapped.sync.json x.sync
 
 vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq > single.gam
 is "$(vg view -aj single.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l | sed 's/^[[:space:]]*//')" "1000" "unpaired reads lack cross-references"

@@ -23,6 +23,7 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
     - [`vg rna`](#rna): construct splicing graphs and pantranscriptomes. [wiki page](https://github.com/vgteam/vg/wiki/Transcriptomic-analyses). Also see [rpvg](https://github.com/jonassibbesen/rpvg) 
 - **Read mapping**
     - [`vg giraffe`](#giraffe): fast haplotype-aware short read alignment. [wiki page](https://github.com/vgteam/vg/wiki/Mapping-short-reads-with-Giraffe)
+    - [`vg giraffe-server`](#giraffe-server): load Giraffe indexes once and map or surject reads streamed on stdin.
     - [`vg map`](#map): MEM-based read alignment.
     - [`vg mpmap`](#mpmap): splice-aware multipath alignment of short reads. [wiki page](https://github.com/vgteam/vg/wiki/Multipath-alignments-and-vg-mpmap)
 - **Downstream analyses**
@@ -31,7 +32,6 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
     - [`vg depth`](#depth): calculate path coverage depth or aggregate alignment coverage Also see [vg pack](#pack)
     - [`vg pack`](#pack): convert alignments to a compact coverage index. Used with [vg call](#call)
     - [`vg primers`](#primers): filter primers based on variation in a graph. [wiki page](https://github.com/vgteam/vg/wiki/Primer-Filter)
-    - [`vg viz`](#viz): visualize a graph. [wiki page](https://github.com/vgteam/vg/wiki/Complex-graph-visualization#using-vg-viz)
 - **Working with read alignments**
     - [`vg augment`](#augment): embed alignments into a graph.
     - [`vg filter`](#filter): filter alignments by properties.
@@ -52,6 +52,7 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
     - [`vg circularize`](#circularize): connect head and tail nodes to circularize paths.
     - [`vg clip`](#clip): remove variation from a graph.
     - [`vg combine`](#combine): merge graphs into a combined graph. Useful for per-chromosome graphs.
+    - [`vg dedup`](#dedup): chop long nodes so that repeated sequence can be stored once.
     - [`vg mask`](#mask): N-mask regions of a graph.
     - [`vg mod`](#mod): filter, transform, and edit the graph.
     - [`vg gbwt`](#gbwt): manipulate GBWTs and associated indexes. [wiki page](https://github.com/vgteam/vg/wiki/VG-GBWT-Subcommand)

@@ -39,6 +39,8 @@ SUBCMD_END = '_main.cpp'
 """Suffix for subcommand files."""
 SKIP_SUBCMDS = {'test', 'help'}
 """Subcommands to skip in the consistency check."""
+IGNORE_SUBCMDS = {'debug'}
+"""Subcommands to ignore entirely."""
 AUTOCOMP_FILES = ['autocomp.bash', 'autocomplete.sh']
 """Where to double-check subcommand autocomplete existence."""
 MANPAGE_HEADER_FILE = 'doc/vgmanmd.desc.md'
@@ -323,6 +325,10 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     or `std::vector<struct option> long_options`
     and ending with `};`. (i.e. assuming no nested curly braces)
 
+    Options may instead be grouped in a vector named `long_option_groups`,
+    with each option's entry on its own line and the vector ending
+    with `};`.
+
     Ignores lines with comments.
 
     Looks for: `{"longform", arg_type, 0, shortform}`
@@ -365,9 +371,11 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     all_caps_values = set()
 
     for line in text.splitlines():
-        # Found start of long_options[]
+        # Found start of long_options[], or of a vector of option groups
+        # named long_option_groups
         if ('struct option long_options' in line
-            or 'std::vector<struct option> long_options' in line):
+            or 'std::vector<struct option> long_options' in line
+            or re.search(r'\blong_option_groups\s*=', line)):
             inside_longopts = True
         # End of long_options[]
         elif inside_longopts and '};' in line:
@@ -1003,6 +1011,8 @@ if __name__ == "__main__":
 
         subcmd_name = base_file_name.removesuffix(SUBCMD_END).replace('_', '-')
         full_file_name = os.path.join(SUBCMD_DIR, base_file_name)
+        if subcmd_name in IGNORE_SUBCMDS:
+            continue
         if is_subcommand_deprecated(full_file_name):
             deprecated_subcmds.add(subcmd_name)
         else:

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 80
+plan tests 102
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -35,6 +35,12 @@ vg haplotypes --validate --subchain-length 300 -k haplotype-sampling/HG003.kff -
 is $? 0 "sampling the haplotypes directly"
 cmp indirect.gbz direct.gbz
 is $? 0 "the outputs are identical"
+
+# Ignore homopolymers of length 3 or more
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --ignore-homopolymers 3 -g ignored.gbz full.gbz
+is $? 0 "sampling with ignore homopolymers"
+cmp ignored.gbz direct.gbz
+is $? 1 "the output changes when ignoring homopolymers"
 
 # Sample without reference
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff -g no_ref.gbz full.gbz
@@ -165,6 +171,100 @@ is $(vg gbwt -S -Z diploid3.gbz) 2 "1 generated + 1 reference samples"
 is $(vg gbwt -C -Z diploid3.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z diploid3.gbz) 3 "2 generated + 1 reference haplotypes"
 
+# Compare --preset ont to explicit parameters
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --diploid-sampling --ignore-homopolymers 8 -g diploid_ignore.gbz full.gbz
+is $? 0 "diploid sampling with --ignore-homopolymers 8"
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --preset ont -g diploid_ont.gbz full.gbz
+is $? 0 "diploid sampling with --preset ont"
+cmp diploid_ignore.gbz diploid_ont.gbz
+is $? 0 "the outputs are identical"
+
+# Sampling with a gref reference. Build a gref version of the test graph; -l 1 keeps
+# every fragment so the length filter has something to act on.
+vg paths -x haplotype-sampling/micb-kir3dl1.gfa --compute-gref -Q GRCh38 -l 1 > gref.pg
+is $? 0 "computing a gref cover on the test graph"
+vg convert -f gref.pg > gref.gfa
+vg gbwt -G gref.gfa --gbz-format -g gref.gbz -r gref.ri
+vg index -j gref.dist gref.gbz
+vg haplotypes --validate --subchain-length 300 -H gref.hapl gref.gbz
+is $? 0 "generating haplotype information for the gref graph"
+
+# Same GBZ, same haplotype information, same kmers: only the reference sample differs.
+vg haplotypes --validate -i gref.hapl -k haplotype-sampling/HG003.kff --include-reference \
+    --set-reference GRCh38 -g gref_base.gbz gref.gbz
+is $? 0 "sampling the gref graph with the base reference"
+vg haplotypes --validate -i gref.hapl -k haplotype-sampling/HG003.kff --include-reference \
+    --set-reference gref_GRCh38 --min-gref-len 1 -g gref_ref.gbz gref.gbz
+is $? 0 "sampling the gref graph with the gref reference"
+
+# The gref reference must not change the topology: same nodes and same edges.
+topology() { vg convert --no-translation -f "$1" | awk '$1=="S" || $1=="L"' | sort; }
+cmp -s <(topology gref_base.gbz) <(topology gref_ref.gbz)
+is $? 0 "the gref reference gives the same nodes and edges as the base reference"
+
+# Prints the gref pieces in FASTA $2 that do not spell their fragment in FASTA $1 from
+# their subrange start.
+bad_gref_pieces() {
+    awk '/^>/ { n = substr($0, 2); next } FNR == NR { full[n] = full[n] $0; next } n ~ /_alt/ { piece[n] = piece[n] $0 }
+        END { for (p in piece) { b = p; o = 0; if (match(p, /\[[0-9]+\]$/)) { b = substr(p, 1, RSTART - 1); o = substr(p, RSTART + 1, RLENGTH - 2) }
+              if (substr(full[b], o + 1, length(piece[p])) != piece[p]) print p } }' "$1" "$2"
+}
+
+# The gref fragments survive, clipped, and only with the gref reference.
+is $(vg paths -L -x gref_base.gbz | grep -c '_alt') 0 "no gref fragments without the gref reference"
+is $([ $(vg paths -L -x gref_ref.gbz | grep -c '_alt\[') -gt 0 ] && echo 1 || echo 0) 1 "gref fragments are clipped into subranges"
+vg paths -F -x gref.gbz -Q gref_ > gref.fa
+vg paths -F -x gref_ref.gbz -Q gref_ > gref_ref.fa
+is "$(bad_gref_pieces gref.fa gref_ref.fa)" "" "every gref piece spells its fragment from its subrange start"
+
+# Re-sampling keeps the offsets relative to the original fragment.
+vg gbwt -Z gref_ref.gbz -r gref_ref.ri
+vg index -j gref_ref.dist gref_ref.gbz
+vg haplotypes -k haplotype-sampling/HG003.kff --include-reference --num-haplotypes 2 --min-gref-len 1 -g gref_ref2.gbz gref_ref.gbz
+is $? 0 "re-sampling the gref-sampled graph"
+vg paths -F -x gref_ref2.gbz -Q gref_ > gref_ref2.fa
+is "$(bad_gref_pieces gref.fa gref_ref2.fa)" "" "re-sampled gref pieces keep offsets relative to the original fragment"
+
+# The length filter drops fragments without touching the topology.
+vg haplotypes --validate -i gref.hapl -k haplotype-sampling/HG003.kff --include-reference \
+    --set-reference gref_GRCh38 --min-gref-len 1000000 -g gref_long.gbz gref.gbz
+is $(vg paths -L -x gref_long.gbz | grep -c '_alt') 0 "--min-gref-len drops short gref fragments"
+cmp -s <(topology gref_base.gbz) <(topology gref_long.gbz)
+is $? 0 "dropping gref fragments keeps the topology"
+
+# A non-PanSN reference whose gref copy comes first in path order (gref_x6 before x6): the
+# chains, and so the generated haplotypes, must still be named after the reference, and the
+# reference paths must keep their subranges.
+vg convert -W -f haplotype-sampling/micb-kir3dl1.gfa | sed -e '/^H/d' -e 's/^\(P.\)GRCh38#0#chr/\1x/' > generic.gfa
+vg paths -x generic.gfa --compute-gref -Q x -l 1 > generic.pg
+vg convert -f generic.pg > generic_gref.gfa
+vg gbwt -G generic_gref.gfa --gbz-format -g generic.gbz -r generic.ri
+vg index -j generic.dist generic.gbz
+vg haplotypes --validate --subchain-length 300 -k haplotype-sampling/HG003.kff --include-reference --min-gref-len 1 -g generic_out.gbz generic.gbz
+is $(vg paths -L -x generic_out.gbz | grep -c '^recombination#[0-9]*#x[0-9]*#') 8 "a generic gref reference does not rename the generated haplotypes"
+is "$(vg paths -L -x generic_out.gbz | grep -v '_alt' | grep -v '^recombination' | sort)" "$(vg paths -L -x generic.gbz | grep -v '_alt' | grep -v '#' | sort)" "generic reference paths keep their subranges"
+
+# A gref cover is never a haplotype candidate, as its copy of the reference would take slots
+# from real haplotypes. Reads tiling GRCh38 make the reference the first pick, and would make
+# its copy the next, so a gref graph must sample the same nodes and edges as the graph it was
+# computed from. Giraffe counts the kmers, as it has no way to ban the gref sample.
+vg paths -F -x full.gbz -Q GRCh38 | awk '/^>/ { if (s) tile(); s = ""; next } { s = s $0 }
+    function tile() { for (i = 1; i + 149 <= length(s); i += 5) { r = substr(s, i, 150); q = r; gsub(/./, "I", q); print "@r" ++n "\n" r "\n+\n" q } }
+    END { tile() }' > grch38.fq
+vg gbwt -G generic.gfa --gbz-format -g generic_base.gbz -r generic_base.ri
+vg index -j generic_base.dist generic_base.gbz
+vg haplotypes --subchain-length 300 -H generic_base.hapl generic_base.gbz
+vg haplotypes --subchain-length 300 -H generic.hapl generic.gbz
+rm -f cand_*
+for graph in full gref generic_base generic; do
+    vg giraffe -Z ${graph}.gbz --haplotype-name ${graph}.hapl --no-diploid-sampling --num-haplotypes 4 \
+        --index-basename cand_${graph} -N GRCH -f grch38.fq > /dev/null 2> /dev/null
+done
+cmp -s <(topology cand_full.GRCH.gbz) <(topology cand_gref.GRCH.gbz)
+is $? 0 "the gref graph samples the same nodes and edges as the base graph"
+cmp -s <(topology cand_generic_base.GRCH.gbz) <(topology cand_generic.GRCH.gbz)
+is $? 0 "the same holds for a generic gref reference"
+
 # Giraffe integration, guessed output name
 rm -f full.HG003.* default.gam
 vg giraffe --progress -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
@@ -246,14 +346,38 @@ vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff -g /dev/null diploid.
 is $? 1 "sampling with mismatched GBZ and haplotype information fails"
 is $(grep -c "error.*are not compatible" log.txt) 1 "an appropriate error message is printed"
 
+# A top-level chain can contain a snarl that no walk crosses. The reference ends
+# at node 6, and node 6 and the chain 20-21-22 both enter node 10 from the same
+# side, so a walk into the snarl between 6 and 22 can only end at node 11.
+{
+    printf 'H\tVN:Z:1.1\tRS:Z:REF\n'
+    printf 'S\t%s\t%s\n' 1 GCTAAAGACAATTACATAACATACACGTCA 2 GCACGAAACTTGTTGGCCCAGTGTGAATCG \
+        3 CTTAAGGGTTAAGTAAGTGTGATGCATACG 4 CCTTTACTTGCTGTGTCCACCCCATCGGAC 5 TGGCATTTTTATTACACTCAGAAACAGAAC \
+        6 TCGGGTAATTTTGACAGGTCACGCAGAGGC 10 GCGCCCTCCTGAAGTGCGTGGACACTCGCT 11 ATGAATCTCTGATTTACCCACTCTGCCAAA \
+        20 CTCCAGCGCGGTCAGTTCCATCACCCTAAG 21 TAACCGAATAATGCGTTCGCTCTATTGACT 22 ACGACGCGCTCATTCCCTTGTCGGAGAGTT
+    printf 'L\t%s\t+\t%s\t+\t0M\n' 1 2 1 3 2 4 3 4 4 5 5 6 6 10 10 11 22 10 20 21 21 22
+    printf 'W\t%s\t%s\t%s\t0\t%s\t%s\n' REF 0 chr1 150 '>1>2>4>5>6' H1 1 c0 210 '>1>3>4>5>6>10>11' \
+        H2 1 c1 210 '>1>2>4>5>6>10>11' S1 1 c3 150 '>20>21>22>10>11'
+} > uncrossable.gfa
+vg gbwt -G uncrossable.gfa --gbz-format -g uncrossable.gbz -r uncrossable.ri
+vg index -j uncrossable.dist uncrossable.gbz
+vg haplotypes --validate -H uncrossable.hapl uncrossable.gbz
+is $? 0 "haplotype information for a chain with a snarl that no walk crosses"
+
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
-rm -f indirect.gbz direct.gbz no_ref.gbz ban_ref.gbz
+rm -f indirect.gbz direct.gbz ignored.gbz no_ref.gbz ban_ref.gbz
 rm -f hicov.gbz hicov8.gbz hicov_pansn.gbz hicov_log.txt
 rm -f halfcov.gbz halfcov6.gbz halfcov_pansn.gbz bothcov_log.txt
 rm -f exclude.gbz exclude_pansn.gbz exclude_log.txt
 rm -f wrap.gbz wrap_base.gbz wrap_pansn.gbz wrap_log.txt wrap_exclude_log.txt
 rm -f diploid.gbz diploid2.gbz diploid3.gbz
+rm -f diploid_ignore.gbz diploid_ont.gbz
+rm -f gref.pg gref.gfa gref.gbz gref.ri gref.dist gref.hapl gref.fa
+rm -f gref_base.gbz gref_ref.gbz gref_ref.fa gref_long.gbz
+rm -f gref_ref.ri gref_ref.dist gref_ref2.gbz gref_ref2.fa
+rm -f generic.gfa generic.pg generic_gref.gfa generic.gbz generic.ri generic.dist generic_out.gbz
+rm -f grch38.fq generic.hapl generic_base.gbz generic_base.ri generic_base.dist generic_base.hapl cand_*
 rm -f full.HG003.* default.gam
 rm -f sampled.003HG.* specified.gam
 rm -f GRCh38.HG003.* HG003_GRCh38.gam
@@ -263,3 +387,4 @@ rm -f auto_all.HG003.* auto_all.gam auto_all.dist
 rm -f auto_nondip.HG003.* auto_nondip.gam auto_nondip.dist
 rm -f auto_oneref.HG003.* auto_oneref.gam auto_oneref.dist
 rm -f log.txt
+rm -f uncrossable.gfa uncrossable.gbz uncrossable.ri uncrossable.dist uncrossable.hapl

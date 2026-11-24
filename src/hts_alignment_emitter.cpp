@@ -10,7 +10,6 @@
 #include "alignment.hpp"
 #include "vg/io/json2pb.h"
 #include "algorithms/find_translation.hpp"
-#include "algorithms/md5_sum_path.hpp"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
 #include "crash.hpp"
@@ -138,30 +137,16 @@ SequenceDictionary get_sequence_dictionary(const string& filename, const vector<
             std::string base_path_name = Paths::strip_subrange(sequence_name, &subrange);
 
             if (subrange == PathMetadata::NO_SUBRANGE) {
-                // We're a full path, check hash and length
+                // We're a full path, check length
 
-                auto hash_and_length = algorithms::md5_sum_path_with_length(graph, path);
-
-                if (sequence_md5_sum.empty()) {
-                    sequence_md5_sum = hash_and_length.first;
-                } else if (hash_and_length.first != sequence_md5_sum) {
-                    // Hash doesn't match. TODO: Account for construct upper-casing and masking and things.
-                    cerr << "error:[vg::get_sequence_dictionary] Graph contains a path " << sequence_name << " with MD5 sum " << hash_and_length.first
-                     << " but should have an MD5 sum of " << sequence_md5_sum;
-                    if (filename) {
-                        // Report the source file.
-                        cerr << " from sequence dictionary in " << *filename;
-                    }
-                    cerr << endl;
-                    exit(1);
-                }
+                int64_t path_length = graph.get_path_length(path);
 
                 if (length == -1) {
                     // We need to infer the length
-                    length = hash_and_length.second;
-                } else if (hash_and_length.second != length) {
+                    length = path_length;
+                } else if (path_length != length) {
                     // Length was given but doesn't match
-                    cerr << "error:[vg::get_sequence_dictionary] Graph contains a path " << sequence_name << " of length " << hash_and_length.second
+                    cerr << "error:[vg::get_sequence_dictionary] Graph contains a path " << sequence_name << " of length " << path_length
                          << " but should have a length of " << length;
                     if (filename) {
                         // Report the source file.
@@ -328,10 +313,8 @@ SequenceDictionary get_sequence_dictionary(const string& filename, const vector<
                 // TODO: Max into the length map right away.
                 input_names.push_back(base_name);
                 if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
-                    // This is a full path so we can determine base length and hash now in one pass.
-                    auto hash_and_length = algorithms::md5_sum_path_with_length(graph, path);
-                    input_md5_sums.emplace(base_name, std::move(hash_and_length.first));
-                    input_lengths.emplace(base_name, hash_and_length.second);
+                    // This is a full path so we can determine base length now.
+                    input_lengths.emplace(base_name, graph.get_path_length(path));
                 } 
                 // And remember we are using it.
                 base_names.insert(base_name);

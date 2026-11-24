@@ -51,6 +51,14 @@ bool GrefCover::is_gref_name(const string& path_name) {
     return true;
 }
 
+bool GrefCover::is_gref_fragment(const string& path_name) {
+    if (!is_gref_derived(path_name)) {
+        return false;
+    }
+    std::string locus = PathMetadata::parse_locus_name(path_name);
+    return is_gref_name(locus);
+}
+
 string GrefCover::parse_base_path(const string& gref_name) {
     if (!is_gref_name(gref_name)) {
         return gref_name;
@@ -113,16 +121,16 @@ void GrefCover::compute(const PathHandleGraph* graph,
         // scans in apply() and write_gref_segments() used to paper over -- and they papered
         // over it inconsistently, because one ran before the base copies existed and one after,
         // so the segments table named a path holding entirely different sequence.
-        // Test the copy name, not the path name: a PanSN path read from a GFA with no RS
-        // header carries a phase block (CHM13#0#chr1_1_alt#0), which does not end in _alt even
-        // though the copy made from it does.
+        // Test the base name the fragments hang off: the path name can end in a phase block
+        // (CHM13#0#chr1_1_alt#0, from a PanSN GFA without an RS header) and the copy name in a
+        // subrange (gref_CHM13#0#chr1_1_alt[100-200]), either of which hides the _alt.
         string ref_name = graph->get_path_name(ref_path_handle);
-        string copy_name = make_gref_copy_name(ref_name);
-        if (is_gref_name(copy_name)) {
+        string base_name = make_gref_base_name(ref_name);
+        if (is_gref_name(base_name)) {
             cerr << "[gref error]: reference path " << ref_name << " would be copied to "
-                 << copy_name << ", which is a gref fragment name (_{N}_alt), so it would"
+                 << make_gref_copy_name(ref_name) << ", which is a gref fragment name (_{N}_alt), so it would"
                  << " collide with the fragments hanging off "
-                 << parse_base_path(copy_name) << ". Rename the contig, or select reference"
+                 << parse_base_path(base_name) << ". Rename the contig, or select reference"
                  << " paths that are not in the gref namespace." << endl;
             exit(1);
         }
@@ -956,9 +964,7 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
     // Reference intervals are included, not assumed to be at the top.  A reference contig can
     // itself sit inside a top-level snarl of another one: on chrOther-v2.1,
     // chrUn_KI270442v1 is nested in chr16_KI270728v1_random, and deconstruct reports it at
-    // CH=1 accordingly.  Treating every reference contig as level 0 made the column disagree
-    // with CH on 8 of 25 chrOther contigs while agreeing perfectly on every single-contig
-    // chromosome, which is why the chr22/chr14/chrY gates could not see it.
+    // CH=1 accordingly.
     for (int64_t i = 0; i < n; ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
         path_handle_t interval_path = graph->get_path_handle_of_step(interval.first);
@@ -978,21 +984,10 @@ void GrefCover::assign_nesting(const bdsg::SnarlDistanceIndex& distance_index) {
             if (i < this->num_ref_intervals) {
                 return false;
             }
-            // Two runs of the same haplotype are rejected as parent and child.  This is a
-            // heuristic, not a proof, and the distinction matters: the runs are disjoint in
-            // SEQUENCE, which is not the same as being disjoint in SNARL CONTAINMENT, and
-            // owner_of_snarl() below tests the latter.  Two fragments from one haplotype at
-            // disjoint intervals can genuinely nest.
-            //
-            // It is kept because it earns its place empirically -- on chr22, 10 of 48 wrong
-            // parents were the fragment's own source path and 0 of 127 correct ones were -- and
-            // because the failure it prevents is the one e20e1f277 was reverted for.  The cost
-            // is a suspected 2 contigs in 144,145 on whole-genome CHM13 (chr5_1998_alt and
-            // chr5_2201_alt, which get level 1 where the VCF chain says 2 through
-            // chr5_113_alt, all three off HG04160#1#CM088426.1).  Not proven to be this guard
-            // rather than the depth or both-bounds tests; settling that needs instrumentation.
-            // Do not relax it without gating on those two contigs AND on chr22 and
-            // chrOther-v2.1 staying byte-identical.
+            // Two runs of the same haplotype are rejected as parent and child. This is a heuristic:
+            // runs that are disjoint in sequence can still nest in the snarl tree.
+            // TODO: On whole-genome CHM13 it may be what gives chr5_1998_alt and chr5_2201_alt
+            // level 1 where INFO/CH says 2.
             if (graph->get_path_handle_of_step(this->gref_intervals[owner].first) == my_source) {
                 return false;
             }

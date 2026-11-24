@@ -1,0 +1,13 @@
+# contig	arm	file	md5 (mosaic.tsv and anchors.tsv without their #vg-version, #graph and #reads lines), from vg 202fc35d3, except calls.vcf, from vg 21ce1a951, whose header has the same lines in another order
+chr20	short	calls.vcf	42b225daaddc854d38641707fc200de9
+chr20	short	mosaic.tsv	6ad75227e7dfa6a56adda5e37adf6d38
+chr20	short	anchors.tsv	f27a6fcc5334e116dd3c72a0ac1101a2
+chr20	ont	calls.vcf	ca4caf175f42f458b6ba4143b5678689
+chr20	ont	mosaic.tsv	8cb0405ab11fcb465caa3c860dc09af6
+chr20	ont	anchors.tsv	2f72b2671a1c823dc78732829c5e0de3
+chr6	short	calls.vcf	d1af6962f9bbd4e293640894b96ebe49
+chr6	short	mosaic.tsv	e4c05278623836422f252723e2c52e45
+chr6	short	anchors.tsv	4ce059ee0f723c6063af1a37d524f698
+chr6	ont	calls.vcf	b1cffcbcb42527029e9a9c1178fe5dfa
+chr6	ont	mosaic.tsv	51318e5d1e0e3a0f4c52e53087d7dd00
+chr6	ont	anchors.tsv	d83b5d69edb13f36bbe99a70b40b93c4

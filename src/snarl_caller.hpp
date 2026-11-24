@@ -18,6 +18,7 @@ namespace vg {
 
 using namespace std;
 
+class SortedVCFWriter;
 
 /**
  * SnarlCaller: Given a list of traversals through a site, come up with a genotype
@@ -54,8 +55,9 @@ public:
                                  const string& sample_name,
                                  vcflib::Variant& variant) = 0;
 
-    /// Define any header fields needed by the above
-    virtual void update_vcf_header(string& header) const = 0;
+    /// Declare in the header of `writer` the INFO, FORMAT and FILTER fields that
+    /// update_vcf_info() writes.
+    virtual void add_header_lines(SortedVCFWriter& writer) const = 0;
 
     /// Optional method used for pruning searches
     virtual function<bool(const SnarlTraversal&, int iteration)> get_skip_allele_fn() const;
@@ -153,8 +155,8 @@ public:
                                  const string& sample_name,
                                  vcflib::Variant& variant);
 
-    /// Define any header fields needed by the above
-    virtual void update_vcf_header(string& header) const;
+    /// Declare in the header of `writer` the fields that update_vcf_info() writes.
+    virtual void add_header_lines(SortedVCFWriter& writer) const;
 
 protected:
 
@@ -230,8 +232,8 @@ public:
                                  const string& sample_name,
                                  vcflib::Variant& variant);
 
-    /// Define any header fields needed by the above
-    virtual void update_vcf_header(string& header) const;
+    /// Declare in the header of `writer` the fields that update_vcf_info() writes.
+    virtual void add_header_lines(SortedVCFWriter& writer) const;
 
 protected:
 

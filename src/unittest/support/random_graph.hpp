@@ -6,6 +6,7 @@
 
 
 #include "handle.hpp"
+#include <random>
 #include <vector>
 
 
@@ -17,6 +18,21 @@ namespace unittest {
 /// is the number of variations added to the graph
 void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                   MutablePathMutableHandleGraph* graph);
+
+/**
+ * Make a random graph with random_graph(), choosing its sizes at random.
+ *
+ * The sequence is 50 to 300 bases long. The number of larger variants is
+ * between 1 and the sequence length divided by 30. Their mean length is
+ * between 1 and the sequence length divided by 20.
+ */
+template<typename URNG>
+void small_random_graph(URNG& generator, MutablePathMutableHandleGraph* graph) {
+    int64_t bases = std::uniform_int_distribution<int64_t>(50, 300)(generator);
+    int64_t variant_bases = std::uniform_int_distribution<int64_t>(1, bases / 20)(generator);
+    int64_t variant_count = std::uniform_int_distribution<int64_t>(1, bases / 30)(generator);
+    random_graph(bases, variant_bases, variant_count, graph);
+}
 
 /// Create a random graph with multiple connected components. 
 /// Each connected component created with a sequence length in seq_sizes

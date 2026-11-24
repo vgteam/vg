@@ -832,7 +832,7 @@ void simplify_graph_using_traversals(MutablePathMutableHandleGraph* graph, const
             cerr << "): deleting " << nodes_to_remove.size() << " nodes and "
                  << edges_to_remove.size() << " edges" << endl;
             // delete the nodes
-            delete_nodes_and_chop_paths(graph, nodes_to_remove, edges_to_remove, min_fragment_length);
+            delete_nodes_and_chop_paths(graph, nodes_to_remove, edges_to_remove, min_fragment_length, nullptr, true);
             empty_count = 0;
         } else {
             ++empty_count;

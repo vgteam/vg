@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 81
+plan tests 84
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -135,7 +135,7 @@ printf "@read TG:Z:val\nACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGA\n+\nH
 vg map -d x -t 1 -f x2.fq --comments-as-tags --gaf >x2.gaf
 is $(vg surject -p x -x x.xg --bam-output --gaf-input x2.gaf | samtools view | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on mapped reads in GAF"
 
-rm -rf j.vg x.vg j.gam x.gam x.gaf x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq
+rm -rf j.vg x.vg j.gam x.gam x.gaf x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq x2.fq x2.gaf
 
 vg mod -c graphs/fail.vg >f.vg
 vg index -k 11 -g f.gcsa -x f.xg f.vg
@@ -190,7 +190,7 @@ is "$?" 0 "vg surject correctly fetches base path length from input file"
 
 is "$(vg surject -x j.vg -b --graph-aln r.gam | samtools view | grep 'GR:Z:' | wc -l | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with the graph-space alignment"
 
-rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.vg j.gcsa j.gcsa.lcp j.sub.vg j.sub.gcsa j.sub.gcsa.lcp r.sub.gam r.sub.sam r.sub.sam path_info.tsv
+rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.vg j.gcsa j.gcsa.lcp j.sub.vg j.sub.gcsa j.sub.gcsa.lcp r.sub.gam r.sub.sam r.sub.sam path_info.tsv r.manual.sam
 
 vg surject -U -s -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
 is "$?" 0 "vg surject does not crash when surjecting a read that grazes the reference with a deletion"
@@ -288,3 +288,19 @@ vg map -d g -f reads/ts.fq | vg surject -x g.xg -b --off-ref-position - > g.bam
 is $(samtools view g.bam | grep "NR:Z:x:8+" | wc -l | sed 's/^[[:space:]]*//') "1" "off reference reads can be annotated with the nearest reference position"
 
 rm g.xg g.gcsa g.gcsa.lcp g.bam
+
+# The read's tail anchors far from the rest of the read, so surject splits it into
+# primary and supplementary records. --prune-tail-region drops that tail anchor,
+# letting the whole read align as one at the right location.
+vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s surject/tail-pruning.gam > tail-baseline.sam || exit 1
+is "$(grep -v '^@' tail-baseline.sam | cut -f2-4,6 | sort -n)" "$(printf '0\tref\t105\t12S40M\n2048\tref\t1\t12M40S')" \
+    "Without tail pruning, the misplaced tail is emitted separately"
+vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s --prune-tail-region surject/tail-pruning.gam > tail-pruned.sam || exit 1
+is "$(grep -v '^@' tail-pruned.sam | cut -f2-4,6)" "$(printf '0\tref\t93\t52M')" \
+    "Tail pruning places the entire read at reference position 93"
+
+vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s -G --prune-tail-region surject/tail-pruning.gaf > tail-gaf.sam || exit 1
+is "$(grep -v '^@' tail-gaf.sam | cut -f2-4,6)" "$(printf '0\tref\t93\t52M')" \
+    "GAF tail annotations produce the expected pruned placement"
+
+rm tail-baseline.sam tail-pruned.sam tail-gaf.sam
