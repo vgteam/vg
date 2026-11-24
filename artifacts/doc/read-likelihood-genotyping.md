@@ -356,20 +356,23 @@ re-genotyping treat the snarl as if the direct pass had found the allele.
 In a tandem repeat the mapper can place one difference in any of several neighbouring snarls of a
 chain, and it does not choose the same one for every read. Then no one snarl holds
 `--consensus-min-diff` bases of the difference in enough reads, and the bases that two reads have
-between the bounds of one snarl cannot be compared. So the step also treats **runs**. A run is two
-or more snarls that follow each other in one chain, at any level, each sharing its bound node with
-the next or joined to it by nodes that every walk of the chain takes. The **junction** of two
-neighbours is those nodes' bases, the bound nodes included. Runs follow the chain, not reference
-positions. A run inside a snarl too large to be treated itself is a run of the snarls of a chain
-nested in it.
+between the bounds of one snarl cannot be compared. A difference can also lie in the nodes between
+two snarls, where no snarl holds it. So the step also treats **runs**. A run is two or more snarls
+that follow each other in one chain, at any level, each sharing its bound node with the next or
+joined to it by nodes that every walk of the chain takes. The **junction** of two neighbours is
+those nodes' bases, the bound nodes included. Runs follow the chain, not reference positions. A
+run inside a snarl too large to be treated itself is a run of the snarls of a chain nested in it.
 
 1. A snarl can be in a run where the test above gives it no allele, at least 6 reads span it,
-   and its called sequences have no more bases than the scorer aligns. Two such snarls are **neighbours** where they follow each other in a chain, one
-   phase set orders the strands of both, and their junction has at most 32 bases or holds a gap.
-   A read's **gap** inside a node is a run of bases it inserts between two bases of the node, or a
-   run of the node's bases it lacks. A junction holds a gap where `--consensus-min-reads` of the
-   reads that span one of the two snarls have a gap of `--consensus-min-diff` bases or more inside
-   the node of its bound that faces the other. A **stretch** is a longest sequence of neighbours.
+   and its called sequences have no more bases than the scorer aligns. Two such snarls are
+   **neighbours** where they follow each other in a chain, one phase set orders the strands of
+   both, and their junction has at most 32 bases or holds a gap. A read's **gap** inside a node
+   is a run of bases it inserts between two bases of the node, or a run of the node's bases it
+   lacks. A junction holds a gap where `--consensus-min-reads` of the reads that span one of the
+   two snarls have a gap of `--consensus-min-diff` bases or more inside the node of its bound
+   that faces the other. A junction that holds a gap can have more than 32 bases, as long as its
+   nodes before the second snarl's start bound have at most 32: a bound node the two snarls share
+   can have any number. A **stretch** is a longest sequence of neighbours.
 2. A snarl's **signal** is the number of bases by which `--consensus-min-reads` of its spanning
    reads have more between the bounds than its longest called sequence, or fewer than its
    shortest, whichever is more, or the length of the gap its junction with a neighbour holds, if
@@ -384,45 +387,24 @@ nested in it.
    first member's start bound to the last member's end bound, and steps 1 to 4 above apply to the
    run as to one snarl, with each read put on the strand that its strand log-odds at the members,
    summed, favour.
-4. A consensus more than `--consensus-min-change` bases from the called sequence is **cut** into
-   the members. It is aligned to the called sequence, and every junction must be matched whole,
-   base for base, since no member can change the bases of a junction. Where the best alignment
-   leaves a base of a junction in a gap or a mismatch, the two are aligned again with the
-   junctions pinned: each must be matched whole. A junction is usually a few bases of the repeat
-   itself, so an alignment that moves a gap off it often costs the same. The pinned alignment
-   stands if it costs no more than the best one plus the cost of opening one long gap (24) for
-   each junction the best one missed. A run with no such alignment cannot be cut, and becomes
-   [one site](#a-run-as-one-site).
-5. Growth stops at the first run with a consensus that is cut, or that makes the run one site. The
-   run is then **treated**: it is the smallest run around the seed that can be. Growth also stops
-   where the run can neither be cut nor become one site, where
-   a member's alleles or the run's reads are more than the scorer takes, where no strand has
-   6 reads that span the run, at 8 members, and where no neighbour keeps
-   the bases between the run's outer bounds within the 10,000 the scorer aligns. A treated run then
-   takes in one more neighbour at a time, the later one first, for as long as that leaves it
-   treated and gives its treated strands more reads that disagree: reads whose difference the
-   mapper put in that neighbour. A snarl is in at most one treated run.
-6. Each member of a treated run that was cut has the consensus's bases between its bounds. They
-   become an allele of the member, as in step 5 above, unless one of its alleles spells them
-   already.
-7. Every read that spans such a run is placed in the members again, in one way for all reads. It is
-   aligned to each sequence known across the run, the strands' called sequences and the
-   consensuses, and cut at the junctions of the one it fits best, the first of two it fits
-   equally. The bases a read inserts beside a junction go to the member on that side. Every member
-   of the run is then genotyped again, whether or not it gained an allele: a read that spans the
-   run is scored by aligning the bases it was given at the member to each allele's, and any other
-   read is scored as at any snarl. Each member is filed with the linkage model again, as a snarl
-   that gained an allele is.
+4. Growth stops at the first run with a consensus more than `--consensus-min-change` bases from
+   the called sequence. The run is then **treated** if it can become [one site](#a-run-as-one-site):
+   it is the smallest run around the seed that has such a consensus. Growth also stops where a
+   member's alleles, the consensus or the run's reads are more than the scorer takes, where no
+   strand has 6 reads that span the run, at 8 members, and where no neighbour keeps the bases
+   between the run's outer bounds within the 10,000 the scorer aligns. A treated run then takes
+   in one more neighbour at a time, the later one first, for as long as that leaves it treated
+   and gives its treated strands more reads that disagree: reads whose difference the mapper put
+   in that neighbour. A snarl is in at most one treated run.
 
-A run is left alone on a strand where a snarl nested in one of its members gained an allele for
-the strand, and the members of a treated run count as having gained one.
+A run is left alone where a snarl nested in one of its members gained an allele, and the members
+of a treated run count as having gained one.
 
 #### A run as one site
 
-A member of a run cannot change the bases of a junction. So a run that is cut cannot hold a
-difference that lies in the nodes between two snarls, such as a deletion that takes several snarls
-and the nodes between them, or bases inserted inside such a node. A run with a consensus that
-cannot be cut becomes one site, the **merged site**, in place of its members:
+A treated run becomes one site, the **merged site**, in place of its members, so that its alleles
+can differ from what is called anywhere between the run's outer bounds, the nodes between two
+snarls included:
 
 - Its bounds are the start bound of the run's first member and the end bound of its last. It is
   named by them as a snarl is, has the first member's place in the nesting tree and on the
@@ -431,8 +413,8 @@ cannot be cut becomes one site, the **merged site**, in place of its members:
   reference allele, with the junctions between them, which is its reference allele. Then comes
   what each strand is called as across the run, as the walk that takes the strand's allele at
   each member where that walk spells it, and otherwise as its bases between the bounds. Last come
-  the consensuses, each strand's whole, as their bases between the bounds. Alleles that spell the
-  same bases are one.
+  the consensuses, as their bases between the bounds. Alleles that spell the same bases are one,
+  and a run whose consensuses are all spelled by the others stays as it is.
 - It is genotyped from its reads as a snarl that gained an allele is, with every read that spans
   it aligned to every allele, and filed with the linkage model in place of its first member. The
   other members, every site nested in a member, and the
@@ -441,9 +423,8 @@ cannot be cut becomes one site, the **merged site**, in place of its members:
   and the records treat the merged site as a snarl. A site that holds the run's chain spells the
   merged site's chosen alleles in its own, as it does those of any site nested in it.
 
-A run does not become one site, and is left alone on the strands whose consensus cannot be cut,
-where its members are not placed alike on the reference, where a site nested in a member gained an
-allele, or where a change is called at an edit site inside a node of a junction, which the
+A run cannot become one site, and is left alone, where its members are not placed alike on the
+reference, or where a change is called at an edit site inside a node of a junction, which the
 strands' called sequences across the run do not have.
 
 #### Which snarls are tested, and limits

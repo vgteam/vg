@@ -462,15 +462,14 @@ TEST_CASE("A run of snarls in a tandem repeat gains an expansion its reads place
         // the consensus of its reads is what is called.
         REQUIRE(called.counts.candidate_strands == 3);
         // The run of the first two snarls is treated, and the third snarl then gives it the
-        // reads whose expansion the mapper put there.
+        // reads whose expansion the mapper put there. The three become one site.
         REQUIRE(called.counts.runs_treated == 1);
-        REQUIRE(called.counts.runs_merged == 0);
-        // The consensus is cut at the two nodes between the snarls, and the 60 bases fall in
-        // one snarl.
+        REQUIRE(called.counts.runs_merged == 1);
         REQUIRE(called.counts.sites_changed == 1);
         REQUIRE(called.counts.sites_called == 1);
-        const string first = spelled_strand(make_repeat, called.records, 0);
-        const string second = spelled_strand(make_repeat, called.records, 1);
+        const vector<pair<string, nid_t>> merged{{">1>10", 10}};
+        const string first = spelled_strand(make_repeat, called.records, 0, merged);
+        const string second = spelled_strand(make_repeat, called.records, 1, merged);
         REQUIRE((first == reads[1].sequence() || second == reads[1].sequence()));
         REQUIRE((first == reads[0].sequence() || second == reads[0].sequence()));
     }

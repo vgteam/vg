@@ -632,8 +632,6 @@ public:
         /// Those bases, in upper case, read the way the snarl's alleles are. Empty where the read
         /// has more of them than `AlleleLikelihoodParams::sequence_allele_max_bases`.
         string bases;
-        /// The key of the read's alignment (`read_alignment_key`).
-        uint64_t key = 0;
     };
 
     /**
@@ -979,19 +977,6 @@ protected:
     bool score_spanning_read(const Alignment& aln, const vector<ReadStep>& read_steps,
                              const EditAlignmentScorer& read_scorer,
                              const SequenceAlleles& sequences, vector<double>& row) const;
-
-    /**
-     * Fill `row` with the ln-likelihood under each allele of a read that has `bases` between
-     * the bounds of a snarl whose reads are scored by alignment: `boundary`, plus the score of
-     * the best global alignment of `bases` to the allele's bases between the bounds, in nats,
-     * plus `insertion_gap_nats` for each gap of read bases in that alignment (see
-     * `score_spanning_read`).
-     *
-     * @return False, leaving `row` as it was, if an alignment is not found within the aligner's
-     * limits.
-     */
-    bool score_interior(const string& bases, double boundary, const SequenceAlleles& sequences,
-                        vector<double>& row) const;
 
     /// The statistics of the reads that begin in a rate window.
     struct WindowReadStats {

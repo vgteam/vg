@@ -2149,9 +2149,8 @@ pair<size_t, size_t> GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::bases_
 }
 
 /**
- * The bases of each allele between the bounds of a snarl whose reads are scored by alignment: a
- * snarl that has a sequence allele, or one given the bases its reads have between the bounds
- * (`MaterializedSite::read_interiors`).
+ * The bases of each allele between the bounds of a snarl that has a sequence allele, whose
+ * reads are scored by alignment.
  *
  * A sequence allele is an allele of a snarl with changes to the sequences of its walk (see
  * `add_sequence_allele`). Its walk does not spell it, so the nodes a read visits do not say how
@@ -2193,7 +2192,7 @@ GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::SequenceAlleles(
     for (size_t a = 0; a < alleles.walks.size(); ++a) {
         found = found || !alleles.spelled_by_walk(a);
     }
-    if ((!found && site.read_interiors == nullptr) || site.bounds_inside_nodes(graph)) {
+    if (!found || site.bounds_inside_nodes(graph)) {
         return;
     }
     has_sequence = found;
@@ -2287,13 +2286,7 @@ bool GraphAlignedAlleleLikelihoodCalculator::score_spanning_read(
     for (char& b : bases) {
         b = (char)toupper(b);
     }
-    return score_interior(bases, read_scorer.get_log_base() * (double)score + nats, sequences,
-                          row);
-}
-
-bool GraphAlignedAlleleLikelihoodCalculator::score_interior(
-    const string& bases, double boundary, const SequenceAlleles& sequences,
-    vector<double>& row) const {
+    const double boundary = read_scorer.get_log_base() * (double)score + nats;
     vector<double> aligned(row.size());
     for (size_t a = 0; a < row.size(); ++a) {
         const string& allele = sequences.interiors[a];
@@ -2518,16 +2511,6 @@ void GraphAlignedAlleleLikelihoodCalculator::visit_reads(
     }
 }
 
-/// Return the key of the alignment `aln` (`read_alignment_key`).
-static uint64_t alignment_key(const Alignment& aln) {
-    if (aln.path().mapping_size() == 0) {
-        return read_alignment_key(aln.name(), 0, 0, false);
-    }
-    const Position& start = aln.path().mapping(0).position();
-    return read_alignment_key(aln.name(), start.node_id(), (size_t)start.offset(),
-                              start.is_reverse());
-}
-
 vector<AlleleLikelihoodCalculator::SpanningRead>
 GraphAlignedAlleleLikelihoodCalculator::spanning_reads(const MaterializedSite& site) const {
     vector<SpanningRead> spanning;
@@ -2566,7 +2549,6 @@ GraphAlignedAlleleLikelihoodCalculator::spanning_reads(const MaterializedSite& s
         }
         SpanningRead found;
         found.name = read.aln->name();
-        found.key = alignment_key(*read.aln);
         found.length = to - from;
         if (found.length <= params.sequence_allele_max_bases) {
             found.bases = aln->sequence().substr(from, found.length);
@@ -2577,8 +2559,7 @@ GraphAlignedAlleleLikelihoodCalculator::spanning_reads(const MaterializedSite& s
         spanning.push_back(std::move(found));
     });
     std::ranges::sort(spanning, [](const SpanningRead& a, const SpanningRead& b) {
-        return std::tie(a.name, a.length, a.bases, a.key)
-               < std::tie(b.name, b.length, b.bases, b.key);
+        return std::tie(a.name, a.length, a.bases) < std::tie(b.name, b.length, b.bases);
     });
     return spanning;
 }
@@ -2702,19 +2683,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             changes.adjust_row(read_steps, scored_aln->sequence(), read_scorer, plain_scorer,
                                params.insertion_gap_nats, row);
         }
-        // A read whose bases between the bounds were given is scored on them. Its score on
-        // the boundary nodes is the same under every allele, and is left out.
-        const string* given = nullptr;
-        if (sequences.aligned && site.read_interiors != nullptr) {
-            const auto found = site.read_interiors->bases.find(alignment_key(*read.aln));
-            given = found != site.read_interiors->bases.end() ? &found->second : nullptr;
-        }
-        if (given != nullptr && score_interior(*given, 0.0, sequences, row)) {
-            // The row is the read's fit to each allele's bases.
-        } else if (sequences.any()
-                   && !(sequences.aligned && sequences.spanned_by(read_steps)
-                        && score_spanning_read(*scored_aln, read_steps, read_scorer, sequences,
-                                               row))) {
+        if (sequences.any()
+            && !(sequences.aligned && sequences.spanned_by(read_steps)
+                 && score_spanning_read(*scored_aln, read_steps, read_scorer, sequences, row))) {
             sequences.fill_unaligned(row);
         }
 

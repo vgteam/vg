@@ -62,14 +62,10 @@ GapStep gap_step(int32_t from_match, int32_t from_gap, int32_t open, int32_t ext
  *
  * @param trace If not null, set to one byte for each cell of each row of the band, which
  * `trace_back` reads.
- * @param pinned If not null, the pinned stretch of each base of `a` (see
- * `align_global_pinned`).
- * @return The cost of the best alignment in the band, which is `g_no_cost` or more where the
- * band holds no alignment that keeps the pins.
+ * @return The cost of the best alignment in the band.
  */
 int32_t fill_band(const char* a, size_t n, const char* b, size_t m, int64_t low, int64_t high,
-                  const StringAlignerParams& params, vector<uint8_t>* trace,
-                  const vector<uint32_t>* pinned = nullptr) {
+                  const StringAlignerParams& params, vector<uint8_t>* trace) {
     const size_t width = (size_t)(high - low + 1);
     if (trace != nullptr) {
         trace->assign((n + 1) * width, 0);
@@ -95,50 +91,36 @@ int32_t fill_band(const char* a, size_t n, const char* b, size_t m, int64_t low,
         int32_t insertion = g_no_cost;
         int32_t long_insertion = g_no_cost;
         uint8_t* trace_row = trace != nullptr ? trace->data() + i * width : nullptr;
-        // A pinned base is matched to an equal base, and no base is inserted after it where
-        // the next base is in its pinned stretch.
-        const bool row_pinned = pinned != nullptr && i > 0 && (*pinned)[i - 1] != 0;
-        const bool no_insertion = row_pinned && i < n && (*pinned)[i] == (*pinned)[i - 1];
         for (int64_t k = first; k <= last; ++k) {
             const size_t j = (size_t)((int64_t)i + low + k);
             uint8_t traced = 0;
             // An insertion comes from the cell to the left.
-            if (no_insertion) {
-                insertion = g_no_cost;
-                long_insertion = g_no_cost;
-            } else {
-                const GapStep ins = gap_step(match_left, insertion, params.gap_open,
-                                             params.gap_extend);
-                insertion = ins.cost;
-                traced |= ins.extended ? g_insertion_extended : 0;
-                if (params.long_gaps) {
-                    const GapStep long_ins = gap_step(match_left, long_insertion,
-                                                      params.long_gap_open,
-                                                      params.long_gap_extend);
-                    long_insertion = long_ins.cost;
-                    traced |= long_ins.extended ? g_long_insertion_extended : 0;
-                }
+            const GapStep ins = gap_step(match_left, insertion, params.gap_open,
+                                         params.gap_extend);
+            insertion = ins.cost;
+            traced |= ins.extended ? g_insertion_extended : 0;
+            if (params.long_gaps) {
+                const GapStep long_ins = gap_step(match_left, long_insertion,
+                                                  params.long_gap_open, params.long_gap_extend);
+                long_insertion = long_ins.cost;
+                traced |= long_ins.extended ? g_long_insertion_extended : 0;
             }
             // A deletion comes from the cell above, which is one diagonal up.
-            if (!row_pinned) {
-                const GapStep del = gap_step(match_above[k + 1], deletion_above[k + 1],
-                                             params.gap_open, params.gap_extend);
-                deletion_here[k] = del.cost;
-                traced |= del.extended ? g_deletion_extended : 0;
-                if (params.long_gaps) {
-                    const GapStep long_del = gap_step(match_above[k + 1],
-                                                      long_deletion_above[k + 1],
-                                                      params.long_gap_open,
-                                                      params.long_gap_extend);
-                    long_deletion_here[k] = long_del.cost;
-                    traced |= long_del.extended ? g_long_deletion_extended : 0;
-                }
+            const GapStep del = gap_step(match_above[k + 1], deletion_above[k + 1],
+                                         params.gap_open, params.gap_extend);
+            deletion_here[k] = del.cost;
+            traced |= del.extended ? g_deletion_extended : 0;
+            if (params.long_gaps) {
+                const GapStep long_del = gap_step(match_above[k + 1], long_deletion_above[k + 1],
+                                                  params.long_gap_open, params.long_gap_extend);
+                long_deletion_here[k] = long_del.cost;
+                traced |= long_del.extended ? g_long_deletion_extended : 0;
             }
             // A match or mismatch comes from the cell above and to the left, on this diagonal.
             int32_t best = g_no_cost;
             if (i == 0 && j == 0) {
                 best = 0;
-            } else if (i > 0 && j > 0 && (a[i - 1] == b[j - 1] || !row_pinned)) {
+            } else if (i > 0 && j > 0) {
                 best = std::min(g_no_cost,
                                 match_above[k] + (a[i - 1] == b[j - 1] ? 0 : params.mismatch));
             }
@@ -338,48 +320,6 @@ optional<StringAlignment> align_global(const string& first, const string& second
             return result;
         }
         narrower_cost = cost;
-    }
-}
-
-optional<StringAlignment> align_global_pinned(const string& first, const string& second,
-                                              const vector<uint32_t>& pinned,
-                                              const StringAlignerParams& params,
-                                              size_t first_band) {
-    const size_t n = first.size();
-    const size_t m = second.size();
-    StringAlignment result;
-    if (n == 0 || m == 0) {
-        if (m == 0 && std::ranges::any_of(pinned, [](uint32_t stretch) { return stretch != 0; })) {
-            return std::nullopt;
-        }
-        add_run(result.runs, n == 0 ? AlignmentOp::Insertion : AlignmentOp::Deletion,
-                std::max(n, m));
-        result.cost = params.gap_cost(std::max(n, m));
-        return result;
-    }
-    vector<uint8_t> trace;
-    for (size_t reach = std::max<size_t>({params.first_band, first_band, 1});; reach *= 2) {
-        const Band band = band_of(n, m, reach);
-        if (band.cells(n) > params.max_cells) {
-            return std::nullopt;
-        }
-        const int64_t cost = fill_band(first.data(), n, second.data(), m, band.low, band.high,
-                                       params, &trace, &pinned);
-        // An alignment that leaves the band costs at least what one without pins does.
-        if (cost < g_no_cost && cost <= cost_outside(band, n, m, params)) {
-            const vector<AlignmentRun> runs = trace_back(trace, first.data(), n, second.data(),
-                                                         m, band.low, band.high);
-            for (size_t r = runs.size(); r-- > 0;) {
-                add_run(result.runs, runs[r].op, runs[r].length);
-            }
-            result.cost = cost;
-            result.band = reach;
-            return result;
-        }
-        if (band.low == -(int64_t)n && band.high == (int64_t)m) {
-            // The band is the whole matrix, and no alignment keeps the pins.
-            return std::nullopt;
-        }
     }
 }
 

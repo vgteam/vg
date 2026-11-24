@@ -104,29 +104,6 @@ optional<StringAlignment> align_global(const string& first, const string& second
                                        const StringAlignerParams& params = StringAlignerParams());
 
 /**
- * Align all of `first` to all of `second` at the least cost of any alignment that keeps the pins
- * of `first`.
- *
- * `pinned` gives, for each base of `first`, the number of the pinned stretch it is in, or 0 for
- * a base that is not pinned. An alignment keeps the pins where it matches every pinned base to
- * an equal base of `second`, and inserts no base between two neighbouring bases of one stretch.
- * So each pinned stretch of `first` is found whole in `second`, and the alignment says where.
- *
- * The aligner fills bands as `align_global` does, doubling the band until the best alignment in
- * it that keeps the pins costs no more than leaving the band could.
- *
- * @param first_band The number of diagonals on each side that the first band holds at least,
- * such as the band `align_global` needed for the two strings.
- * @return Nothing if no alignment keeps the pins, or the one of least cost is not found within
- * `params.max_cells`.
- */
-optional<StringAlignment> align_global_pinned(const string& first, const string& second,
-                                              const vector<uint32_t>& pinned,
-                                              const StringAlignerParams& params =
-                                                  StringAlignerParams(),
-                                              size_t first_band = 0);
-
-/**
  * Move each gap of `runs`, an alignment of `first` to `second`, as far left as it goes.
  *
  * A gap moves one base left where the base before it is matched and is the same as the last base

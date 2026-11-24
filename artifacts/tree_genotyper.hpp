@@ -123,12 +123,9 @@ public:
      * is a group of its own where groups choose the genotype. The site is not filed in the
      * linkage model again.
      *
-     * @param read_interiors If not null, the bases some reads have between the site's bounds,
-     * which those reads are scored on (see `ReadInteriors`).
      * @return False, leaving the site's call as it was, if the site could not be genotyped.
      */
-    bool regenotype(StagedSite& site, size_t first_added,
-                    const ReadInteriors* read_interiors = nullptr) const;
+    bool regenotype(StagedSite& site, size_t first_added) const;
 
     /**
      * Make one site of a run of neighbouring staged snarls of one chain, and genotype it from
