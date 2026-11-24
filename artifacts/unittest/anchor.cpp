@@ -7,6 +7,7 @@
 /// (`AnchorPinCounters::verify_failed`) catches errors on real data.
 ///
 
+#include <algorithm>
 #include <fstream>
 #include <limits>
 #include <set>
@@ -861,7 +862,7 @@ TEST_CASE("An off-panel site whose two pins are one point writes one anchor per 
     REQUIRE(out.size() == 2);
     REQUIRE(counters.degenerate_site.load() == 1);
     for (const AnchorWriter::Anchor& a : out) {
-        REQUIRE(a.edit);
+        REQUIRE(a.source == PinSource::off_panel);
         REQUIRE(a.pin == 3);
     }
     // Pins at two points of one node are two anchors per slot.
@@ -903,14 +904,14 @@ static vector<string> write_anchors(vector<AnchorWriter::Anchor> anchors, size_t
     return out;
 }
 
-/// An anchor at `node` of site `snarl`, with a read row for each (read, alignment, direction,
-/// offset).
-static AnchorWriter::Anchor anchor_of(nid_t node, const string& snarl, bool edit,
+/// An anchor at `node` of site `snarl`, whose pin `source` placed, with a read row for each (read,
+/// alignment, direction, offset).
+static AnchorWriter::Anchor anchor_of(nid_t node, const string& snarl, PinSource source,
                                       const vector<tuple<int, uint32_t, uint8_t, int64_t>>& rows) {
     AnchorWriter::Anchor a;
     a.node = node;
     a.snarl = snarl;
-    a.edit = edit;
+    a.source = source;
     for (const auto& r : rows) {
         AnchorWriter::ReadRow row;
         row.read = read_names().intern("point" + to_string(get<0>(r)));
@@ -926,36 +927,250 @@ TEST_CASE("The writer keeps each read point in one anchor, a snarl's where it ha
     AnchorWriter writer(1);
     // Strand 0 offset 9 and strand 1 offset 10 are both the point before base 10 of a read.
     SECTION("a snarl's anchor keeps a point an off-panel anchor written before it holds") {
-        const auto rows = write_anchors({anchor_of(2, "op2.4.SA", true, {{0, 1, 1, 10}, {1, 1, 0, 50}}),
-                                         anchor_of(5, ">5>6", false, {{0, 1, 0, 9}})},
+        const auto rows = write_anchors({anchor_of(2, "op2.4.SA", PinSource::off_panel, {{0, 1, 1, 10}, {1, 1, 0, 50}}),
+                                         anchor_of(5, ">5>6", PinSource::snarl, {{0, 1, 0, 9}})},
                                         1, writer);
         REQUIRE(rows == vector<string>{"op2.4.SA:1", ">5>6:1"});
         REQUIRE(writer.tally().placements_left_out == 1);
         REQUIRE(writer.tally().placements_written == 2);
     }
     SECTION("of two off-panel anchors, the first in the file keeps it") {
-        const auto rows = write_anchors({anchor_of(3, "op3.0.SA", true, {{0, 1, 1, 10}}),
-                                         anchor_of(2, "op2.4.SA", true, {{0, 1, 0, 9}})},
+        const auto rows = write_anchors({anchor_of(3, "op3.0.SA", PinSource::off_panel, {{0, 1, 1, 10}}),
+                                         anchor_of(2, "op2.4.SA", PinSource::off_panel, {{0, 1, 0, 9}})},
                                         1, writer);
         REQUIRE(rows == vector<string>{"op2.4.SA:1"});
         REQUIRE(writer.tally().anchors_left_out == 1);
     }
     SECTION("another alignment of the read's name, as a mate is, is another read") {
-        const auto rows = write_anchors({anchor_of(3, "op3.0.SA", true, {{0, 2, 1, 10}}),
-                                         anchor_of(2, "op2.4.SA", true, {{0, 1, 0, 9}})},
+        const auto rows = write_anchors({anchor_of(3, "op3.0.SA", PinSource::off_panel, {{0, 2, 1, 10}}),
+                                         anchor_of(2, "op2.4.SA", PinSource::off_panel, {{0, 1, 0, 9}})},
                                         1, writer);
         REQUIRE(rows == vector<string>{"op2.4.SA:1", "op3.0.SA:1"});
         REQUIRE(writer.tally().placements_left_out == 0);
     }
     SECTION("an off-panel anchor left below the minimum reads is left out, and frees its points") {
-        const auto rows = write_anchors({anchor_of(2, "op2.4.SA", true, {{0, 1, 0, 9}, {1, 1, 0, 30}}),
-                                         anchor_of(3, "op3.0.SA", true, {{1, 1, 0, 30}, {2, 1, 0, 40}}),
-                                         anchor_of(1, ">1>2", false, {{0, 1, 0, 9}, {3, 1, 0, 60}})},
+        const auto rows = write_anchors({anchor_of(2, "op2.4.SA", PinSource::off_panel, {{0, 1, 0, 9}, {1, 1, 0, 30}}),
+                                         anchor_of(3, "op3.0.SA", PinSource::off_panel, {{1, 1, 0, 30}, {2, 1, 0, 40}}),
+                                         anchor_of(1, ">1>2", PinSource::snarl, {{0, 1, 0, 9}, {3, 1, 0, 60}})},
                                         2, writer);
         REQUIRE(rows == vector<string>{">1>2:2", "op3.0.SA:2"});
         REQUIRE(writer.tally().placements_left_out == 1);
         REQUIRE(writer.tally().anchors_left_out == 1);
     }
+}
+
+
+TEST_CASE("Each anchor names the kind of genotype it comes from", "[anchor]") {
+    vector<AnchorPlacement> starts(4), ends(4);
+    for (int i = 0; i < 4; ++i) {
+        starts[i].offset = 10 + i;
+        ends[i].offset = 30 + i;
+    }
+    AnchorParams params;
+    params.min_reads = 1;
+    AnchorCounters counters;
+    params.counters = &counters;
+    vector<AnchorWriter::Anchor> out;
+    auto kinds = [&]() {
+        set<AnchorKind> found;
+        for (const AnchorWriter::Anchor& a : out) {
+            found.insert(a.kind);
+            REQUIRE(a.source == PinSource::snarl);
+        }
+        out.clear();
+        return found;
+    };
+
+    SECTION("two different alleles are het") {
+        build_site_anchors(two_allele_evidence({0, 0, 1, 1}, starts, ends),
+                           AnchorCall{{0, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
+        REQUIRE(kinds() == set<AnchorKind>{AnchorKind::het});
+    }
+    SECTION("a homozygote is hom") {
+        build_site_anchors(two_allele_evidence({0, 0, 0, 0}, starts, ends),
+                           AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out);
+        REQUIRE(kinds() == set<AnchorKind>{AnchorKind::hom});
+    }
+    SECTION("a homozygote divided by strand is hom-split") {
+        params.hom_split = true;
+        params.phase_min_side = 2;
+        vector<double> strand{+5.0, +5.0, -5.0, -5.0};
+        build_site_anchors(two_allele_evidence({0, 0, 0, 0}, starts, ends),
+                           AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
+        REQUIRE(kinds() == set<AnchorKind>{AnchorKind::hom_split});
+    }
+    SECTION("a genotype of one allele is haploid, on either strand") {
+        for (int strand : {0, 1}) {
+            build_site_anchors(two_allele_evidence({0, 0, 0, 0}, starts, ends),
+                               AnchorCall{{0}, strand, 0.9, 1.0}, ">1>4", params, out);
+            REQUIRE(kinds() == set<AnchorKind>{AnchorKind::haploid});
+        }
+    }
+}
+
+TEST_CASE("Two called traversals written as one allele pool their reads in one slot", "[anchor]") {
+    // Three candidate alleles; one read fits allele 0, two fit 1 and two fit 2. The site is called
+    // 1/2, but its line spells 1 and 2 as one sequence, so its GT is 1|1.
+    AnchorSiteEvidence ev;
+    ev.n_alleles = 3;
+    ev.start_node = 1;
+    ev.end_node = 4;
+    ev.allele_length = {9, 9, 9};
+    ev.mean_read_length = 10.0f;
+    const vector<int> prefers{0, 1, 1, 2, 2};
+    for (size_t i = 0; i < prefers.size(); ++i) {
+        AnchorRead r;
+        r.read = read_names().intern("pool" + std::to_string(i));
+        r.mismap = 0.02f;
+        r.start_pin.offset = 10 + (int64_t)i;
+        r.end_pin.offset = 30 + (int64_t)i;
+        ev.reads.push_back(r);
+        for (int a = 0; a < 3; ++a) {
+            ev.rel.push_back(prefers[i] == a ? 1.0f : 0.0f);
+        }
+    }
+    const AnchorSiteEvidence pooled = pool_written_alleles(ev, {{2, 1}});
+    for (size_t r = 0; r < pooled.reads.size(); ++r) {
+        REQUIRE(pooled.rel_at(r, 0) + pooled.rel_at(r, 1) + pooled.rel_at(r, 2) == 1.0f);
+        REQUIRE(pooled.rel_at(r, 2) == 0.0f);
+    }
+
+    AnchorParams params;
+    params.min_reads = 1;
+    AnchorCounters counters;
+    params.counters = &counters;
+    vector<AnchorWriter::Anchor> out;
+    build_site_anchors(pooled, AnchorCall{{1, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
+    // One slot at each pin, holding the reads of both traversals, and none of allele 0's.
+    REQUIRE(out.size() == 2);
+    for (const AnchorWriter::Anchor& a : out) {
+        REQUIRE(a.kind == AnchorKind::hom);
+        REQUIRE(a.slot == 0);
+        REQUIRE(a.allele == 1);
+        REQUIRE(a.reads.size() == 4);
+    }
+
+    // Without pooling, the reads of traversal 2 fit an allele the call does not name, and are left
+    // out.
+    out.clear();
+    build_site_anchors(ev, AnchorCall{{1, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
+    REQUIRE(out.size() == 2);
+    REQUIRE(out[0].reads.size() == 2);
+}
+
+/// A fill anchor at `node`, `pin`, holding a read row for each (read, alignment, direction,
+/// offset).
+static AnchorWriter::Anchor fill_anchor_of(nid_t node, uint32_t pin,
+                                           const vector<tuple<int, uint32_t, uint8_t, int64_t>>& rows) {
+    AnchorWriter::Anchor a = anchor_of(node, "fill" + to_string(node) + "." + to_string(pin),
+                                       PinSource::fill, rows);
+    a.pin = pin;
+    a.allele = -1;
+    a.gqn = numeric_limits<double>::quiet_NaN();
+    a.explained = numeric_limits<double>::quiet_NaN();
+    a.kind = AnchorKind::fill_shared;
+    return a;
+}
+
+TEST_CASE("A fill anchor gives a read point to every other anchor, and to an earlier fill anchor",
+          "[anchor]") {
+    AnchorWriter writer(1);
+    SECTION("a snarl's anchor keeps the point") {
+        const auto rows = write_anchors({fill_anchor_of(1, 5, {{0, 1, 0, 9}, {1, 1, 0, 20}}),
+                                         anchor_of(5, ">5>6", PinSource::snarl, {{0, 1, 1, 10}})},
+                                        1, writer);
+        REQUIRE(rows == vector<string>{"fill1.5:1", ">5>6:1"});
+        REQUIRE(writer.tally().fill_placements_left_out == 1);
+        REQUIRE(writer.tally().placements_left_out == 0);
+    }
+    SECTION("an off-panel anchor written after it keeps the point") {
+        const auto rows = write_anchors({fill_anchor_of(1, 5, {{0, 1, 0, 9}, {1, 1, 0, 20}}),
+                                         anchor_of(3, "op3.0.SA", PinSource::off_panel, {{0, 1, 0, 9}})},
+                                        1, writer);
+        REQUIRE(rows == vector<string>{"fill1.5:1", "op3.0.SA:1"});
+        REQUIRE(writer.tally().fill_placements_left_out == 1);
+        REQUIRE(writer.tally().placements_left_out == 0);
+    }
+    SECTION("of two fill anchors, the first in the file keeps it") {
+        const auto rows = write_anchors({fill_anchor_of(4, 2, {{0, 1, 0, 9}, {1, 1, 0, 20}}),
+                                         fill_anchor_of(2, 7, {{0, 1, 0, 9}, {2, 1, 0, 30}})},
+                                        1, writer);
+        REQUIRE(rows == vector<string>{"fill2.7:2", "fill4.2:1"});
+        REQUIRE(writer.tally().fill_placements_left_out == 1);
+    }
+    SECTION("a fill anchor left below the minimum reads is left out, and frees its points") {
+        const auto rows = write_anchors({anchor_of(1, ">1>2", PinSource::snarl, {{0, 1, 0, 9}, {3, 1, 0, 60}}),
+                                         fill_anchor_of(2, 3, {{0, 1, 0, 9}, {1, 1, 0, 30}}),
+                                         fill_anchor_of(3, 8, {{1, 1, 0, 30}, {2, 1, 0, 40}})},
+                                        2, writer);
+        REQUIRE(rows == vector<string>{">1>2:2", "fill3.8:2"});
+        REQUIRE(writer.tally().fill_placements_left_out == 1);
+        REQUIRE(writer.tally().fill_anchors_left_out == 1);
+        REQUIRE(writer.tally().anchors_left_out == 0);
+    }
+}
+
+TEST_CASE("Fill anchors follow a node's site anchors, in the order of their pins", "[anchor]") {
+    AnchorWriter writer(1);
+    const auto rows = write_anchors({fill_anchor_of(5, 1000, {{0, 1, 0, 9}}),
+                                     fill_anchor_of(5, 200, {{1, 1, 0, 9}}),
+                                     anchor_of(5, "op5.3.SA", PinSource::off_panel, {{2, 1, 0, 9}}),
+                                     anchor_of(5, ">5>6", PinSource::snarl, {{3, 1, 0, 9}})},
+                                    1, writer);
+    REQUIRE(rows == vector<string>{">5>6:1", "op5.3.SA:1", "fill5.200:1", "fill5.1000:1"});
+}
+
+TEST_CASE("The anchor file is version 10, and every anchor row ends with its kind", "[anchor]") {
+    AnchorWriter writer(1);
+    AnchorWriter::Anchor snarl = anchor_of(1, ">1>4", PinSource::snarl, {{0, 1, 0, 9}, {1, 1, 0, 12}});
+    snarl.allele = 2;
+    snarl.gqn = 0.5;
+    snarl.reliability = 13.0;
+    snarl.kind = AnchorKind::hom;
+    AnchorWriter::Anchor fill = fill_anchor_of(7, 300, {{2, 1, 1, 40}, {3, 1, 0, 50}});
+    fill.kind = AnchorKind::fill_strand;
+    fill.slot = 1;
+    writer.add(std::move(snarl));
+    writer.add(std::move(fill));
+    const string path = temp_file::create();
+    AnchorParams params;
+    params.min_reads = 2;
+    params.fill_spacing = 1000;
+    REQUIRE(writer.write(path, "g", "s", "r", 0.01, params));
+    vector<vector<string>> a_rows;
+    vector<string> header;
+    ifstream in(path);
+    string line;
+    while (getline(in, line)) {
+        if (line[0] == '#') {
+            header.push_back(line);
+            continue;
+        }
+        if (line[0] != 'A') {
+            continue;
+        }
+        vector<string> fields;
+        istringstream columns(line);
+        string field;
+        while (getline(columns, field, '\t')) {
+            fields.push_back(field);
+        }
+        a_rows.push_back(fields);
+    }
+    temp_file::remove(path);
+    REQUIRE(header.front() == "#anchors-version\t10");
+    REQUIRE(std::ranges::count(header, string("#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained"
+                                              "\treliability\tpin\tkind")) == 1);
+    REQUIRE(std::ranges::count_if(header, [](const string& h) {
+                return h.starts_with("#filters\t") && h.ends_with(" fill=1000");
+            }) == 1);
+    REQUIRE(a_rows.size() == 2);
+    REQUIRE(a_rows[0] == vector<string>{"A", "1", ">1>4", "0", "2", "0.500", "1.000", "13.00",
+                                        "0", "hom"});
+    REQUIRE(a_rows[1] == vector<string>{"A", "7", "fill7.300", "1", ".", ".", ".", ".", "300",
+                                        "fill-strand"});
+    REQUIRE(writer.tally().written_by_kind[(size_t)AnchorKind::hom] == 1);
+    REQUIRE(writer.tally().written_by_kind[(size_t)AnchorKind::fill_strand] == 1);
 }
 
 }

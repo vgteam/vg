@@ -135,6 +135,7 @@ void ReadPhaser::phase(
 
     strands.read_ordered().clear();
     strands.flips() = read_phase_flips(sites, params, counters, &strands.read_ordered());
+    strands.run_correlations() = RunCorrelationTable(sites);
 
     // Block records spell the phase in their ALTs, so swapping a nested site can change the
     // allele numbers in its GT.
@@ -163,6 +164,14 @@ void ReadPhaser::report() const {
             cerr << " (every chain reached a coherent fixed point)";
         }
         cerr << endl;
+    }
+    cerr << "[vg call] panel phase against the reads: " << c.panel_pairs_reversed << " of "
+         << c.panel_pairs << " pairs of neighbouring panel-ordered sites in one piece reversed";
+    if (c.panel.fitted) {
+        cerr << "; it switches once per " << 1.0 / c.panel.switch_rate << " bases and flips "
+             << c.panel.flip_rate << " of sites" << endl;
+    } else {
+        cerr << "; too few to fit its error rates" << endl;
     }
 }
 

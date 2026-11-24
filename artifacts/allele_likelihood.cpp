@@ -38,13 +38,12 @@ double DepthContext::ratio(const vector<int>& genotype) const {
 
 void AlleleReadLikelihoods::set_contents(size_t reads, size_t alleles, vector<double>&& rows,
                                          vector<double>&& mismap, vector<double>&& best_ln,
-                                         vector<string>&& names, size_t dropped) {
+                                         size_t dropped) {
     this->n_reads = reads;
     this->n_alleles = alleles;
     this->matrix = std::move(rows);
     this->read_mismap_prob = std::move(mismap);
     this->read_best_ln = std::move(best_ln);
-    this->read_names = std::move(names);
     this->unplaceable = dropped;
     this->effective_read_total = 0.0;
     for (double e : this->read_mismap_prob) {
@@ -149,6 +148,12 @@ vector<double> AlleleReadLikelihoods::mixture_weights(const vector<int>& genotyp
 }
 
 double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) const {
+    return genotype_likelihood(genotype, matrix);
+}
+
+double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype,
+                                                  const vector<double>& rows,
+                                                  bool with_depth) const {
     if (genotype.empty()) {
         return 0.0;
     }
@@ -165,7 +170,7 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
             if (allele < 0 || (size_t)allele >= n_alleles) {
                 continue;
             }
-            mixture += weights[i] * rel(r, (size_t)allele);
+            mixture += weights[i] * rows.at(r * n_alleles + (size_t)allele);
         }
 
         // Mix in the chance that the read is mismapped, in which case its likelihood is the row
@@ -174,16 +179,19 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
         total += log((1.0 - e_r) * mixture + e_r);
     }
 
-    if (uses_depth_term()) {
-        // Add ln of the tempered density f^beta / Z_beta at the observed count, with beta the
-        // depth weight. Z_beta grows with lambda when beta < 1, so without it we would favour
-        // the genotypes that expect more reads.
-        double lambda = expected_reads(genotype);
-        total += depth_weight * ln_poisson_pmf(observed_reads(), lambda)
-                 - ln_tempered_poisson_normaliser(lambda, depth_weight);
-    }
+    return with_depth ? total + depth_term(genotype) : total;
+}
 
-    return total;
+double AlleleReadLikelihoods::depth_term(const vector<int>& genotype) const {
+    if (!uses_depth_term()) {
+        return 0.0;
+    }
+    // Take ln of the tempered density f^beta / Z_beta at the observed count, with beta the depth
+    // weight. Z_beta grows with lambda when beta < 1, so without it we would favour the genotypes
+    // that expect more reads.
+    double lambda = expected_reads(genotype);
+    return depth_weight * ln_poisson_pmf(observed_reads(), lambda)
+           - ln_tempered_poisson_normaliser(lambda, depth_weight);
 }
 
 double AlleleReadLikelihoods::achievable_gap(const vector<int>& called,
@@ -278,28 +286,35 @@ vector<vector<int>> AlleleReadLikelihoods::enumerate_genotypes(size_t num_allele
 }
 
 vector<pair<vector<int>, double>> AlleleReadLikelihoods::score_genotypes(int ploidy) const {
+    return score_genotypes(enumerate_genotypes(n_alleles, ploidy));
+}
+
+vector<pair<vector<int>, double>> AlleleReadLikelihoods::score_genotypes(
+    const vector<vector<int>>& genotypes, const vector<int>* group_of, bool with_depth) const {
+    assert(group_of == nullptr || group_of->size() == n_alleles);
+    // With groups, give each read's entry for an allele the read's best entry in the allele's
+    // group.
+    vector<double> shared;
+    if (group_of != nullptr && n_alleles > 0) {
+        shared.resize(matrix.size());
+        vector<double> best(*std::ranges::max_element(*group_of) + 1);
+        for (size_t r = 0; r < n_reads; ++r) {
+            std::ranges::fill(best, 0.0);
+            for (size_t a = 0; a < n_alleles; ++a) {
+                best[(*group_of)[a]] = max(best[(*group_of)[a]], rel(r, a));
+            }
+            for (size_t a = 0; a < n_alleles; ++a) {
+                shared[r * n_alleles + a] = best[(*group_of)[a]];
+            }
+        }
+    }
+    const vector<double>& rows = group_of != nullptr ? shared : matrix;
     vector<pair<vector<int>, double>> scored;
-    for (auto& genotype : enumerate_genotypes(n_alleles, ploidy)) {
-        double ll = genotype_likelihood(genotype);
+    for (auto& genotype : genotypes) {
+        double ll = genotype_likelihood(genotype, rows, with_depth);
         scored.emplace_back(genotype, ll);
     }
     return scored;
-}
-
-void AlleleReadLikelihoods::dump(ostream& out, const string& site_name) const {
-    out << "#site\tread\tmismap_prob\tbest_ln";
-    for (size_t a = 0; a < n_alleles; ++a) {
-        out << "\tallele_" << a;
-    }
-    out << endl;
-    for (size_t r = 0; r < n_reads; ++r) {
-        out << site_name << "\t" << (read_names.empty() ? string(".") : read_names[r]) << "\t"
-            << read_mismap_prob[r] << "\t" << read_best_ln[r];
-        for (size_t a = 0; a < n_alleles; ++a) {
-            out << "\t" << rel(r, a);
-        }
-        out << endl;
-    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -382,20 +397,17 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
     matrix.reserve(n_reads * n_alleles);
     vector<double> sorted_mismap;
     vector<double> sorted_best;
-    vector<string> sorted_names;
     sorted_mismap.reserve(n_reads);
     sorted_best.reserve(n_reads);
-    sorted_names.reserve(n_reads);
     for (size_t i : order) {
         matrix.insert(matrix.end(), rows[i].begin(), rows[i].end());
         sorted_mismap.push_back(mismap_probs[i]);
         sorted_best.push_back(best_lns[i]);
-        sorted_names.push_back(std::move(names[i]));
     }
 
     AlleleReadLikelihoods result;
     result.set_contents(n_reads, n_alleles, std::move(matrix), std::move(sorted_mismap),
-                        std::move(sorted_best), std::move(sorted_names), unplaceable);
+                        std::move(sorted_best), unplaceable);
     result.set_mismap_floor(min_mismap);
     if (read_length_count > 0) {
         // Set R whichever mixture is in use, since the depth term's lambda = rate * (L + R - 1)
@@ -2068,8 +2080,7 @@ void GraphAlignedAlleleLikelihoodCalculator::score_row(
     for (size_t a = 0; a < alleles.steps.size(); ++a) {
         const vector<AlleleStep>& steps = alleles.steps[a];
         if (steps.empty()) {
-            // An allele with no visits, such as the empty traversal of a star allele, cannot place
-            // the read.
+            // An allele with no visits cannot place the read.
             row[a] = -numeric_limits<double>::infinity();
             continue;
         }

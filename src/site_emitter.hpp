@@ -86,6 +86,18 @@ public:
     /// gets at most.
     static constexpr size_t max_uncalled_alleles = 5;
 
+    /// What became of a site given to `emit`.
+    enum class Outcome {
+        /// The site has at least one line in the output.
+        Written,
+        /// The site has no line and needs none: its record has no ALT, and `genotype_snarls` is
+        /// off.
+        Hidden,
+        /// The site has no line although it is not hidden: the writer refused its record, or the
+        /// site was split into several records and none of them was written.
+        Dropped
+    };
+
     /**
      * Write the record of `site`.
      *
@@ -96,10 +108,9 @@ public:
      *
      * @param alleles Spells the site's traversals.
      * @param write_fields Writes the genotyper's fields once the alleles are numbered.
-     * @return false only if the writer refused a line the site wanted.
      */
-    bool emit(const PathPositionHandleGraph& graph, const CalledSite& site,
-              const allele_source_t& alleles, const field_writer_t& write_fields);
+    Outcome emit(const PathPositionHandleGraph& graph, const CalledSite& site,
+                 const allele_source_t& alleles, const field_writer_t& write_fields);
 
 protected:
     /// Return whether traversal `trav`, which is not the reference traversal, should be treated
@@ -169,10 +180,8 @@ private:
 
     /// Send a built record to the writer, unless `write_blocks` splits the site, and report the
     /// site to `on_site_done`.
-    ///
-    /// @return false only if the writer refused a line the site wanted.
-    bool file_record(const PathPositionHandleGraph& graph, const CalledSite& site,
-                     SiteRecord& record);
+    Outcome file_record(const PathPositionHandleGraph& graph, const CalledSite& site,
+                        SiteRecord& record);
 };
 
 }

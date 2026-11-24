@@ -91,8 +91,7 @@ public:
      * Get the likelihood of read r under allele a, relative to the best allele of read r.
      *
      * It is 0 where allele a fits the read so much worse than the best that the ratio
-     * underflows. It is also 0 where allele a has no node visits, as the empty traversal of a
-     * star allele has, and cannot place the read.
+     * underflows. It is also 0 where allele a has no node visits, and so cannot place the read.
      */
     double rel(size_t r, size_t a) const;
 
@@ -181,6 +180,9 @@ public:
     double expected_reads(const vector<int>& genotype) const {
         return depth.expected_reads(genotype);
     }
+
+    /// Return the depth term of `genotype` in `genotype_likelihood`, or 0 when the term is off.
+    double depth_term(const vector<int>& genotype) const;
 
     /// Return whether `set_depth_context` has supplied traversal lengths.
     bool has_depth_context() const { return !depth.lengths.empty(); }
@@ -274,8 +276,12 @@ public:
     /// Return `genotype_likelihood` for every genotype of this ploidy, in VCF GL order.
     vector<pair<vector<int>, double>> score_genotypes(int ploidy) const;
 
-    /// Write the matrix as TSV for debugging, with one line per read.
-    void dump(ostream& out, const string& site_name) const;
+    /// Return `genotype_likelihood` for each of `genotypes`, in their order. With `group_of`, the
+    /// relative likelihood of each read for an allele is its best over the allele's group. With
+    /// `with_depth` false, each score leaves out the depth term.
+    vector<pair<vector<int>, double>> score_genotypes(const vector<vector<int>>& genotypes,
+                                                      const vector<int>* group_of = nullptr,
+                                                      bool with_depth = true) const;
 
     /**
      * Keep the anchor evidence of the site, and fill its rows from this matrix.
@@ -304,8 +310,7 @@ public:
 
     /// Fill the matrix, for `AlleleReadLikelihoodsBuilder`.
     void set_contents(size_t reads, size_t alleles, vector<double>&& rows,
-                      vector<double>&& mismap, vector<double>&& best_ln,
-                      vector<string>&& names, size_t dropped);
+                      vector<double>&& mismap, vector<double>&& best_ln, size_t dropped);
 
     /// Set the floor on e_r, which `achievable_gap` gives its ideal reads.
     void set_mismap_floor(double floor) { this->mismap_floor = floor; }
@@ -324,6 +329,11 @@ private:
 
     /// Set N in `depth` from the reads and from whether they count as 1 - e_r.
     void count_observed();
+
+    /// Return `genotype_likelihood` with `rows` in place of the relative likelihoods. `rows` is
+    /// row major, n_reads * n_alleles. Leave out the depth term when `with_depth` is false.
+    double genotype_likelihood(const vector<int>& genotype, const vector<double>& rows,
+                               bool with_depth = true) const;
 
     /// The anchor evidence of the site, or null.
     unique_ptr<AnchorSiteEvidence> anchor_evidence;
@@ -348,7 +358,6 @@ private:
     bool depth_effective = true;
     double depth_weight = 0.0;
     vector<double> read_best_ln;
-    vector<string> read_names;
     size_t n_reads = 0;
     size_t n_alleles = 0;
     size_t unplaceable = 0;

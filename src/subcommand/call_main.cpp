@@ -609,6 +609,11 @@ void help_call(char** argv) {
          << "                            not as part of the enclosing snarl's alleles [on]" << endl
          << "      --no-nested           report variation inside nested snarls as part of" << endl
          << "                            the enclosing snarl's alleles" << endl
+         << "      --group-candidates    choose a snarl's genotype over groups of its" << endl
+         << "                            alleles that differ only inside nested snarls," << endl
+         << "                            then the alleles within the chosen groups [on]" << endl
+         << "      --no-group-candidates" << endl
+         << "                            choose a snarl's genotype over its alleles alone" << endl
          << "      --atomize-blocks      write one record per separate difference between" << endl
          << "                            a called allele and the reference, rather than one" << endl
          << "                            per snarl [on]" << endl
@@ -652,8 +657,6 @@ void help_call(char** argv) {
          << "                            walk spells, found as edits recurring in the reads" << endl
          << "                            [on]" << endl
          << "      --no-off-panel        do not call off-panel variants" << endl
-         << "      --off-panel-dump F    write each off-panel candidate, with its read" << endl
-         << "                            counts and what became of it, to F as TSV" << endl
          << "      --off-panel-bar B     call a candidate whose ALT is on >= K fragments" << endl
          << "                            and a fraction >= F of them, at GQ >= G and a" << endl
          << "                            depth ratio (DR) <= D (D 0: no limit), with B" << endl
@@ -663,11 +666,6 @@ void help_call(char** argv) {
          << "                            tract starts with a run of >= H of one base (H 0:" << endl
          << "                            no limit; 1: no indels), with B given as K,F,H" << endl
          << "                            [7,0.25,0]" << endl
-         << "      --off-panel-svs       also call insertions and deletions of 50 bp or" << endl
-         << "                            more, from long reads' indels (the medoid read's" << endl
-         << "                            insertion as the ALT) and short reads' clips" << endl
-         << "                            (deletions only); one crossing a site is refused" << endl
-         << "                            [off]" << endl
          << "  read-based phasing (reliable heterozygous sites are joined into a phase" << endl
          << "  chain by the reads they share; other sites are phased from the chain):" << endl
          << "      --read-phasing        phase heterozygous sites with the reads that span" << endl
@@ -684,9 +682,12 @@ void help_call(char** argv) {
          << "      --phase-hang N        sites of the chain used to phase a site outside" << endl
          << "                            it: the nearest N/2+1 on each side [4]" << endl
          << "      --phase-prior N       weight, in log10 units, of the haplotypes' phase" << endl
-         << "                            when phasing a site that is not in the chain [3]" << endl
+         << "                            when phasing a site that is not in the chain, where" << endl
+         << "                            too few sites measure how often it is wrong [3]" << endl
          << "      --phase-cap N         maximum evidence, in log10 units, from the reads" << endl
-         << "                            linking two sites; 0 for no maximum [0]" << endl
+         << "                            linking two sites, or phasing a site outside the" << endl
+         << "                            chain against one read-linked stretch of it; 0 for" << endl
+         << "                            no maximum [0]" << endl
          << "      --phase-coherence F   minimum fraction of a site's reads that agree with" << endl
          << "                            their phase at other sites, for the site to stay" << endl
          << "                            in the phase chain; 0 disables the check [0.70]" << endl
@@ -713,7 +714,8 @@ void help_call(char** argv) {
          << "  anchors:" << endl
          << "      --anchors-out FILE    write assembly anchors to FILE: the reads at each" << endl
          << "                            genotyped snarl's boundaries, grouped by the" << endl
-         << "                            called allele they fit" << endl
+         << "                            called allele they fit, and at points spaced" << endl
+         << "                            along unbranched node runs" << endl
          << "      --anchors-het-only    write anchors only at heterozygous sites" << endl
          << "      --anchors-leaf-only   write anchors only at leaf snarls" << endl
          << "      --anchors-reads N     minimum reads per anchor [2]" << endl
@@ -725,6 +727,8 @@ void help_call(char** argv) {
          << "                            called" << endl
          << "      --anchors-end-new N   write a snarl's end anchor only if it has at least" << endl
          << "                            N reads that its start anchor lacks [0]" << endl
+         << "      --anchors-fill N      also pin points every N bp inside unbranched node" << endl
+         << "                            runs longer than N bp; 0 turns this off [1000]" << endl
          << "      --anchors-hom-split   with --read-phasing, split the reads at a" << endl
          << "                            homozygous site into two haplotypes by their" << endl
          << "                            strand log-odds" << endl
@@ -756,16 +760,8 @@ void help_call(char** argv) {
          << "      --min-confidence X    set FILTER to lowconf on records with GQN below X;" << endl
          << "                            0 disables it [0]" << endl
          << "  debugging and evaluation:" << endl
-         << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
          << "      --flat-mixture        weight a genotype's haplotypes equally, instead of" << endl
          << "                            by the reads each is expected to produce" << endl
-         << "      --regeno-ledger FILE  write one line for each site that re-genotyping" << endl
-         << "                            changes" << endl
-         << "      --regeno-shuffle      randomize the sign of each read's strand log-odds" << endl
-         << "                            before re-genotyping" << endl
-         << "      --anchors-strict-hets" << endl
-         << "                            place reads at a heterozygous site by the sign of" << endl
-         << "                            their strand log-odds alone, ignoring allele match" << endl
          << "GAF options:" << endl
          << "  -G, --gaf                 output GAF genotypes instead of VCF" << endl
          << "  -T, --traversals          output all candidate traversals in GAF" << endl
@@ -820,9 +816,9 @@ void help_call(char** argv) {
          << "                            the ploidy of every reference path whose whole" << endl
          << "                            name REGEX matches. The first matching rule wins," << endl
          << "                            and unmatched paths get the ploidy from -d." << endl
-         << "      --top-down            genotype nested snarls after their parents, each" << endl
-         << "                            child's candidate alleles taken from its parent's" << endl
-         << "                            genotype" << endl
+         << "      --top-down            support-based caller only: genotype nested" << endl
+         << "                            snarls after their parents, each child's" << endl
+         << "                            candidate alleles taken from its parent's genotype" << endl
          << "      --bottom-up           genotype nested snarls before their parents" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "  -L, --cluster F           merge called alt alleles whose length-weighted" << endl
@@ -831,8 +827,8 @@ void help_call(char** argv) {
          << "      --cluster-min-len N   apply -L only at sites whose longest allele, less" << endl
          << "                            the prefix and suffix all alleles share, is at" << endl
          << "                            least N bp; 0 for every site [50]" << endl
-         << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
-         << "                            (requires --top-down)" << endl
+         << "  -Y, --star-allele         support-based caller only: use * alleles for" << endl
+         << "                            spanning haplotypes (requires --top-down)" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
@@ -860,6 +856,8 @@ int main_call(int argc, char** argv) {
     // on without either, for testing.
     bool off_ref_nesting = getenv("VG_CALL_OFF_REF_NESTING") != nullptr;
     AnchorParams anchor_params;
+    // The spacing of the fill anchors in bp, from --anchors-fill.
+    int64_t anchors_fill = 1000;
     /// Counts of how the anchor code placed reads in this run.
     AnchorCounters anchor_run_counters;
     // Mosaic settings. Where no haplotype can be followed, fill the gap with the reference.
@@ -902,6 +900,7 @@ int main_call(int argc, char** argv) {
     // Both on by default, and turned off below where they cannot apply.
     bool atomize_blocks = true;
     bool nested_calling = true;
+    bool group_candidates = true;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -922,7 +921,6 @@ int main_call(int argc, char** argv) {
     // Options for the read-likelihood genotyper (--read-likelihood).
     bool read_likelihood = false;
     ReadInputOptions reads;
-    string dump_likelihoods_filename;
     bool no_mismap_term = false;
     bool no_share_quality = false;
     double depth_quality = 0.0;
@@ -936,12 +934,9 @@ int main_call(int argc, char** argv) {
     // The number of linkage passes under --regenotype. The first pass chooses the genotypes. Each
     // later pass applies a correction from the read phasing and chooses them again.
     size_t regenotype_passes = 2;
-    string regenotype_ledger;
-    // Off-panel detection, and where to write its candidates.
+    // Off-panel detection.
     bool off_panel = true;
-    string off_panel_dump;
     EditCallBar off_panel_bar;
-    bool off_panel_svs = false;
     ReadPhasingParams read_phasing_params;
     // The preset, which sets the options the command line does not give.
     string preset;
@@ -986,7 +981,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_READ_LIKELIHOOD = 1007;
     constexpr int OPT_GAM = 1008;
     constexpr int OPT_GAF = 1009;
-    constexpr int OPT_DUMP_LIKELIHOODS = 1010;
     constexpr int OPT_NO_MISMAP_TERM = 1011;
     constexpr int OPT_READ_MIN_MAPQ = 1012;
     constexpr int OPT_GAM_INDEX = 1013;
@@ -1001,7 +995,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_ANCHORS_HOM_SPLIT = 1094;
     constexpr int OPT_ANCHORS_PHASE_HETS = 1102;
     constexpr int OPT_NO_ANCHORS_PHASE_HETS = 1103;
-    constexpr int OPT_ANCHORS_STRICT_HETS = 1104;
     constexpr int OPT_ANCHORS_PHASE_MIN = 1095;
     constexpr int OPT_ANCHORS_PHASE_MIN_SIDE = 1096;
     constexpr int OPT_NO_OPTIMAL_PAIRING = 1093;
@@ -1012,11 +1005,11 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_HP_PRIOR_RUN = 1111;
     constexpr int OPT_LINKAGE_MUTATION = 1113;
     constexpr int OPT_OFF_PANEL = 1114;
-    constexpr int OPT_OFF_PANEL_DUMP = 1115;
     constexpr int OPT_OFF_PANEL_BAR = 1116;
     constexpr int OPT_OFF_PANEL_INDELS = 1117;
-    constexpr int OPT_OFF_PANEL_SVS = 1118;
     constexpr int OPT_NO_OFF_PANEL = 1119;
+    constexpr int OPT_GROUP_CANDIDATES = 1121;
+    constexpr int OPT_NO_GROUP_CANDIDATES = 1122;
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
@@ -1040,8 +1033,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_NO_REGENO_HAPLOID = 1090;
     constexpr int OPT_REGENO_TEMPER = 1083;
     constexpr int OPT_REGENO_PASSES = 1084;
-    constexpr int OPT_REGENO_SHUFFLE = 1085;
-    constexpr int OPT_REGENO_LEDGER = 1086;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
     constexpr int OPT_PLOIDY_BED = 1043;
     constexpr int OPT_PLOIDY_PRESET = 1120;
@@ -1063,6 +1054,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_ANCHORS_MIN_SCORE = 1065;
     constexpr int OPT_ANCHORS_KEEP_OFF_CALL = 1066;
     constexpr int OPT_ANCHORS_END_PIN_MIN_NEW = 1067;
+    constexpr int OPT_ANCHORS_FILL = 1123;
     constexpr int OPT_NO_MOSAIC_PATCH = 1053;
     constexpr int OPT_MOSAIC_PATCH = 1054;
     constexpr int OPT_NO_MOSAIC_NESTED = 1055;
@@ -1124,7 +1116,6 @@ int main_call(int argc, char** argv) {
             {"no-phased", no_argument, nullptr, OPT_NO_PHASED},
             {"gam", required_argument, nullptr, OPT_GAM},
             {"gaf-reads", required_argument, nullptr, OPT_GAF},
-            {"dump-likelihoods", required_argument, nullptr, OPT_DUMP_LIKELIHOODS},
             {"no-mismap-term", no_argument, nullptr, OPT_NO_MISMAP_TERM},
             {"mismap-max", required_argument, nullptr, OPT_MISMAP_MAX},
             {"mismap-min", required_argument, nullptr, OPT_MISMAP_MIN},
@@ -1163,6 +1154,8 @@ int main_call(int argc, char** argv) {
             {"enumerate-support", no_argument, nullptr, OPT_ENUMERATE_SUPPORT},
             {"nested", no_argument, nullptr, OPT_NESTED},
             {"no-nested", no_argument, nullptr, OPT_NO_NESTED},
+            {"group-candidates", no_argument, nullptr, OPT_GROUP_CANDIDATES},
+            {"no-group-candidates", no_argument, nullptr, OPT_NO_GROUP_CANDIDATES},
             {"atomize-blocks", no_argument, nullptr, OPT_ATOMIZE_BLOCKS},
             {"no-atomize-blocks", no_argument, nullptr, OPT_NO_ATOMIZE_BLOCKS},
             {"phased", no_argument, nullptr, OPT_PHASED},
@@ -1177,10 +1170,8 @@ int main_call(int argc, char** argv) {
         }}},
         {"off-panel variant calling", {"--off-panel", "the read-likelihood genotyper",
          [&] { return off_panel; }, {
-            {"off-panel-dump", required_argument, nullptr, OPT_OFF_PANEL_DUMP},
             {"off-panel-bar", required_argument, nullptr, OPT_OFF_PANEL_BAR},
             {"off-panel-indels", required_argument, nullptr, OPT_OFF_PANEL_INDELS},
-            {"off-panel-svs", no_argument, nullptr, OPT_OFF_PANEL_SVS},
         }}},
         {"the anchor file", {"--anchors-out", "the read-likelihood genotyper",
          [&] { return !anchors_out.empty(); }, {
@@ -1188,7 +1179,6 @@ int main_call(int argc, char** argv) {
             {"anchors-hom-split", no_argument, nullptr, OPT_ANCHORS_HOM_SPLIT},
             {"anchors-phase-hets", no_argument, nullptr, OPT_ANCHORS_PHASE_HETS},
             {"no-anchors-phase-hets", no_argument, nullptr, OPT_NO_ANCHORS_PHASE_HETS},
-            {"anchors-strict-hets", no_argument, nullptr, OPT_ANCHORS_STRICT_HETS},
             {"split-min-q", required_argument, nullptr, OPT_ANCHORS_PHASE_MIN},
             {"split-min-side", required_argument, nullptr, OPT_ANCHORS_PHASE_MIN_SIDE},
             {"anchors-het-only", no_argument, nullptr, OPT_ANCHORS_HET_ONLY},
@@ -1198,6 +1188,7 @@ int main_call(int argc, char** argv) {
             {"anchors-min-q", required_argument, nullptr, OPT_ANCHORS_MIN_SCORE},
             {"anchors-keep-off-call", no_argument, nullptr, OPT_ANCHORS_KEEP_OFF_CALL},
             {"anchors-end-new", required_argument, nullptr, OPT_ANCHORS_END_PIN_MIN_NEW},
+            {"anchors-fill", required_argument, nullptr, OPT_ANCHORS_FILL},
         }}},
         {"the mosaic", {"--mosaic-out", "the read-likelihood genotyper",
          [&] { return !mosaic_out.empty(); }, {
@@ -1215,8 +1206,6 @@ int main_call(int argc, char** argv) {
             {"no-regeno-haploid", no_argument, nullptr, OPT_NO_REGENO_HAPLOID},
             {"regeno-temper", required_argument, nullptr, OPT_REGENO_TEMPER},
             {"regeno-passes", required_argument, nullptr, OPT_REGENO_PASSES},
-            {"regeno-shuffle", no_argument, nullptr, OPT_REGENO_SHUFFLE},
-            {"regeno-ledger", required_argument, nullptr, OPT_REGENO_LEDGER},
         }}},
     };
 
@@ -1335,6 +1324,12 @@ int main_call(int argc, char** argv) {
         case OPT_ANCHORS_KEEP_OFF_CALL:
             anchor_params.keep_off_call = true;
             break;
+        case OPT_ANCHORS_FILL:
+            anchors_fill = parse<int64_t>(optarg);
+            if (anchors_fill < 0) {
+                logger.error() << "--anchors-fill must be at least 0" << endl;
+            }
+            break;
         case OPT_MOSAIC_OUT:
             mosaic_out = optarg;
             break;
@@ -1418,9 +1413,6 @@ int main_call(int argc, char** argv) {
         case OPT_GAF:
             reads.gaf = require_exists(logger, optarg);
             break;
-        case OPT_DUMP_LIKELIHOODS:
-            dump_likelihoods_filename = ensure_writable(logger, optarg);
-            break;
         case OPT_NO_MISMAP_TERM:
             no_mismap_term = true;
             break;
@@ -1501,9 +1493,6 @@ int main_call(int argc, char** argv) {
                 logger.error() << "--regeno-passes must be between 1 and 20" << endl;
             }
             break;
-        case OPT_REGENO_SHUFFLE:
-            regenotype_params.shuffle = true;
-            break;
         case OPT_REGENO_CEILING:
             regenotype_params.ceiling = parse<double>(optarg);
             if (regenotype_params.ceiling <= 0.0 || regenotype_params.ceiling > 1.0) {
@@ -1516,20 +1505,11 @@ int main_call(int argc, char** argv) {
         case OPT_NO_REGENO_HAPLOID:
             regenotype_params.haploid_include = false;
             break;
-        case OPT_REGENO_LEDGER:
-            regenotype_ledger = optarg;
-            break;
         case OPT_OFF_PANEL:
             off_panel = true;
             break;
         case OPT_NO_OFF_PANEL:
             off_panel = false;
-            break;
-        case OPT_OFF_PANEL_DUMP:
-            off_panel_dump = optarg;
-            break;
-        case OPT_OFF_PANEL_SVS:
-            off_panel_svs = true;
             break;
         case OPT_OFF_PANEL_BAR: {
             vector<string> parts = split_delims(optarg, ",");
@@ -1582,6 +1562,12 @@ int main_call(int argc, char** argv) {
             nested_calling = false;
 
             break;
+        case OPT_GROUP_CANDIDATES:
+            group_candidates = true;
+            break;
+        case OPT_NO_GROUP_CANDIDATES:
+            group_candidates = false;
+            break;
         case OPT_NO_PHASED:
             phased_output = false;
             break;
@@ -1626,9 +1612,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_ANCHORS_PHASE_HETS:
             anchor_params.phase_hets = false;
-            break;
-        case OPT_ANCHORS_STRICT_HETS:
-            anchor_params.strict_hets = true;
             break;
         case OPT_ANCHORS_PHASE_MIN:
             anchor_params.phase_min = parse<double>(optarg);
@@ -1816,12 +1799,6 @@ int main_call(int argc, char** argv) {
             logger.error() << "--atomize-blocks cannot be combined with -a/--genotype-snarls: "
                            << "a block list depends on the called haplotypes, so the record set "
                            << "would stop being sample-independent" << endl;
-        }
-        atomize_blocks = false;
-    }
-    if (atomize_blocks && top_down) {
-        if (is_explicit("atomize-blocks")) {
-            logger.error() << "--atomize-blocks cannot be combined with --top-down" << endl;
         }
         atomize_blocks = false;
     }
@@ -2078,6 +2055,12 @@ int main_call(int argc, char** argv) {
         }
         if (bottom_up) {
             modes.emplace_back("--bottom-up");
+        }
+        if (top_down) {
+            modes.emplace_back("--top-down");
+        }
+        if (star_allele) {
+            modes.emplace_back("-Y/--star-allele");
         }
         if (call_chains) {
             modes.emplace_back("-I/--chains");
@@ -2462,7 +2445,6 @@ int main_call(int argc, char** argv) {
     unique_ptr<EditAlignmentScorer> qual_scorer;
     unique_ptr<EditAlignmentScorer> plain_scorer;
     unique_ptr<AlleleLikelihoodCalculator> likelihood_calculator;
-    unique_ptr<ofstream> likelihood_dump;
     // The read-likelihood genotyper can run without a pack file if allele enumeration needs no
     // support either. GBWTTraversalFinder enumerates from haplotypes, while FlowTraversalFinder
     // needs node and edge support.
@@ -2555,15 +2537,6 @@ int main_call(int argc, char** argv) {
             }
 
             auto rl_caller = new ReadLikelihoodSnarlCaller(*graph, *likelihood_calculator);
-
-            if (!dump_likelihoods_filename.empty()) {
-                likelihood_dump = make_unique<ofstream>(dump_likelihoods_filename);
-                if (!(*likelihood_dump)) {
-                    logger.error() << "could not open " << dump_likelihoods_filename
-                                   << " for writing" << endl;
-                }
-                rl_caller->set_likelihood_dump(likelihood_dump.get());
-            }
 
             rl_caller->set_share_discount(!no_share_quality);
             rl_caller->set_depth_quality(depth_quality);
@@ -2729,8 +2702,7 @@ int main_call(int argc, char** argv) {
                                                            ref_paths, ref_path_offsets,
                                                            ref_path_ploidies),
                                                        genotype_snarls,
-                                                       make_pair(min_allele_len, max_allele_len),
-                                                       top_down, star_allele));
+                                                       make_pair(min_allele_len, max_allele_len)));
         } else if (top_down) {
             // Use FlowCaller with nested mode enabled (top-down genotype propagation)
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
@@ -2827,20 +2799,6 @@ int main_call(int argc, char** argv) {
         }
         regenotype = false;
     }
-    // --top-down gives each child snarl candidate traversals derived from its parent's called
-    // genotype, so re-genotyping, which can change that genotype afterwards, would leave the child
-    // genotyped against the wrong alleles. An explicit --regenotype with it is an error. One set by
-    // a preset is turned off.
-    if (regenotype && top_down && !is_explicit("regenotype")) {
-        regenotype = false;
-    }
-    if (regenotype && top_down) {
-        cerr << "error [vg call]: --regenotype cannot be combined with --top-down; --top-down"
-             << " derives each child's candidate traversals from its parent's called genotype, so"
-             << " re-genotyping a parent would leave its children genotyped against alleles it no"
-             << " longer carries" << endl;
-        return 1;
-    }
     // Splitting homozygous sites, placing heterozygous reads by phase, and re-genotyping all use
     // each read's strand log-odds, which read phasing computes.
     if (anchor_params.hom_split && !read_phasing) {
@@ -2850,10 +2808,9 @@ int main_call(int argc, char** argv) {
     }
     // Placing heterozygous reads by phase is on by default, and has no effect without read
     // phasing, so we only refuse it when it was asked for.
-    if ((anchor_params.phase_hets || anchor_params.strict_hets) && (is_explicit("anchors-phase-hets") || is_explicit("anchors-strict-hets"))
-        && !read_phasing) {
-        cerr << "error [vg call]: --anchors-phase-hets / --anchors-strict-hets need --read-phasing,"
-             << " which gives each read the strand log-odds they use" << endl;
+    if (anchor_params.phase_hets && is_explicit("anchors-phase-hets") && !read_phasing) {
+        cerr << "error [vg call]: --anchors-phase-hets needs --read-phasing,"
+             << " which gives each read the strand log-odds it uses" << endl;
         return 1;
     }
     // -A already calls every nested snarl as a snarl of its own, so with nested calling each would
@@ -3027,22 +2984,24 @@ int main_call(int argc, char** argv) {
         }
         if (!anchors_out.empty()) {
             // The anchor file names the read file, since its read offsets refer to those reads.
-            multipass_caller->set_anchors_out(anchors_out, anchor_params, graph_filename,
-                                              reads.reads_file(), min_mismap_prob);
+            anchor_params.fill_spacing = (size_t)anchors_fill;
+            multipass_caller->set_anchors_out(
+                anchors_out, anchor_params, graph_filename, reads.reads_file(), min_mismap_prob,
+                FillScoreParams{.use_mapping_quality = !no_mismap_term,
+                                .min_mismap = min_mismap_prob,
+                                .max_mismap = max_mismap_prob});
         }
         if (multipass_caller != nullptr) {
             multipass_caller->set_read_phasing(read_phasing, read_phasing_params);
             if (off_panel) {
                 // The reads are counted as they are fetched, from the first site on.
                 EditCountParams count_params;
-                count_params.large_indels = off_panel_svs;
                 count_params.bar = &off_panel_bar;
                 read_source->count_edits(graph, count_params);
-                multipass_caller->set_off_panel(read_source.get(), off_panel_dump, off_panel_bar);
+                multipass_caller->set_off_panel(read_source.get(), off_panel_bar);
             }
             multipass_caller->set_read_source(read_source.get());
-            multipass_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,
-                                             regenotype_ledger);
+            multipass_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes);
         }
         // Merge similar called ALT alleles (-L/--cluster) in the records of each caller that
         // builds its records with a SiteEmitter.
@@ -3104,6 +3063,7 @@ int main_call(int argc, char** argv) {
     }
 
     if (multipass_caller != nullptr) {
+        multipass_caller->set_group_candidates(group_candidates);
         multipass_caller->set_show_progress(show_progress);
     } else {
         graph_caller->set_show_progress(show_progress);
@@ -3203,9 +3163,6 @@ int main_call(int argc, char** argv) {
 
     // Everything is written. Close what is still open and exit without freeing what calling built,
     // which would take minutes on a whole genome.
-    if (likelihood_dump) {
-        likelihood_dump->close();
-    }
     // The GAF emitter (-G) holds its last batch of records until it is destroyed.
     alignment_emitter.reset();
     cout.flush();

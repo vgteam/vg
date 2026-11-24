@@ -24,16 +24,15 @@ namespace vg {
 
 using namespace std;
 
-/// The shortest indel counted as large: matched loosely, since the reads rarely spell it alike.
+/// The shortest indel allele that is large: matched to the reads loosely, since they rarely spell
+/// it alike.
 constexpr uint32_t LARGE_INDEL_MIN_LENGTH = 50;
 
-/// How the reads are matched to an indel of `LARGE_INDEL_MIN_LENGTH` bases or more. Long reads show
-/// one as an indel inside the read, placed and sized a little differently by each read's errors;
-/// short reads mostly as clips where the read crosses a deletion's ends. A read's indels of the
-/// same kind near the breakpoint are summed, so that one the aligner split counts whole.
+/// How the reads are matched to an indel allele of `LARGE_INDEL_MIN_LENGTH` bases or more. Long
+/// reads show one as an indel inside the read, placed and sized a little differently by each read's
+/// errors; short reads mostly as clips where the read crosses a deletion's ends. A read's indels of
+/// the same kind near the breakpoint are summed, so that one the aligner split counts whole.
 struct LargeIndelParams {
-    /// The longest indel counted.
-    uint32_t max_length = 100000;
     /// How far from the breakpoint, in bases, a read's indel or clip may lie and still match.
     int64_t slop = 10;
     /// How far, as a share of the length, a read's indel may differ in length and still match.
@@ -41,20 +40,13 @@ struct LargeIndelParams {
     /// A read is REF if it spans a breakpoint by at least this many aligned bases on each side,
     /// with no clip and no matching indel there.
     int64_t flank = 20;
-    /// The shortest clip counted, and the bases of it matched to the graph to find the far end
-    /// of the deletion it shows.
+    /// The shortest clip counted.
     uint32_t min_clip = 20;
-    /// The longest deletion found from clips alone.
-    uint32_t max_clip_deletion = 10000;
-    /// A deletion found from clips alone, with no read holding it whole, needs this many
-    /// fragments clipped at each of its ends.
-    size_t min_fragments_per_end = 2;
 };
 
 struct EditCallBar;
 
-/// The floors a candidate must pass to be kept, set low so that the call bar can be fitted from
-/// the dump. Where `bar` is set, the candidates it merges are dumped as their merged candidate.
+/// The floors a candidate must pass to be kept, which are lower than the call bar.
 struct EditCountParams {
     /// Reads below this mapping quality are not counted.
     int min_mapq = 5;
@@ -65,11 +57,8 @@ struct EditCountParams {
     size_t min_fragments = 3;
     /// The smallest share of the fragments covering the base that carry the ALT.
     double min_fraction = 0.15;
-    /// The longest indel counted, unless `large_indels`.
+    /// The longest indel counted.
     uint32_t max_indel_length = 49;
-    /// Whether to count indels of `LARGE_INDEL_MIN_LENGTH` bases or more, matched as `large` says.
-    bool large_indels = false;
-    LargeIndelParams large;
     /// Where not null, the candidates on one node that it admits and whose changed bases touch are
     /// merged into one, of kind 'M'.
     const EditCallBar* bar = nullptr;
@@ -85,8 +74,7 @@ struct EditCountParams {
 /// `offset` give its anchor, the base before it, so that an indel the aligner put anywhere in its
 /// repeat tract has one key. A read covering the anchor and the first base after the tract counts
 /// as the ALT if its one indel there is this one, as the REF if it has none there, and as other if
-/// it has another. A large indel (`is_large`) is matched loosely instead (`observe_large_indel`),
-/// and its ALT is one read's: for an insertion, the medoid of the reads that carry it.
+/// it has another.
 ///
 /// A merged candidate (kind 'M') replaces the bases `sequence` from `offset` on along `walk` with
 /// each of its ALTs, which are what the reads spell there; see `count_edits`.
@@ -126,11 +114,6 @@ struct EditCandidate {
         return kind == 'D' || kind == 'I';
     }
 
-    /// Whether it is an indel of `LARGE_INDEL_MIN_LENGTH` bases or more.
-    bool is_large() const {
-        return is_indel() && sequence.size() >= LARGE_INDEL_MIN_LENGTH;
-    }
-
     /// Order candidates by the change they make: by node, offset, kind, ALT base and sequence.
     std::strong_ordering operator<=>(const EditCandidate& other) const {
         return std::tie(node, offset, kind, alt, sequence)
@@ -146,7 +129,7 @@ struct EditCandidate {
 /// The call bar: which candidates become edit sites, and which of those are staged once genotyped.
 ///
 /// It applies after the floors of `EditCountParams`. The defaults were fitted on chr20 at about
-/// 30x, for short reads and ONT reads alike, from a dump taken with the floors as the bar.
+/// 30x, for short reads and ONT reads alike.
 struct EditCallBar {
     /// The fewest fragments carrying the ALT.
     size_t min_alt_fragments = 7;
@@ -168,11 +151,6 @@ struct EditCallBar {
     /// No indel is called whose tract starts with a run of this many of one base or more; 0 for
     /// no limit, and 1 calls no indel.
     uint32_t indel_max_homopolymer = 0;
-    /// The fewest fragments carrying the ALT of an indel of `LARGE_INDEL_MIN_LENGTH` bases or more.
-    /// No homopolymer limit applies to such an indel.
-    size_t large_min_alt_fragments = 7;
-    /// The smallest ALT fraction of an indel of `LARGE_INDEL_MIN_LENGTH` bases or more.
-    double large_min_fraction = 0.25;
 
     /// Whether `candidate` clears the bar for its kind.
     ///
@@ -180,10 +158,6 @@ struct EditCallBar {
     bool admits(const EditCandidate& candidate) const {
         if (candidate.kind == 'M') {
             return true;
-        }
-        if (candidate.is_large()) {
-            return candidate.alt_fragments >= large_min_alt_fragments
-                   && candidate.fraction() >= large_min_fraction;
         }
         if (candidate.is_indel()) {
             return candidate.alt_fragments >= indel_min_alt_fragments
@@ -196,21 +170,12 @@ struct EditCallBar {
     }
 };
 
-/// What became of one candidate that passed the call bar: where it was placed, and its direct-pass
-/// call.
+/// What became of one candidate that passed the call bar.
 struct EditOutcome {
-    nid_t node = 0;
-    uint32_t offset = 0;
-    char alt = 'N';
+    /// The candidate's kind.
     char kind = 'S';
-    string sequence;
     /// "top" or "nested" where the site was genotyped, or why it was not.
     string placed;
-    string site;
-    vector<int> genotype;
-    double gq = 0.0;
-    /// The direct call's depth ratio, or -1 where it has none.
-    double depth_ratio = -1.0;
     /// Whether it was staged, to be phased and written like any other site.
     bool staged = false;
 };
@@ -223,8 +188,8 @@ public:
     explicit EditOutcomes(size_t threads) : by_thread(threads) {}
     /// File an outcome from the calling OpenMP thread.
     void add(EditOutcome&& outcome);
-    /// Every outcome, by node, offset and ALT.
-    vector<EditOutcome> sorted() const;
+    /// Every outcome, in no set order.
+    vector<EditOutcome> all() const;
 private:
     vector<vector<EditOutcome>> by_thread;
 };
@@ -236,8 +201,8 @@ private:
 /// covers the anchor is fetched with the anchor's node, so each window counts the indels anchored
 /// on its own nodes in full, wherever its reads first placed them.
 ///
-/// With `params.bar`, the candidates on one node that it admits, large indels aside, whose changed
-/// bases touch or overlap are merged: a substitution changes its base, an indel its repeat tract.
+/// With `params.bar`, the candidates on one node that it admits whose changed bases touch or
+/// overlap are merged: a substitution changes its base, an indel its repeat tract.
 /// The ALTs are the spellings the reads on the longest of their walks give between the bases on
 /// either side, each admitted as a candidate of its own would be, and changing the length only
 /// with a walk base on each side. They are not merged where they are all indels at one anchor, or
@@ -318,7 +283,7 @@ IndelObservation observe_indel(const WalkAlignment& aln, const WalkIndel& indel,
 
 /// What the left-aligned alignment `aln` says about the left-aligned indel `indel` of
 /// `LARGE_INDEL_MIN_LENGTH` bases or more, whose tract ends at walk base `after`, matched as
-/// `params` says. ALT if the read's indels of its kind within `slop` of the tract sum to its length
+/// `params` says. A merged change's ALT can be such an indel. ALT if the read's indels of its kind within `slop` of the tract sum to its length
 /// within `length_ratio`, or, for a deletion, if the read is clipped by `min_clip` bases or more
 /// at either of its ends; REF if the read spans either end by `flank` bases each side with neither;
 /// OTHER if it spans one with something else; and NONE if it spans neither. The read reaches from

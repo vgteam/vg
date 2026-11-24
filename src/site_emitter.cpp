@@ -42,8 +42,9 @@ const pair<string, vector<NodeVisit>>& SiteEmitter::spelling(const allele_source
     return found->second;
 }
 
-bool SiteEmitter::emit(const PathPositionHandleGraph& graph, const CalledSite& site,
-                       const allele_source_t& alleles, const field_writer_t& write_fields) {
+SiteEmitter::Outcome SiteEmitter::emit(const PathPositionHandleGraph& graph,
+                                       const CalledSite& site, const allele_source_t& alleles,
+                                       const field_writer_t& write_fields) {
     SiteRecord record = build_record(graph, site, alleles, write_fields);
     return file_record(graph, site, record);
 }
@@ -186,14 +187,15 @@ void SiteEmitter::add_uncalled_alleles(const CalledSite& site, const allele_sour
     }
 }
 
-bool SiteEmitter::file_record(const PathPositionHandleGraph& graph, const CalledSite& site,
-                              SiteRecord& record) {
+SiteEmitter::Outcome SiteEmitter::file_record(const PathPositionHandleGraph& graph,
+                                              const CalledSite& site, SiteRecord& record) {
     // Let the subclass split the site into several records. A result of -1 means it did not, and
     // the site gets one record.
     if (int block_lines = write_blocks(graph, site, record); block_lines >= 0) {
         // Each of the records numbers its own alleles, so there is no allele map to report.
-        on_site_done(site, map<int, int>(), block_lines > 0);
-        return block_lines > 0;
+        const bool has_line = block_lines > 0;
+        on_site_done(site, map<int, int>(), has_line);
+        return has_line ? Outcome::Written : Outcome::Dropped;
     }
 
     vcflib::Variant& out_variant = record.variant;
@@ -204,7 +206,8 @@ bool SiteEmitter::file_record(const PathPositionHandleGraph& graph, const Called
         finish_record(site, out_variant);
     }
     bool added = output.add_variant(out_variant, 0, hidden);
-    on_site_done(site, record.trav_to_allele, added && !hidden);
+    const bool has_line = added && !hidden;
+    on_site_done(site, record.trav_to_allele, has_line);
     if (!added) {
         stringstream ss;
         ss << out_variant;
@@ -212,8 +215,9 @@ bool SiteEmitter::file_record(const PathPositionHandleGraph& graph, const Called
              << out_variant.position << " with ID=" << out_variant.id
              << " because its line length of " << ss.str().length()
              << " exceeds vg's limit of " << SortedVCFWriter::max_vcf_line_length << endl;
+        return Outcome::Dropped;
     }
-    return added;
+    return hidden ? Outcome::Hidden : Outcome::Written;
 }
 
 }

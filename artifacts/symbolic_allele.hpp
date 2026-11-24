@@ -84,11 +84,6 @@ struct DiffBlock {
     int alt_begin = 0;
     int alt_end = 0;
 
-    /// Return true if the block covers no reference steps.
-    bool ref_empty() const { return ref_end == ref_begin; }
-    /// Return true if the block covers no alt steps.
-    bool alt_empty() const { return alt_end == alt_begin; }
-
     bool operator==(const DiffBlock& o) const = default;
 
     /// Print the block in a readable form.
@@ -117,6 +112,18 @@ struct DiffBlock {
  */
 vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele& alt,
                                 vector<int>* out_alt_before_ref = nullptr);
+
+/**
+ * Group the walks through a site that differ only inside child chains.
+ *
+ * Two walks share a group when they have the same symbolic allele over `children`, the child chains
+ * of the site.
+ *
+ * @return The group of each walk, with the groups numbered in the order of their first walks.
+ * Empty where each walk is a group of its own.
+ */
+vector<int> candidate_groups(const HandleGraph& graph, const vector<Traversal>& walks,
+                             const multipass::SiteChildren& children);
 
 /// Print a symbolic allele in a readable form.
 ostream& operator<<(ostream& out, const SymbolicAllele& allele);

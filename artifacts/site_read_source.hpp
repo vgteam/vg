@@ -99,6 +99,40 @@ public:
     virtual void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                                const function<void(const SiteRead&)>& iteratee) const = 0;
 
+    /// Visit every read touching the ranges, as `for_each_read` does, while adding nothing to the
+    /// source's tallies of read starts or to its off-panel candidates. Read holds are not used.
+    ///
+    /// A query made after the sites are genotyped uses this, so that the off-panel candidates
+    /// reported are the ones the sites were genotyped with. The default calls `for_each_read`,
+    /// which suits a source that counts nothing as it fetches. Must be safe to call concurrently.
+    virtual void for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
+                                         const function<void(const SiteRead&)>& iteratee) const {
+        for_each_read(ranges, iteratee);
+    }
+
+    /// Visits the reads of one window that touch the given ranges, each once, as `for_each_read`
+    /// would.
+    using WindowReads = function<void(const vector<pair<nid_t, nid_t>>& ranges,
+                                      const function<void(const SiteRead&)>& iteratee)>;
+    /// Called with each window of node IDs that a source fetches whole: the window's first and
+    /// last node IDs, and its reads.
+    using WindowObserver = function<void(nid_t first, nid_t last, const WindowReads& reads)>;
+
+    /**
+     * From now on, call `observer` with each window this source fetches whole, once the window is
+     * cached, on the thread that fetched it. An empty `observer` turns this off.
+     *
+     * Several threads can call `observer` at once. A window the cache dropped is passed again when
+     * it is fetched again, so `observer` must pass over windows it has seen. The reads it visits
+     * add nothing to the read-start tallies or the off-panel candidates. Not safe to call while
+     * reads are being fetched.
+     *
+     * A source that does not fetch reads by window calls nothing, which is the default.
+     */
+    virtual void set_window_observer(WindowObserver /*observer*/) const {
+        // Nothing to do
+    }
+
     /// Visit the alignment of every read touching the ranges, once each.
     ///
     /// This is named differently rather than overloaded, since a lambda converts to either
@@ -276,6 +310,17 @@ public:
 
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                        const function<void(const SiteRead&)>& iteratee) const final;
+
+    /// Visit the reads touching the ranges without tallying or counting any window.
+    ///
+    /// A query inside one window gets the window from the cache, or fetches and caches it
+    /// unsummarized, as a wide site's fetch does. A query over several windows is fetched by its
+    /// ranges, and its reads come without an index of their mappings.
+    void for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
+                                 const function<void(const SiteRead&)>& iteratee) const final;
+
+    /// Call `observer` with each window this source fetches whole, once it is cached.
+    void set_window_observer(WindowObserver observer) const final;
 
     /// Visit the read starts on the nodes, from tallies of each window's read starts.
     ///
@@ -663,6 +708,9 @@ private:
     ///
     /// Fetches run without it.
     mutable std::mutex cache_mutex;
+
+    /// Called with each window fetched whole and cached, or empty. See `set_window_observer`.
+    mutable WindowObserver window_observer;
 };
 
 /**
