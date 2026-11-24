@@ -515,12 +515,26 @@ int main_surject(int argc, char** argv) {
     if ((fragment_mean || fragment_stdev || fragment_learning_options) && !(diploid_map && interleaved)) {
         logger.error() << "Fragment model options require --diploid-map and --interleaved." << endl;
     }
-    if (fragment_mean.has_value() != fragment_stdev.has_value()
-        || (fragment_mean && (!isfinite(*fragment_mean) || *fragment_mean < 0))
-        || (fragment_stdev && (!isfinite(*fragment_stdev) || *fragment_stdev <= 0))
-        || fragment_sample_size < 2 || fragment_buffer_size == 0) {
-        logger.error() << "Supply both a finite nonnegative --fragment-mean and positive --fragment-stdev; "
-                       << "fragment sample size must be at least 2 and buffer size must be positive." << endl;
+    if (fragment_mean.has_value() && !fragment_stdev.has_value()) {
+        logger.error() << "--fragment-mean requires --fragment-stdev." << endl;
+    }
+    if (fragment_stdev.has_value() && !fragment_mean.has_value()) {
+        logger.error() << "--fragment-stdev requires --fragment-mean." << endl;
+    }
+    if (fragment_mean && (!isfinite(*fragment_mean) || *fragment_mean < 0)) {
+        logger.error() << "--fragment-mean must be finite and nonnegative; got "
+                       << *fragment_mean << "." << endl;
+    }
+    if (fragment_stdev && (!isfinite(*fragment_stdev) || *fragment_stdev <= 0)) {
+        logger.error() << "--fragment-stdev must be finite and greater than zero; got "
+                       << *fragment_stdev << "." << endl;
+    }
+    if (fragment_sample_size < 2) {
+        logger.error() << "--fragment-sample-size must be at least 2; got "
+                       << fragment_sample_size << "." << endl;
+    }
+    if (fragment_buffer_size == 0) {
+        logger.error() << "--fragment-buffer-size must be greater than zero." << endl;
     }
     if (max_frag_len && *max_frag_len < 0) {
         logger.error() << "--max-frag-len must be nonnegative." << endl;
@@ -679,7 +693,9 @@ int main_surject(int argc, char** argv) {
         if (diploid_map && interleaved) {
             Surjector::DiploidPairingParameters pairing;
             pairing.maximum_fragment_length = max_frag_len.value_or(0);
-            FragmentLengthDistribution distribution(fragment_sample_size, 1, 0.95);
+            // Update the estimate after every observed fragment.
+            FragmentLengthDistribution distribution(fragment_sample_size, 1,
+                FragmentLengthDistribution::DEFAULT_ROBUST_ESTIMATION_FRACTION);
             bool model_ready = false;
             size_t buffered_bytes = 0;
             vector<vector<pair<Alignment, Alignment>>> buffered;
@@ -687,7 +703,8 @@ int main_surject(int argc, char** argv) {
                 pairing.fragment_model = Surjector::DiploidFragmentModel{mean, stdev};
                 if (!max_frag_len) {
                     pairing.maximum_fragment_length = static_cast<int64_t>(min<double>(
-                        numeric_limits<int32_t>::max(), ceil(mean + 6 * stdev)));
+                        numeric_limits<int32_t>::max(),
+                        ceil(mean + FragmentLengthDistribution::DEFAULT_FRAGMENT_LENGTH_STD_DEVS * stdev)));
                 }
             };
             if (fragment_mean) {
@@ -695,7 +712,7 @@ int main_surject(int argc, char** argv) {
                 set_model(distribution.mean(), distribution.std_dev());
                 model_ready = true;
             }
-            auto emit_candidates = [&](vector<Surjector::DiploidPairCandidate>&& candidates) {
+            auto emit_candidates = [&](vector<Surjector::DiploidPairResult>&& candidates) {
                 vector<pair<vector<Alignment>, vector<Alignment>>> alternatives;
                 alternatives.reserve(candidates.size());
                 for (auto& candidate : candidates) {

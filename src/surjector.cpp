@@ -216,6 +216,9 @@ using namespace std;
             const double log_base = get_aligner(!first.quality().empty() || !second.quality().empty())->scorer->get_log_base();
             if (!isfinite(log_base) || log_base <= 0) throw invalid_argument("invalid fragment score scale");
             const double deviation = (fragment_length - model.mean) / model.stddev;
+            // Gaussian log-likelihood of the fragment length, converted to alignment
+            // score units by dividing by log_base. The normalization term depends only
+            // on the model's stdev, so it is the same for every pair and is omitted.
             score -= 0.5 * deviation * deviation / log_base;
             if (!isfinite(score)) throw invalid_argument("fragment score is not finite");
         }
@@ -363,7 +366,7 @@ using namespace std;
         return output;
     }
 
-    optional<int64_t> Surjector::diploid_fragment_length(const vector<DiploidPairCandidate>& candidates) const {
+    optional<int64_t> Surjector::diploid_fragment_length(const vector<DiploidPairResult>& candidates) const {
         if (candidates.empty() || !candidates.front().compatible) return nullopt;
         const auto& best = candidates.front();
         if (best.first.size() != 1 || best.second.size() != 1) return nullopt;
@@ -375,7 +378,7 @@ using namespace std;
         return diploid_pair_span(best.first.front(), best.second.front(), 0);
     }
 
-    vector<Surjector::DiploidPairCandidate> Surjector::surject_diploid_paired(
+    vector<Surjector::DiploidPairResult> Surjector::surject_diploid_paired(
         const vector<pair<Alignment, Alignment>>& placements,
         const unordered_set<path_handle_t>& paths,
         const DiploidPairingParameters& parameters,
@@ -548,13 +551,13 @@ using namespace std;
             pairs.push_back(*fallback);
         }
 
-        vector<DiploidPairCandidate> output;
+        vector<DiploidPairResult> output;
         output.reserve(pairs.size());
         for (const auto& selected : pairs) {
             const auto& source = sources[selected.source];
             const auto& first = source.first[selected.first];
             const auto& second = source.second[selected.second];
-            DiploidPairCandidate result;
+            DiploidPairResult result;
             result.source_pair_index = source.source_pair_index;
             result.score = selected.score;
             result.compatible = compatible;

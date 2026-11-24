@@ -2333,7 +2333,7 @@ int main_giraffe(int argc, char** argv) {
                             // numeric_limits<int64_t>::max() doesn't.
                             int64_t tlen_limit = 0;
                             if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
-                                 tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
+                                 tlen_limit = minimizer_mapper.get_fragment_length_mean() + FragmentLengthDistribution::DEFAULT_FRAGMENT_LENGTH_STD_DEVS * minimizer_mapper.get_fragment_length_stdev();
                             }
                             // Emit it
                             alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second), tlen_limit);
@@ -2390,7 +2390,7 @@ int main_giraffe(int argc, char** argv) {
                         // Work out whether it could be properly paired or not, if that is relevant.
                         int64_t tlen_limit = 0;
                         if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
-                             tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
+                             tlen_limit = minimizer_mapper.get_fragment_length_mean() + FragmentLengthDistribution::DEFAULT_FRAGMENT_LENGTH_STD_DEVS * minimizer_mapper.get_fragment_length_stdev();
                         }
                         // Emit the read
                         alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second), tlen_limit);

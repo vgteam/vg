@@ -69,7 +69,7 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     gbwt_graph(graph),
     extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
     choose_band_padding(algorithms::pad_band_random_walk()),
-    fragment_length_distr(1000,1000,0.95)
+    fragment_length_distr(1000, 1000, FragmentLengthDistribution::DEFAULT_ROBUST_ESTIMATION_FRACTION)
 {
     crash_unless(graph.index != nullptr);
 }
@@ -2377,7 +2377,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     
                     // Use it to possibly declare proper pairing.
                     properly_paired = fragment_dist == std::numeric_limits<int64_t>::max() ? false :
-                        (std::abs(fragment_dist-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev());
+                        (std::abs(fragment_dist-fragment_length_distr.mean()) <= FragmentLengthDistribution::DEFAULT_FRAGMENT_LENGTH_STD_DEVS * fragment_length_distr.std_dev());
                     
                     // Put it on the alignments
                     set_annotation(mapped_aln,  "fragment_length", distance_to_annotation(fragment_dist));
@@ -2805,7 +2805,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         
         // Annotate top pair with its fragment distance, properly-paired-ness, fragment length distrubution, and secondary scores
         bool properly_paired = distances.front() == std::numeric_limits<int64_t>::max() ? false :
-            (std::abs(distances.front()-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
+            (std::abs(distances.front()-fragment_length_distr.mean()) <= FragmentLengthDistribution::DEFAULT_FRAGMENT_LENGTH_STD_DEVS * fragment_length_distr.std_dev()) ;
         string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.std_dev());
         for (auto r : {0, 1}) {
             set_annotation(mappings[r].front(), "fragment_length", distance_to_annotation(distances.front()));
