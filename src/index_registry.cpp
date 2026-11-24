@@ -4447,13 +4447,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // all its inputs.
         // TODO: Add recipes that convert reads vg can read but KMC cannot,
         // such as a mix of FASTA and FASTQ files, into a form KMC takes. That
-        // is a lot of fiddly work in the recipe system, so for now we refuse
-        // such input.
+        // is a lot of fiddly work in the recipe system, so for now we just
+        // fail.
         string kmc_format = find_kmc_format(fastq_filenames.front());
-        for (const string& fq : fastq_filenames) {
-            if (find_kmc_format(fq) != kmc_format) {
+        for (size_t i = 1; i < fastq_filenames.size(); i++) {
+            if (find_kmc_format(fastq_filenames[i]) != kmc_format) {
                 error(context) << "Cannot count k-mers from a mix of FASTA and FASTQ read files: "
-                               << fastq_filenames.front() << " and " << fq << " differ" << endl;
+                               << fastq_filenames.front() << " and " << fastq_filenames[i] << " differ" << endl;
             }
         }
 
