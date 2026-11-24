@@ -47,7 +47,8 @@ void help_surject(char** argv) {
          << "  -F, --into-paths FILE     surject into path names listed in" << endl
          << "                            HTSlib sequence dictionary or path list FILE" << endl
          << "  -n, --into-ref NAME       surject into this reference assembly" << endl
-         << "  -d, --diploid-map NAME    jointly surject placements into a diploid assembly NAME" << endl
+         << "  -d, --diploid-map NAME    jointly surject placements into a diploid" << endl
+         << "                            assembly NAME" << endl
          << "  -M, --multimap            include secondary alignments to all" << endl
          << "                            overlapping paths instead of just primary" << endl
          << "  -G, --gaf-input           input file is GAF instead of GAM" << endl
