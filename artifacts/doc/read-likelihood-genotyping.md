@@ -447,8 +447,13 @@ reads without adding to the read-start counts of
 the [depth term](read-likelihood-direct-genotyping.md#depth-term) or to the off-panel candidates,
 so both are as the direct pass left them.
 
-A record whose snarl is called with such an allele has `INFO/RC`. It is the snarl's site record,
-not [block records](#block-records): the allele puts its bases after the start bound's node, which
+A top-level site with such an allele called at it, or at a site nested in it, is written as
+[flat records](#flat-records) whether or not `--flatten-records` is given: the allele is a
+sequence that no walk spells, so one record of the site would hold every base between its bounds
+for a difference of a few. The site is a run of its own, and its records have `INFO/RC` and
+`INFO/FL`. Every other site is written as without `--read-consensus`. A site that cannot be
+written as flat records is written as one site record with `INFO/RC`, not as
+[block records](#block-records): the allele puts its bases after the start bound's node, which
 no block covers. Its `AT` walk is the two bound nodes alone. vg reports on standard error how many
 snarls it tested on their own and how many strands were candidates at them, how many runs were
 treated and how many of those became one site, how many sites gained an allele or were made of a
@@ -675,7 +680,10 @@ two strands carry one walk.
 `--flatten-records`, off by default, writes the top-level sites as the base-level differences of
 their called strands from the reference, and writes no records for the sites nested in them. It
 needs `--phased`, and cannot be combined with `--genotype-snarls`. Only the records change: the
-genotypes, the phase, the anchors and the mosaic are what they are without it.
+genotypes, the phase, the anchors and the mosaic are what they are without it. Without it, the
+only sites written this way are those called with an
+[allele built from the reads](#alleles-built-from-the-reads---read-consensus), each as a run of
+its own.
 
 The records are cut over a **run** of sites. A run is a longest series of top-level snarls that
 follow each other in one chain, where:

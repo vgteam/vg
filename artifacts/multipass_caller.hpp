@@ -241,7 +241,11 @@ public:
     }
 
     /// Set the read-consensus step (see `ReadConsensusStep`), which runs where
-    /// `options.enabled`.
+    /// `options.enabled`. A top-level site whose called genotype has an allele built from the
+    /// reads, at it or at a site nested in it, is then written as flat records whether or not
+    /// `set_flatten_records` is on, as a run of its own: the allele is a sequence that no walk
+    /// spells, so a record of the whole site would hold every base between its bounds. A site
+    /// that cannot be written so is written as any other.
     void set_read_consensus(const ReadConsensusOptions& options) {
         read_consensus.set_options(options);
     }

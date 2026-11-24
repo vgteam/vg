@@ -2479,10 +2479,10 @@ is "$(grep -v '^#' rcn.off.vcf | cut -f3 | tr '\n' ' ')/$(grep -c 'RC' rcn.off.v
    "without --read-consensus the snarl with unspelled bases has no record, and nothing names INFO/RC"
 $RCN_CALL --read-consensus 2>rcn.on.err > rcn.on.vcf
 is "$?" 0 "vg call --read-consensus runs"
-is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' -v novel=$RCNOVEL '$3 == ">4>7" {print $2 "/" $4 "/" ($5 == novel) "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)RC(;|$)/)}')/$(grep -c '^##INFO=<ID=RC,' rcn.on.vcf)" \
-   "72/C/1/0|1/1/1" \
-   "--read-consensus calls the 60 bases the reads of one strand carry, on that strand, and marks the record"
-is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7"' | cut -f1-5,8 | diff - <(grep -v '^#' rcn.off.vcf | cut -f1-5,8) | wc -l | tr -d ' ')/$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7" && $8 ~ /RC/' | wc -l | tr -d ' ')" \
+is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' -v novel=$RCNOVEL '$3 == ">4>7_0" {print $2 "/" $4 "/" ($5 == novel) "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)RC(;|$)/) "/" ($8 ~ /(^|;)FL(;|$)/)}')/$(grep -c '^##INFO=<ID=RC,' rcn.on.vcf)" \
+   "72/C/1/0|1/1/1/1" \
+   "--read-consensus calls the 60 bases the reads of one strand carry, on that strand, as a marked flat record"
+is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7_0"' | cut -f1-5,8 | diff - <(grep -v '^#' rcn.off.vcf | cut -f1-5,8) | wc -l | tr -d ' ')/$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7_0" && $8 ~ /RC/' | wc -l | tr -d ' ')" \
    "0/0" \
    "and the other snarls are called as without it, unmarked"
 is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 tested, 1 candidate strands, 0 runs treated, 0 of them made one site, 1 sites gained an allele or were made of a run, 1 of them called with a consensus allele; left alone: 0 snarls over a limit of the scorer$/found/p' rcn.on.err)" \
@@ -2561,9 +2561,9 @@ is "$(grep -v '^#' rcm.off.vcf | cut -f3 | tr '\n' ' ')/$(grep -c $RCNOVEL rcm.o
    "without --read-consensus, bases the reads have inside the node between two snarls are in no record"
 $RCM_CALL --read-consensus --mosaic-out rcm.mos.tsv --mosaic-exact 2>rcm.err > rcm.vcf
 RCM_MERGED=G${RCN7:0:15}$RCNOVEL${RCN7:15}C
-is "$(grep -v '^#' rcm.vcf | cut -f3 | tr '\n' ' ')/$(awk -v alt=$RCM_MERGED '$3 == ">4>10" {print $2 "/" ($5 == alt) "/" ($8 ~ /;RC$/) "/" substr($10, 1, 3)}' rcm.vcf)" \
-   ">1>4 >4>10 /72/1/1/0|1" \
-   "with it the two snarls are one site, named by its outer bound nodes, whose called allele has the bases"
+is "$(grep -v '^#' rcm.vcf | cut -f3 | tr '\n' ' ')/$(awk -v alt=${RCN7:14:1}$RCNOVEL '$3 == ">4>10_1" {print $2 "/" ($5 == alt) "/" ($8 ~ /(^|;)RC(;|$)/) "/" ($8 ~ /(^|;)FL(;|$)/) "/" substr($10, 1, 3)}' rcm.vcf)" \
+   ">1>4 >4>10_0 >4>10_1 >4>10_2 /87/1/1/1/0|1" \
+   "with it the two snarls are one site, named by its outer bound nodes and written as flat records, one of them the bases"
 is "$(sed -n 's/.* \([0-9]*\) runs treated, \([0-9]*\) of them made one site, \([0-9]*\) sites gained an allele or were made of a run, \([0-9]*\) of them called.*/\1,\2,\3,\4/p' rcm.err)" \
    "1,1,1,1" "and the step reports the run it treated and made one site, and that site and its call"
 is "$(awk -F'\t' -v bases="*+$RCM_MERGED,*" '$1 == "A" {print $3 "/" $7 "/" ($8 == bases)}' rcm.mos.tsv)" \
@@ -2574,8 +2574,8 @@ is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.mos.tsv --g
    "0/4,4,0/1" \
    "and the mosaic's strands have the bases of every record, with the consensus's bases between the two nodes"
 # The nesting tags of -A are found by walking the sites, which has to reach the one site.
-is "$($RCM_CALL --read-consensus -A 2>/dev/null | awk '$3 == ">4>10" {print ($8 ~ /;LV=0;/)}')" "1" \
-   "with -A the one site's record gets nesting tags as a snarl's does"
+is "$($RCM_CALL --read-consensus -A 2>/dev/null | awk '$3 == ">4>10_1" {print ($8 ~ /;LV=0;/)}')" "1" \
+   "with -A the one site's records get nesting tags as a snarl's do"
 $RCM_CALL --read-consensus --flatten-records --mosaic-out rcm.fmos.tsv --mosaic-exact 2>/dev/null > rcm.flat.vcf
 is "$(grep -v '^#' rcm.flat.vcf | cut -f3 | tr '\n' ' ')/$(grep -v '^#' rcm.flat.vcf | grep -c ';RC;')/$(grep -c "C${RCNOVEL}" rcm.flat.vcf)" \
    ">1>10_0 >1>10_1 >1>10_2 >1>10_3 /4/1" \

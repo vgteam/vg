@@ -418,20 +418,14 @@ Alignment read_with(const HandleGraph& graph, const string& name, const vector<n
     return aln;
 }
 
-/// Return the sequence strand `strand` of the sample has from node 1 through node 10 of the
-/// graph `make` builds, as the records of `records` spell it: those of `sites`, each the ID of
-/// a site and the node of its end bound.
-string spelled_strand(const function<void(bdsg::HashGraph&)>& make, const vector<string>& records,
-                      size_t strand,
-                      const vector<pair<string, nid_t>>& sites = {{">1>4", 4}, {">4>7", 7},
-                                                                  {">7>10", 10}}) {
-    bdsg::HashGraph graph;
-    make(graph);
-    auto node = [&](nid_t id) { return graph.get_sequence(graph.get_handle(id)); };
-    string spelled = node(1);
-    for (const auto& [id, after] : sites) {
-        const string record = record_of(records, id);
-        REQUIRE(!record.empty());
+}
+
+/// Return the sequence strand `strand` of the sample has, as the flat records of `records`
+/// spell it: `reference`, with each record's allele for the strand in place of its REF.
+string spelled_flat(const string& reference, const vector<string>& records, size_t strand) {
+    string spelled;
+    size_t copied = 0;
+    for (const string& record : records) {
         vector<string> alleles{field(record, 3)};
         stringstream alts(field(record, 4));
         for (string alt; getline(alts, alt, ',');) {
@@ -439,11 +433,16 @@ string spelled_strand(const function<void(bdsg::HashGraph&)>& make, const vector
         }
         const string genotype = field(record, 9).substr(0, 3);
         REQUIRE(genotype[1] == '|');
-        spelled += alleles.at((size_t)(genotype[2 * strand] - '0')) + node(after);
+        const size_t at = std::stoul(field(record, 1)) - 1;
+        const string& allele = alleles.at((size_t)(genotype[2 * strand] - '0'));
+        if (&allele == &alleles[0]) {
+            continue;
+        }
+        REQUIRE(at >= copied);
+        spelled += reference.substr(copied, at - copied) + allele;
+        copied = at + alleles[0].size();
     }
-    return spelled;
-}
-
+    return spelled + reference.substr(copied);
 }
 
 TEST_CASE("A run of snarls in a tandem repeat gains an expansion its reads place in different "
@@ -478,48 +477,20 @@ TEST_CASE("A run of snarls in a tandem repeat gains an expansion its reads place
         REQUIRE(called.counts.runs_merged == 1);
         REQUIRE(called.counts.sites_changed == 1);
         REQUIRE(called.counts.sites_called == 1);
-        const vector<pair<string, nid_t>> merged{{">1>10", 10}};
-        const string first = spelled_strand(make_repeat, called.records, 0, merged);
-        const string second = spelled_strand(make_repeat, called.records, 1, merged);
+        // The reference path takes the first haplotype's walk, as the first read does.
+        REQUIRE(!record_of(called.records, ">1>10").empty());
+        const string first = spelled_flat(reads[0].sequence(), called.records, 0);
+        const string second = spelled_flat(reads[0].sequence(), called.records, 1);
         REQUIRE((first == reads[1].sequence() || second == reads[1].sequence()));
         REQUIRE((first == reads[0].sequence() || second == reads[0].sequence()));
     }
 }
 
-/// The sites of the three-snarl chain once its first two snarls are one site.
-const vector<pair<string, nid_t>> FIRST_TWO_MERGED{{">1>7", 7}, {">7>10", 10}};
-
-/// Return the sequence strand `strand` of the sample has, as the flat records of `records`
-/// spell it: `reference`, with each record's allele for the strand in place of its REF.
-string spelled_flat(const string& reference, const vector<string>& records, size_t strand) {
-    string spelled;
-    size_t copied = 0;
-    for (const string& record : records) {
-        vector<string> alleles{field(record, 3)};
-        stringstream alts(field(record, 4));
-        for (string alt; getline(alts, alt, ',');) {
-            alleles.push_back(alt);
-        }
-        const string genotype = field(record, 9).substr(0, 3);
-        REQUIRE(genotype[1] == '|');
-        const size_t at = std::stoul(field(record, 1)) - 1;
-        const string& allele = alleles.at((size_t)(genotype[2 * strand] - '0'));
-        if (&allele == &alleles[0]) {
-            continue;
-        }
-        REQUIRE(at >= copied);
-        spelled += reference.substr(copied, at - copied) + allele;
-        copied = at + alleles[0].size();
-    }
-    return spelled + reference.substr(copied);
-}
-
-/// Require that `called` made one site of the first two snarls of the chain `make` builds, and
-/// that its records spell the sequences of the reads `plain` and `changed`, one on each strand.
-/// With `reference`, the sequence of the reference path, the records are flat ones.
-void require_first_two_merged(const function<void(bdsg::HashGraph&)>& make, const Called& called,
-                              const Alignment& plain, const Alignment& changed,
-                              const string& reference = "") {
+/// Require that `called` made one site of the first two snarls of the three-snarl chain, and
+/// that its records spell the sequences of the reads `plain`, which takes the reference path,
+/// and `changed`, one on each strand. With `flatten`, the call was made with flat records.
+void require_first_two_merged(const Called& called, const Alignment& plain,
+                              const Alignment& changed, bool flatten = false) {
     REQUIRE(called.counts.runs_treated == 1);
     REQUIRE(called.counts.runs_merged == 1);
     // The second snarl is removed, and the one site takes the place of the first.
@@ -527,16 +498,15 @@ void require_first_two_merged(const function<void(bdsg::HashGraph&)>& make, cons
     REQUIRE(called.counts.sites_called == 1);
     REQUIRE(record_of(called.records, ">1>4").empty());
     REQUIRE(record_of(called.records, ">4>7").empty());
-    // As flat records, the one site and the third snarl are one run.
-    const string merged = record_of(called.records, reference.empty() ? ">1>7" : ">1>10");
+    // The one site is written as flat records. With flat records everywhere, it and the third
+    // snarl are one run.
+    const string merged = record_of(called.records, flatten ? ">1>10" : ">1>7");
     REQUIRE(!merged.empty());
     REQUIRE((";" + field(merged, 7) + ";").find(";RC;") != string::npos);
-    const string first = reference.empty()
-                             ? spelled_strand(make, called.records, 0, FIRST_TWO_MERGED)
-                             : spelled_flat(reference, called.records, 0);
-    const string second = reference.empty()
-                              ? spelled_strand(make, called.records, 1, FIRST_TWO_MERGED)
-                              : spelled_flat(reference, called.records, 1);
+    REQUIRE((";" + field(merged, 7) + ";").find(";FL;") != string::npos);
+    REQUIRE(record_of(called.records, ">7>10").empty() == flatten);
+    const string first = spelled_flat(plain.sequence(), called.records, 0);
+    const string second = spelled_flat(plain.sequence(), called.records, 1);
     REQUIRE((first == changed.sequence() || second == changed.sequence()));
     REQUIRE((first == plain.sequence() || second == plain.sequence()));
 }
@@ -561,8 +531,7 @@ TEST_CASE("A run whose consensus changes the node between two snarls becomes one
         // Each of the two snarls has reads that no allele explains, and the run of the two is
         // treated before either.
         REQUIRE(called.counts.tested == 2);
-        require_first_two_merged(make_unique, called, reads[0], reads[1],
-                                 flatten ? reads[0].sequence() : "");
+        require_first_two_merged(called, reads[0], reads[1], flatten);
     }
 }
 
@@ -584,7 +553,7 @@ TEST_CASE("A run whose reads have bases inside the node between two snarls becom
         const Called called = call_graph(make_unique, THREE_PANEL, reads, options);
         // No read has a base more between the bounds of any snarl.
         REQUIRE(called.counts.tested == 0);
-        require_first_two_merged(make_unique, called, reads[0], reads[1]);
+        require_first_two_merged(called, reads[0], reads[1]);
     }
 
     SECTION("across a node of 80 bases") {
@@ -604,7 +573,7 @@ TEST_CASE("A run whose reads have bases inside the node between two snarls becom
                                       {{4, {37, novel}}}));
         }
         const Called called = call_graph(make_long, THREE_PANEL, reads, options);
-        require_first_two_merged(make_long, called, reads[0], reads[1]);
+        require_first_two_merged(called, reads[0], reads[1]);
     }
 }
 
