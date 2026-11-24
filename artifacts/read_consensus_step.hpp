@@ -83,9 +83,6 @@ struct ReadConsensusCounts {
     /// scorer aligns, and tested snarls where an allele has, or where the reads and alleles need
     /// more alignments than the scorer makes.
     size_t over_cap = 0;
-    /// Candidate strands left alone because a site nested in theirs gained an allele for the
-    /// strand.
-    size_t covered_by_nested = 0;
 };
 
 /**
@@ -108,8 +105,8 @@ struct ReadConsensusCounts {
  * (`add_sequence_allele`), unless an allele of the snarl spells it already. Two strands with one
  * consensus add one allele.
  *
- * A strand is left alone where a snarl staged under its snarl gained an allele for the strand,
- * so that a difference is given to the innermost snarl that holds it.
+ * A snarl gains its consensus whatever the snarls staged under it gain. Its sequence allele
+ * crosses none of them, and the genotypes the linkage pass chooses say which is called.
  *
  * A snarl that gained an allele is genotyped again from its reads, which the calculator aligns
  * to every allele, and filed again in the linkage model in place of its entry. The caller then
@@ -160,9 +157,6 @@ struct ReadConsensusCounts {
  * that leaves it treated and gives its treated strands more reads that disagree with what is
  * called: those are reads whose difference the mapper put in that neighbour. So a snarl is in
  * at most one treated run.
- *
- * A run is left alone where a snarl staged under one of its members gained an allele, and a
- * member of a treated run counts as having gained one for the strands the run was treated on.
  *
  * ## A run as one site
  *

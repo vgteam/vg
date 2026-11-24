@@ -73,8 +73,6 @@ struct ReadConsensusStep::RunFinding {
     bool too_few = false;
     /// Whether a strand of a run of several has a consensus and the run cannot become one site.
     bool unmergeable = false;
-    /// Whether the run has two strands and all its reads were taken to be on strand 0.
-    bool pooled = false;
 
     /// Return whether any strand has a consensus that the run is treated for.
     bool treats() const { return strands[0].consensus || strands[1].consensus; }
@@ -482,7 +480,6 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
             }
         }
         if (2 * told < reads.size()) {
-            found.pooled = true;
             std::ranges::fill(strand_of, 0);
         }
     }
@@ -796,67 +793,13 @@ size_t ReadConsensusStep::run(const Parts& parts) {
     found_alone.clear();
     grow_runs(parts, splicer, snarls, alone, runs, run_findings);
 
-    // Give each difference to the innermost site that holds it: decide the deepest runs first,
-    // and leave a strand alone where a site under it gained an allele for the strand.
-    vector<size_t> proposing(runs.size());
-    std::iota(proposing.begin(), proposing.end(), 0);
-    std::ranges::stable_sort(proposing, [&](size_t a, size_t b) {
-        return snarls[runs[a].members.front()]->placement.level
-               > snarls[runs[b].members.front()]->placement.level;
-    });
-    // The strands each site gains an allele for, as a mask, by record key. A member of a
-    // treated run gains for the strands the run is treated on.
-    unordered_map<size_t, int> gained;
-    // The sites to genotype again: the first member of each run that is treated, and its run.
-    struct Task {
-        size_t site;
-        size_t run;
-    };
-    vector<Task> tasks;
-    auto gained_under = [&](size_t i) {
-        int under = 0;
-        splicer.for_each_under(snarls[i]->record_key, [&](const StagedSite& nested) {
-            if (const auto mask = gained.find(nested.record_key); mask != gained.end()) {
-                under |= mask->second;
-            }
-        });
-        return under;
-    };
-    for (const size_t r : proposing) {
-        const Run& run = runs[r];
-        RunFinding& found = run_findings[r];
-        int under = 0;
-        for (const size_t i : run.members) {
-            under |= gained_under(i);
-        }
-        // One site takes the place of everything under its members, so a run that is to become
-        // one is left alone where anything under it gained an allele. Pooled reads are those of
-        // both strands.
-        const bool merges = run.members.size() > 1;
-        int mask = 0;
-        for (int strand = 0; strand < 2; ++strand) {
-            RunFinding::Strand& on = found.strands[strand];
-            if (!on.consensus) {
-                continue;
-            }
-            if ((found.pooled || merges ? under : under & (1 << strand)) != 0) {
-                on.consensus.reset();
-                ++counted.covered_by_nested;
-            } else {
-                mask |= found.pooled ? 3 : 1 << strand;
-            }
-        }
-        if (mask == 0) {
-            continue;
-        }
-        counted.runs_treated += merges ? 1 : 0;
-        for (const size_t i : run.members) {
-            gained[snarls[i]->record_key] = mask;
-        }
-        // The one site of a run of several is made in the place of the run's first member.
-        tasks.push_back(Task{run.members.front(), r});
-    }
-    std::ranges::sort(tasks, {}, &Task::site);
+    // Every treated run is genotyped again, whatever is treated under it: the consensus allele
+    // of a snarl crosses no site nested in the snarl, and the sites nested in a run that becomes
+    // one site are removed with the run's members. The runs are taken in the order of their
+    // first members.
+    vector<size_t> tasks(runs.size());
+    std::iota(tasks.begin(), tasks.end(), 0);
+    std::ranges::sort(tasks, {}, [&](size_t r) { return runs[r].members.front(); });
 
     // Add the alleles and genotype each site again. The sites differ, so they can be done at
     // once.
@@ -866,15 +809,14 @@ size_t ReadConsensusStep::run(const Parts& parts) {
     vector<optional<StagedSite>> merged(tasks.size());
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t t = 0; t < tasks.size(); ++t) {
-        const Task& task = tasks[t];
-        const Run& run = runs[task.run];
-        const RunFinding& found = run_findings[task.run];
+        const Run& run = runs[tasks[t]];
+        const RunFinding& found = run_findings[tasks[t]];
         if (run.members.size() > 1) {
             merged[t] = merge_run(parts, splicer, snarls, run, found);
             genotyped[t] = merged[t] ? 1 : 0;
             continue;
         }
-        StagedSite& site = *snarls[task.site];
+        StagedSite& site = *snarls[run.members.front()];
         const CandidateAlleles kept = site.alleles;
         const size_t first_added = site.alleles.walks.size();
         for (int strand = 0; strand < 2; ++strand) {
@@ -898,7 +840,9 @@ size_t ReadConsensusStep::run(const Parts& parts) {
     // The record keys of the sites that a run made one site takes the place of.
     unordered_set<size_t> absorbed;
     for (size_t t = 0; t < tasks.size(); ++t) {
-        StagedSite& site = *snarls[tasks[t].site];
+        const Run& run = runs[tasks[t]];
+        counted.runs_treated += run.members.size() > 1 ? 1 : 0;
+        StagedSite& site = *snarls[run.members.front()];
         if (!genotyped[t]) {
             continue;
         }
@@ -906,13 +850,12 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         if (merged[t]) {
             // The one site takes the place of the run's first member. The other members, the
             // sites under any member and the edit sites between them are removed below.
-            const Run& run = runs[tasks[t].run];
             ++counted.runs_merged;
             for (const size_t i : run.members) {
                 absorbed.insert(snarls[i]->record_key);
             }
-            absorbed.insert(run_findings[tasks[t].run].edits_between.begin(),
-                            run_findings[tasks[t].run].edits_between.end());
+            absorbed.insert(run_findings[tasks[t]].edits_between.begin(),
+                            run_findings[tasks[t]].edits_between.end());
             model->retract(site.record_key);
             site = std::move(*merged[t]);
             changed.push_back(site.record_key);
@@ -931,12 +874,17 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         }
     }
 
-    // Remove what the merged sites take the place of. This moves the staged sites, so nothing
-    // above is read after it.
+    // Remove what the merged sites take the place of, which can be a site that gained an allele
+    // or was made of a run itself. This moves the staged sites, so nothing above is read after
+    // it.
     edit_sites_on.clear();
     if (!absorbed.empty()) {
-        parts.staged_sites->remove_with_nested(
-            absorbed, [&](const StagedSite& gone) { model->retract(gone.record_key); });
+        unordered_set<size_t> removed;
+        parts.staged_sites->remove_with_nested(absorbed, [&](const StagedSite& gone) {
+            model->retract(gone.record_key);
+            removed.insert(gone.record_key);
+        });
+        std::erase_if(changed, [&](size_t key) { return removed.contains(key); });
     }
     counted.sites_changed = changed.size();
 
@@ -971,8 +919,7 @@ void ReadConsensusStep::report(ostream& out) const {
         << " of them made one site, " << counted.sites_changed
         << " sites gained an allele or were made of a run, " << counted.sites_called
         << " of them called with a consensus allele; left alone: " << counted.over_cap
-        << " snarls over a limit of the scorer, " << counted.covered_by_nested
-        << " strands covered by a nested site" << endl;
+        << " snarls over a limit of the scorer" << endl;
 }
 
 }

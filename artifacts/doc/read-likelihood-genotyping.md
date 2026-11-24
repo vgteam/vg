@@ -339,8 +339,9 @@ on each snarl that has a phase, at any level, and on each of its strands:
    visits no node between them, so it crosses no site nested in the snarl, as a deletion of
    everything between the bounds does, and no panel haplotype carries it.
 
-A strand is left alone where a snarl nested in its snarl gained an allele for the strand, so that a
-difference is given to the innermost snarl that holds it.
+A snarl gains its consensus whatever the snarls nested in it gain. The two are not called
+together on one strand: the consensus allele crosses no nested site, so a strand that takes it has
+no allele at the snarls nested in the snarl, and the linkage pass chooses.
 
 A snarl that gained an allele is genotyped again from its reads, at the ploidy it has. Each read
 that spans it is scored by aligning its bases between the bounds to every allele's (see
@@ -397,9 +398,6 @@ run inside a snarl too large to be treated itself is a run of the snarls of a ch
    and gives its treated strands more reads that disagree: reads whose difference the mapper put
    in that neighbour. A snarl is in at most one treated run.
 
-A run is left alone where a snarl nested in one of its members gained an allele, and the members
-of a treated run count as having gained one.
-
 #### A run as one site
 
 A treated run becomes one site, the **merged site**, in place of its members, so that its alleles
@@ -448,8 +446,8 @@ not [block records](#block-records): the allele puts its bases after the start b
 no block covers. Its `AT` walk is the two bound nodes alone. vg reports on standard error how many
 snarls it tested on their own and how many strands were candidates at them, how many runs were
 treated and how many of those became one site, how many sites gained an allele or were made of a
-run and how many of them are called with such an allele, how many snarls were over a limit of the
-scorer, and how many candidate strands were left alone for a nested snarl.
+run and how many of them are called with such an allele, and how many snarls were over a limit of
+the scorer.
 
 ## Ploidy
 
