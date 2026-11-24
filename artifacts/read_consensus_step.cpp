@@ -83,7 +83,8 @@ struct ReadConsensusStep::Alone {
     /// bounds than the longest called sequence, or fewer than the shortest, whichever is more.
     size_t signal = 0;
     /// The longest gap that `min_reads` of the spanning reads have inside the node of the start
-    /// bound, and inside that of the end bound.
+    /// bound or in the nodes before it, and inside that of the end bound or in the nodes after
+    /// it (`SpanSummary::start_gap`, `end_gap`).
     size_t start_gap = 0;
     size_t end_gap = 0;
     /// Whether the site's reads were fetched and compared with the called sequences.
@@ -200,8 +201,8 @@ void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splic
             follows[found] = 1;
             nodes_after[i] = nodes;
             bases_after[i] = bases;
-            // A gap that the reads have inside the node of a bound that faces the other site
-            // is a signal of both.
+            // A gap that the reads have on the side of a bound that faces the other site is a
+            // signal of both.
             const size_t gap = std::max(alone[i].end_gap, alone[found].start_gap);
             if (gap >= options.min_diff) {
                 signal[i] = std::max(signal[i], gap);

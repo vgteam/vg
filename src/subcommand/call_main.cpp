@@ -2604,6 +2604,7 @@ int main_call(int argc, char** argv) {
             // The read-consensus step leaves out the snarls where fewer reads than it needs to
             // differ have enough bases between the bounds.
             likelihood_params.span_rank = read_consensus.enabled ? read_consensus.min_reads : 0;
+            likelihood_params.span_gap_reach = read_consensus.run_max_junction;
 
             auto owned_calculator = make_unique<GraphAlignedAlleleLikelihoodCalculator>(
                 *graph, *read_source, *qual_scorer, *plain_scorer,

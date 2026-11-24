@@ -134,8 +134,9 @@ struct ReadConsensusCounts {
  * A snarl's signal is the number of bases by which `min_reads` of its spanning reads have more
  * between the bounds than its longest called sequence, or fewer than its shortest, whichever is
  * more. Where `min_reads` of the reads that span it have a gap of `min_diff` bases or more
- * inside the node of a bound that faces a neighbour, the gap is the signal of both snarls if it
- * is more (`SpanSummary::start_gap`, `end_gap`). A seed is a snarl whose reads disagree with
+ * inside the node of a bound that faces a neighbour, or in the nodes of their junction beyond
+ * it, the gap is the signal of both snarls if it is more
+ * (`SpanSummary::start_gap`, `end_gap`). A seed is a snarl whose reads disagree with
  * what is called there: one with a candidate strand, or with a signal of `run_site_diff` or
  * more.
  *

@@ -370,11 +370,12 @@ inside a snarl too large to be treated itself is a run of the snarls of a chain 
    nodes' bases, the bound nodes included, and has at most 1,000 bases.
 2. A snarl's **signal** is the number of bases by which `--consensus-min-reads` of its spanning
    reads have more between the bounds than its longest called sequence, or fewer than its
-   shortest, whichever is more. A read's **gap** inside a node is a run of bases it inserts
-   between two bases of the node, or a run of the node's bases it lacks. Where
-   `--consensus-min-reads` of the reads that span a snarl have a gap of `--consensus-min-diff`
-   bases or more inside the node of its bound that faces a neighbour, the gap is the signal of
-   both snarls if it is more. A **seed** is a snarl whose reads disagree with what is called
+   shortest, whichever is more. A read's **gap** is a run of bases it inserts in a node or
+   beside it, or a run of a node's bases it lacks. Where `--consensus-min-reads` of the reads
+   that span a snarl have a gap of `--consensus-min-diff` bases or more inside the node of its
+   bound that faces a neighbour, or in the nodes of their junction beyond that node, the gap is
+   the signal of both snarls if it is more. So a difference that lies in the nodes between
+   two snarls, in no snarl, makes a run of the two. A **seed** is a snarl whose reads disagree with what is called
    there: one with a candidate strand, or with a signal of 3 bases or more.
 3. A run begins and ends at a seed, and holds every snarl between two of its seeds. Two seeds
    that follow each other in a sequence of neighbours are in one run where at most 1,000 bases

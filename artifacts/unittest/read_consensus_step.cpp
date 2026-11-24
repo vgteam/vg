@@ -150,6 +150,7 @@ Called call_graph(const function<void(bdsg::HashGraph&)>& make,
     AlleleLikelihoodParams scoring;
     scoring.collect_read_phasing = true;
     scoring.span_rank = consensus ? options.min_reads : 0;
+    scoring.span_gap_reach = options.run_max_junction;
     GraphAlignedAlleleLikelihoodCalculator calculator(positioned, source, qual_scorer,
                                                       plain_scorer, scoring);
     ReadLikelihoodSnarlCaller genotyper(positioned, calculator);

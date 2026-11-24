@@ -313,11 +313,13 @@ public:
         /// bounds, or 0 where fewer reads than that span the snarl.
         uint32_t low_bases = 0;
         /// The longest gap that the read with the `span_rank`-th longest has inside the node of
-        /// the start bound, in bases, or 0 where fewer reads than that span the snarl. A read's
-        /// gap inside a node is a run of bases it inserts between two bases of the node, or a
-        /// run of the node's bases it lacks.
+        /// the start bound or in the nodes that every walk takes before that node, for up to
+        /// `AlleleLikelihoodParams::span_gap_reach` bases of them, in bases, or 0 where fewer
+        /// reads than that span the snarl.
+        /// A read's gap is a run of bases it inserts in a node or beside it, or a run of a
+        /// node's bases it lacks. The bases a read inserts between the bounds are no gap.
         uint32_t start_gap = 0;
-        /// The same inside the node of the end bound.
+        /// The same inside the node of the end bound and in the nodes after it.
         uint32_t end_gap = 0;
     };
 
@@ -588,6 +590,11 @@ struct AlleleLikelihoodParams {
      * `AlleleReadLikelihoods::SpanSummary`).
      */
     size_t span_rank = 0;
+
+    /// The most bases of the nodes that every walk takes before a snarl's start bound, and
+    /// after its end bound, in which a spanning read's gaps count towards
+    /// `AlleleReadLikelihoods::SpanSummary::start_gap` and `end_gap`.
+    size_t span_gap_reach = 0;
 };
 
 /**

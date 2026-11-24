@@ -2086,6 +2086,14 @@ struct GraphAlignedAlleleLikelihoodCalculator::SnarlBounds {
     /// lacks. The bases it inserts before the node's first base or after its last are not
     /// inside the node.
     static size_t longest_gap(const ReadStep& step);
+
+    /// Return the longest gap that a read with the path `path` has on one side of its mapping
+    /// `at`, a visit to a bound: in the bases that mapping inserts on that side, and in its
+    /// mappings to the nodes that every walk takes from the bound on that side and that are no
+    /// bound themselves, for up to `reach` node bases. It is 0 where another site starts at the
+    /// bound. The side is before the mapping if `back` and after it otherwise.
+    static size_t gap_beyond(const HandleGraph& graph, const Path& path, int64_t at, bool back,
+                             size_t reach);
 };
 
 void GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::set(const HandleGraph& graph,
@@ -2114,6 +2122,40 @@ size_t GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::longest_gap(const Re
         const Edit& edit = mapping.edit(i);
         if (edit.from_length() != edit.to_length()) {
             longest = std::max(longest, (size_t)std::max(edit.from_length(), edit.to_length()));
+        }
+    }
+    return longest;
+}
+
+size_t GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::gap_beyond(
+    const HandleGraph& graph, const Path& path, int64_t at, bool back, size_t reach) {
+    auto node_of = [&](int64_t i) {
+        const Position& position = path.mapping((int)i).position();
+        return graph.get_handle(position.node_id(), position.is_reverse());
+    };
+    // Every walk takes a node from the bound where it is the only node on that side of the
+    // one before it, has only that one before it, and only one node after it.
+    if (graph.get_degree(node_of(at), back) != 1) {
+        return 0;
+    }
+    size_t longest = 0;
+    const Mapping& bound = path.mapping((int)at);
+    const int64_t step = back ? -1 : 1;
+    for (int64_t e = back ? 0 : bound.edit_size() - 1;
+         e >= 0 && e < bound.edit_size() && bound.edit((int)e).from_length() == 0; e -= step) {
+        longest = std::max(longest, (size_t)bound.edit((int)e).to_length());
+    }
+    size_t bases = 0;
+    for (int64_t i = at + step; i >= 0 && i < path.mapping_size() && bases < reach; i += step) {
+        if (graph.get_degree(node_of(i), !back) != 1 || graph.get_degree(node_of(i), back) != 1) {
+            break;
+        }
+        for (const Edit& edit : path.mapping((int)i).edit()) {
+            if (edit.from_length() != edit.to_length()) {
+                longest = std::max(longest,
+                                   (size_t)std::max(edit.from_length(), edit.to_length()));
+            }
+            bases += (size_t)edit.from_length();
         }
     }
     return longest;
@@ -2691,8 +2733,28 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                 });
             if (from <= to && to <= scored_aln->sequence().size()) {
                 span_bases.push_back((uint32_t)(to - from));
-                start_gaps.push_back((uint32_t)SnarlBounds::longest_gap(read_steps.front()));
-                end_gaps.push_back((uint32_t)SnarlBounds::longest_gap(read_steps.back()));
+                size_t start_gap = SnarlBounds::longest_gap(read_steps.front());
+                size_t end_gap = SnarlBounds::longest_gap(read_steps.back());
+                // The read's visits to the site are mappings of its path that follow each
+                // other. Its gaps in the nodes before the first and after the last count too.
+                const Path& path = scored_aln->path();
+                int64_t first = 0;
+                while (first < path.mapping_size()
+                       && &path.mapping((int)first) != read_steps.front().mapping) {
+                    ++first;
+                }
+                const int64_t last = first + (int64_t)read_steps.size() - 1;
+                if (params.span_gap_reach > 0 && last < path.mapping_size()
+                    && &path.mapping((int)last) == read_steps.back().mapping) {
+                    start_gap = std::max(start_gap,
+                                         SnarlBounds::gap_beyond(graph, path, first, true,
+                                                                 params.span_gap_reach));
+                    end_gap = std::max(end_gap,
+                                       SnarlBounds::gap_beyond(graph, path, last, false,
+                                                               params.span_gap_reach));
+                }
+                start_gaps.push_back((uint32_t)start_gap);
+                end_gaps.push_back((uint32_t)end_gap);
             }
         }
         // Score a read with no base qualities with the scorer that does not need them.
