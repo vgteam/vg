@@ -15,7 +15,7 @@
  * You can use chain_items_traceback() to get a traceback of the chain's items
  * in order.
  *
- * Helper entry points are find_best_chain() and score_best_chain() which set
+ * Helper entry point is find_best_chain() which sets
  * up the DP for you and do the traceback if appropriate.
  */
  
@@ -304,7 +304,7 @@ public:
     /// What's the default value for an empty table cell?
     /// Use a function instead of a constant because that's easier when we're just a header.
     inline static TracedScore unset() {
-        return {0, nowhere(), 0};
+        return {0, 0, nowhere(), 0};
     }
     
     /// Max in a score from a DP table. If it wins, record provenance.
@@ -319,9 +319,11 @@ public:
     /// Update the paths supported by this score and return a modified copy
     TracedScore set_shared_paths(const std::pair<size_t,size_t>& new_paths) const;
 
+    inline int eval_score() const { return score + eval_bonus; }
+
     /// Compare for equality
     inline bool operator==(const TracedScore& other) const {
-        return score == other.score && source == other.source;
+        return score == other.score && eval_bonus == other.eval_bonus && source == other.source;
     }
     
     /// Compare for inequality
@@ -331,26 +333,53 @@ public:
     
     /// Compare for less-than
     inline bool operator<(const TracedScore& other) const {
-        return score < other.score || (score == other.score && source < other.source);
+        if (eval_score()!= other.eval_score()) {
+            return eval_score() < other.eval_score();
+        } else if (score != other.score) {
+            return score < other.score;
+        } else {
+            return source < other.source;
+        }
     }
     
     /// Compare for greater-than
     inline bool operator>(const TracedScore& other) const {
-        return score > other.score || (score == other.score && source > other.source);
+        if (eval_score() != other.eval_score()) {
+            return eval_score() > other.eval_score();
+        } else if (score != other.score) {
+            return score > other.score;
+        } else {
+            return source > other.source;
+        }
     }
-    
-    /// Subtraction to yield a difference in points
-    inline int operator-(const TracedScore& other) const {
-        return score - other.score;
+
+    /// Check if this TracedScore is a better traceback end
+    /// Basically greater-than but without eval
+    inline bool is_better_end(const TracedScore& other) const {
+        if (score != other.score) {
+            return score > other.score;
+        } else {
+            return source > other.source;
+        }
     }
     
     // Number of points
     int score;
+    // Evaluation-time bonus for haplotype consistency
+    // We want to prefer to come from seeds where the transition preserves
+    // access to matching haplotypes, because we don't want to back ourselves
+    // into a corner where we need a recombination when we don't really have
+    // to. So we cheat on the dynamic programming by adding an "evaluation
+    // bonus" to the scores of the different DP options when comparing them. We
+    // keep this bonus out of the actual recorded scores because we don't want
+    // it raising the scores we actually get the more transitions we take.
+    //
+    // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
+    int eval_bonus;
     // Index of source score among possibilities/traceback pointer
     size_t source;
     /// Supported paths
     path_flags_t paths;
-    size_t rec_num=0;
 };
 
 }
@@ -402,8 +431,6 @@ struct transition_info {
 
 
 /// Represents the scoring scheme for chains, to determine which are best.
-/// Doesn't cover the parameters that really belong to an alignment scoring
-/// scheme (like gap open and extend).
 struct ChainScoringScheme {
     /// Score bonus for each item collected
     int item_bonus = 0;
@@ -417,33 +444,22 @@ struct ChainScoringScheme {
     int consistency_bonus = 0;
 };
 
-/// A single chain result: scored chain plus the recombination count observed
-/// on its endpoint.
-/// TODO: Is there a better name for the abstraction this is getting at?
-struct ChainWithRec {
-    // TODO: Shouldn't we split this into 2 fields?
-    std::pair<int, std::vector<size_t>> scored_chain;
-    // Positions (anchor indices) in the chain that introduce a recombination
-    // event between anchors. These correspond to anchors where we had to
-    // reset supported paths because the previous path set did not overlap
-    // with the next anchor's start paths.
-    std::vector<size_t> rec_positions;
-    // For each recombination event, an interval [left, right] of anchor
-    // indices bounding where the event must lie. `right` is the same anchor
-    // recorded in `rec_positions` (forward pass: first anchor incompatible
-    // with the prefix). `left` comes from a symmetric backward pass: the
-    // last anchor (going right-to-left) incompatible with the suffix.
-    // May be empty when forward and backward counts disagree, e.g. when
-    // internally recombinant anchors break the symmetry.
-    std::vector<std::pair<size_t, size_t>> rec_intervals;
-};
 
-/// Result of finding best chains: a list of chains each paired with the
-/// recombination count observed at that chain's endpoint.
-/// TODO: Can we get rid of this once we're sure it won't need more fields?
-/// TODO: Is there a better name for this?
-struct ChainsResult {
-    std::vector<ChainWithRec> chains;
+/// A single chain result with only anchors in order
+struct SparseAnchorChain {
+    /// Anchors in order along the chain
+    std::vector<size_t> anchors;
+    /// Score of the sparse chain
+    int chain_score = 0;
+
+    // Extra annotations
+
+    /// How many recombinations this chain is known to have (inf means unset)
+    size_t rec_count = numeric_limits<size_t>::max();
+    /// Which ziptree this chain was found in (if known)
+    size_t source_tree = numeric_limits<size_t>::max();
+    /// Chain multiplicity (if known)
+    size_t multiplicity = numeric_limits<size_t>::max();
 };
 
 /**
@@ -471,7 +487,7 @@ using transition_iteratee = std::function<void(const transition_info& transition
  * 
  * to_chain must be sorted by read start.
  */
-using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t max_indel_bases, const transition_iteratee& callback)>;
+using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, size_t max_indel_bases, const transition_iteratee& callback)>;
 
 /**
  * Return a transition iterator that uses zip code tree iteration to select
@@ -483,7 +499,8 @@ using transition_iterator = std::function<void(const VectorView<Anchor>& to_chai
 transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds,
                                                  const ZipCodeTree& zip_code_tree,
                                                  size_t max_graph_lookback_bases,
-                                                 size_t max_read_lookback_bases);
+                                                 size_t max_read_lookback_bases,
+                                                 bool alllow_overlaps);
 
 /**
  * Walk through the ziptree from left to right to find all seeds,
@@ -498,9 +515,10 @@ std::vector<transition_info> generate_zip_tree_transitions(
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,
     size_t max_indel_bases,
+    bool allow_seed_overlaps,
     const VectorView<Anchor>& to_chain,
-    const std::unordered_map<size_t, size_t>& seed_to_starting, 
-    const std::unordered_map<size_t, size_t>& seed_to_ending);
+    const std::vector<size_t>& seed_to_starting, 
+    const std::vector<size_t>& seed_to_ending);
 /**
  * Add a new transition_info to the end of "transitions"
  * if said transition is legal (i.e. reachable in the read).
@@ -508,14 +526,14 @@ std::vector<transition_info> generate_zip_tree_transitions(
  * Helper for generate_zip_tree_transitions() to avoid saving useless stuff.
  */
 void add_transition_if_legal(vector<transition_info>& transitions, const VectorView<Anchor>& to_chain,
-                             size_t max_read_lookback_bases, size_t max_indel_bases,
+                             size_t max_read_lookback_bases, size_t max_indel_bases, bool allow_seed_overlaps,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
- * Fill in the given DP table for the explored chain scores ending with each
+ * Fill in a DP table for the explored chain scores ending with each
  * item. Assumes some items exist.
  *
- * We keep all the options to allow us to do multiple tracebacks and find
+ * We keep many options to allow us to do multiple tracebacks and find
  * multiple good (ideally disjoint) chains.
  *
  * Input items must be sorted by start position in the read.
@@ -528,51 +546,45 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
  * Limits transitions to those involving indels of the given size or less, to
  * avoid very bad transitions.
  */
-void chain_items_dp(vector<TracedScore>& chain_scores,
-                    const VectorView<Anchor>& to_chain,
-                    const SnarlDistanceIndex& distance_index,
-                    const HandleGraph& graph,
-                    const transition_iterator& for_each_transition,
-                    const ChainScoringScheme& scheme = ChainScoringScheme(),
-                    size_t max_indel_bases = 100,
-                    bool show_work = false);
+vector<TracedScore> chain_items_dp(const VectorView<Anchor>& to_chain,
+                                   const transition_iterator& for_each_transition,
+                                   const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
+                                   size_t max_indel_bases = 100,
+                                   bool show_work = false);
 
 /**
  * Trace back through in the given DP table from the best chain score.
  *
  * Returns tracebacks that visit disjoint sets of items, in score order, along
- * with their scores.
- *
- * Tracebacks are constrained to be nonoverlapping by stopping each traceback
- * when the optimum place to come from has already been used. The second-best
- * place to come from is *not* considered. It might be possible that two
- * returned tracebacks could be pasted together to get a higher score, but it
- * won't be possible to recombine two tracebacks to get a higher score; no
- * edges followed between items will ever need to be cut.
+ * with their scores. Tracebacks are constrained to be nonoverlapping by
+ * stopping when the optimum place to come from has already been used.
+ * 
+ * Returns tracebacks as SparseAnchorChains, i.e. anchor indexes with a score.
  */
-vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
-                                                        const VectorView<Anchor>& to_chain,
-                                                        const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                                        size_t max_tracebacks = 1);
+vector<SparseAnchorChain> chain_items_traceback(const vector<TracedScore>& chain_scores,
+                                                const VectorView<Anchor>& to_chain,
+                                                size_t item_bonus,
+                                                size_t max_tracebacks = 1);
 
+/**
+ * Assign a rec_count to each chain in the list
+ */
+void mark_rec_count(const VectorView<Anchor>& to_chain, vector<SparseAnchorChain>& chains);
 
 /**
  * Chain up the given group of items. Determines the best scores and
  * tracebacks that can be obtained by chaining items together.
  *
  * Input items must be sorted by start position in the read.
- *
- * Returns the scores and the list of indexes of items visited to achieve
- * that score, in order, with multiple tracebacks in descending score order.
+ * 
+ * Returns the top chains in descending order.
  */
-ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
-                              const SnarlDistanceIndex& distance_index,
-                              const HandleGraph& graph,
-                              const transition_iterator& for_each_transition,
-                              const ChainScoringScheme& scheme = ChainScoringScheme(),
-                              size_t max_chains = 1,
-                              size_t max_indel_bases = 100,
-                              bool show_work = false);
+vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
+                                           const transition_iterator& for_each_transition,
+                                           const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
+                                           size_t max_chains = 1,
+                                           size_t max_indel_bases = 100,
+                                           bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and
@@ -580,15 +592,12 @@ ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
  *
  * Input items must be sorted by start position in the read.
  *
- * Returns the score and the list of indexes of items visited to achieve
- * that score, in order.
+ * Returns the best-scoring chain found.
  */
-pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
-                                          const SnarlDistanceIndex& distance_index,
-                                          const HandleGraph& graph,
-                                          const transition_iterator& for_each_transition,
-                                          const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                          size_t max_indel_bases = 100);
+SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
+                                  const transition_iterator& for_each_transition,
+                                  const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
+                                  size_t max_indel_bases = 100);
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.

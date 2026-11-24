@@ -18,6 +18,7 @@
 #include "snarls.hpp"
 #include "tree_subgraph.hpp"
 #include "funnel.hpp"
+#include "multipath_alignment.hpp"
 
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
@@ -279,6 +280,9 @@ class MinimizerMapper : public AlignerClient {
     /// How many bases should we look back in the read when chaining, per base of read length?
     static constexpr double default_max_read_lookback_bases_per_base = 1.0;
     double max_read_lookback_bases_per_base = default_max_read_lookback_bases_per_base;
+    /// Should consecutive seeds in a chain be allowed to overlap?
+    static constexpr bool default_allow_seed_overlap = false;
+    bool allow_seed_overlap = default_allow_seed_overlap;
 
     /// How much of a bonus should we give to each item in chaining?
     static constexpr int default_item_bonus = 0;
@@ -302,13 +306,13 @@ class MinimizerMapper : public AlignerClient {
     
     /// If a chain's score is smaller than the best 
     /// chain's score by more than this much, don't align it
-    static constexpr double default_chain_score_threshold = 100;
-    double chain_score_threshold = default_chain_score_threshold;
+    static constexpr size_t default_chain_score_threshold = 100;
+    size_t chain_score_threshold = default_chain_score_threshold;
     
     /// Disregard the chain_score_threshold (but NOT the min_chain_score)
     /// when they would give us fewer than this many chains aligned.
-    static constexpr int default_target_alignment_attempts = 4;
-    int target_alignment_attempts = default_target_alignment_attempts;
+    static constexpr size_t default_target_alignment_attempts = 4;
+    size_t target_alignment_attempts = default_target_alignment_attempts;
 
     /// Allow up to this many chains per tree
     static constexpr size_t default_max_chains_per_tree = 1;
@@ -380,10 +384,6 @@ class MinimizerMapper : public AlignerClient {
     /// How much should candidate alignment scores be penalized for softclipped bases?
     static constexpr double default_softclip_penalty = 0.0;
     double softclip_penalty = default_softclip_penalty;
-
-    /// Should alignments be ranked by chain score instead of base-level score?
-    static constexpr bool default_sort_by_chain_score = false;
-    bool sort_by_chain_score = default_sort_by_chain_score;
 
     /// How much of an alignment needs to be from distinct nodes to be a distinct alignment?
     static constexpr double default_min_unique_node_fraction = 0.0;
@@ -893,39 +893,43 @@ protected:
      * If we do gapless extension, turn good full-length gapless extensions into alignments and return them in alignments
      * Gapless extensions are considered good enough if they have fewer than default_max_extension_mismatches mismatches
      */
-    void do_chaining_on_trees(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds, const VectorView<MinimizerMapper::Minimizer>& minimizers,
+    void do_chaining_on_trees(const Alignment& aln,
+                              const ZipCodeForest& zip_code_forest,
+                              const std::vector<Seed>& seeds,
+                              const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
-                              std::vector<std::vector<size_t>>& chains, std::vector<std::vector<bool>>& chain_rec_flags,
-                              std::vector<size_t>& chain_rec_counts, std::vector<size_t>& chain_source_tree,
-                              std::vector<int>& chain_score_estimates, std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-                              std::vector<double>& multiplicity_by_chain,
-                              std::vector<Alignment>& alignments, SmallBitset& minimizer_explored, vector<double>& multiplicity_by_alignment,
-                              LazyRNG& rng, Funnel& funnel) const;
-
+                              std::vector<algorithms::SparseAnchorChain>& chains,
+                              std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                              std::vector<Alignment>& alignments,
+                              SmallBitset& minimizer_explored,
+                              vector<double>& multiplicity_by_alignment,
+                              LazyRNG& rng,
+                              Funnel& funnel) const;
+    
     /**
      * Collect stats about the best chains for annotating the final alignment
      */
-    void get_best_chain_stats(const Alignment& aln, const ZipCodeForest& zip_code_forest, const std::vector<Seed>& seeds,
-                               const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                               const std::vector<std::vector<size_t>>& chains,
-                               const std::vector<size_t>& chain_source_tree,
-                               const vector<algorithms::Anchor>& seed_anchors,
-                               const std::vector<int>& chain_score_estimates,
-                               bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump,
-                               double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
-                               Funnel& funnel) const ;
+    void get_best_chain_stats(const Alignment& aln, const std::vector<Seed>& seeds,
+                              const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                              const std::vector<algorithms::SparseAnchorChain>& chains,
+                              const vector<algorithms::Anchor>& seed_anchors,
+                              bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump,
+                              double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
+                              Funnel& funnel) const ;
 
-    void do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
-                               const VectorView<MinimizerMapper::Minimizer>& minimizers, 
-                               const vector<algorithms::Anchor>& seed_anchors,
-                               const std::vector<std::vector<size_t>>& chains, 
-                               const std::vector<size_t>& chain_source_tree,
-                               const std::vector<double>& multiplicity_by_chain,
-                               const std::vector<int>& chain_score_estimates,
-                               const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-                               vector<Alignment>& alignments, vector<double>& multiplicity_by_alignment,
-                               vector<size_t>& alignments_to_source,
-                               SmallBitset& minimizer_explored, aligner_stats_t& stats, LazyRNG& rng, Funnel& funnel) const;
+    void do_alignment_on_chains(const Alignment& aln,
+                                const std::vector<Seed>& seeds, 
+                                const VectorView<MinimizerMapper::Minimizer>& minimizers, 
+                                const vector<algorithms::Anchor>& seed_anchors,
+                                const std::vector<algorithms::SparseAnchorChain>& chains,
+                                const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
+                                vector<Alignment>& alignments,
+                                vector<double>& multiplicity_by_alignment,
+                                vector<size_t>& alignments_to_source,
+                                SmallBitset& minimizer_explored,
+                                aligner_stats_t& stats,
+                                LazyRNG& rng,
+                                Funnel& funnel) const;
 
     /**
      * Select the max_multimaps best alignments from alignments into mappings.
@@ -934,25 +938,73 @@ protected:
      *
      * If no alignments have a positive score, responsible for creating an unmapped mapping.
      */
-    void pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
-                                       const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source, 
-                                       const std::vector<int>& chain_score_estimates,
+    void pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments,
                                        std::vector<Alignment>& mappings,
-                                       std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
+                                       std::vector<double>& scores,
                                        LazyRNG& rng, Funnel& funnel) const;
-
     
+    // Path along with its score (as a step towards an Alignment)
+    struct ScoredPath {
+        Path path;
+        int32_t score = 0;
+    };
 
     /**
-     * Turn a chain into an Alignment.
-     *
-     * Operating on the given input alignment, align the tails and intervening
-     * sequences along the given chain of perfect-match seeds, and return an
-     * optimal Alignment.
+     * Convert a SparseAnchorChain to a base-level alignment
      *
      * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
      */
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain, aligner_stats_t* stats = nullptr) const;
+    Alignment do_base_level_alignment(const Alignment& aln, 
+                                      const VectorView<algorithms::Anchor>& to_chain,
+                                      const algorithms::SparseAnchorChain& chain,
+                                      aligner_stats_t* stats = nullptr) const;
+
+    // A bunch of helpers for do_base_level_alignment() that do bits and pieces    
+
+    /**
+     * Find an optimal alignment path for a tail extending out from an anchor.
+     * 
+     * First tries to do basic extension via the WFAExtender,
+     * and if that fails then falls back to full graph alignment.
+     * 
+     * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
+     */
+    ScoredPath find_tail_alignment(const Alignment& aln, 
+                                   const algorithms::Anchor& tail_anchor,
+                                   const WFAExtender& wfa_extender,
+                                   bool is_left_tail,
+                                   aligner_stats_t* stats = nullptr) const;
+
+    /**
+     * Move "next" to get the first anchor which doesn't overlap "here".
+     */
+    void find_next_non_overlapping(const VectorView<algorithms::Anchor>& to_chain,
+                                   const std::vector<size_t>& chain,
+                                   const algorithms::Anchor*& here,
+                                   vector<size_t>::const_iterator& next_it) const;
+    
+    /**
+     * Move "next" past skippable anchors, if they would force large gaps.
+     */
+    void find_next_to_skip_to(const VectorView<algorithms::Anchor>& to_chain,
+                              const std::vector<size_t>& chain,
+                              const algorithms::Anchor*& here,
+                              vector<size_t>::const_iterator& next_it) const;
+
+    /**
+     * Find a link alignment between "here" and "next".
+     * 
+     * The alignment may bail out without finding anything,
+     * in which case the "score" field of the output
+     * will be set to -std::numeric_limits<int32_t>::max().
+     */
+    ScoredPath find_link_alignment(const VectorView<algorithms::Anchor>& to_chain,
+                                   const Alignment& aln,
+                                   const vector<size_t>::const_iterator& here_it,
+                                   const vector<size_t>::const_iterator& next_it,
+                                   const WFAExtender& wfa_extender,
+                                   const Aligner& aligner,
+                                   aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -1311,7 +1363,7 @@ protected:
      *
      * Returns alignments in gbwt_graph space.
      */
-    pair<Path, size_t> get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
+    ScoredPath get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
         const Position& default_position, bool pin_left, size_t longest_detectable_gap, LazyRNG& rng) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly
@@ -1500,9 +1552,7 @@ protected:
                                    const std::vector<Seed>& seeds,
                                    const VectorView<Minimizer>& minimizers,
                                    const vector<algorithms::Anchor>& seed_anchors,
-                                   const std::vector<std::vector<size_t>>& chains,
-                                   const std::vector<std::vector<bool>>& chain_rec_flags,
-                                   const std::vector<size_t>& chain_source_tree,
+                                   const std::vector<algorithms::SparseAnchorChain>& chains,
                                    const PathPositionHandleGraph* path_graph,
                                    bool haplotype_positions);
 

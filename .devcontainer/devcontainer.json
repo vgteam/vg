@@ -1,0 +1,29 @@
+{
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": {},
+        "ghcr.io/devcontainers/features/python:1": {},
+        "ghcr.io/ttyrho/devcontainer-features/gcc:1": {},
+        "ghcr.io/devcontainers/features/rust:1": {},
+        "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+            "packages": "make,git,build-essential,protobuf-compiler,libprotoc-dev,libjansson-dev,libbz2-dev,libncurses5-dev,automake,gettext,autopoint,libtool,jq,bsdmainutils,bc,rs,parallel,npm,samtools,curl,unzip,redland-utils,librdf-dev,cmake,pkg-config,wget,gtk-doc-tools,raptor2-utils,rasqal-utils,bison,flex,gawk,libgoogle-perftools-dev,liblz4-dev,liblzma-dev,libffi-dev,libfontconfig-dev,libfreetype-dev,libglib2.0-dev,libpcre2-dev,libpng-dev,libprotobuf-dev,libboost-all-dev,tabix,bcftools,libzstd-dev,pybind11-dev,python3-pybind11,pandoc,libssl-dev,libjitterentropy3-dev,kmc,meson,sqlite3"
+        },
+        "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
+        "ghcr.io/devcontainers/features/common-utils:2": { "username": "${localEnv:USER}" }
+    },
+    "mounts": [
+        "source=${localEnv:HOME}/.claude,target=/home/${localEnv:USER}/.claude,type=bind",
+        "source=/private/groups/patenlab/anovak,target=/private/groups/patenlab/anovak,type=bind",
+        "source=/private/groups/migalab/shnegi,target=/private/groups/migalab/shnegi,type=bind"
+    ],
+    "initializeCommand": "mkdir -p $HOME/.claude",
+    "remoteUser": "${localEnv:USER}",
+    "containerUser": "${localEnv:USER}",
+    "containerEnv": {
+        "LANG": "${localEnv:LANG}",
+        "CLAUDE_CONFIG_DIR": "/home/${localEnv:USER}/.claude",
+        "DISABLE_AUTOUPDATER": "1"
+    },
+    "postCreateCommand": "npx -y claude-carbon; make get-deps"
+}
+

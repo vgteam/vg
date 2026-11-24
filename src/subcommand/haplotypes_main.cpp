@@ -16,9 +16,9 @@
 #include <functional>
 #include <iostream>
 #include <thread>
-#include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <getopt.h>
 #include <omp.h>
@@ -50,7 +50,7 @@ constexpr size_t w() {
 }
 
 constexpr size_t subchain_length() {
-    return HaplotypePartitioner::SUBCHAIN_LENGTH;
+    return Haplotypes::SUBCHAIN_LENGTH;
 }
 
 constexpr size_t n() {
@@ -243,7 +243,8 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "                               visiting them multiple times" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Options for sampling haplotypes:" << std::endl;
-    std::cerr << "      --preset STR             use preset X {default, haploid, diploid}" << std::endl;
+    std::cerr << "      --preset STR             preset X (use as the first sampling option)" << std::endl;
+    std::cerr << "                               " << Recombinator::Parameters::preset_list(", ") << std::endl;
     std::cerr << "      --coverage N             kmer coverage in KFF file (default: estimate)" << std::endl;
     std::cerr << "      --num-haplotypes N       generate N haplotypes [" << haplotypes_defaults::n() << "]" << std::endl;
     std::cerr << "                               with --diploid-sampling, use N candidates "
@@ -254,6 +255,7 @@ void help_haplotypes(char** argv, bool developer_options) {
                                              << "[" << haplotypes_defaults::adjustment() << "]" << std::endl;
     std::cerr << "      --absent-score F         score absent kmers -F/+F "
                                              << "[" << haplotypes_defaults::absent()  << "]" << std::endl;
+    std::cerr << "      --ignore-homopolymers N  ignore homopolymers of length N or more " << std::endl;
     std::cerr << "      --haploid-scoring        use a scoring model without heterozygous kmers" << std::endl;
     std::cerr << "      --diploid-sampling       choose the best pair from the sampled haplotypes" << std::endl;
     std::cerr << "      --extra-fragments        select all candidates in bad subchains" << std::endl;
@@ -310,20 +312,21 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_PRESENT_DISCOUNT = 1303;
     constexpr int OPT_HET_ADJUSTMENT = 1304;
     constexpr int OPT_ABSENT_SCORE = 1305;
-    constexpr int OPT_HAPLOID_SCORING = 1306;
-    constexpr int OPT_DIPLOID_SAMPLING = 1307;
-    constexpr int OPT_EXTRA_FRAGMENTS = 1308;
-    constexpr int OPT_BADNESS = 1309;
-    constexpr int OPT_INCLUDE_REFERENCE = 1310;
-    constexpr int OPT_SET_REFERENCE = 1311;
-    constexpr int OPT_BAN_SAMPLE = 1312;
-    constexpr int OPT_HIGH_COVERAGE_CONTIG = 1313;
-    constexpr int OPT_HIGH_COVERAGE_NUM_HAPLOTYPES = 1314;
-    constexpr int OPT_HALF_COVERAGE_CONTIG = 1315;
-    constexpr int OPT_HALF_COVERAGE_NUM_HAPLOTYPES = 1316;
-    constexpr int OPT_EXCLUDE_CONTIG = 1317;
-    constexpr int OPT_WRAP = 1318;
-    constexpr int OPT_MIN_GREF_LEN = 1319;
+    constexpr int OPT_IGNORE_HOMOPOLYMERS = 1306;
+    constexpr int OPT_HAPLOID_SCORING = 1307;
+    constexpr int OPT_DIPLOID_SAMPLING = 1308;
+    constexpr int OPT_EXTRA_FRAGMENTS = 1309;
+    constexpr int OPT_BADNESS = 1310;
+    constexpr int OPT_INCLUDE_REFERENCE = 1311;
+    constexpr int OPT_SET_REFERENCE = 1312;
+    constexpr int OPT_BAN_SAMPLE = 1313;
+    constexpr int OPT_HIGH_COVERAGE_CONTIG = 1314;
+    constexpr int OPT_HIGH_COVERAGE_NUM_HAPLOTYPES = 1315;
+    constexpr int OPT_HALF_COVERAGE_CONTIG = 1316;
+    constexpr int OPT_HALF_COVERAGE_NUM_HAPLOTYPES = 1317;
+    constexpr int OPT_EXCLUDE_CONTIG = 1318;
+    constexpr int OPT_WRAP = 1319;
+    constexpr int OPT_MIN_GREF_LEN = 1320;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
     constexpr int OPT_DENSITY = 1600;
@@ -346,6 +349,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
+        { "ignore-homopolymers", required_argument, 0, OPT_IGNORE_HOMOPOLYMERS },
         { "haploid-scoring", no_argument, 0, OPT_HAPLOID_SCORING },
         { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "extra-fragments", no_argument, 0, OPT_EXTRA_FRAGMENTS },
@@ -425,20 +429,15 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
 
         case OPT_PRESET:
             {
-                Recombinator::Parameters::preset_t preset;
-                if (std::string(optarg) == "default") {
-                    preset = Recombinator::Parameters::preset_default;
-                } else if (std::string(optarg) == "haploid") {
-                    preset = Recombinator::Parameters::preset_haploid;
-                } else if (std::string(optarg) == "diploid") {
-                    preset = Recombinator::Parameters::preset_diploid;
+                auto preset = Recombinator::Parameters::parse_preset(optarg);
+                if (preset) {
+                    this->recombinator_parameters = Recombinator::Parameters(*preset);
+                    num_haplotypes_set = true;
                 } else {
                     this->logger.error() << "unknown preset: " << optarg << std::endl;
                 }
-                this->recombinator_parameters = Recombinator::Parameters(preset);
-                num_haplotypes_set = true; // The preset is assumed to include the number of haplotypes.
-                break;
             }
+            break;
         case OPT_COVERAGE:
             this->recombinator_parameters.coverage = parse<size_t>(optarg);
             break;
@@ -465,6 +464,12 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             this->recombinator_parameters.absent_score = parse<double>(optarg);
             if (this->recombinator_parameters.absent_score < 0.0) {
                 this->logger.error() << "absent score must be non-negative" << std::endl;
+            }
+            break;
+        case OPT_IGNORE_HOMOPOLYMERS:
+            this->recombinator_parameters.ignore_homopolymers = parse<size_t>(optarg);
+            if (this->recombinator_parameters.ignore_homopolymers <= 1) {
+                this->logger.error() << "ignore homopolymers must be greater than 1" << std::endl;
             }
             break;
         case OPT_HAPLOID_SCORING:
@@ -716,8 +721,10 @@ void validate_subgraph(const Logger& logger, const gbwtgraph::GBWTGraph& graph,
 // Accepts a plain contig name (matched against chain contig names) or a PanSN-style
 // path name (validated against the graph metadata). Exits with an error if a name
 // cannot be resolved to exactly one chain.
-std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
-                                                  const std::vector<std::string>& names, const Logger& logger);
+std::unordered_set<size_t> resolve_chains_by_name(
+    const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
+    const std::vector<std::string>& names, const Logger& logger
+);
 
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
     omp_set_num_threads(threads_to_jobs(config.threads));
@@ -946,8 +953,10 @@ size_t chain_for_path(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, g
     return result;
 }
 
-std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
-                                                  const std::vector<std::string>& names, const Logger& logger) {
+std::unordered_set<size_t> resolve_chains_by_name(
+    const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
+    const std::vector<std::string>& names, const Logger& logger
+) {
     // Map each canonical contig name stored in the top-level chains to the
     // chains carrying it, so that plain contig names resolve in one lookup.
     std::unordered_map<std::string, std::vector<size_t>> chains_by_contig;
@@ -1035,8 +1044,8 @@ void subchain_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes
             << total_length << std::endl;
         // For each subchain: type, id, start, end, length, number of kmers, number of sequences.
         for (size_t i = 0; i < ref_intervals.size(); i++) {
-            size_t kmers = haplotypes.chains[chain_id].subchains[ref_intervals[i].id].kmers.size();
-            size_t sequences = haplotypes.chains[chain_id].subchains[ref_intervals[i].id].sequences.size();
+            size_t kmers = haplotypes.chains[chain_id].subchains[ref_intervals[i].id].num_kmers();
+            size_t sequences = haplotypes.chains[chain_id].subchains[ref_intervals[i].id].num_sequences();
             std::cout
                 << ref_intervals[i].type_as_char() << "\t"
                 << ref_intervals[i].id << "\t"
@@ -1070,9 +1079,8 @@ void density_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
         size_t total_kmers = 0, total_present = 0;
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
             const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
-            sdsl::bit_vector::rank_1_type rank(&subchain.kmers_present);
-            total_kmers += subchain.kmers_present.size();
-            total_present += rank(subchain.kmers_present.size());
+            total_kmers += subchain.total_kmers();
+            total_present += subchain.total_present();
         }
         std::cout << "Chain " << chain_id << " (" << chain.contig_name << "): "
             << format_kmer_presence(total_present, total_kmers) << std::endl;
@@ -1081,26 +1089,25 @@ void density_statistics(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
         if (config.verbosity >= Haplotypes::verbosity_detailed) {
             for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
                 const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
-                sdsl::bit_vector::rank_1_type rank(&subchain.kmers_present);
-                size_t subchain_kmers = subchain.kmers_present.size();
-                size_t subchain_present = rank(subchain_kmers);
+                size_t subchain_kmers = subchain.total_kmers();
+                size_t subchain_present = subchain.total_present();
                 std::cout << "    Subchain " << subchain_id << ": "
                     << format_kmer_presence(subchain_present, subchain_kmers) << std::endl;
 
                 if (config.verbosity >= Haplotypes::verbosity_debug) {
                     std::vector<std::pair<size_t, std::string>> sequence_stats; // (present kmers, path name)
-                    for (size_t i = 0; i < subchain.sequences.size(); i++) {
+                    for (size_t i = 0; i < subchain.num_sequences(); i++) {
                         gbwt::size_type sequence_id = subchain.sequences[i].first;
                         gbwt::size_type path_id = gbwt::Path::id(sequence_id);
                         path_handle_t path_handle = gbz.graph.path_to_handle(path_id);
                         std::string path_name = gbz.graph.get_path_name(path_handle);
-                        size_t present = rank((i + 1) * subchain.kmers.size()) - rank(i * subchain.kmers.size());
+                        size_t present = subchain.num_present(i);
                         sequence_stats.emplace_back(present, path_name);
                     }
                     std::sort(sequence_stats.begin(), sequence_stats.end());
                     for (const auto& [present, path_name] : sequence_stats) {
                         std::cout << "        " << path_name << ": "
-                            << format_kmer_presence(present, subchain.kmers.size()) << std::endl;
+                            << format_kmer_presence(present, subchain.num_kmers()) << std::endl;
                     }
                 }
             }
@@ -1287,9 +1294,9 @@ void validate_chain(const Logger& logger,
         }
 
         // Check that the kmer presence bitvector is of appropriate length.
-        size_t total_kmers = subchain.sequences.size() * subchain.kmers.size();
-        if (subchain.kmers_present.size() != total_kmers) {
-            std::string message = expected_got<size_t>(total_kmers, subchain.kmers_present.size()) + " kmer occurrences";
+        size_t total_kmers = subchain.num_sequences() * subchain.num_kmers();
+        if (subchain.total_kmers() != total_kmers) {
+            std::string message = expected_got<size_t>(total_kmers, subchain.total_kmers()) + " kmer occurrences";
             validate_error_subchain(logger, chain_id, subchain_id, message);
         }
 
@@ -1312,11 +1319,11 @@ void validate_chain(const Logger& logger,
                     selected.insert(Haplotypes::sequence_type(da[i], i));
                 }
             }
-            if (subchain.sequences.size() != selected.size()) {
-                std::string message = expected_got(selected.size(), subchain.sequences.size()) + " sequences (normal)";
+            if (subchain.num_sequences() != selected.size()) {
+                std::string message = expected_got(selected.size(), subchain.num_sequences()) + " sequences (normal)";
                 validate_error_subchain(logger, chain_id, subchain_id, message);
             }
-            for (size_t i = 0; i < subchain.sequences.size(); i++) {
+            for (size_t i = 0; i < subchain.num_sequences(); i++) {
                 if (selected.find(subchain.sequences[i]) == selected.end()) {
                     std::string message = "invalid value " + pair_to_string(subchain.sequences[i]);
                     validate_error_sequence(logger, chain_id, subchain_id, i, message);
@@ -1328,15 +1335,15 @@ void validate_chain(const Logger& logger,
         if (subchain.type == Haplotypes::Subchain::prefix || subchain.type == Haplotypes::Subchain::suffix) {
             gbwt::node_type node = (subchain.has_start() ? subchain.start : subchain.end);
             std::vector<gbwt::size_type> da = r_index.decompressDA(node);
-            if (subchain.sequences.size() != da.size()) {
-                std::string message = expected_got(da.size(), subchain.sequences.size()) + " sequences (prefix / suffix)";
+            if (subchain.num_sequences() != da.size()) {
+                std::string message = expected_got(da.size(), subchain.num_sequences()) + " sequences (prefix / suffix)";
                 validate_error_subchain(logger, chain_id, subchain_id, message);
             }
             vg::hash_set<Haplotypes::sequence_type> truth;
             for (size_t i = 0; i < da.size(); i++) {
                 truth.insert({ da[i], i });
             }
-            for (size_t i = 0; i < subchain.sequences.size(); i++) {
+            for (size_t i = 0; i < subchain.num_sequences(); i++) {
                 if (truth.find(subchain.sequences[i]) == truth.end()) {
                     std::string message = "invalid value " + pair_to_string(subchain.sequences[i]);
                     validate_error_sequence(logger, chain_id, subchain_id, i, message);
@@ -1354,16 +1361,16 @@ void validate_chain(const Logger& logger,
         // Kmers.
         if (subchain.type != Haplotypes::Subchain::full_haplotype) {
             vg::hash_set<Haplotypes::Subchain::kmer_type> all_kmers;
-            for (size_t i = 0; i < subchain.kmers.size(); i++) {
+            for (size_t i = 0; i < subchain.num_kmers(); i++) {
                 all_kmers.insert(subchain.kmers[i]);
             }
-            if (all_kmers.size() != subchain.kmers.size()) {
-                std::string message = expected_got(subchain.kmers.size(), all_kmers.size()) + " kmers";
+            if (all_kmers.size() != subchain.num_kmers()) {
+                std::string message = expected_got(subchain.num_kmers(), all_kmers.size()) + " kmers";
                 validate_error_subchain(logger, chain_id, subchain_id, message);
             }
             vg::hash_map<Haplotypes::Subchain::kmer_type, size_t> used_kmers; // (kmer used in haplotypes, number of sequences that contain it)
             vg::hash_map<Haplotypes::Subchain::kmer_type, size_t> missing_kmers; // (kmer not used in haplotypes, number of sequences that contain it)
-            for (size_t i = 0; i < subchain.sequences.size(); i++) {
+            for (size_t i = 0; i < subchain.num_sequences(); i++) {
                 std::vector<std::string> haplotype = get_haplotype(
                     graph, fragment_map,
                     subchain.sequences[i], subchain.start, subchain.end, minimizer_index.k()
@@ -1377,22 +1384,23 @@ void validate_chain(const Logger& logger,
                         }
                     }
                 }
-                for (size_t j = 0, offset = i * subchain.kmers.size(); j < subchain.kmers.size(); j++, offset++) {
-                    if (subchain.kmers_present[offset]) {
-                        auto iter = unique_minimizers.find(subchain.kmers[j]);
+                subchain.for_each_kmer(i, [&](size_t j, bool is_present) {
+                    auto iter = unique_minimizers.find(subchain.kmers[j]);
+                    if (is_present) {
                         if (iter == unique_minimizers.end()) {
                             std::string message = "kmer " + std::to_string(j) + " not present in the haplotype";
                             validate_error_sequence(logger, chain_id, subchain_id, i, message);
+                        } else {
+                            iter->second = true;
                         }
                         used_kmers[subchain.kmers[j]]++;
-                        iter->second = true;
                     } else {
-                        if (unique_minimizers.find(subchain.kmers[j]) != unique_minimizers.end()) {
+                        if (iter != unique_minimizers.end()) {
                             std::string message = "kmer " + std::to_string(j) + " is present in the haplotype";
                             validate_error_sequence(logger, chain_id, subchain_id, i, message);
                         }
                     }
-                }
+                });
                 for (auto iter = unique_minimizers.begin(); iter != unique_minimizers.end(); ++iter) {
                     if (!iter->second) {
                         missing_kmers[iter->first]++;
@@ -1400,7 +1408,7 @@ void validate_chain(const Logger& logger,
                 }
             }
             size_t invalid_count = 0;
-            for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
+            for (size_t kmer_id = 0; kmer_id < subchain.num_kmers(); kmer_id++) {
                 size_t count = 0;
                 auto iter = used_kmers.find(subchain.kmers[kmer_id]);
                 if (iter == used_kmers.end() || iter->second != subchain.kmer_counts[kmer_id]) {
@@ -1413,7 +1421,7 @@ void validate_chain(const Logger& logger,
             }
             size_t missing_informative_kmers = 0;
             for (auto iter = missing_kmers.begin(); iter != missing_kmers.end(); ++iter) {
-                if (iter->second < subchain.sequences.size()) {
+                if (iter->second < subchain.num_sequences()) {
                     missing_informative_kmers++;
                 }
             }
@@ -1501,7 +1509,7 @@ void validate_haplotypes(const Logger& logger,
         const Haplotypes::TopLevelChain& chain = haplotypes.chains[chain_id];
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
             const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
-            for (size_t i = 0; i < subchain.kmers.size(); i++) {
+            for (size_t i = 0; i < subchain.num_kmers(); i++) {
                 auto iter = kmers.find(subchain.kmers[i]);
                 if (iter != kmers.end()) {
                     const Haplotypes::Subchain& prev = haplotypes.chains[iter->second.first].subchains[iter->second.second];
@@ -1514,7 +1522,7 @@ void validate_haplotypes(const Logger& logger,
                 }
                 kmers[subchain.kmers[i]] = { chain_id, subchain_id };
             }
-            total_kmers += subchain.kmers.size();
+            total_kmers += subchain.num_kmers();
         }
     }
     kmers.clear();

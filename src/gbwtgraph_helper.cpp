@@ -1,8 +1,11 @@
 #include "gbwtgraph_helper.hpp"
 #include "gbwt_helper.hpp"
 #include "gbzgraph.hpp"
+#include "gref.hpp"
 
 #include <gbwtgraph/index.h>
+
+#include <omp.h>
 #include <vg/io/alignment_io.hpp>
 
 namespace vg {
@@ -316,6 +319,15 @@ void require_compatible_reference(
 
 //------------------------------------------------------------------------------
 
+size_t MinimizerIndexParameters::estimate_keys(size_t sequence_length) const {
+    if (this->expected_keys > 0) {
+        return this->expected_keys;
+    }
+    // Expected density of minimizers / closed syncmers in random sequence.
+    double density = (this->use_syncmers ? 2.0 / (this->k - this->w_or_s + 1) : 2.0 / (this->w_or_s + 1));
+    return sequence_length * density * KEY_ESTIMATE_FACTOR;
+}
+
 std::string MinimizerIndexParameters::validate() const {
     if (this->k < 1 || this->k > gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH) {
         return "k-mer length must be between 1 and " + std::to_string(gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH);
@@ -379,21 +391,60 @@ size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
     }
     size_t genome_size = 0;
 
-    if (gbz.graph.get_path_count() > 0) {
-        gbz.graph.for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+    // Collect all reference and non-alt generic paths by sample.
+    vg::hash_map<gbwt::size_type, std::vector<path_handle_t>> paths_by_ref_sample;
+    std::vector<path_handle_t> generic_paths;
+    for (const gbwtgraph::NamedPath& named_path : gbz.graph.named_paths) {
+        if (named_path.sense == PathSense::REFERENCE) {
+            path_handle_t path_handle = gbz.graph.path_to_handle(named_path.id);
+            std::string path_name = gbz.graph.get_path_name(path_handle);
+            if (!GrefCover::is_gref_fragment(path_name)) {
+                // If this is a gref sample, only consider the primary reference and ignore the fragments.
+                gbwt::PathName gbwt_name = gbz.index.metadata.path(named_path.id);
+                paths_by_ref_sample[gbwt_name.sample].push_back(path_handle);
+            }
+        } else if (named_path.sense == PathSense::GENERIC) {
+            path_handle_t path_handle = gbz.graph.path_to_handle(named_path.id);
             std::string path_name = gbz.graph.get_path_name(path_handle);
             if (!Paths::is_alt(path_name)) {
-                gbz.graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
-                    handle_t handle = gbz.graph.get_handle_of_step(step_handle);
-                    genome_size += gbz.graph.get_length(handle);
-                });
+                generic_paths.push_back(path_handle);
             }
-        });
-        if (progress) {
-            std::cerr << "Estimated size based on reference / non-alt generic paths: " << genome_size << std::endl;
         }
     }
 
+    // First attempt: Genome size is the maximum over reference paths.
+    for (const auto& sample_and_paths : paths_by_ref_sample) {
+        size_t sample_size = 0;
+        for (path_handle_t path_handle : sample_and_paths.second) {
+            gbz.graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
+                handle_t handle = gbz.graph.get_handle_of_step(step_handle);
+                sample_size += gbz.graph.get_length(handle);
+            });
+        }
+        if (progress && sample_size > 0) {
+            std::string sample_name = gbz.index.metadata.sample(sample_and_paths.first);
+            std::cerr << "Estimated size based on reference sample " << sample_name << ": " << sample_size << std::endl;
+        }
+        genome_size = std::max(genome_size, sample_size);
+    }
+    if (progress && genome_size > 0) {
+        std::cerr << "Estimated size based on reference paths: " << genome_size << std::endl;
+    }
+
+    // Second attempt: Genome size is the total length of generic paths.
+    if (genome_size == 0) {
+        for (path_handle_t path_handle : generic_paths) {
+            gbz.graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
+                handle_t handle = gbz.graph.get_handle_of_step(step_handle);
+                genome_size += gbz.graph.get_length(handle);
+            });
+        }
+        if (progress && genome_size > 0) {
+            std::cerr << "Estimated size based on generic paths: " << genome_size << std::endl;
+        }
+    }
+
+    // Third attempt: Genome size is the total sequence length in the graph.
     if (genome_size == 0) {
         gbz.graph.for_each_handle([&](const handle_t& handle) {
             genome_size += gbz.graph.get_length(handle);
@@ -575,9 +626,23 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     }
     std::string payload_str = MinimizerIndexParameters::payload_str(payload_type);
 
-    // Create an empty minimizer index.
+    // Create an empty minimizer index with a pre-sized hash table.
     std::vector<key_type> frequent_kmers = find_frequent_kmers(gbz, params);
     gbwtgraph::DefaultMinimizerIndex index(params.k, params.w_or_s, payload_size, params.use_syncmers);
+    std::vector<size_t> length_by_thread(omp_get_max_threads(), 0);
+    gbz.graph.for_each_handle([&](const handle_t& handle) {
+        length_by_thread[omp_get_thread_num()] += gbz.graph.get_length(handle);
+    }, true);
+    size_t sequence_length = 0;
+    for (size_t length : length_by_thread) {
+        sequence_length += length;
+    }
+    size_t expected_keys = params.estimate_keys(sequence_length);
+    index.reserve(expected_keys);
+    if (params.progress) {
+        logger.info() << "Expecting " << expected_keys << " keys in " << sequence_length << " bp of sequence; "
+                      << "initial hash table size " << index.cell_count() << std::endl;
+    }
     if (params.use_weighted_minimizers && !frequent_kmers.empty()) {
         index.add_frequent_kmers(frequent_kmers, params.iterations);
     }

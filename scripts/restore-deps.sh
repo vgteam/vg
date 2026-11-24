@@ -20,6 +20,8 @@ if [[ -e deps ]]; then
 fi
 mkdir -p deps_cached
 
+# Destroy any submodule configs or locks from the cache
+rm -Rf .git/modules
 # Get the correct code
 git submodule update --init --recursive
 

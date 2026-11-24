@@ -15,7 +15,7 @@ on:
 jobs:
   testmac:
     name: Test on Mac
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - name: Use cache
@@ -26,14 +26,14 @@ jobs:
             lib
             include
             bin
-          key: ${{ runner.os }}-15-${{ github.ref }}
+          key: ${{ runner.os }}-26-arm-${{ github.ref }}
           # Restore keys are a "list", but really only a multiline string is
           # accepted. Also we match by prefix. And the most recent cache is
           # used, not the most specific.
           # See: https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows#matching-a-cache-key
           restore-keys: |
-            ${{ runner.os }}-15-${{ github.base_ref }}
-            ${{ runner.os }}-15
+            ${{ runner.os }}-26-arm-${{ github.base_ref }}
+            ${{ runner.os }}-26-arm
           
       - name: Checkout code without submodules
         uses: actions/checkout@v2
@@ -41,7 +41,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 26
       
       - name: Get or restore dependencies
         run: scripts/restore-deps.sh
@@ -51,18 +51,22 @@ jobs:
         # We uninstall everything we don't need in order to prevent linking
         # conflicts with existing/outdated packages, which we can't resolve
         # because there's no way to tell Homebrew to force-link when installing
-        # from a Brewfile. We also update Protobuf to make sure we have 3.21.3+
+        # from a Brewfile.
+        # We also update Protobuf to make sure we have 3.21.3+
         # to avoid problems with ABI changes with/without -DNDEBUG.
         # And we update libomp to make extra sure it will be picked up by the compiler.
-        # We pre-install a pinned txm to work around https://github.com/anko/txm/issues/8
         run: |
+          echo "Removing unlisted packages" && \
           brew bundle cleanup --force && \
-          brew bundle install && \
-          brew update && \
-          brew install protobuf && \
-          brew install libomp && \
-          brew install bwa graphviz && \
-          npm install -g txm@7.4.5 && \
+          echo "Installing" && \
+          brew bundle install --verbose && \
+          echo "Updating" && \
+          brew update --verbose && \
+          echo "Installing more" && \
+          brew install --verbose protobuf && \
+          brew install --verbose libomp && \
+          brew install --verbose bwa graphviz && \
+          npm install -g txm@8.2.0 && \
           brew config && \
           (brew doctor || echo "brew doctor is unhappy")
 

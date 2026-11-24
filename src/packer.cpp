@@ -467,17 +467,17 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq, int trim_end
     int prev_bq_total = 0;
     int prev_bq_count = 0;
     size_t position_in_read = 0;
-    size_t read_length = aln.sequence().length();
-    if (trim_ends > 0 && read_length == 0) {
-        // could happen in gaf, where we don't bother parsing the sequence
-        for (auto& mapping : aln.path().mapping()) {
-            for (auto& edit : mapping.edit()) {
-                read_length += edit.to_length();
-            }
+    // Measure the read along its path, in the positions that position_in_read
+    // counts. The sequence may be incomplete.
+    size_t read_length = 0;
+    for (auto& mapping : aln.path().mapping()) {
+        for (auto& edit : mapping.edit()) {
+            read_length += edit.to_length();
         }
     }
-    size_t trim_last = read_length + 1 < trim_ends ? 0 : read_length - trim_ends - 1;
-    
+    // One past the last read position that adds coverage. The first is trim_ends.
+    size_t counted_end = read_length > (size_t)trim_ends ? read_length - trim_ends : 0;
+
     size_t cur_pos = 0;
     for (size_t mi = 0; mi < aln.path().mapping_size(); ++mi) {
         auto& mapping = aln.path().mapping(mi);
@@ -515,7 +515,7 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq, int trim_end
                         ++bq_count;
                         // base quality threshold filter (only if we found some kind of quality)
                         if (record_bases && (base_quality < 0 || base_quality >= min_baseq) &&
-                            position_in_read >= trim_ends && position_in_read <= trim_last) {
+                            position_in_read >= trim_ends && position_in_read < counted_end) {
                             increment_coverage(coverage_idx);
                             if (record_qualities && mapping_quality > 0) {
                                 total_node_quality += mapping_quality;
@@ -545,8 +545,11 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq, int trim_end
             }
         }
         
-        if (record_edges && has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id() && 
-            (prev_position_in_read  > trim_ends && prev_position_in_read <= trim_last)) {
+        // The edge into this mapping lies between read positions
+        // prev_position_in_read - 1 and prev_position_in_read. It adds coverage
+        // when both of those positions do.
+        if (record_edges && has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id() &&
+            (prev_position_in_read  > trim_ends && prev_position_in_read < counted_end)) {
             // Note: we are effectively ignoring edits here.  So an edge is covered even
             // if there's a sub or indel at either of its ends in the path.  
             Edge e;

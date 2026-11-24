@@ -71,6 +71,7 @@ RUN CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; the
 
 # Bring in the sources, which we need in order to build.
 COPY src /vg/src
+COPY artifacts /vg/artifacts
 
 # Build all the object files for vg, but don't link.
 # Also pass the arch here

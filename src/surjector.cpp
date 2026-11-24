@@ -34,6 +34,11 @@
 
 namespace vg {
 
+    template<>
+    bool Surjector::get_is_secondary(const Alignment& aln);
+    template<>
+    bool Surjector::get_is_secondary(const multipath_alignment_t& aln);
+
 using namespace std;
     
     Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph), choose_band_padding(algorithms::pad_band_constant(1)) {
@@ -340,11 +345,36 @@ using namespace std;
         }
 #endif
         
-        // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
-        // low complexity sequences
+        // Read mapper-declared tail lengths.
+        // Missing annotations are interpreted as zero.
+        // TODO: What if a tail length is negative, NaN or huge? Casting it to size_t is undefined.
+        // TODO: The multipath branch casts the annotation pointer without
+        // checking its type, so a null or bool annotation is read as a double.
+        // get_annotation<double>() checks the type.
+        size_t left_tail_length = 0, right_tail_length = 0;
+        if (source_aln) {
+            if (has_annotation(*source_aln, "left_tail_length")) {
+                left_tail_length = static_cast<size_t>(get_annotation<double>(*source_aln, "left_tail_length"));
+            }
+            if (has_annotation(*source_aln, "right_tail_length")) {
+                right_tail_length = static_cast<size_t>(get_annotation<double>(*source_aln, "right_tail_length"));
+            }
+        }
+        else {
+            if (source_mp_aln->has_annotation("left_tail_length")) {
+                left_tail_length = static_cast<size_t>(*((const double*) source_mp_aln->get_annotation("left_tail_length").second));
+            }
+            if (source_mp_aln->has_annotation("right_tail_length")) {
+                right_tail_length = static_cast<size_t>(*((const double*) source_mp_aln->get_annotation("right_tail_length").second));
+            }
+        }
+        // TODO: Pruning compacts each path's chunks but leaves connections
+        // pointing at the old chunk indexes. Do spliced surjections then follow
+        // connections to the wrong chunks, or past the end?
         for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
             prune_and_trim_anchors(source_aln ? source_aln->sequence() : source_mp_aln->sequence(),
-                                   it->second.first, it->second.second);
+                                   it->second.first, it->second.second,
+                                   left_tail_length, right_tail_length);
         }
         
         // the surjected alignment for each path we overlapped
@@ -552,7 +582,9 @@ using namespace std;
                 strands_to_output = std::move(supplementary_cover(aln_surjections));
                 for (size_t i = 1; i < strands_to_output.size(); ++i) {
                     for (auto& surjection : aln_surjections[strands_to_output[i]]) {
-                        set_annotation<bool>(surjection.first, "supplementary", true);
+                        if (!get_is_secondary(surjection.first)) {
+                            set_annotation<bool>(surjection.first, "supplementary", true);
+                        }
                     }
                 }
             }
@@ -560,7 +592,9 @@ using namespace std;
                 strands_to_output = std::move(supplementary_cover(mp_aln_surjections));
                 for (size_t i = 1; i < strands_to_output.size(); ++i) {
                     for (auto& surjection : mp_aln_surjections[strands_to_output[i]]) {
-                        surjection.first.set_annotation("supplementary", true);
+                        if (!get_is_secondary(surjection.first)) {
+                            surjection.first.set_annotation("supplementary", true);
+                        }
                     }
                 }
             }
@@ -605,12 +639,8 @@ using namespace std;
                     path_range = surjection.second;
                     mp_alns_out->emplace_back(std::move(surjection.first));
                     
-                    if (source_mp_aln->has_annotation("secondary")) {
-                        auto annotation = source_mp_aln->get_annotation("secondary");
-                        assert(annotation.first == multipath_alignment_t::Bool);
-                        mp_alns_out->back().set_annotation("secondary", *((bool*) annotation.second));
-                    }
-                    else if (i != 0 && !is_supplementary(mp_alns_out->back())) {
+                    if (get_is_secondary(*source_mp_aln)
+                        || (i != 0 && !is_supplementary(mp_alns_out->back()))) {
                         mp_alns_out->back().set_annotation("secondary", true);
                     }
                     
@@ -3191,6 +3221,9 @@ using namespace std;
         vector<pair<Alignment, pair<step_handle_t, step_handle_t>>> surjected;
         
         // find the end-inclusive intervals of the ref path we need to consider
+        // TODO: Is this right without report_supplementary? A read across a
+        // deletion longer than the gap is split here, and choose_primary()
+        // then drops the smaller piece instead of keeping the deletion.
         size_t interval_gap = min(max_disjoint_gap,
                                   max<size_t>(min_disjoint_gap, read_length_prop_disjoint_gap * (override_read_length ? override_read_length : source.sequence().size())));
         auto ref_path_intervals = compute_disjoint_path_intervals(path_position_graph, source,
@@ -4646,11 +4679,113 @@ using namespace std;
         }
     }
 
+    bool Surjector::anchor_has_nearby_repeat(
+        const string& sequence, const path_chunk_t& chunk,
+        const pair<step_handle_t, step_handle_t>& step_range) const {
+
+        if (max_slide <= 0) {
+            return false;
+        }
+
+        // Limit the search radius to max_slide or twice the anchor span.
+        auto slide_limit = [&](size_t span) {
+            size_t limit = max_slide;
+            return span > limit / 2 ? limit : span * 2;
+        };
+        // Find another exact occurrence within radius bases of the original start,
+        // searching both directions and requiring the full occurrence to fit.
+        auto has_repeat = [&](const string& bases, size_t start,
+                              size_t span, size_t radius) {
+            crash_unless(start <= bases.size());
+            crash_unless(span <= bases.size() - start);
+            if (span == 0 || radius == 0) {
+                return false;
+            }
+            size_t left = min(radius, start);
+            size_t right = min(radius, bases.size() - start - span);
+            auto anchor_begin = bases.begin() + start;
+            auto anchor_end = anchor_begin + span;
+            for (size_t offset = start - left; offset <= start + right; ++offset) {
+                if (offset != start && std::equal(anchor_begin, anchor_end,
+                                                 bases.begin() + offset)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // Search for another occurrence of the anchor's read sequence nearby.
+        size_t read_start = chunk.first.first - sequence.begin();
+        size_t read_span = chunk.first.second - chunk.first.first;
+        if (has_repeat(sequence, read_start, read_span, slide_limit(read_span))) {
+            return true;
+        }
+
+        // If no repeat found in the read, check the reference sequence covered by the anchor.
+        size_t ref_span = path_from_length(chunk.second);
+        size_t radius = slide_limit(ref_span);
+        if (ref_span == 0 || radius == 0) {
+            return false;
+        }
+        auto first_step = step_range.first;
+        auto first_handle = graph->get_handle_of_step(first_step);
+        auto path_handle = graph->get_path_handle_of_step(first_step);
+        const auto& first_pos = chunk.second.mapping(0).position();
+        bool reverse_relative_to_path =
+            first_pos.is_reverse() != graph->get_is_reverse(first_handle);
+        size_t step_start = graph->get_position_of_step(first_step);
+        size_t node_length = graph->get_length(first_handle);
+        size_t path_length = graph->get_path_length(path_handle);
+        size_t mapping_offset = first_pos.offset();
+        crash_unless(mapping_offset <= node_length);
+        // TODO: What if the anchor crosses the origin of a circular path? Chunks
+        // are extended with get_next_step(), which wraps there, so the anchor's
+        // span can run past the path end and the checks below would crash.
+
+        size_t anchor_start;
+        if (reverse_relative_to_path) {
+            size_t anchor_end = step_start + node_length - mapping_offset;
+            crash_unless(ref_span <= anchor_end);
+            anchor_start = anchor_end - ref_span;
+        } else {
+            anchor_start = step_start + mapping_offset;
+        }
+        crash_unless(anchor_start <= path_length);
+        crash_unless(ref_span <= path_length - anchor_start);
+        size_t left = min(radius, anchor_start);
+        size_t right = min(radius, path_length - anchor_start - ref_span);
+        size_t window_start = anchor_start - left;
+        size_t window_length = left + ref_span + right;
+
+        // Extract the entire search window once, in forward path order.
+        string window;
+        window.reserve(window_length);
+        auto step = graph->get_step_at_position(path_handle, window_start);
+        size_t within_step = window_start - graph->get_position_of_step(step);
+        while (window.size() < window_length) {
+            // get_handle_of_step() is oriented as the path traverses this step.
+            auto handle = graph->get_handle_of_step(step);
+            string node_sequence = graph->get_sequence(handle);
+            size_t take = min(node_sequence.size() - within_step,
+                              window_length - window.size());
+            window.append(node_sequence, within_step, take);
+            within_step = 0;
+            if (window.size() < window_length) {
+                crash_unless(graph->has_next_step(step));
+                step = graph->get_next_step(step);
+            }
+        }
+        return has_repeat(window, left, ref_span, radius);
+    }
+
     void Surjector::prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
-                                           vector<pair<step_handle_t, step_handle_t>>& step_ranges) const {
-        
-        if (!prune_suspicious_anchors && max_anchors > path_chunks.size()) {
-            // the setting don't require us to prune anything here
+                                           vector<pair<step_handle_t, step_handle_t>>& step_ranges,
+                                           size_t left_tail_length, size_t right_tail_length) const {
+
+        crash_unless(path_chunks.size() == step_ranges.size());
+
+        if (!prune_suspicious_anchors && !prune_tail_region_anchors && max_anchors > path_chunks.size()) {
+            // the settings don't require us to prune anything here
             return;
         }
         
@@ -4674,7 +4809,37 @@ using namespace std;
         }
         
         vector<bool> keep(path_chunks.size(), true);
-        
+
+        // Clamp tail lengths to the read length
+        size_t read_length = sequence.size();
+        left_tail_length = std::min(left_tail_length, read_length);
+        right_tail_length = std::min(right_tail_length, read_length);
+        size_t right_tail_begin = read_length - right_tail_length;
+
+        if (prune_tail_region_anchors) {
+            // Drop anchors whose entire read interval lies inside a mapper-declared tail region.
+            for (int i = 0; i < path_chunks.size(); ++i) {
+                auto& chunk = path_chunks[i];
+                size_t anchor_read_start = chunk.first.first - sequence.begin();
+                size_t anchor_read_end = chunk.first.second - sequence.begin();
+
+                bool fully_in_left_tail = (left_tail_length > 0 && anchor_read_end <= left_tail_length);
+                bool fully_in_right_tail = (right_tail_length > 0 && anchor_read_start >= right_tail_begin);
+
+                if (fully_in_left_tail || fully_in_right_tail) {
+#ifdef debug_anchored_surject
+                    cerr << "anchor " << i << " (read[" << anchor_read_start << ":" << anchor_read_end
+                        << "]) pruned for lying fully inside "
+                        << (fully_in_left_tail ? "left" : "right")
+                        << " tail region"
+                        << " (left_tail_length=" << left_tail_length
+                        << ", right_tail_length=" << right_tail_length << ")" << endl;
+#endif
+                    keep[i] = false;
+                }
+            }
+        }
+
         if (prune_suspicious_anchors) {
 #ifdef debug_anchored_surject
             cerr << "pruning suspicious anchors";
@@ -4686,7 +4851,12 @@ using namespace std;
             for (int i = 0; i < path_chunks.size(); ++i) {
                 auto& chunk = path_chunks[i];
                 // Mark anchors that are themselves suspicious as not to be kept.
-                
+
+                if (!keep[i]) {
+                    // Already pruned by the tail-region check above; skip remaining checks.
+                    continue;
+                }
+
                 // Short tails
                 if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second) // Is at either tail
                     && (anchor_lengths[i] <= max_tail_anchor_prune || chunk.first.second - chunk.first.first <= max_tail_anchor_prune)) { // And is too short
@@ -4698,47 +4868,14 @@ using namespace std;
                     continue;
                 }
 
-                // Simple slide in either direction.
-                // Make sure to increase the slide range from the anchor size itself, in case we're looking at a partial repeat unit.
-                size_t slide_limit = std::min<size_t>(max_slide, (chunk.first.second - chunk.first.first) * 2);
-                for (int slide_distance = -(int)slide_limit; slide_distance < (int)slide_limit + 1; slide_distance++) {
-                    if (slide_distance == 0) {
-                        continue;
-                    }
-
-                    // Prune the anchor if we can shift by slide_distance and find it again
-                    
-                    auto current_start = chunk.first.first;
-                    auto current_end = chunk.first.second;
-
-                    // TODO: check if the anchor still equals the *target path* when slid by this distance.
-                    // For now we just check if the anchor still equals the *read* when slid by this distance.
-                    // So check that is fits in the read.
-                    size_t start_offset = current_start - sequence.begin();
-                    size_t remaining_until_end = sequence.end() - current_end;
-
-                    if ((slide_distance < 0 && start_offset < -slide_distance) || (slide_distance > 0 && remaining_until_end < slide_distance)) {
-                        // Slid window would be out of range. Skip it.
-                        continue;
-                    }
-                    
-                    // Construct the slid sequence iterators
-                    auto slid_start = current_start + slide_distance;
-                    auto slid_end = current_end + slide_distance;
-
-                    if (std::equal(current_start, current_end, slid_start, slid_end)) {
+                if (anchor_has_nearby_repeat(sequence, chunk, step_ranges[i])) {
 #ifdef debug_anchored_surject
-                        std::cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(current_start, current_end) << " pruned for existing again at offset " << slide_distance << " in read" << std::endl;
+                    cerr << "anchor " << i
+                         << " pruned for a nearby read or target-path repeat" << endl;
 #endif
-                        keep[i] = false;
-                        break;
-                    }
-                }
-                if (!keep[i]) {
-                    // Don't do the statistical checks if we're already not keeping the anchor.
+                    keep[i] = false;
                     continue;
                 }
-
 
                 // Low statistical complexity
                 if ((anchor_lengths[i] <= max_low_complexity_anchor_prune || chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune)) {
@@ -4835,6 +4972,8 @@ using namespace std;
         }
         
         // make sure we didn't flag all of the anchors for removal
+        // TODO: What if all anchors are in the declared tails? This keeps one
+        // anyway, so a path that only a tail maps to still gets a surjection.
         if (kept_anchors == 0) {
             // we filtered out all of the anchors, choose the longest one to keep
             // even though it failed the filter
@@ -5255,9 +5394,10 @@ using namespace std;
         size_t curr_interval_strict_right_bound = -1;
         for (const auto& chunk_interval : chunk_intervals) {
             
-            // check for sufficient separation to start a new supplementary using the directly attested intervals
+            // Preserve sufficiently separated reference regions as distinct alignment
+            // candidates; supplementary reporting is decided after alignment.
             if (disjoint_path_intervals.empty() ||
-                (report_supplementary && curr_interval_strict_right_bound + max_gap + 1 < get<0>(chunk_interval))) {
+                curr_interval_strict_right_bound + max_gap + 1 < get<0>(chunk_interval)) {
                 // make new interval
                 curr_interval_strict_right_bound = get<1>(chunk_interval);
                 disjoint_path_intervals.emplace_back(get<2>(chunk_interval), get<3>(chunk_interval),
@@ -5507,6 +5647,9 @@ using namespace std;
             if (source.has_fragment_prev()) {
                 *clipped.mutable_fragment_prev() = source.fragment_prev();
             }
+            // TODO: Adjust full-read tail annotations to each supplementary piece's
+            // clipped interval. Unchanged lengths can exceed the piece or prune the
+            // wrong anchors; clamping prevents oversized lengths but does not fix coordinates.
             *clipped.mutable_annotation() = source.annotation();
             
             if (&unclipped != &source) {
