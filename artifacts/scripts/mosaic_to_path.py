@@ -152,7 +152,8 @@ def oriented(step, sequences):
 class Fragment:
     """One fragment of a strand: the visit of each node, with the bases a row gave it (None for
     the node's own), the bases a row put after it on no node (None unless a row joins it to the
-    next visit), and whether a row made it."""
+    next visit), and whether it is a step inside a row's walk. `rows` has the first and the last
+    visit of each stretch a row was put on."""
 
     def __init__(self, path, rows, fail, counts):
         places = defaultdict(list)
@@ -175,7 +176,7 @@ class Fragment:
             if not found:
                 fail['A row with no stretch of its fragment to go on'] += 1
             stretches += found
-        self.nodes, self.bases, self.after, self.made = [], [], [], []
+        self.nodes, self.bases, self.after, self.made, self.rows = [], [], [], [], []
         at, site_end, node_row = 0, -1, -1
         for first, last, walk, entries in sorted(stretches, key=lambda s: s[:2]):
             if first < site_end or (first == last and first == node_row):
@@ -193,6 +194,7 @@ class Fragment:
                 self.extend(path[last:last + 1])
                 steps.append(len(self.nodes) - 1)
                 at, site_end = last + 1, last
+            self.rows.append((steps[0], steps[-1]))
             for k, entry in zip(steps, entries):
                 own, joined, after = entry.partition('+')
                 if (own != '*' and self.bases[k] is not None) or (joined
@@ -202,7 +204,6 @@ class Fragment:
                     self.bases[k] = own
                 if joined:
                     self.after[k] = after
-                self.made[k] = self.made[k] or entry != '*'
         self.extend(path[at:])
         self.places = defaultdict(list)
         for i, step in enumerate(self.nodes):
@@ -225,8 +226,8 @@ class Fragment:
 
 
 class Reference:
-    """One contig's reference path: where each of its steps starts, and the step of each node
-    it visits once."""
+    """One contig's reference path: where each of its steps starts, with where the last one
+    ends, and the step of each node it visits once."""
 
     def __init__(self, walk, sequences):
         self.walk, self.sequences, self.starts, self.step = walk, sequences, [], {}
@@ -235,6 +236,7 @@ class Reference:
             self.starts.append(at)
             at += len(sequences[node])
             self.step[node] = None if node in self.step else i
+        self.starts.append(at)
 
     def on(self, step):
         """The index of the path's step at `step`, if it visits that node once, the same way."""
@@ -304,6 +306,10 @@ def check_strand(fragments, strand, vcf, reference, sequences, counts):
     different = []
     differs = different.append
 
+    # The changes the records of edit sites make on the strand. One that takes and puts in
+    # nothing is the reference allele.
+    edit_changes = sorted(filter(lambda c: c[1] or c[2], (change_of(r, strand) for r in edits)))
+
     # Sites, from bound node to bound node.
     places = sorted((place, name) for place, _, name in footprints)
     for name, records in sites.items():
@@ -322,7 +328,6 @@ def check_strand(fragments, strand, vcf, reference, sequences, counts):
         if reasons:
             counts[f'site strands not compared: {reasons[0]}'] += 1
             continue
-        expected = with_changes(reference.spell(i, j + 1), reference.starts[i], made)
         found = [(f, c) for f in fragments for c in crossings(f.places, first, last)]
         if not found:
             counts['site strands not compared: the strand does not cross the site from start to '
@@ -330,18 +335,30 @@ def check_strand(fragments, strand, vcf, reference, sequences, counts):
             continue
         counts['site strands checked'] += 1
         ends = [oriented(bound, sequences).upper() for bound in bounds]
-        # Records that take the same base, or lie outside the site, give no bases to have.
-        if expected is not None and all(
-                ends[0] + f.between(a, b, sequences).upper() + ends[1] == expected
-                for f, (a, b) in found):
+        on_start = [change for change in edit_changes
+                    if reference.starts[i] <= change[0] < reference.starts[i + 1]]
+
+        def as_records(f, a, b):
+            # Records that take the same base give no bases to have.
+            reference_bases, inner = reference.spell(i, j + 1), f.between(a, b, sequences)
+            if with_changes(reference_bases, reference.starts[i], made) \
+                    == (ends[0] + inner + ends[1]).upper():
+                return True
+            # A row of an enclosing site can give the start bound node, with a change an edit
+            # site makes to it, and the bases after it as one entry. The node is then compared
+            # with that change.
+            return f.made[a] and f.bases[a] is not None and with_changes(
+                reference_bases, reference.starts[i], made + on_start) \
+                == (f.spell(a, sequences) + inner + ends[1]).upper()
+
+        if all(as_records(f, a, b) for f, (a, b) in found):
             counts['site strands equal'] += 1
         else:
             differs(f"{name}: the strand does not have the bases its records give")
 
     # The nodes that the records of edit sites change, taken together where they share a node.
     groups = []
-    # A change that takes and puts in nothing is the reference allele.
-    for change in sorted(filter(lambda c: c[1] or c[2], (change_of(r, strand) for r in edits))):
+    for change in edit_changes:
         place, removed = change[:2]
         # The steps of the reference with the first and the last base the change takes. Inserted
         # bases are with the node of the base before them.
@@ -364,10 +381,15 @@ def check_strand(fragments, strand, vcf, reference, sequences, counts):
         elif expected is None:
             counts['edit site nodes not compared: two records there take the same base'] += 1
         else:
-            counts['edit site nodes checked'] += 1
             # Bases put after the last node can be the edit site's, written as lying after it.
             (f, v), = visits[-1]
             spelled = ''.join(f.spell(v, sequences) for (f, v), in visits).upper()
+            if f.made[v] and f.bases[v] is not None and spelled.startswith(expected) \
+                    and spelled != expected:
+                counts['edit site nodes not compared: a row gives the node and the bases after it '
+                       'as one entry, which the site that starts there is compared with'] += 1
+                continue
+            counts['edit site nodes checked'] += 1
             if expected in (spelled, spelled + (f.after[v] or '').upper()):
                 counts['edit site nodes equal'] += 1
             else:
@@ -394,29 +416,19 @@ def check_strand(fragments, strand, vcf, reference, sequences, counts):
         return k >= 0 and covered[k][1] >= lo
 
     for f in fragments:
-        before = None
-        for v, step in enumerate(f.nodes):
-            r = reference.on(step)
-            if r is None:
+        for a, b in f.rows:
+            i, j = reference.on(f.nodes[a]), reference.on(f.nodes[b])
+            if i is None or j is None or j < i:
+                counts['A rows not compared with the reference: its path does not give their '
+                       'nodes'] += 1
                 continue
-            lo, hi = reference.starts[r], reference.starts[r] + len(sequences[step[0]])
-            if f.bases[v] is not None and f.bases[v].upper() != reference.spell(r, r + 1) \
-                    and not recorded(lo, hi):
-                differs(f"node {step[0]}: an A row changes it where no record lies")
-            if before is not None and (v > before[0] + 1 or r != before[1] + 1
-                                       or f.after[before[0]] is not None):
-                if r <= before[1]:
-                    counts['stretches not compared: the strand does not follow the reference '
-                           'path there'] += 1
-                elif f.between(before[0], v, sequences).upper() \
-                        != reference.spell(before[1] + 1, r) and not recorded(before[2], lo):
-                    if any(f.made[before[0]:v + 1]):
-                        differs(f"between nodes {f.nodes[before[0]][0]} and {step[0]}: an A row "
-                                f"makes the strand differ from the reference where no record lies")
-                    else:
-                        counts['stretches not compared: the H rows leave the reference where no '
-                               'record lies, and no A row changes them'] += 1
-            before = (v, r, hi)
+            # A node's row gives the bases of the node, and a site's row what its bounds enclose.
+            i, j = (i, i + 1) if a == b else (i + 1, j)
+            spelled = f.spell(a, sequences) if a == b else f.between(a, b, sequences)
+            if spelled.upper() != reference.spell(i, j) \
+                    and not recorded(reference.starts[i], reference.starts[j]):
+                differs(f"from node {f.nodes[a][0]} to node {f.nodes[b][0]}: an A row makes the "
+                        f"strand differ from the reference where no record lies")
     return different
 
 
