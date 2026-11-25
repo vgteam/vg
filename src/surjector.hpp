@@ -14,6 +14,7 @@
 #include <functional>
 #include <limits>
 #include <queue>
+#include <optional>
 
 #include "aligner.hpp"
 #include "crash.hpp"
@@ -120,6 +121,83 @@ using namespace std;
 
         /// Cap for computed diploid haplotype and global qualities
         int32_t max_diploid_mapping_quality = 60;
+
+        /// Fixed fragment model, supplied after learning or directly by a caller.
+        /// The standard deviation must be positive; parameters must be finite.
+        struct DiploidFragmentModel {
+            double mean = 0.0;
+            double stddev = 1.0;
+        };
+
+        /// Pair compatibility and scoring configuration; no learning occurs here.
+        struct DiploidPairingParameters {
+            /// Maximum fragment length in bases; zero means unlimited.
+            int64_t maximum_fragment_length = 0;
+
+            /// Fragment length distribution used for scoring.
+            /// If absent, pairs are scored using alignment scores alone.
+            optional<DiploidFragmentModel> fragment_model;
+        };
+
+        /// A paired surjection result containing both mates' alignments and supplementary pieces.
+        /// The alignments have their final flags, mapping qualities, and mate links.
+        struct DiploidPairResult {
+            /// Index of the original graph-placement pair in the input placements vector.
+            size_t source_pair_index = 0;
+
+            /// Mate 1: non-supplementary alignment first, followed by supplementary pieces.
+            /// Contains one unmapped alignment if this mate has no placement.
+            vector<Alignment> first;
+
+            /// Mate 2
+            vector<Alignment> second;
+
+            /// Sum of the non-supplementary alignment scores, including the
+            /// fragment length penalty when a model is supplied.
+            double score = 0.0;
+
+            /// Whether the pair passed the path, orientation, and distance checks.
+            bool compatible = false;
+        };
+
+        /// Surject all graph placements of one read pair.
+        /// Returns the winning pair first, followed by secondary alternatives.
+        ///
+        /// placements: the alternative graph placements of one fragment, each as
+        /// (mate 1, mate 2) with reciprocal fragment links. Exactly one pair is
+        /// primary; the rest are secondary on both mates. All placements of a mate
+        /// must share its name, sequence, and qualities. Supplementary alignments
+        /// are not allowed in the input.
+        ///
+        /// paths: the target paths to surject onto.
+        ///
+        /// parameters: the maximum fragment length and an optional fragment length
+        /// model for scoring.
+        ///
+        /// Each mate is paired only with its partner from the same input placement.
+        /// A pair is compatible if both mates land on the same target path, facing
+        /// each other, within the maximum fragment length (mates may overlap).
+        /// Each mate's MAPQ is capped by its original primary input MAPQ,
+        /// unless that value is 255 (unavailable).
+        ///
+        /// If no pair is compatible, returns one improper pair with MAPQ 0, chosen
+        /// by most mapped mates and then total alignment score. Empty input returns
+        /// an empty vector.
+        vector<DiploidPairResult> surject_diploid_paired(
+            const vector<pair<Alignment, Alignment>>& placements,
+            const unordered_set<path_handle_t>& paths,
+            const DiploidPairingParameters& parameters,
+            bool allow_negative_scores = false, bool preserve_deletions = false) const;
+
+        /// Get a fragment length for learning from a surject_diploid_paired() result.
+        ///
+        /// Returns the outer reference span of the first (best) pair, or nullopt if
+        /// that pair should not be used for learning: it is the incompatible fallback,
+        /// either mate has supplementary pieces, or either mate's output or original
+        /// input MAPQ is below min_diploid_fragment_mapping_quality. An unavailable
+        /// original input MAPQ (255) is also rejected. Empty input returns nullopt.
+        optional<int64_t> diploid_fragment_length(const vector<DiploidPairResult>& candidates) const;
+        int32_t min_diploid_fragment_mapping_quality = 20;
 
         /// Same semantics as with alignments except that connections are always
         /// preserved as splices. The output consists of a multipath alignment with
@@ -343,6 +421,45 @@ using namespace std;
         
         
     protected:
+
+        /// One candidate target-path placement of a read, used during diploid selection.
+        /// Unpaired and paired diploid selection rank these to choose primary and
+        /// secondary output; until then, the alignments in pieces do not have
+        /// their final flags or MAPQs.
+        struct DiploidCandidate {
+            /// Non-supplementary alignment first, followed by its supplementary pieces.
+            vector<Alignment> pieces;
+
+            /// Target-path name, offset, and orientation for each corresponding piece.
+            vector<tuple<string, int64_t, bool>> positions;
+
+            /// Serialized input graph path, used to break ties between placements.
+            string source_path;
+
+            /// Whether this is the preferred target placement for its input placement.
+            bool preferred = false;
+
+            /// Phred-scaled confidence in the preferred target rather than the
+            /// other targets for the same input placement.
+            int32_t haplotype_quality = 0;
+        };
+        vector<DiploidCandidate> diploid_candidates(const Alignment& source,
+            const unordered_set<path_handle_t>& paths, bool allow_negative_scores,
+            bool preserve_deletions) const;
+
+        /// Return the outer reference span of a compatible inward-facing pair, else nullopt.
+        /// Uses the same mapped reference bounds as SAM TLEN, excluding terminal gaps/clips.
+        optional<int64_t> diploid_pair_span(const Alignment& first, const Alignment& second,
+                                          int64_t maximum_fragment_length) const;
+
+        /// Return the sum of the mate alignment scores, minus the fragment length
+        /// penalty when a model is supplied. The caller must check compatibility first.
+        double score_diploid_pair(const Alignment& first, const Alignment& second,
+                                  int64_t fragment_length,
+                                  const DiploidPairingParameters& parameters) const;
+
+        /// Remove SA tags from the alignment's stored SAM tags.
+        static void clear_diploid_sa(Alignment& alignment);
 
         /// Do the extra score setup for the DP-only Aligner.
         void set_dp_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);

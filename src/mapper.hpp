@@ -82,6 +82,12 @@ public:
  */
 class FragmentLengthDistribution {
 public:
+    /// Fraction of observations used for robust fragment-length estimation.
+    static constexpr double DEFAULT_ROBUST_ESTIMATION_FRACTION = 0.95;
+
+    /// Number of standard deviations used for fragment-length compatibility limits.
+    static constexpr double DEFAULT_FRAGMENT_LENGTH_STD_DEVS = 6.0;
+
     
     /// Initialize distribution
     ///
@@ -152,7 +158,7 @@ public:
     /// Set parameters for estimating fragment length distribution.
     /// TODO: setting alignment threads after this could mess up the internal memory for how many threads to reset to
     void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
-                                          double robust_estimation_fraction = 0.95);
+                                          double robust_estimation_fraction = FragmentLengthDistribution::DEFAULT_ROBUST_ESTIMATION_FRACTION);
 
     /// Returns true if fragment length distribution has been fixed
     bool has_fixed_fragment_length_distr();
