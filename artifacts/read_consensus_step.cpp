@@ -22,18 +22,20 @@ static optional<string> between(const string& sequence, size_t before, size_t af
 }
 
 /// Add `consensus`, the bases a consensus has between the bounds of the site of `alleles`, as
-/// `walk` with changes to its steps where `walk` is given, and as a sequence allele otherwise.
-/// Count it in `entered` as threaded where it is the walk.
+/// `walk` with changes to its steps, aligned with `aligner`, where `walk` is given, and as a
+/// sequence allele otherwise. Count it in `threaded` or in `as_bases`.
 static optional<size_t> add_consensus(const HandleGraph& graph, CandidateAlleles& alleles,
                                       const optional<Traversal>& walk, const string& consensus,
-                                      ReadConsensusCounts& entered) {
+                                      const StringAlignerParams& aligner, size_t& threaded,
+                                      size_t& as_bases) {
     if (walk) {
         if (optional<size_t> allele = add_walk_allele(graph, alleles, *walk, consensus,
-                                                      ReadConsensusParams().aligner)) {
-            ++entered.threaded;
+                                                      aligner)) {
+            ++threaded;
             return allele;
         }
     }
+    ++as_bases;
     return add_sequence_allele(graph, alleles, consensus);
 }
 
@@ -415,7 +417,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
         if (clamp * (double)on.reads < options.min_gain) {
             continue;
         }
-        optional<string> consensus = read_consensus(bases, called[strand]);
+        optional<string> consensus = read_consensus(bases, called[strand], options.consensus);
         if (!consensus || *consensus == called[strand]) {
             continue;
         }
@@ -609,13 +611,17 @@ optional<StagedSite> ReadConsensusStep::merge_run(const Parts& parts,
     across.walks.push_back(*base);
     across.ref_allele = all_reference ? 0 : -1;
     interiors.push_back(*base_bases);
-    // Add the allele with `bases` between the bounds, unless there is one: as `walk` where
-    // that spells them, and as a sequence allele otherwise.
-    auto add = [&](const string& bases, const optional<Traversal>& walk) {
+    // Add the allele with `bases` between the bounds, unless there is one: a consensus as
+    // `walk` with changes to its steps where that is given, any other allele as `walk` where
+    // that spells it, and either as a sequence allele otherwise.
+    auto add = [&](const string& bases, const optional<Traversal>& walk, bool consensus) {
         if (std::ranges::find(interiors, bases) != interiors.end()) {
             return;
         }
-        if (walk && interior_of(*walk) == bases) {
+        if (consensus) {
+            add_consensus(graph, across, walk, bases, options.consensus.aligner, entered.threaded,
+                          entered.unspelled);
+        } else if (walk && interior_of(*walk) == bases) {
             across.walks.push_back(*walk);
         } else {
             add_sequence_allele(graph, across, bases);
@@ -630,7 +636,7 @@ optional<StagedSite> ReadConsensusStep::merge_run(const Parts& parts,
             called_walk[strand] = joined([&](const StagedSite& member) {
                 return splicer.strand_traversal(member, strand);
             });
-            add(*found.called[strand], called_walk[strand]);
+            add(*found.called[strand], called_walk[strand], false);
             if (called_walk[strand] && interior_of(*called_walk[strand]) != found.called[strand]) {
                 called_walk[strand].reset();
             }
@@ -641,10 +647,8 @@ optional<StagedSite> ReadConsensusStep::merge_run(const Parts& parts,
     const size_t first_consensus = across.walks.size();
     for (int strand = 0; strand < 2; ++strand) {
         const optional<string>& consensus = found.strands[strand].consensus;
-        if (consensus && std::ranges::find(interiors, *consensus) == interiors.end()) {
-            entered.unspelled += called_walk[strand] ? 0 : 1;
-            add_consensus(graph, across, called_walk[strand], *consensus, entered);
-            interiors.push_back(*consensus);
+        if (consensus) {
+            add(*consensus, called_walk[strand], true);
         }
     }
     if (across.walks.size() == first_consensus) {
@@ -780,15 +784,14 @@ size_t ReadConsensusStep::run(const Parts& parts) {
                 // crosses no site nested in the snarl.
                 optional<Traversal> walk(std::in_place);
                 StepSequences steps;
-                if (!site.is_leaf()) {
+                if (!site.is_leaf() || !splicer.strand_walk(site, strand, *walk, steps)
+                    || !steps.empty()) {
                     walk.reset();
-                    ++entered[t].nested;
-                } else if (!splicer.strand_walk(site, strand, *walk, steps) || !steps.empty()) {
-                    walk.reset();
-                    ++entered[t].unspelled;
                 }
                 added[t] += add_consensus(*parts.graph, site.alleles, walk, *consensus,
-                                          entered[t]) ? 1 : 0;
+                                          options.consensus.aligner, entered[t].threaded,
+                                          site.is_leaf() ? entered[t].unspelled
+                                                         : entered[t].nested) ? 1 : 0;
             }
         }
         if (added[t] > 0 && parts.tree_genotyper->regenotype(site, first_added)) {

@@ -38,6 +38,9 @@ struct ReadConsensusOptions {
     /// what the strand is called as, and no more than one read's say
     /// (`AlleleLikelihoodCalculator::read_clamp`), and loses likewise.
     double min_gain = 9.0;
+    /// How a strand's consensus is built, and how it is aligned to the walk the strand is
+    /// called as to become an allele.
+    ReadConsensusParams consensus;
 
     /// Return the fewest reads that can gain `min_gain` nats, where one read's say is `clamp`.
     size_t reads_needed(double clamp) const {
