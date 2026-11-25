@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <omp.h>
 
 #include "../src/alignment.hpp"
 #include "off_panel.hpp"
@@ -2191,7 +2192,7 @@ pair<size_t, size_t> GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::bases_
 }
 
 /// Return the costs that make the string aligner find the alignment of a read's bases to a
-/// sequence that `scorer` scores highest (see `score_spanning_read`).
+/// sequence that `scorer` scores highest (see `score_spanned`).
 static StringAlignerParams sequence_aligner(const EditAlignmentScorer& scorer) {
     StringAlignerParams aligner;
     aligner.mismatch = 2 * ((int32_t)scorer.match + (int32_t)scorer.mismatch);
@@ -2302,10 +2303,10 @@ void GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::fill_unaligned(
     }
 }
 
-bool GraphAlignedAlleleLikelihoodCalculator::score_spanning_read(
+optional<GraphAlignedAlleleLikelihoodCalculator::SpannedBases>
+GraphAlignedAlleleLikelihoodCalculator::spanned_bases(
     const Alignment& aln, const vector<ReadStep>& read_steps,
-    const EditAlignmentScorer& read_scorer, const SequenceAlleles& sequences,
-    vector<double>& row) const {
+    const EditAlignmentScorer& read_scorer) const {
     const ReadStep& first = read_steps.front();
     const ReadStep& last = read_steps.back();
     double nats = 0.0;
@@ -2320,20 +2321,26 @@ bool GraphAlignedAlleleLikelihoodCalculator::score_spanning_read(
     });
     if (to < from || to > aln.sequence().size()
         || to - from > params.sequence_allele_max_bases) {
-        return false;
+        return std::nullopt;
     }
-    string bases = aln.sequence().substr(from, to - from);
-    for (char& b : bases) {
+    SpannedBases spanned{aln.sequence().substr(from, to - from),
+                         read_scorer.get_log_base() * (double)score + nats};
+    for (char& b : spanned.bases) {
         b = (char)toupper(b);
     }
-    const double boundary = read_scorer.get_log_base() * (double)score + nats;
+    return spanned;
+}
+
+bool GraphAlignedAlleleLikelihoodCalculator::score_spanned(const SpannedBases& spanned,
+                                                           const SequenceAlleles& sequences,
+                                                           vector<double>& row) const {
     vector<double> aligned(row.size());
     for (size_t a = 0; a < row.size(); ++a) {
-        const optional<double> interior = sequence_nats(bases, sequences.interiors[a]);
+        const optional<double> interior = sequence_nats(spanned.bases, sequences.interiors[a]);
         if (!interior) {
             return false;
         }
-        aligned[a] = boundary + *interior;
+        aligned[a] = spanned.boundary + *interior;
     }
     row = std::move(aligned);
     return true;
@@ -2718,6 +2725,33 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         bounds.set(graph, site);
     }
 
+    // Add a read's row, unless it places the read on no allele, and its evidence.
+    auto add_row = [&](const vector<double>& scored, double mismap, const string& name,
+                       size_t length, const Position* start) {
+        if (!builder.add_read(scored, mismap, name, length, start)) {
+            return false;
+        }
+        if (phase_evidence != nullptr) {
+            // Keep only the hash of the name, because the names make the anchor evidence too
+            // heavy to keep for phasing.
+            phase_evidence->read_key.push_back((uint64_t)std::hash<string>{}(name));
+        }
+        return true;
+    };
+    // Where the sequence alleles are aligned to, a read's alignments to them are made once the
+    // reads are fetched, so that other threads can make them, and its row is added then, in
+    // the order of the reads. Not where anchors are written, which need the read itself.
+    struct Pending {
+        vector<double> row;
+        double mismap;
+        string name;
+        size_t length;
+        optional<Position> start;
+        optional<SpannedBases> spanned;
+    };
+    const bool defer = sequences.aligned && anchor_evidence == nullptr;
+    vector<Pending> pending;
+
     visit_reads(ranges, [&](const SiteRead& read) {
         Alignment flipped;
         const Alignment* scored_aln = orient_read(read, site_nodes, boundary_nodes, alleles,
@@ -2787,24 +2821,26 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                                                   *scored_aln, span_from, span_to - span_from);
             unexplained_reads += spelled - fit >= params.span_unexplained_nats ? 1 : 0;
         }
-        if (sequences.any()
-            && !(sequences.aligned && sequences.spanned_by(read_steps)
-                 && score_spanning_read(*scored_aln, read_steps, read_scorer, sequences, row))) {
-            sequences.fill_unaligned(row);
+        optional<SpannedBases> spanned;
+        if (sequences.aligned && sequences.spanned_by(read_steps)) {
+            spanned = spanned_bases(*scored_aln, read_steps, read_scorer);
         }
-
         const Alignment& aln = *read.aln;
         const double mismap = mismap_probability(aln);
         const Position* start =
             aln.path().mapping_size() > 0 ? &aln.path().mapping(0).position() : nullptr;
-        if (!builder.add_read(row, mismap, aln.name(), aln.sequence().size(), start)) {
+        if (defer) {
+            pending.push_back(Pending{row, mismap, aln.name(), aln.sequence().size(),
+                                      start != nullptr ? optional<Position>(*start)
+                                                       : std::nullopt,
+                                      std::move(spanned)});
             return;
         }
-
-        if (phase_evidence != nullptr) {
-            // Keep only the hash of the name, because the names make the anchor evidence too
-            // heavy to keep for phasing.
-            phase_evidence->read_key.push_back((uint64_t)std::hash<string>{}(aln.name()));
+        if (sequences.any() && !(spanned && score_spanned(*spanned, sequences, row))) {
+            sequences.fill_unaligned(row);
+        }
+        if (!add_row(row, mismap, aln.name(), aln.sequence().size(), start)) {
+            return;
         }
         if (anchor_evidence != nullptr) {
             // Resolve the pins against the read's own alignment, whose offsets are in the read
@@ -2813,6 +2849,34 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                 pins.anchor_read(read, graph, mismap, anchor_pin_counters));
         }
     });
+
+    // Align the pending reads, as tasks of the threads that are free, and add their rows.
+    auto score_pending = [&](size_t i) {
+        Pending& read = pending[i];
+        if (!(read.spanned && score_spanned(*read.spanned, sequences, read.row))) {
+            sequences.fill_unaligned(read.row);
+        }
+    };
+    if (omp_in_parallel()) {
+#pragma omp taskgroup
+        {
+            for (size_t i = 0; i < pending.size(); ++i) {
+#pragma omp task firstprivate(i)
+                score_pending(i);
+            }
+        }
+    } else if (!pending.empty()) {
+#pragma omp parallel
+#pragma omp single
+        for (size_t i = 0; i < pending.size(); ++i) {
+#pragma omp task firstprivate(i)
+            score_pending(i);
+        }
+    }
+    for (const Pending& read : pending) {
+        add_row(read.row, read.mismap, read.name, read.length,
+                read.start ? &*read.start : nullptr);
+    }
 
     AlleleReadLikelihoods result = builder.build();
     if (summarise_spans) {

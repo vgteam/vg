@@ -1004,12 +1004,27 @@ protected:
      * each gap. The string aligner finds the alignment of least such cost, which is the one of
      * the highest score.
      *
-     * @return False, leaving `row` as it was, if the read has more bases between the bounds
-     * than `sequence_allele_max_bases`, or an alignment is not found within the aligner's limits.
+     * The work is in two parts, so that the alignments can be made after the reads are
+     * fetched: `spanned_bases` takes what the read has between the bounds, and `score_spanned`
+     * aligns it.
      */
-    bool score_spanning_read(const Alignment& aln, const vector<ReadStep>& read_steps,
-                             const EditAlignmentScorer& read_scorer,
-                             const SequenceAlleles& sequences, vector<double>& row) const;
+    struct SpannedBases {
+        /// The read's bases between the bounds, in upper case.
+        string bases;
+        /// The read's score on the two boundary nodes, in nats.
+        double boundary = 0.0;
+    };
+
+    /// Return what a read that spans a snarl with a sequence allele has between the bounds, or
+    /// nothing if it has more bases there than `sequence_allele_max_bases`.
+    optional<SpannedBases> spanned_bases(const Alignment& aln, const vector<ReadStep>& read_steps,
+                                         const EditAlignmentScorer& read_scorer) const;
+
+    /// Fill `row` with the ln-likelihood of the read whose bases between the bounds are
+    /// `spanned` under each allele of `sequences`. Return false, leaving `row` as it was, if an
+    /// alignment is not found within the aligner's limits.
+    bool score_spanned(const SpannedBases& spanned, const SequenceAlleles& sequences,
+                       vector<double>& row) const;
 
     /// The statistics of the reads that begin in a rate window.
     struct WindowReadStats {
