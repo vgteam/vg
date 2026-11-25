@@ -230,7 +230,7 @@ int MultiPassCaller::StagedSiteEmitter::write_blocks(const PathPositionHandleGra
             caller.finish_moved_record(line);
             return withheld || output.add_variant(line, block);
         },
-        staged.spliced ? &staged.spliced->sequences : &own_steps);
+        staged.spliced ? &staged.spliced->sequences : &own_steps, !staged.spliced);
 }
 
 bool MultiPassCaller::StagedSiteEmitter::withholds_record(const CalledSite& site) {
@@ -271,6 +271,7 @@ const StagedSite& MultiPassCaller::rendered_site(const CalledSite& site) const {
 
 void MultiPassCaller::set_flatten_records(bool on) {
     flatten_records = on;
+    block_records.set_flat_check(on && getenv("VG_CHECK_FLAT_RECORDS") != nullptr);
 }
 
 bool MultiPassCaller::can_flatten(const StagedSite& site) const {
@@ -555,31 +556,13 @@ bool MultiPassCaller::align_flat_run(const FlatRunPlan& plan, FlatRefusal& refus
 
 void MultiPassCaller::plan_flat_records() {
     flat_withheld.clear();
-    if (!flatten_records && !read_consensus.enabled()) {
+    if (!flatten_records) {
         return;
     }
-    block_records.set_flat_check(getenv("VG_CHECK_FLAT_RECORDS") != nullptr);
-    // Whether the called genotype of `site`, or of a site under it, has an allele built from
-    // the reads.
-    auto consensus_called = [&](const StagedSite& site) {
-        bool called = false;
-        auto note = [&](const StagedSite& at) {
-            called = called
-                     || std::ranges::any_of(linker.chosen_genotype(at), [&](int allele) {
-                            return at.is_consensus_allele(allele);
-                        });
-        };
-        note(site);
-        splicer.for_each_under(site.record_key, note);
-        return called;
-    };
-    // Without `--flatten-records`, only a top-level site with such an allele is written as flat
-    // records, since the allele is a sequence that no walk of the site spells.
     vector<StagedSite*> roots;
     for (size_t q = 0; q < staged_sites.queue_count(); ++q) {
         for (StagedSite& site : staged_sites.queue(q)) {
-            if (site.placement.parent_record_key == 0
-                && (flatten_records || consensus_called(site))) {
+            if (site.placement.parent_record_key == 0) {
                 roots.push_back(&site);
             }
         }
@@ -589,17 +572,7 @@ void MultiPassCaller::plan_flat_records() {
     for (size_t i = 0; i < roots.size(); ++i) {
         can[i] = can_flatten(*roots[i]);
     }
-    vector<FlatRunPlan> runs;
-    if (flatten_records) {
-        runs = flat_runs(roots, can);
-    } else {
-        // Each such site is a run of its own.
-        for (size_t i = 0; i < roots.size(); ++i) {
-            if (can[i]) {
-                runs.push_back(FlatRunPlan{{roots[i]}, {}, {}});
-            }
-        }
-    }
+    const vector<FlatRunPlan> runs = flat_runs(roots, can);
     // The sites under the sites of each run that is written, and the edit sites between them.
     vector<vector<size_t>> under(runs.size());
     vector<vector<size_t>> between(runs.size());
@@ -743,12 +716,12 @@ static const char* const OP_HEADER_LINE =
 static const char* const RC_HEADER_LINE =
     "##INFO=<ID=RC,Number=0,Type=Flag,Description=\"Read consensus (--read-consensus): the "
     "called genotype of the record's snarl has an allele that is the consensus of the reads "
-    "spanning the snarl, which no walk of the graph spells; its AT is the snarl's two bound "
-    "nodes alone. The record's site can be a run of neighbouring snarls of one chain made one "
-    "site, which is named by the run's two outer bound nodes. A top-level snarl with such an "
-    "allele called at it, or at a snarl nested in it, is written as flat records (FL): there "
-    "the called genotype of a top-level snarl of the record's run, or of a snarl nested in "
-    "one, has such an allele\">";
+    "spanning the snarl. Its AT is the walk the strand is called as, whose bases the allele "
+    "changes, or the snarl's two bound nodes alone where the allele is given as its bases. The "
+    "record's site can be a run of neighbouring snarls of one chain made one site, which is "
+    "named by the run's two outer bound nodes. On a flat record (--flatten-records), the called "
+    "genotype of a top-level snarl of the record's run, or of a snarl nested in one, has such "
+    "an allele\">";
 
 /// The header line of INFO/SB.
 static const char* const SB_HEADER_LINE =
@@ -768,8 +741,7 @@ static const char* const SB_HEADER_LINE =
 
 /// The header line of INFO/FL.
 static const char* const FL_HEADER_LINE =
-    "##INFO=<ID=FL,Number=0,Type=Flag,Description=\"Flat record (--flatten-records, or a "
-    "top-level site with a read consensus called at it or under it, RC): a "
+    "##INFO=<ID=FL,Number=0,Type=Flag,Description=\"Flat record (--flatten-records): a "
     "base-level difference between the strands and the reference over a run of neighbouring "
     "top-level sites of one chain, or over one top-level site, where each strand is spelled "
     "with the called alleles of the sites of the run, of the sites nested in them and of the "
@@ -804,10 +776,10 @@ void MultiPassCaller::add_header_lines() {
     if (read_consensus.enabled()) {
         output.add_info_line(RC_HEADER_LINE);
     }
-    if (block_records.is_enabled() || flatten_records || read_consensus.enabled()) {
+    if (block_records.is_enabled() || flatten_records) {
         output.add_info_line(SB_HEADER_LINE);
     }
-    if (flatten_records || read_consensus.enabled()) {
+    if (flatten_records) {
         output.add_info_line(FL_HEADER_LINE);
     }
 }

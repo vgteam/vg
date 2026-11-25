@@ -277,6 +277,10 @@ public:
      * differently from `record.trav_to_allele`, and its blocks would spell the merged alleles
      * apart.
      *
+     * An allele is spelled by its step sequences in `sequences`, where it has them. With
+     * `own_steps`, they are the changes the alleles make themselves, which no record of another
+     * site reports, so a step whose bases differ from its node's differs from the reference.
+     *
      * @throws std::out_of_range if an entry of `genotype` is neither an allele marker nor the
      * number of a traversal in `called_traversals`.
      */
@@ -285,7 +289,7 @@ public:
               int ref_trav_idx, const string& sample_name, const NodeTranslation* translation,
               const SiteRecord& record, GLLayout gl_layout, bool genotype_snarls,
               const function<bool(vcflib::Variant&, size_t)>& add_line,
-              const AlleleSequences* sequences = nullptr) const;
+              const AlleleSequences* sequences = nullptr, bool own_steps = false) const;
 
     /// Set the costs and limits of the aligner that `align_flat` uses, and the most cells of the
     /// band of an alignment that does not fit `params.max_cells`, if that is more.
