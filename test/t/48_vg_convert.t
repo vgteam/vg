@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 98
+plan tests 102
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -506,8 +506,14 @@ vg convert -f --require-sample REF require-sample.vg > require-sample-checked.gf
 is "$?" 0 "GFA export recognizes the sample component of a path name"
 cmp require-sample-default.gfa require-sample-checked.gfa
 is "$?" 0 "checking the sample preserves the full exported GFA"
-vg convert -f --require-sample MISSING require-sample.vg > require-sample-checked.gfa 2>/dev/null
-missing_status=$?
-test "$missing_status" -ne 0 && test ! -s require-sample-checked.gfa
+vg convert -f --require-sample MISSING require-sample.vg > require-sample-checked.gfa 2> require-sample.err
+isnt "$?" 0 "GFA export rejects a missing sample"
+test ! -s require-sample-checked.gfa
 is "$?" 0 "a missing sample is rejected before any GFA records are written"
-rm -f require-sample.gfa require-sample.vg require-sample-default.gfa require-sample-checked.gfa
+grep -F 'sample "MISSING" has no path' require-sample.err > /dev/null
+is "$?" 0 "the missing sample diagnostic names the requested sample"
+vg convert -f --require-sample "" require-sample.vg > require-sample-checked.gfa 2> require-sample.err
+isnt "$?" 0 "GFA export rejects an explicitly empty sample name"
+grep -F -- '--require-sample needs a non-empty sample name' require-sample.err > /dev/null
+is "$?" 0 "an empty sample argument receives its own diagnostic"
+rm -f require-sample.gfa require-sample.vg require-sample-default.gfa require-sample-checked.gfa require-sample.err

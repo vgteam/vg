@@ -67,6 +67,7 @@ int main_convert(int argc, char** argv) {
     unordered_set<string> ref_samples;
     string hap_locus;
     string new_sample;
+    string required_path_sample;
     bool drop_haplotypes = false;
     set<string> rgfa_paths;
     vector<string> rgfa_prefixes;
@@ -82,8 +83,6 @@ int main_convert(int argc, char** argv) {
         help_convert(argv);
         return 1;
     }
-
-    std::string required_path_sample;
 
     constexpr int OPT_REF_SAMPLE = 1000;
     constexpr int OPT_GBWTGRAPH_ALGORITHM = 1001;
@@ -429,7 +428,7 @@ int main_convert(int argc, char** argv) {
         });
         if (!found) {
             std::ostringstream message;
-            message << "sample "" << required_path_sample << "" has no path; samples:";
+            message << "sample \"" << required_path_sample << "\" has no path; samples:";
             for (const auto& sample : samples) {
                 message << ' ' << sample;
             }
@@ -525,11 +524,11 @@ void help_convert(char** argv) {
          << "  -a, --hash-out             output in HashGraph format" << endl
          << "  -p, --packed-out           output in PackedGraph format (default)" << endl
          << "  -x, --xg-out               output in XG format" << endl
-         << "      --require-sample STR check an embedded path name's sample before GFA export" << endl
          << "  -f, --gfa-out              output in GFA format" << endl
          << "  -H, --drop-haplotypes      do not include haplotype paths in the output" << endl
          << "                             (useful with GBWTGraph / GBZ inputs)" << endl
          << "gfa output options (use with -f):" << endl
+         << "      --require-sample STR   check the sample before exporting paths" << endl
          << "  -P, --rgfa-path STR        write given path as rGFA tags instead of lines" << endl
          << "                             (may repeat, only rank-0 supported)" << endl
          << "  -Q, --rgfa-prefix STR      write paths with this prefix as rGFA tags instead" << endl
