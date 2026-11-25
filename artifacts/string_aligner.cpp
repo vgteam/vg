@@ -308,6 +308,19 @@ optional<StringAlignment> align_wavefront(const string& first, const string& sec
     }
     thread_local WavefrontAligners aligners;
     wavefront_aligner_t* aligner = aligners.with(params);
+    // The aligner stops at a score. Its two directions can meet a little past the cost of the
+    // alignment, by no more than the costs of opening gaps and of one step, so the score it
+    // stops at is that much more than `max_cost`.
+    const int64_t slack = 2 * ((int64_t)params.gap_open
+                               + (params.long_gaps ? (int64_t)params.long_gap_open : 0)
+                               + std::max<int64_t>(params.mismatch,
+                                                   params.gap_open + params.gap_extend))
+                          + 2;
+    wavefront_aligner_set_max_alignment_steps(
+        aligner, params.max_cost < 0
+                     ? std::numeric_limits<int>::max()
+                     : (int)std::min<int64_t>(std::numeric_limits<int>::max(),
+                                              params.max_cost + slack));
     if (wavefront_align(aligner, first.data(), (int)first.size(), second.data(),
                         (int)second.size()) != WF_STATUS_ALG_COMPLETED) {
         return std::nullopt;

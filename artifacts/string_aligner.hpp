@@ -46,6 +46,10 @@ struct StringAlignerParams {
     /// none of the limits above: its time grows with the square of the alignment's cost and
     /// its memory with the cost, whatever the lengths of the strings.
     bool wavefront = false;
+    /// With the wavefront algorithm and not negative: the alignment is given up, and nothing
+    /// returned, once every alignment is known to cost more than this. An alignment that
+    /// costs a little more can still be returned.
+    int64_t max_cost = -1;
 
     /// Return the cost of a gap of `length` bases.
     int64_t gap_cost(size_t length) const;

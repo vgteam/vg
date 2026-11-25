@@ -689,10 +689,12 @@ public:
      * snarl with a sequence allele, without the read's score on the bound nodes. The default,
      * for a calculator that aligns no read to a sequence, is nothing.
      *
-     * @return Nothing if the two cannot be aligned within the aligner's limits.
+     * @param at_least If given, the score need not be found where it is below this.
+     * @return Nothing if the two cannot be aligned within the aligner's limits, and -inf if
+     * the score is known to be below `at_least`.
      */
-    virtual optional<double> sequence_nats(const string& /*bases*/,
-                                           const string& /*sequence*/) const {
+    virtual optional<double> sequence_nats(const string& /*bases*/, const string& /*sequence*/,
+                                           optional<double> /*at_least*/ = std::nullopt) const {
         return std::nullopt;
     }
 
@@ -771,7 +773,8 @@ public:
 
     void set_counted_fetches(bool counted) override { counted_fetches = counted; }
 
-    optional<double> sequence_nats(const string& bases, const string& sequence) const override;
+    optional<double> sequence_nats(const string& bases, const string& sequence,
+                                   optional<double> at_least = std::nullopt) const override;
 
     double read_clamp() const override { return -std::log(params.min_mismap_prob); }
 

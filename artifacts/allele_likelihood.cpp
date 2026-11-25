@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <numeric>
 #include <omp.h>
 
 #include "../src/alignment.hpp"
@@ -2191,6 +2192,11 @@ pair<size_t, size_t> GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::bases_
     return make_pair(from, to);
 }
 
+/// The nats below a read's best score at which the read's entry for an allele is taken as 0.
+/// The entry, e^(score - best), is then below 2^-150, which is 0 as a float, as read phasing
+/// keeps it, and far below what the chance that the read is mismapped adds to it.
+static constexpr double SEQUENCE_ALLELE_MARGIN = 104.0;
+
 /// Return the costs that make the string aligner find the alignment of a read's bases to a
 /// sequence that `scorer` scores highest (see `score_spanned`).
 static StringAlignerParams sequence_aligner(const EditAlignmentScorer& scorer) {
@@ -2334,26 +2340,59 @@ GraphAlignedAlleleLikelihoodCalculator::spanned_bases(
 bool GraphAlignedAlleleLikelihoodCalculator::score_spanned(const SpannedBases& spanned,
                                                            const SequenceAlleles& sequences,
                                                            vector<double>& row) const {
+    // The alleles in order of how near their length is to the read's, which the read is
+    // likeliest to fit best. Each after the first is aligned only as far as it can score within
+    // `SEQUENCE_ALLELE_MARGIN` nats of the best so far: below that, its entry of the matrix,
+    // e^(score - best), is 0 as a float, and it is stored as 0.
+    vector<size_t> order(row.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::ranges::stable_sort(order, {}, [&](size_t a) {
+        const size_t length = sequences.interiors[a].size();
+        return length > spanned.bases.size() ? length - spanned.bases.size()
+                                             : spanned.bases.size() - length;
+    });
     vector<double> aligned(row.size());
-    for (size_t a = 0; a < row.size(); ++a) {
-        const optional<double> interior = sequence_nats(spanned.bases, sequences.interiors[a]);
+    double best = -numeric_limits<double>::infinity();
+    for (const size_t a : order) {
+        const optional<double> interior = sequence_nats(
+            spanned.bases, sequences.interiors[a],
+            std::isfinite(best) ? optional<double>(best - SEQUENCE_ALLELE_MARGIN - spanned.boundary)
+                                : std::nullopt);
         if (!interior) {
             return false;
         }
         aligned[a] = spanned.boundary + *interior;
+        best = std::max(best, aligned[a]);
     }
     row = std::move(aligned);
     return true;
 }
 
 optional<double> GraphAlignedAlleleLikelihoodCalculator::sequence_nats(
-    const string& bases, const string& sequence) const {
-    const StringAlignerParams aligner = sequence_aligner(plain_scorer);
+    const string& bases, const string& sequence, optional<double> at_least) const {
+    StringAlignerParams aligner = sequence_aligner(plain_scorer);
+    // Each unit of cost takes this much from the score at least: an insertion gap gives back
+    // `insertion_gap_nats`, and costs what a gap of one base does or more.
+    const double per_cost = 0.5 * plain_scorer.get_log_base()
+                            - std::max(params.insertion_gap_nats, 0.0)
+                                  / (double)aligner.gap_cost(1);
+    if (at_least && per_cost > 0.0) {
+        const double matched = 0.5 * plain_scorer.get_log_base() * (double)plain_scorer.match
+                               * (double)(sequence.size() + bases.size());
+        aligner.max_cost = (int64_t)std::ceil(std::max(matched - *at_least, 0.0) / per_cost);
+        // Every alignment has a gap of the bases one of the two has more than the other.
+        const size_t apart = bases.size() > sequence.size() ? bases.size() - sequence.size()
+                                                            : sequence.size() - bases.size();
+        if (aligner.gap_cost(apart) > aligner.max_cost) {
+            return -numeric_limits<double>::infinity();
+        }
+    }
     // The cost of the alignment, and its gaps of read bases: runs of bases the read has and
     // the sequence lacks.
     optional<StringAlignment> alignment = align_global(sequence, bases, aligner);
     if (!alignment) {
-        return std::nullopt;
+        return aligner.max_cost < 0 ? std::nullopt
+                                    : optional<double>(-numeric_limits<double>::infinity());
     }
     // The gaps are counted with each as far left as it goes, where gaps that touch are one, so
     // that the count is the same whichever alignment of the least cost was found.

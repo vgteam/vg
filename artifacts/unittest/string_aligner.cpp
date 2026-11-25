@@ -228,4 +228,24 @@ TEST_CASE("The string aligner aligns long strings with many differences", "[stri
 }
 
 }
+
+TEST_CASE("The wavefront aligner gives up an alignment that costs more than a bound",
+          "[string_aligner]") {
+    StringAlignerParams params;
+    params.wavefront = true;
+    const string first(400, 'A');
+    const string second = string(200, 'A') + string(300, 'C') + string(200, 'A');
+    const optional<StringAlignment> whole = align_global(first, second, params);
+    REQUIRE(whole);
+    REQUIRE(whole->cost == params.gap_cost(300));
+    params.max_cost = whole->cost / 2;
+    REQUIRE(!align_global(first, second, params));
+    // The aligner aligns again after it gave up, and within a bound that the cost meets.
+    params.max_cost = whole->cost;
+    const optional<StringAlignment> bounded = align_global(first, second, params);
+    REQUIRE(bounded);
+    REQUIRE(bounded->cost == whole->cost);
+    params.max_cost = -1;
+    REQUIRE(align_global(first, first, params)->cost == 0);
+}
 }
