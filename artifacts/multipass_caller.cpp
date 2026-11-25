@@ -513,8 +513,32 @@ bool MultiPassCaller::align_flat_run(const FlatRunPlan& plan, FlatRefusal& refus
         }
         strands.push_back(std::move(*sequence));
     }
-    const shared_ptr<FlatRun> run =
-        block_records.align_flat(std::move(reference), std::move(strands), refused);
+    // Guide each strand's alignment by the sites: the strand reaches the first and the last base
+    // between a site's bound nodes where the reference does, moved by what the strand's alleles
+    // at the sites before, and at that site, add to or take from the reference's length.
+    vector<vector<pair<size_t, size_t>>> guides(ploidy);
+    for (int strand = 0; strand < (int)ploidy; ++strand) {
+        int64_t moved = 0;
+        for (size_t m = 0; m < plan.sites.size(); ++m) {
+            const StagedSite& site = *plan.sites[m];
+            const Traversal& walk = site.alleles.walks[site.alleles.ref_allele];
+            size_t length = 0;
+            for (const handle_t& step : walk) {
+                length += graph.get_length(step);
+            }
+            const size_t first = origins[m] + graph.get_length(walk.front());
+            const size_t last = origins[m] + length - graph.get_length(walk.back());
+            const optional<string> spelled = splicer.strand_sequence(site, strand);
+            auto at = [&](size_t offset) {
+                return make_pair(offset, (size_t)std::max<int64_t>(0, (int64_t)offset + moved));
+            };
+            guides[strand].push_back(at(first));
+            moved += spelled ? (int64_t)spelled->size() - (int64_t)length : 0;
+            guides[strand].push_back(at(last));
+        }
+    }
+    const shared_ptr<FlatRun> run = block_records.align_flat(
+        std::move(reference), std::move(strands), refused, guides);
     if (!run) {
         return false;
     }

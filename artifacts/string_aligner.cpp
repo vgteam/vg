@@ -158,18 +158,18 @@ int32_t fill_band(const char* a, size_t n, const char* b, size_t m, int64_t low,
     return match_above[(size_t)((int64_t)m - (int64_t)n - low)];
 }
 
-/// Trace the best alignment in the band whose cells `fill_band` traced in `trace` back from the
-/// last cell, and return its runs, last first.
-vector<AlignmentRun> trace_back(const vector<uint8_t>& trace, const char* a, size_t n,
-                                const char* b, size_t m, int64_t low, int64_t high) {
-    const size_t width = (size_t)(high - low + 1);
+/// Trace the best alignment whose cells were traced in `trace` back from the last cell, where
+/// `cell` gives the index in `trace` of cell (i, j), and return its runs, last first.
+template<typename CellIndex>
+vector<AlignmentRun> trace_cells(const vector<uint8_t>& trace, const char* a, size_t n,
+                                 const char* b, size_t m, const CellIndex& cell) {
     vector<AlignmentRun> runs;
     // `state` is the state the alignment is in at cell (i, j).
     size_t i = n;
     size_t j = m;
     uint8_t state = FromDiagonal;
     while (i > 0 || j > 0) {
-        const uint8_t traced = trace[i * width + (size_t)((int64_t)j - (int64_t)i - low)];
+        const uint8_t traced = trace[cell(i, j)];
         if (state == FromDiagonal) {
             state = traced & SourceMask;
             if (state == FromDiagonal) {
@@ -193,6 +193,16 @@ vector<AlignmentRun> trace_back(const vector<uint8_t>& trace, const char* a, siz
         }
     }
     return runs;
+}
+
+/// Trace the best alignment in the band whose cells `fill_band` traced in `trace` back from the
+/// last cell, and return its runs, last first.
+vector<AlignmentRun> trace_back(const vector<uint8_t>& trace, const char* a, size_t n,
+                                const char* b, size_t m, int64_t low, int64_t high) {
+    const size_t width = (size_t)(high - low + 1);
+    return trace_cells(trace, a, n, b, m, [&](size_t i, size_t j) {
+        return i * width + (size_t)((int64_t)j - (int64_t)i - low);
+    });
 }
 
 /// The diagonals of a band.
@@ -437,6 +447,136 @@ optional<StringAlignment> align_global(const string& first, const string& second
         }
         narrower_cost = cost;
     }
+}
+
+optional<StringAlignment> align_guided(const string& first, const string& second,
+                                       const vector<pair<size_t, size_t>>& corners,
+                                       size_t margin, const StringAlignerParams& params) {
+    const size_t n = first.size();
+    const size_t m = second.size();
+    // The corners, from the first cell to the last, never going back in either string.
+    vector<pair<size_t, size_t>> at{{0, 0}};
+    for (const auto& [i, j] : corners) {
+        at.emplace_back(std::clamp(i, at.back().first, n), std::clamp(j, at.back().second, m));
+    }
+    at.emplace_back(n, m);
+    // Each row's cells are the columns that the rectangles of the corners, widened by `margin`,
+    // hold in it. They are one interval, since the rectangles of two corners that follow each
+    // other meet, and both its ends only move right from one row to the next.
+    vector<size_t> lo(n + 1, m);
+    vector<size_t> hi(n + 1, 0);
+    for (size_t e = 0; e + 1 < at.size(); ++e) {
+        const size_t top = at[e].first > margin ? at[e].first - margin : 0;
+        const size_t bottom = std::min(n, at[e + 1].first + margin);
+        const size_t left = at[e].second > margin ? at[e].second - margin : 0;
+        const size_t right = std::min(m, at[e + 1].second + margin);
+        for (size_t i = top; i <= bottom; ++i) {
+            lo[i] = std::min(lo[i], left);
+            hi[i] = std::max(hi[i], right);
+        }
+    }
+    // Where each row's cells start in the trace.
+    vector<size_t> start(n + 2, 0);
+    size_t widest = 0;
+    for (size_t i = 0; i <= n; ++i) {
+        start[i + 1] = start[i] + (hi[i] - lo[i] + 1);
+        widest = std::max(widest, hi[i] - lo[i] + 1);
+    }
+    if (start[n + 1] > params.max_cells) {
+        return std::nullopt;
+    }
+    const char* a = first.data();
+    const char* b = second.data();
+    vector<uint8_t> trace(start[n + 1]);
+    // The costs of the cells of the row above and of this row, from their first column.
+    vector<int32_t> match_above(widest, g_no_cost);
+    vector<int32_t> match_here(widest, g_no_cost);
+    vector<int32_t> deletion_above(widest, g_no_cost);
+    vector<int32_t> deletion_here(widest, g_no_cost);
+    vector<int32_t> long_deletion_above(widest, g_no_cost);
+    vector<int32_t> long_deletion_here(widest, g_no_cost);
+    for (size_t i = 0; i <= n; ++i) {
+        // The column range of the row above, and whether it holds column `j`.
+        const size_t above_lo = i > 0 ? lo[i - 1] : 1;
+        const size_t above_hi = i > 0 ? hi[i - 1] : 0;
+        auto above = [&](size_t j) { return j >= above_lo && j <= above_hi; };
+        int32_t match_left = g_no_cost;
+        int32_t insertion = g_no_cost;
+        int32_t long_insertion = g_no_cost;
+        for (size_t j = lo[i]; j <= hi[i]; ++j) {
+            const size_t k = j - lo[i];
+            uint8_t traced = 0;
+            // An insertion comes from the cell to the left.
+            const GapStep ins = gap_step(match_left, insertion, params.gap_open,
+                                         params.gap_extend);
+            insertion = ins.cost;
+            traced |= ins.extended ? g_insertion_extended : 0;
+            if (params.long_gaps) {
+                const GapStep long_ins = gap_step(match_left, long_insertion,
+                                                  params.long_gap_open, params.long_gap_extend);
+                long_insertion = long_ins.cost;
+                traced |= long_ins.extended ? g_long_insertion_extended : 0;
+            }
+            // A deletion comes from the cell above.
+            const bool up = above(j);
+            const size_t u = up ? j - above_lo : 0;
+            const GapStep del = gap_step(up ? match_above[u] : g_no_cost,
+                                         up ? deletion_above[u] : g_no_cost, params.gap_open,
+                                         params.gap_extend);
+            deletion_here[k] = del.cost;
+            traced |= del.extended ? g_deletion_extended : 0;
+            long_deletion_here[k] = g_no_cost;
+            if (params.long_gaps) {
+                const GapStep long_del = gap_step(up ? match_above[u] : g_no_cost,
+                                                  up ? long_deletion_above[u] : g_no_cost,
+                                                  params.long_gap_open, params.long_gap_extend);
+                long_deletion_here[k] = long_del.cost;
+                traced |= long_del.extended ? g_long_deletion_extended : 0;
+            }
+            // A match or mismatch comes from the cell above and to the left.
+            int32_t best = g_no_cost;
+            if (i == 0 && j == 0) {
+                best = 0;
+            } else if (i > 0 && j > 0 && above(j - 1)) {
+                best = std::min(g_no_cost, match_above[j - 1 - above_lo]
+                                               + (a[i - 1] == b[j - 1] ? 0 : params.mismatch));
+            }
+            uint8_t source = FromDiagonal;
+            if (insertion < best) {
+                best = insertion;
+                source = FromInsertion;
+            }
+            if (long_insertion < best) {
+                best = long_insertion;
+                source = FromLongInsertion;
+            }
+            if (deletion_here[k] < best) {
+                best = deletion_here[k];
+                source = FromDeletion;
+            }
+            if (long_deletion_here[k] < best) {
+                best = long_deletion_here[k];
+                source = FromLongDeletion;
+            }
+            match_here[k] = best;
+            match_left = best;
+            trace[start[i] + k] = traced | source;
+        }
+        match_above.swap(match_here);
+        deletion_above.swap(deletion_here);
+        long_deletion_above.swap(long_deletion_here);
+    }
+    StringAlignment result;
+    result.cost = match_above[m - lo[n]];
+    const vector<AlignmentRun> runs = trace_cells(trace, a, n, b, m, [&](size_t i, size_t j) {
+        return start[i] + (j - lo[i]);
+    });
+    for (size_t r = runs.size(); r-- > 0;) {
+        add_run(result.runs, runs[r].op, runs[r].length);
+    }
+    result.cells_filled = start[n + 1];
+    result.cells_traced = start[n + 1];
+    return result;
 }
 
 void left_align_gaps(const string& first, const string& second, vector<AlignmentRun>& runs,

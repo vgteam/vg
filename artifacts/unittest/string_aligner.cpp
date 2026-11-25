@@ -229,6 +229,54 @@ TEST_CASE("The string aligner aligns long strings with many differences", "[stri
 
 }
 
+TEST_CASE("The guided aligner finds the least cost inside its region", "[string_aligner]") {
+    std::mt19937 generator(11);
+    const StringAlignerParams params{.mismatch = 40, .gap_open = 78, .gap_extend = 7,
+                                     .long_gap_open = 162, .long_gap_extend = 3};
+    for (int trial = 0; trial < 20; ++trial) {
+        // A reference with a tandem repeat, and a strand with a long insertion in the repeat
+        // and a few changes elsewhere.
+        const string left = unittest::random_bases(200 + generator() % 200, generator);
+        const string unit = unittest::random_bases(3 + generator() % 5, generator);
+        string repeat;
+        for (int k = 0; k < 20; ++k) {
+            repeat += unit;
+        }
+        const string right = unittest::random_bases(200 + generator() % 200, generator);
+        const string reference = left + repeat + right;
+        const string inserted = unittest::random_bases(50 + generator() % 400, generator);
+        string strand = left + repeat.substr(0, 30) + inserted + repeat.substr(30) + right;
+        for (int k = 0; k < 4; ++k) {
+            strand[generator() % strand.size()] = "ACGT"[generator() % 4];
+        }
+        const optional<StringAlignment> best = align_global(reference, strand, params);
+        REQUIRE(best);
+        // With a margin that holds the whole matrix, the region is all of it.
+        const optional<StringAlignment> whole =
+            align_guided(reference, strand, {}, reference.size() + strand.size(), params);
+        REQUIRE(whole);
+        REQUIRE(whole->cost == best->cost);
+        unittest::require_spells(reference, strand, whole->runs);
+        REQUIRE(unittest::alignment_cost(whole->runs, params) == whole->cost);
+        // With corners at the ends of the insertion, a narrow margin finds the same cost.
+        const size_t at = left.size() + 30;
+        const optional<StringAlignment> guided = align_guided(
+            reference, strand, {{at, at}, {at, at + inserted.size()}}, 32, params);
+        REQUIRE(guided);
+        REQUIRE(guided->cost == best->cost);
+        unittest::require_spells(reference, strand, guided->runs);
+        REQUIRE(unittest::alignment_cost(guided->runs, params) == guided->cost);
+        // Without them, it finds an alignment, which costs no less.
+        const optional<StringAlignment> blind = align_guided(reference, strand, {}, 32, params);
+        REQUIRE(blind);
+        REQUIRE(blind->cost >= best->cost);
+        unittest::require_spells(reference, strand, blind->runs);
+    }
+    StringAlignerParams small = params;
+    small.max_cells = 100;
+    REQUIRE(!align_guided(string(50, 'A'), string(50, 'A'), {}, 8, small));
+}
+
 TEST_CASE("The wavefront aligner gives up an alignment that costs more than a bound",
           "[string_aligner]") {
     StringAlignerParams params;

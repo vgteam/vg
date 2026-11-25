@@ -117,6 +117,23 @@ optional<StringAlignment> align_global(const string& first, const string& second
                                        const StringAlignerParams& params = StringAlignerParams());
 
 /**
+ * Align all of `first` to all of `second` at the least cost among the alignments that stay
+ * inside a region guided by `corners`.
+ *
+ * Each corner is a number of bases of `first` and of `second` that the alignment is expected to
+ * pass near, in order. The first cell and the last are corners too, and a corner is moved forward
+ * where it would go back from the one before. The region is, for each two corners that follow
+ * each other, the rectangle between them widened by `margin` cells on every side. So a stretch
+ * whose two strings have about the same length is a band about one diagonal, and a stretch with a
+ * long gap has a rectangle of its own. The aligner keeps a byte for each cell of the region.
+ *
+ * @return Nothing if the region has more cells than `params.max_cells`.
+ */
+optional<StringAlignment> align_guided(const string& first, const string& second,
+                                       const vector<pair<size_t, size_t>>& corners,
+                                       size_t margin, const StringAlignerParams& params);
+
+/**
  * Move each gap of `runs`, an alignment of `first` to `second`, as far left as it goes.
  *
  * A gap moves one base left where the base before it is matched and is the same as the last base

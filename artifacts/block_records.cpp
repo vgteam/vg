@@ -1247,19 +1247,27 @@ void FlatRun::cut_differences() {
     std::ranges::stable_sort(cuts, {}, &FlatCut::begin);
 }
 
-shared_ptr<FlatRun> BlockRecordWriter::align_flat(string reference, vector<string> strands,
-                                                  FlatRefusal& refused) const {
+shared_ptr<FlatRun> BlockRecordWriter::align_flat(
+    string reference, vector<string> strands, FlatRefusal& refused,
+    const vector<vector<pair<size_t, size_t>>>& guides) const {
     auto run = std::make_shared<FlatRun>();
     run->reference = std::move(reference);
-    for (string& sequence : strands) {
-        FlatStrand strand{std::move(sequence), {}};
+    static const size_t margin = getenv("VG_FLAT_MARGIN") ? std::stoul(getenv("VG_FLAT_MARGIN"))
+                                                          : 64;
+    // Align a strand with `params`, inside the region its guide gives where it has one.
+    auto align = [&](size_t s, const string& sequence, const StringAlignerParams& params) {
+        return s < guides.size()
+                   ? align_guided(run->reference, sequence, guides[s], margin, params)
+                   : align_global(run->reference, sequence, params);
+    };
+    for (size_t s = 0; s < strands.size(); ++s) {
+        FlatStrand strand{std::move(strands[s]), {}};
         if (!run->strands.empty() && run->strands.front().sequence == strand.sequence) {
             strand.differences = run->strands.front().differences;
         } else if (strand.sequence != run->reference) {
             static const bool log_align = getenv("VG_LOG_FLAT_ALIGN") != nullptr;
             const auto began = std::chrono::steady_clock::now();
-            optional<StringAlignment> aligned =
-                align_global(run->reference, strand.sequence, flat_aligner);
+            optional<StringAlignment> aligned = align(s, strand.sequence, flat_aligner);
             if (log_align) {
                 const double seconds = std::chrono::duration<double>(
                     std::chrono::steady_clock::now() - began).count();
@@ -1277,7 +1285,7 @@ shared_ptr<FlatRun> BlockRecordWriter::align_flat(string reference, vector<strin
                 wide.max_cells = flat_wide_cells;
                 std::scoped_lock lock(flat_wide_lock);
                 const auto wide_began = std::chrono::steady_clock::now();
-                aligned = align_global(run->reference, strand.sequence, wide);
+                aligned = align(s, strand.sequence, wide);
                 if (log_align) {
                     std::ostringstream line;
                     line << "[flat-align-wide] " << run->reference.size() << " "

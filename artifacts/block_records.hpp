@@ -316,7 +316,8 @@ public:
      * reference base before it starts at the first base of the run.
      */
     shared_ptr<FlatRun> align_flat(string reference, vector<string> strands,
-                                   FlatRefusal& refused) const;
+                                   FlatRefusal& refused,
+                                   const vector<vector<pair<size_t, size_t>>>& guides = {}) const;
 
     /// Count a site that is not written as flat records for `reason`.
     void count_flat_refusal(FlatRefusal reason) const { ++flat_counters.refuse[(size_t)reason]; }
