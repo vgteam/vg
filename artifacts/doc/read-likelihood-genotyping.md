@@ -421,13 +421,12 @@ snarls included:
   reference and its ploidy, and has no child sites.
 - Its alleles are sequences across the run. The first is the walk that takes each member's
   reference allele, with the junctions between them, which is its reference allele. Then comes
-  what each strand is called as across the run, as the walk that takes the strand's allele at
-  each member where that walk spells it, and otherwise as its bases between the bounds. Last come
-  the consensuses, each as that walk of its strand with changes to its steps, as at one snarl,
-  and as its bases between the bounds where the walk does not spell what the strand is called
-  as. The nodes between two members are steps of the walk like any other. Alleles that spell the
-  same bases are one,
-  and a run whose consensuses are all spelled by the others stays as it is.
+  what each strand is called as across the run, and last the consensuses. Each is the strand's
+  walk across the run, which takes the strand's allele at each member, with the junctions between
+  them. Where the sites nested in the members, or a consensus, make the allele differ from what
+  that walk spells, it changes the bases of the walk's steps, as a consensus does at one snarl.
+  The nodes between two members are steps of the walk like any other. Alleles that spell the same
+  bases are one, and a run whose consensuses are all spelled by the others stays as it is.
 - It is genotyped from its reads as a snarl that gained an allele is, with every read that spans
   it aligned to every allele, and filed with the linkage model in place of its first member. The
   other members, every site nested in a member, and the

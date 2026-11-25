@@ -611,25 +611,28 @@ optional<StagedSite> ReadConsensusStep::merge_run(const Parts& parts,
     across.walks.push_back(*base);
     across.ref_allele = all_reference ? 0 : -1;
     interiors.push_back(*base_bases);
-    // Add the allele with `bases` between the bounds, unless there is one: a consensus as
-    // `walk` with changes to its steps where that is given, any other allele as `walk` where
-    // that spells it, and either as a sequence allele otherwise.
+    // Add the allele with `bases` between the bounds, unless there is one: as `walk` where
+    // that spells them, as `walk` with changes to its steps otherwise, and as a sequence allele
+    // where there is no walk. Count how each consensus is entered.
     auto add = [&](const string& bases, const optional<Traversal>& walk, bool consensus) {
         if (std::ranges::find(interiors, bases) != interiors.end()) {
             return;
         }
-        if (consensus) {
-            add_consensus(graph, across, walk, bases, options.consensus.aligner, entered.threaded,
-                          entered.unspelled);
-        } else if (walk && interior_of(*walk) == bases) {
+        bool as_bases = false;
+        if (walk && interior_of(*walk) == bases) {
             across.walks.push_back(*walk);
-        } else {
+        } else if (!walk || !add_walk_allele(graph, across, *walk, bases,
+                                             options.consensus.aligner)) {
             add_sequence_allele(graph, across, bases);
+            as_bases = true;
+        }
+        if (consensus) {
+            ++(as_bases ? entered.unspelled : entered.threaded);
         }
         interiors.push_back(bases);
     };
-    // The walk each strand is called as across the run, where it spells what the strand is
-    // called as.
+    // The walk each strand takes across the run, at the members' level: the sites nested in
+    // the members can make what the strand is called as differ from what it spells.
     optional<Traversal> called_walk[2];
     for (int strand = 0; strand < 2; ++strand) {
         if (found.called[strand]) {
@@ -637,13 +640,10 @@ optional<StagedSite> ReadConsensusStep::merge_run(const Parts& parts,
                 return splicer.strand_traversal(member, strand);
             });
             add(*found.called[strand], called_walk[strand], false);
-            if (called_walk[strand] && interior_of(*called_walk[strand]) != found.called[strand]) {
-                called_walk[strand].reset();
-            }
         }
     }
-    // The alleles so far spell what was called at the member sites, some of them as sequences.
-    // Each consensus is the walk its strand is called as, with changes to its steps.
+    // The alleles so far spell what was called at the member sites. Each consensus is the walk
+    // its strand takes, with changes to its steps.
     const size_t first_consensus = across.walks.size();
     for (int strand = 0; strand < 2; ++strand) {
         const optional<string>& consensus = found.strands[strand].consensus;
