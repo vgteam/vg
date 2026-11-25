@@ -445,11 +445,14 @@ reads without adding to the read-start counts of
 the [depth term](read-likelihood-direct-genotyping.md#depth-term) or to the off-panel candidates,
 so both are as the direct pass left them.
 
-A site with such an allele called at it is written as any other site, and its records have
-`INFO/RC`. A consensus allele that is a walk with changes differs from the reference allele at the
-steps it changes, so [block records](#block-records) cut the site there. One given as its bases
-puts them after the start bound's node, which no block covers, so its site is written as one site
-record, whose `AT` walk for that allele is the two bound nodes alone. vg reports on standard error how many
+A top-level site with such an allele called at it, or at a site nested in it, is written as
+[flat records](#flat-records) whether or not `--flatten-records` is given: the allele is a
+sequence that no walk spells, so one record of the site would hold every base between its bounds
+for a difference of a few. The site is a run of its own, and its records have `INFO/RC` and
+`INFO/FL`. Every other site is written as without `--read-consensus`. A site that cannot be
+written as flat records is written as one site record with `INFO/RC`, not as
+[block records](#block-records): the allele puts its bases after the start bound's node, which
+no block covers. Its `AT` walk for that allele is the two bound nodes alone. vg reports on standard error how many
 snarls it tested on their own and how many strands were candidates at them, how many runs were
 treated as runs of several and how many of those became one site, how many sites were made of a
 run, of one snarl or of several, and how many of them are called with such an allele, how many
@@ -628,9 +631,7 @@ A called allele can also differ from the reference allele in several places, sep
 both share. `--atomize-blocks`, on by default with nested calling, then writes one record per
 difference. `--no-atomize-blocks` turns it off, and so does `--genotype-snarls`, which writes the
 same records for every sample. vg aligns the symbolic form of each called allele to that of the
-reference allele, minimising edit distance. A step of a called allele whose bases the allele
-changes, as an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) does,
-matches no step of the reference allele. Each maximal stretch of nodes and chain symbols that the
+reference allele, minimising edit distance. Each maximal stretch of nodes and chain symbols that the
 alignment does not match is a **block**, and becomes a record. A block record's `GT` gives the
 allele that each strand carries over that block. A strand's block allele spells the strand's own
 walk inside its blocks and the reference's over the steps it matches. A matched chain symbol says
@@ -678,7 +679,10 @@ two strands carry one walk.
 `--flatten-records`, off by default, writes the top-level sites as the base-level differences of
 their called strands from the reference, and writes no records for the sites nested in them. It
 needs `--phased`, and cannot be combined with `--genotype-snarls`. Only the records change: the
-genotypes, the phase, the anchors and the mosaic are what they are without it.
+genotypes, the phase, the anchors and the mosaic are what they are without it. Without it, the
+only sites written this way are those called with an
+[allele built from the reads](#alleles-built-from-the-reads---read-consensus), each as a run of
+its own.
 
 The records are cut over a **run** of sites. A run is a longest series of top-level snarls that
 follow each other in one chain, where:

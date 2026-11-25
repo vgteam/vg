@@ -121,14 +121,13 @@ public:
     /// Align each slot of `genotype` to the reference traversal `called_traversals[ref_trav_idx]`.
     ///
     /// If the alignment cannot be made, `refusal()` says why. An allele of a slot is spelled by
-    /// its step sequences in `sequences`, where it has them. With `own_steps`, a step whose bases
-    /// differ from its node's differs from the reference, though the reference visits the node.
+    /// its step sequences in `sequences`, where it has them.
     ///
     /// @throws std::out_of_range if an entry of `genotype` is neither an allele marker nor the
     /// number of a traversal in `called_traversals`.
     SiteAlignment(const PathPositionHandleGraph& graph, const SiteChildren& children,
                   const vector<Traversal>& called_traversals, const vector<int>& genotype,
-                  int ref_trav_idx, const AlleleSequences* sequences, bool own_steps)
+                  int ref_trav_idx, const AlleleSequences* sequences)
         : graph(graph), called_traversals(called_traversals), ref_trav_idx(ref_trav_idx),
           sequences(sequences), ref_trav(called_traversals[ref_trav_idx]) {
         sref = symbolic_allele(graph, ref_trav, children, &ref_ranges);
@@ -155,18 +154,8 @@ public:
             }
             slots[s].sym = symbolic_allele(graph, called_traversals[genotype[s]], children,
                                            &slots[s].ranges);
-            // A changed step is compared as node 0, which no walk visits.
-            SymbolicAllele compared = slots[s].sym;
-            const StepSequences* own = own_sequences(sequences, (size_t)genotype[s]);
-            for (size_t k = 0; own_steps && own != nullptr && k < compared.size(); ++k) {
-                for (int v = slots[s].ranges[k].first; v < slots[s].ranges[k].second; ++v) {
-                    if (own->at(v) != graph.get_sequence(called_traversals[genotype[s]][v])) {
-                        compared[k].id = 0;
-                    }
-                }
-            }
             vector<int> alt_before_ref;
-            slots[s].blocks = symbolic_diff(sref, compared, &alt_before_ref);
+            slots[s].blocks = symbolic_diff(sref, slots[s].sym, &alt_before_ref);
             if (alt_before_ref.size() != sref.size() + 1) {
                 failure = AtomizeRefusal::StepMapLength;
                 return;
@@ -1110,7 +1099,7 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const SiteChi
                              const string& sample_name, const NodeTranslation* translation,
                              const SiteRecord& record, GLLayout gl_layout, bool genotype_snarls,
                              const function<bool(vcflib::Variant&, size_t)>& add_line,
-                             const AlleleSequences* sequences, bool own_steps) const {
+                             const AlleleSequences* sequences) const {
     // Block emission being off is not a refusal, so it is not counted.
     if (!enabled || !nested || genotype_snarls) {
         return -1;
@@ -1130,7 +1119,7 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const SiteChi
     }
 
     const SiteAlignment alignment(graph, children, called_traversals, genotype, ref_trav_idx,
-                                  sequences, own_steps);
+                                  sequences);
     if (optional<AtomizeRefusal> refused = alignment.refusal()) {
         return refuse(*refused);
     }
