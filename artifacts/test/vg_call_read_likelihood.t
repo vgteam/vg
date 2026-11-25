@@ -2485,7 +2485,7 @@ is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' -v novel=$RCNOVEL '$3 == ">4>7_0" {pr
 is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7_0"' | cut -f1-5,8 | diff - <(grep -v '^#' rcn.off.vcf | cut -f1-5,8) | wc -l | tr -d ' ')/$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7_0" && $8 ~ /RC/' | wc -l | tr -d ' ')" \
    "0/0" \
    "and the other snarls are called as without it, unmarked"
-is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 tested, 1 candidate strands, 0 runs treated, 0 of them made one site, 1 sites gained an allele or were made of a run, 1 of them called with a consensus allele; consensus alleles: 1 as a called walk with changes, 0 as bases where the called sequence is no walk, 0 as bases at a snarl with nested sites; left alone: 0 snarls over a limit of the scorer$/found/p' rcn.on.err)" \
+is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 tested, 1 candidate strands, 0 runs treated, 0 of them made one site, 1 sites gained an allele or were made of a run, 1 of them called with a consensus allele; consensus alleles: 1 as a walk with changes, 0 as bases where a strand has no walk across the site; left alone: 0 snarls over a limit of the scorer$/found/p' rcn.on.err)" \
    "found" \
    "and reports what it did in one line, with the runs of neighbouring snarls, of which the chain has none"
 is "$($RCN_CALL --read-consensus 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.on.vcf) | wc -l | tr -d ' ')" "0" \

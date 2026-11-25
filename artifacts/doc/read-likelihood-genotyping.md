@@ -341,33 +341,25 @@ on each snarl that has a phase, at any level, and on each of its strands:
    reads are neither all longer than the called sequence nor all shorter. The strand is a
    **candidate** where the consensus differs from the called sequence.
 5. A consensus by which the strand's reads gain `--consensus-min-gain` nats in all
-   becomes an allele of the snarl, unless one of the snarl's alleles spells it already. Two strands
-   with the same consensus add one allele. With a consensus, the snarl also gains what each
-   strand is called as, where the sites nested in the snarl make that a sequence none of its
-   alleles spells, so that a strand can keep what it has. No panel haplotype carries a
-   consensus allele.
-6. The consensus allele is the walk the strand is called as, with changes to the bases of its
-   steps where the consensus differs. The two are aligned and the gaps moved left, and each
+   becomes an allele, unless one of the snarl's alleles spells it already. Two strands with the
+   same consensus add one allele. No panel haplotype carries a consensus allele. A snarl that
+   gains a consensus is a run of one: it becomes a [merged site](#a-run-as-one-site), whose
+   alleles are its reference allele, what each strand is called as, and the consensuses, and
+   which has no sites nested in it.
+6. A consensus allele is the walk the strand takes across the site, with changes to the bases of
+   its steps where the consensus differs. The two are aligned and the gaps moved left, and each
    difference changes the steps that hold its bases: a node whose bases are all deleted stays
    in the walk with none, and an insertion goes after the base before it, or before the first
-   base after the start bound where it comes first. Where the snarl has sites nested in it, or
-   no walk spells what the strand is called as, the allele is instead given as its bases between
-   the bounds, as is what a strand is called as. Such an allele visits no node between the
-   bounds, so it crosses no site nested in the snarl, as a deletion of everything between the
-   bounds does.
+   base after the start bound where it comes first. Where the strand has no walk across the
+   site, the allele is given as its bases between the bounds, after the start bound's node.
 
-A snarl gains its consensus whatever the snarls nested in it gain. The two are not called
-together on one strand: the consensus allele of such a snarl crosses no nested site, so a strand that takes it has
-no allele at the snarls nested in the snarl, and the linkage pass chooses.
-
-A snarl that gained an allele is genotyped again from its reads, at the ploidy it has. Each read
-that spans it is scored by aligning its bases between the bounds to every allele's (see
+A merged site is genotyped from its reads, at the ploidy it has. Each read that spans it is scored
+by aligning its bases between the bounds to every allele's (see
 [Relative likelihood](read-likelihood-direct-genotyping.md#relative-likelihood)), and the other
-reads are scored as before and say nothing about the new allele. Where [groups](#choosing-among-alleles-that-differ-inside-child-chains)
-choose the genotype, the new allele is a group of its own. The snarl is then filed with the linkage
-model in place of its first call, and a linkage pass and read phasing run again before any further
-round. So the linkage model, to which the allele is one no haplotype carries, read phasing and
-re-genotyping treat the snarl as if the direct pass had found the allele.
+reads are scored as before and say nothing about the new alleles. It is then filed with the linkage
+model in place of its first member's call, and a linkage pass and read phasing run again before any
+further round. So the linkage model, to which a consensus is an allele no haplotype carries, read
+phasing and re-genotyping treat the site as if the direct pass had found it.
 
 #### Runs of neighbouring snarls
 
@@ -376,7 +368,7 @@ chain, and it does not choose the same one for every read. Then no one snarl hol
 the difference in enough reads, and the bases that two reads have
 between the bounds of one snarl cannot be compared. A difference can also lie in the nodes between
 two snarls, where no snarl holds it. So the step tests a **run** of snarls as it tests one snarl,
-and before it treats any snarl on its own. Runs follow the chain, not reference positions. A run
+and before it treats any snarl as a run of one. Runs follow the chain, not reference positions. A run
 inside a snarl too large to be treated itself is a run of the snarls of a chain nested in it.
 
 1. Two snarls are **neighbours** where one follows the other in a chain, at any level: they
@@ -408,7 +400,7 @@ inside a snarl too large to be treated itself is a run of the snarls of a chain 
    log-odds at the members, summed, favour.
 5. The run is **treated** where a strand has a consensus by which its reads gain
    `--consensus-min-gain` nats and the run can become [one site](#a-run-as-one-site). A snarl
-   in no treated run is treated on its own where it has a consensus, as above.
+   in no treated run is treated as a run of one where it has a consensus, as above.
 
 #### A run as one site
 
@@ -427,9 +419,8 @@ snarls included:
   that walk spells, it changes the bases of the walk's steps, as a consensus does at one snarl.
   The nodes between two members are steps of the walk like any other. Alleles that spell the same
   bases are one, and a run whose consensuses are all spelled by the others stays as it is.
-- It is genotyped from its reads as a snarl that gained an allele is, with every read that spans
-  it aligned to every allele, and filed with the linkage model in place of its first member. The
-  other members, every site nested in a member, and the
+- It is genotyped from its reads as above, and filed with the linkage model in place of its first
+  member. The other members, every site nested in a member, and the
   [edit sites](read-likelihood-direct-genotyping.md) inside the nodes of the junctions are no
   longer sites: the merged site's alleles spell what was called at them. Phasing, re-genotyping
   and the records treat the merged site as a snarl. A site that holds the run's chain spells the
@@ -461,13 +452,12 @@ for a difference of a few. The site is a run of its own, and its records have `I
 `INFO/FL`. Every other site is written as without `--read-consensus`. A site that cannot be
 written as flat records is written as one site record with `INFO/RC`, not as
 [block records](#block-records): the allele puts its bases after the start bound's node, which
-no block covers. Its `AT` walk is the two bound nodes alone. vg reports on standard error how many
+no block covers. Its `AT` walk for that allele is the two bound nodes alone. vg reports on standard error how many
 snarls it tested on their own and how many strands were candidates at them, how many runs were
-treated and how many of those became one site, how many sites gained an allele or were made of a
-run and how many of them are called with such an allele, how many consensus alleles of those
-sites are a walk with changes and how many are given as bases, because no walk spells what the
-strand is called as or because the snarl has sites nested in it, and how many snarls were over a
-limit of the scorer.
+treated as runs of several and how many of those became one site, how many sites were made of a
+run, of one snarl or of several, and how many of them are called with such an allele, how many
+consensus alleles of those sites are a walk with changes and how many are given as bases, and
+how many snarls were over a limit of the scorer.
 
 ## Ploidy
 

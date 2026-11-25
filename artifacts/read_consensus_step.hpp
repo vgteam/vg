@@ -74,14 +74,12 @@ struct ReadConsensusCounts {
     /// scorer aligns of a read, and tested snarls where a consensus has, or where the reads and
     /// alleles need more alignments than the scorer makes.
     size_t over_cap = 0;
-    /// Consensus alleles of those sites entered as the walk their strand is called as, with
-    /// changes to its steps.
+    /// Consensus alleles of those sites entered as the walk their strand takes across the site,
+    /// with changes to its steps.
     size_t threaded = 0;
-    /// Those entered as their bases between the bounds, because no walk spells what the strand
-    /// is called as.
+    /// Those entered as their bases between the bounds, because the strand has no walk across
+    /// the site.
     size_t unspelled = 0;
-    /// Those entered as their bases between the bounds of a snarl with sites nested in it.
-    size_t nested = 0;
 };
 
 /**
@@ -104,18 +102,12 @@ struct ReadConsensusCounts {
  *
  * A strand with `reads_needed` spanning reads gets their consensus, with its called sequence as
  * the backbone (`read_consensus`). The strand is a candidate where the consensus differs from
- * the called sequence. The consensus becomes a sequence allele of the snarl
- * (`add_sequence_allele`) where the strand's reads gain `min_gain` nats by it in all, unless
- * an allele of the snarl spells it already. With it, the snarl gains what each strand is
- * called as, where the sites nested in the snarl make that a sequence that none of its alleles
- * spells, so that a strand can keep what it has. Two strands with one consensus add one allele.
+ * the called sequence. The consensus becomes an allele where the strand's reads gain
+ * `min_gain` nats by it in all, unless an allele of the snarl spells it already. The snarl is
+ * then a run of one, and becomes one site as a run of several does (below). Two strands with
+ * one consensus add one allele.
  *
- * A snarl gains its consensus whatever the snarls staged under it gain. Its sequence allele
- * crosses none of them, and the genotypes the linkage pass chooses say which is called.
- *
- * A snarl that gained an allele is genotyped again from its reads, which the calculator aligns
- * to every allele, and filed again in the linkage model in place of its entry. The caller then
- * runs the linkage pass and read phasing again.
+ * The caller then runs the linkage pass and read phasing again.
  *
  * Before any read is fetched, a snarl is left out where its reads cannot gain `min_gain` nats
  * by an allele. No allele explains a spanning read that, between the bounds, scores `min_gain`
@@ -155,8 +147,8 @@ struct ReadConsensusCounts {
  * aligns of a read. The bases of a snarl are those of its longest called sequence. Where one
  * more seed would pass either number, the run ends and the next begins at that seed. A run of
  * two or more is tested, and is treated where a strand has a consensus that is to become an
- * allele and the run can become one site. A snarl in no treated run is treated on its own
- * where it has a consensus, so a snarl is in at most one treated run.
+ * allele and the run can become one site. A snarl in no treated run is treated as a run of
+ * one where it has a consensus, so a snarl is in at most one treated run.
  *
  * ## A run as one site
  *
@@ -164,13 +156,15 @@ struct ReadConsensusCounts {
  * (`EditSnarlDecompositionOverlay::add_merged_site`), from the first member's start bound to
  * the last member's end bound. `TreeGenotyper::merged_site` makes and genotypes it. Its
  * alleles are sequences across the run: the walk that takes each member's reference allele,
- * which is its reference allele; what each strand is called as across the run, as the walk
- * that takes the strand's allele at each member where that walk spells it, and as a sequence
- * allele otherwise; and each strand's consensus as a sequence allele. Alleles that spell the
- * same bases are one.
+ * which is its reference allele; what each strand is called as across the run; and each
+ * strand's consensus. Each of the last two is the walk that takes the strand's allele at each
+ * member, with changes to the bases of its steps where it spells other bases
+ * (`add_walk_allele`). Alleles that spell the same bases are one. It is genotyped from its
+ * reads, which the calculator aligns to every allele.
  *
  * The site is staged in the place of the run's first member, and filed in the linkage model in
- * place of that member's entry. The other members, every site staged under a member, and the
+ * place of that member's entry. A run of one keeps its member's ID. The other members, every
+ * site staged under a member, and the
  * edit sites inside the nodes of the junctions are removed from the staged sites and from the
  * linkage model (`StagedSiteTable::remove_with_nested`), since the site's alleles spell what
  * was called at them.
