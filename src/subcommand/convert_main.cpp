@@ -79,7 +79,6 @@ int main_convert(int argc, char** argv) {
     int num_threads = omp_get_max_threads();
     bool use_translation = true;
     bool unchop_output = false;
-    int unchop_threads = 0;
 
     if (argc == 2) {
         help_convert(argv);
@@ -93,7 +92,6 @@ int main_convert(int argc, char** argv) {
     constexpr int OPT_HAP_LOCUS = 1004;
     constexpr int OPT_NEW_SAMPLE = 1005;
     constexpr int OPT_UNCHOP = 1006;
-    constexpr int OPT_UNCHOP_THREADS = 1007;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -124,7 +122,6 @@ int main_convert(int argc, char** argv) {
             {"gaf-to-gam", required_argument, 0, 'F'},
             {"threads", required_argument, 0, 't'},
             {"unchop", no_argument, 0, OPT_UNCHOP},
-            {"unchop-threads", required_argument, 0, OPT_UNCHOP_THREADS},
             {0, 0, 0, 0}
 
         };
@@ -211,12 +208,6 @@ int main_convert(int argc, char** argv) {
             input = input_gaf;
             input_aln = require_exists(logger, optarg);
             break;
-        case OPT_UNCHOP_THREADS:
-            unchop_threads = parse<int>(optarg);
-            if (unchop_threads < 1) {
-                logger.error() << "--unchop-threads requires a positive thread count" << endl;
-            }
-            break;
         case OPT_UNCHOP:
             unchop_output = true;
             break;
@@ -228,11 +219,16 @@ int main_convert(int argc, char** argv) {
         }
     }
 
-    if (unchop_threads && !unchop_output) {
-        logger.error() << "--unchop-threads requires --unchop" << endl;
-    }
-    if (unchop_output && (input != input_gfa || (!output_format.empty() && output_format != "packed") || !gfa_trans_path.empty())) {
-        logger.error() << "--unchop requires GFA input and PackedGraph output without -T" << endl;
+    if (unchop_output) {
+        if (input != input_gfa && input != input_handlegraph) {
+            logger.error() << "--unchop requires GFA or graph input" << endl;
+        }
+        if (!output_format.empty() && output_format != "packed" && output_format != "hash") {
+            logger.error() << "--unchop requires PackedGraph or HashGraph output" << endl;
+        }
+        if (!gfa_trans_path.empty()) {
+            logger.error() << "--unchop cannot be combined with -T" << endl;
+        }
     }
 
     if (!gfa_trans_path.empty() && input != input_gfa) {
@@ -426,18 +422,7 @@ int main_convert(int argc, char** argv) {
         if (graph == nullptr) {
             logger.error() << "--unchop requires a mutable path graph" << endl;
         }
-        if (unchop_threads <= 1) {
-            handlealgs::unchop(*graph);
-        } else {
-            auto parallel_unchop = [&](auto& packed) {
-                if constexpr (requires { handlealgs::unchop(packed, size_t{1}); }) {
-                    handlealgs::unchop(packed, static_cast<size_t>(unchop_threads));
-                } else {
-                    logger.error() << "Parallel unchop requires libhandlegraph with the threaded API" << endl;
-                }
-            };
-            parallel_unchop(*graph);
-        }
+        handlealgs::unchop(*graph);
     }
 
     // GFA output.
@@ -522,8 +507,8 @@ void help_convert(char** argv) {
          << "                             this sample name (must be used with --hap-locus)" << endl
          << "gfa input options (use with -g):" << endl
          << "  -T, --gfa-trans FILE       write gfa id conversions to FILE" << endl
-         << "      --unchop              unchop the imported PackedGraph before saving" << endl
-         << "      --unchop-threads N    parallelize read-only neighbor checks with --unchop [1]" << endl
+         << "      --unchop               merge adjacent nodes before saving (-p or -a)" << endl
+         << "                             read-only checks use the -t thread count" << endl
          << "output options:" << endl
          << "  -v, --vg-out               output in VG's original Protobuf format" << endl
          << "                             [DEPRECATED: use -p instead]." << endl
