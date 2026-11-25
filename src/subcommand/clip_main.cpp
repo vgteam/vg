@@ -68,8 +68,8 @@ void help_clip(char** argv) {
          << "general options: " << endl
          << "      --cactus-clip          run depth 1, -sS, then -D clipping in one graph" << endl
          << "      --cactus-filter        run -d N, depth 1, then -sS with the first -P" << endl
-         << "      --cactus-full          chop 1024, normalize first -P with one thread, depth 1," << endl
-         << "                             optional -Sk, then assign sorted IDs" << endl
+         << "      --cactus-full          chop 1024, normalize first -P on one thread," << endl
+         << "                             depth 1, optional -Sk, then assign sorted IDs" << endl
          << "  -P, --path-prefix STR      do not clip out alleles on paths beginning with STR" << endl
          << "                             (specify such references with -P or -b; may repeat)" << endl
          << "  -m, --min-fragment-len N   don't write novel path fragment if < N bp long" << endl
@@ -122,6 +122,10 @@ int main_clip(int argc, char** argv) {
         return 1;
     }
     
+    constexpr int OPT_CACTUS_CLIP = 1000;
+    constexpr int OPT_CACTUS_FILTER = 1001;
+    constexpr int OPT_CACTUS_FULL = 1002;
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -152,9 +156,9 @@ int main_clip(int argc, char** argv) {
             {"output-bed", no_argument, 0, 'B'},
             {"threads", required_argument, 0, 't'},
             {"verbose", no_argument, 0, 'v'},
-            {"cactus-clip", no_argument, 0, 1000},
-            {"cactus-filter", no_argument, 0, 1001},
-            {"cactus-full", no_argument, 0, 1002},
+            {"cactus-clip", no_argument, 0, OPT_CACTUS_CLIP},
+            {"cactus-filter", no_argument, 0, OPT_CACTUS_FILTER},
+            {"cactus-full", no_argument, 0, OPT_CACTUS_FULL},
             {0, 0, 0, 0}
 
         };
@@ -168,13 +172,13 @@ int main_clip(int argc, char** argv) {
 
         switch (c)
         {
-        case 1000:
+        case OPT_CACTUS_CLIP:
             cactus_clip = true;
             break;
-        case 1001:
+        case OPT_CACTUS_FILTER:
             cactus_filter = true;
             break;
-        case 1002:
+        case OPT_CACTUS_FULL:
             cactus_full = true;
             break;
 
