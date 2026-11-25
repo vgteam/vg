@@ -1268,14 +1268,26 @@ shared_ptr<FlatRun> BlockRecordWriter::align_flat(string reference, vector<strin
                      << " " << (aligned ? aligned->band : 0) << " "
                      << (aligned ? aligned->cells_filled : 0) << " "
                      << (aligned ? aligned->cells_traced : 0) << " " << seconds << " "
-                     << omp_get_thread_num() << "\n";
+                     << omp_get_thread_num() << " " << (aligned ? aligned->cells_proof : 0)
+                     << "\n";
                 cerr << line.str();
             }
             if (!aligned && flat_wide_cells > flat_aligner.max_cells) {
                 StringAlignerParams wide = flat_aligner;
                 wide.max_cells = flat_wide_cells;
                 std::scoped_lock lock(flat_wide_lock);
+                const auto wide_began = std::chrono::steady_clock::now();
                 aligned = align_global(run->reference, strand.sequence, wide);
+                if (log_align) {
+                    std::ostringstream line;
+                    line << "[flat-align-wide] " << run->reference.size() << " "
+                         << strand.sequence.size() << " " << (aligned ? aligned->band : 0) << " "
+                         << (aligned ? aligned->cells_filled : 0) << " "
+                         << (aligned ? aligned->cells_traced : 0) << " "
+                         << std::chrono::duration<double>(std::chrono::steady_clock::now()
+                                                          - wide_began).count() << "\n";
+                    cerr << line.str();
+                }
             }
             if (!aligned) {
                 refused = FlatRefusal::AlignerLimit;

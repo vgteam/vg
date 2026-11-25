@@ -422,6 +422,7 @@ optional<StringAlignment> align_global(const string& first, const string& second
             }
             least = fill_band(a, n, b, m, proof.low, proof.high, params, nullptr);
             result.cells_filled += proof.cells(n);
+            result.cells_proof += proof.cells(n);
         }
         if (cost <= cost_outside(band, n, m, params) || (least && cost == *least)) {
             const vector<AlignmentRun> middle = trace_back(trace, a, n, b, m, band.low,
