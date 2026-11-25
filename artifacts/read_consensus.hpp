@@ -39,7 +39,7 @@ struct ReadConsensusParams {
     /// length. A shorter run takes the length the reads give it.
     size_t homopolymer_min_run = 9;
     /// The costs and limits of each alignment of a read to a backbone.
-    StringAlignerParams aligner;
+    StringAlignerParams aligner{.wavefront = true};
 };
 
 /**
@@ -81,9 +81,8 @@ optional<string> keep_homopolymer_lengths(const string& sequence, const string& 
                                           size_t min_run = 1);
 
 /// Return the least number of single-base substitutions, insertions and deletions that turn
-/// `first` into `second`, or nothing if it is not found within `max_cells` cells.
-optional<int64_t> edit_distance(const string& first, const string& second,
-                                size_t max_cells = (size_t)1 << 28);
+/// `first` into `second`, or nothing if it is not found.
+optional<int64_t> edit_distance(const string& first, const string& second);
 
 }
 

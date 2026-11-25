@@ -3,6 +3,10 @@
 
 #include "string_aligner.hpp"
 
+extern "C" {
+#include "wavefront/wavefront_align.h"
+}
+
 namespace vg {
 
 namespace {
@@ -238,6 +242,98 @@ int64_t cost_outside(const Band& band, size_t n, size_t m, const StringAlignerPa
 
 }
 
+namespace {
+
+/// The wavefront aligners of one thread: one for each set of costs it has aligned with.
+struct WavefrontAligners {
+    struct Entry {
+        StringAlignerParams params;
+        wavefront_aligner_t* aligner;
+    };
+    vector<Entry> entries;
+
+    ~WavefrontAligners() {
+        for (const Entry& entry : entries) {
+            wavefront_aligner_delete(entry.aligner);
+        }
+    }
+
+    /// Return the aligner with the costs of `params`.
+    wavefront_aligner_t* with(const StringAlignerParams& params) {
+        for (const Entry& entry : entries) {
+            const StringAlignerParams& has = entry.params;
+            if (has.mismatch == params.mismatch && has.gap_open == params.gap_open
+                && has.gap_extend == params.gap_extend && has.long_gaps == params.long_gaps
+                && (!has.long_gaps || (has.long_gap_open == params.long_gap_open
+                                       && has.long_gap_extend == params.long_gap_extend))) {
+                return entry.aligner;
+            }
+        }
+        wavefront_aligner_attr_t attributes = wavefront_aligner_attr_default;
+        attributes.alignment_scope = compute_alignment;
+        attributes.alignment_form.span = alignment_end2end;
+        attributes.heuristic.strategy = wf_heuristic_none;
+        // The bidirectional aligner keeps memory in proportion to the cost of the alignment.
+        attributes.memory_mode = wavefront_memory_ultralow;
+        if (params.long_gaps) {
+            attributes.distance_metric = gap_affine_2p;
+            attributes.affine2p_penalties.match = 0;
+            attributes.affine2p_penalties.mismatch = params.mismatch;
+            attributes.affine2p_penalties.gap_opening1 = params.gap_open;
+            attributes.affine2p_penalties.gap_extension1 = params.gap_extend;
+            attributes.affine2p_penalties.gap_opening2 = params.long_gap_open;
+            attributes.affine2p_penalties.gap_extension2 = params.long_gap_extend;
+        } else {
+            attributes.distance_metric = gap_affine;
+            attributes.affine_penalties.match = 0;
+            attributes.affine_penalties.mismatch = params.mismatch;
+            attributes.affine_penalties.gap_opening = params.gap_open;
+            attributes.affine_penalties.gap_extension = params.gap_extend;
+        }
+        entries.push_back({params, wavefront_aligner_new(&attributes)});
+        return entries.back().aligner;
+    }
+};
+
+/// Align all of `first` to all of `second` with the wavefront algorithm, which takes time and
+/// memory in proportion to the cost of the alignment and not to the lengths of the strings.
+optional<StringAlignment> align_wavefront(const string& first, const string& second,
+                                          const StringAlignerParams& params) {
+    StringAlignment alignment;
+    if (first.empty() || second.empty()) {
+        add_run(alignment.runs, AlignmentOp::Deletion, first.size());
+        add_run(alignment.runs, AlignmentOp::Insertion, second.size());
+        alignment.cost = params.gap_cost(first.size() + second.size());
+        return alignment;
+    }
+    thread_local WavefrontAligners aligners;
+    wavefront_aligner_t* aligner = aligners.with(params);
+    if (wavefront_align(aligner, first.data(), (int)first.size(), second.data(),
+                        (int)second.size()) != WF_STATUS_ALG_COMPLETED) {
+        return std::nullopt;
+    }
+    const cigar_t& cigar = *aligner->cigar;
+    for (int i = cigar.begin_offset; i < cigar.end_offset; ++i) {
+        const char op = cigar.operations[i];
+        add_run(alignment.runs,
+                op == 'M' ? AlignmentOp::Match
+                          : op == 'X' ? AlignmentOp::Mismatch
+                                      : op == 'I' ? AlignmentOp::Insertion
+                                                  : AlignmentOp::Deletion,
+                1);
+    }
+    for (const AlignmentRun& run : alignment.runs) {
+        if (run.op == AlignmentOp::Mismatch) {
+            alignment.cost += (int64_t)params.mismatch * (int64_t)run.length;
+        } else if (run.op != AlignmentOp::Match) {
+            alignment.cost += params.gap_cost(run.length);
+        }
+    }
+    return alignment;
+}
+
+}
+
 int64_t StringAlignerParams::gap_cost(size_t length) const {
     if (length == 0) {
         return 0;
@@ -251,6 +347,9 @@ int64_t StringAlignerParams::gap_cost(size_t length) const {
 
 optional<StringAlignment> align_global(const string& first, const string& second,
                                        const StringAlignerParams& params) {
+    if (params.wavefront) {
+        return align_wavefront(first, second, params);
+    }
     // Some best alignment matches the bases the strings share at their starts, and then those
     // they share at their ends, so only what lies between needs a band.
     size_t prefix = 0;

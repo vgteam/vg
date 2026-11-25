@@ -65,10 +65,9 @@ struct Medoid {
 };
 
 /// Return the first of `strings` with the least summed edit distance to the others, or nothing
-/// if an edit distance is not found within `max_cells`. A string that more than half of them
-/// equal is the medoid, and is found without aligning.
-optional<Medoid> medoid_of(const vector<const string*>& strings, size_t max_cells,
-                           bool need_distance) {
+/// if an edit distance is not found. A string that more than half of them equal is the medoid,
+/// and is found without aligning.
+optional<Medoid> medoid_of(const vector<const string*>& strings, bool need_distance) {
     if (!need_distance) {
         for (size_t i = 0; i < strings.size(); ++i) {
             size_t same = 0;
@@ -83,7 +82,7 @@ optional<Medoid> medoid_of(const vector<const string*>& strings, size_t max_cell
     vector<int64_t> sums(strings.size(), 0);
     for (size_t i = 0; i < strings.size(); ++i) {
         for (size_t j = i + 1; j < strings.size(); ++j) {
-            const optional<int64_t> distance = edit_distance(*strings[i], *strings[j], max_cells);
+            const optional<int64_t> distance = edit_distance(*strings[i], *strings[j]);
             if (!distance) {
                 return std::nullopt;
             }
@@ -143,7 +142,7 @@ optional<string> vote(const vector<const string*>& reads, const string& backbone
             for (size_t index : nearest_median_length(all, params.max_medoid)) {
                 compared.push_back(all[index]);
             }
-            const optional<Medoid> medoid = medoid_of(compared, params.aligner.max_cells, false);
+            const optional<Medoid> medoid = medoid_of(compared, false);
             if (!medoid) {
                 return std::nullopt;
             }
@@ -180,13 +179,13 @@ bool all_are(const string& bases, size_t from, size_t length, char base) {
 
 }
 
-optional<int64_t> edit_distance(const string& first, const string& second, size_t max_cells) {
+optional<int64_t> edit_distance(const string& first, const string& second) {
     StringAlignerParams unit;
     unit.mismatch = 1;
     unit.gap_open = 0;
     unit.gap_extend = 1;
     unit.long_gaps = false;
-    unit.max_cells = max_cells;
+    unit.wavefront = true;
     const optional<StringAlignment> alignment = align_global(first, second, unit);
     if (!alignment) {
         return std::nullopt;
@@ -295,7 +294,7 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
         for (size_t index : nearest_median_length(used, params.max_medoid)) {
             compared.push_back(used[index]);
         }
-        const optional<Medoid> medoid = medoid_of(compared, params.aligner.max_cells, true);
+        const optional<Medoid> medoid = medoid_of(compared, true);
         if (!medoid) {
             return std::nullopt;
         }
@@ -304,8 +303,7 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
             if (k == medoid->index) {
                 continue;
             }
-            const optional<int64_t> distance = edit_distance(backbone, *compared[k],
-                                                             params.aligner.max_cells);
+            const optional<int64_t> distance = edit_distance(backbone, *compared[k]);
             if (!distance) {
                 return std::nullopt;
             }

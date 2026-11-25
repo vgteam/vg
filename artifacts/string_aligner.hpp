@@ -42,6 +42,10 @@ struct StringAlignerParams {
     /// The most cells a band that is filled without tracing may hold. The aligner keeps only two
     /// rows of it, so this limits time, not memory.
     size_t max_work = (size_t)1 << 30;
+    /// Whether the alignment is found with the wavefront algorithm, which needs no band and has
+    /// none of the limits above: its time grows with the square of the alignment's cost and
+    /// its memory with the cost, whatever the lengths of the strings.
+    bool wavefront = false;
 
     /// Return the cost of a gap of `length` bases.
     int64_t gap_cost(size_t length) const;
