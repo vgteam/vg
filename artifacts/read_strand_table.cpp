@@ -87,18 +87,21 @@ double ReadStrandTable::read_strand_log_odds(size_t record_key, std::string_view
         // `build_site_anchors`).
         return std::numeric_limits<double>::quiet_NaN();
     }
-    double value = found->second.lambda;
-    size_t sites = found->second.sites;
+    const ReadLambda& rl = found->second;
+    size_t sites = rl.sites;
     // Subtract the contribution of this site, so that a site is not judged by its own evidence.
     // Keep `built` in this scope, because `site_own` can point to it.
     unordered_map<uint64_t, double> built;
     if (site_own == nullptr && site_own_strand_log_odds(record_key, built)) {
         site_own = &built;
     }
+    double own_log_odds = 0.0;
+    bool has_own = false;
     if (site_own != nullptr) {
         const auto mine = site_own->find(key);
         if (mine != site_own->end()) {
-            value -= mine->second;
+            own_log_odds = mine->second;
+            has_own = true;
             if (sites > 0) {
                 --sites;
             }
@@ -107,7 +110,21 @@ double ReadStrandTable::read_strand_log_odds(size_t record_key, std::string_view
     if (sites == 0) {
         return 0.0;
     }
-    return calibration.log_odds(value);
+    const auto site = lambda_site.find(record_key);
+    const size_t site_run = site != lambda_site.end() ? site->second->run : NO_RUN;
+    if (site_run == NO_RUN) {
+        // A site in no run, such as a homozygous one, has no frame to keep, so the read's whole
+        // sum over its other sites counts.
+        return calibration.log_odds(rl.lambda - own_log_odds);
+    }
+    // The site's order is in the frame of its run, so a strand from another run counts only as far
+    // as read phasing orients that run as reads would.
+    const ReadStrand strand = read_strand(rl, site_run, has_own, own_log_odds);
+    const double y = calibration.log_odds(strand.log_odds);
+    if (strand.run.run == NO_RUN || strand.run.run == site_run) {
+        return y;
+    }
+    return reoriented_log_odds(y, correlations.agreement(RunKey {phase_set, site_run}, strand.run));
 }
 
 }

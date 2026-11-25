@@ -462,7 +462,7 @@ bool NestedFlowCaller::emit_record(const Snarl& snarl, const CallRecord& record,
         .traversal_count = allele_strands.size(),
         .ploidy = ploidy,
     };
-    return site_emitter.emit(
+    const SiteEmitter::Outcome outcome = site_emitter.emit(
         graph, site,
         [&](size_t allele) {
             auto [trav, strand] = allele_strands[allele];
@@ -485,6 +485,7 @@ bool NestedFlowCaller::emit_record(const Snarl& snarl, const CallRecord& record,
             snarl_caller.update_vcf_info(snarl, traversals, vcf_genotype, call_info,
                                          vcf_writer.sample_name(), variant);
         });
+    return outcome != SiteEmitter::Outcome::Dropped;
 }
 
 string NestedFlowCaller::flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const {

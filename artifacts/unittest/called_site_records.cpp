@@ -84,7 +84,8 @@ TEST_CASE("A SiteEmitter writes a called site as one record", "[site_emitter]") 
     SECTION("a heterozygous call gets a record trimmed to the bases that differ") {
         const vector<int> genotype{0, 1};
         CalledSite site{bubble.n1, bubble.n4, ref_path, 0, genotype, 0, 2, 2};
-        REQUIRE(emitter.emit(graph, site, alleles, write_fields));
+        REQUIRE(emitter.emit(graph, site, alleles, write_fields) ==
+                SiteEmitter::Outcome::Written);
         REQUIRE(written_traversals == vector<int>({0, 1}));
         // Each traversal is spelled once, however many steps read its spelling.
         REQUIRE(asked == map<size_t, int>({{0, 1}, {1, 1}}));
@@ -101,7 +102,8 @@ TEST_CASE("A SiteEmitter writes a called site as one record", "[site_emitter]") 
     SECTION("a reference call is hidden") {
         const vector<int> genotype{0, 0};
         CalledSite site{bubble.n1, bubble.n4, ref_path, 0, genotype, 0, 2, 2};
-        REQUIRE(emitter.emit(graph, site, alleles, write_fields));
+        REQUIRE(emitter.emit(graph, site, alleles, write_fields) ==
+                SiteEmitter::Outcome::Hidden);
         REQUIRE(written_lines(output).empty());
     }
 
@@ -109,7 +111,8 @@ TEST_CASE("A SiteEmitter writes a called site as one record", "[site_emitter]") 
         emitter.genotype_snarls = true;
         const vector<int> genotype{0, 0};
         CalledSite site{bubble.n1, bubble.n4, ref_path, 0, genotype, 0, 2, 2};
-        REQUIRE(emitter.emit(graph, site, alleles, write_fields));
+        REQUIRE(emitter.emit(graph, site, alleles, write_fields) ==
+                SiteEmitter::Outcome::Written);
         REQUIRE(written_traversals == vector<int>({0, 1}));
         vector<vector<string>> lines = written_lines(output);
         REQUIRE(lines.size() == 1);
@@ -122,7 +125,8 @@ TEST_CASE("A SiteEmitter writes a called site as one record", "[site_emitter]") 
         const vector<int> genotype{1, 1};
         const string id = "op1";
         CalledSite site{bubble.n1, bubble.n4, ref_path, 0, genotype, 0, 2, 2, &id};
-        REQUIRE(emitter.emit(graph, site, alleles, write_fields));
+        REQUIRE(emitter.emit(graph, site, alleles, write_fields) ==
+                SiteEmitter::Outcome::Written);
         vector<vector<string>> lines = written_lines(output);
         REQUIRE(lines.size() == 1);
         REQUIRE(lines[0][2] == "op1");

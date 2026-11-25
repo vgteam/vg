@@ -33,8 +33,7 @@ using namespace std;
  *
  * It genotypes the site from its reads, files it in the linkage model and stages it. Then it
  * genotypes the sites below it in the same way, and so on down. With nested calling, those are
- * the child chains that the called alleles cross (see `DescentPolicy`). With top-down calling, they
- * are the children, each genotyped against the traversals its parent's called alleles allow.
+ * the child chains that the called alleles cross (see `DescentPolicy`).
  *
  * Several threads may genotype different top-level sites at once.
  */
@@ -81,12 +80,9 @@ public:
         /// With nested calling, also genotype child chains the reference does not cross, with no
         /// line.
         bool off_reference = false;
-        /// Top-down calling: genotype each child against the traversals its parent's called
-        /// alleles allow.
-        bool top_down = false;
-        /// With `top_down`, a parent allele that skips a child gives it a star allele rather than
-        /// a missing one.
-        bool star_allele = false;
+        /// Whether groups of each site's walks, from `candidate_groups`, choose its genotype. The
+        /// walks then choose within the chosen groups.
+        bool group_candidates = false;
         /// Which off-panel candidates become edit sites, and which edit sites are staged.
         EditCallBar edit_bar;
     };
@@ -155,26 +151,16 @@ private:
      * @param parent_ref_path_name The reference path of the parent, which a site off the
      * reference takes.
      * @param parent_ref_interval The interval of the parent on its reference path.
-     * @param parent_child_walk_sets If not null, one set per parent allele of the walks of
-     * this site that agree with that allele. The genotype takes one allele from each set.
-     * Top-down calling passes them.
      * @param ploidy_override If not negative, the ploidy to genotype at, in place of the
      * contig's or the region's. Nested calling passes the number of the parent's called alleles
      * that cross the child, or the parent's ploidy when none does.
      * @param placement The place of the site in the nesting tree. It is the default for a
-     * top-level site. A child in top-down calling takes its parent's.
+     * top-level site.
      * @return False if the site could not be genotyped.
      */
     bool genotype_tree(const net_handle_t& view, const string& parent_ref_path_name,
-                       pair<size_t, size_t> parent_ref_interval,
-                       const vector<WalkSet>* parent_child_walk_sets, int ploidy_override,
+                       pair<size_t, size_t> parent_ref_interval, int ploidy_override,
                        const NestingPlacement& placement);
-
-    /// Genotype a site of top-down calling against its parent's traversal sets, and record and
-    /// stage it if it is on a reference path.
-    ///
-    /// @return False if the genotype does not have one allele per set.
-    bool genotype_in_parent_sets(SiteCall& call, const vector<WalkSet>& sets);
 
     /// Genotype a nested chain at the ploidy its parent gives it, and record and stage it as its
     /// placement says.
@@ -215,25 +201,24 @@ private:
     void genotype_placed_child(const SiteCall& call, const DescentPolicy::Placed& child,
                                const vector<HeldEdit>& held, vector<bool>& edit_placed);
 
-    /// Genotype each child of a site against the traversals its called alleles allow.
-    void descend_top_down(const SiteCall& call);
-
     /// Give the staged site of `call`, if any, its tree fields, and add it to the staged sites.
     ///
     /// @pre The sites below have been genotyped, since they read the traversals of the staged
     /// site.
     void file_staged(SiteCall& call);
 
-    /// Genotype one site at `ploidies`.
+    /// Genotype the site of `call` at `ploidies`, choosing among `SiteCall::walks`.
     ///
-    /// @param start The start bound of the site, as the candidate finder oriented it.
-    /// @param end The end bound of the site, as the candidate finder oriented it.
-    /// @param net The site, as its net handle in the overlay of sites.
     /// @param score Set to the score inside the returned call info.
+    /// @param group_of If not null, the group of each of the walks. The groups then choose the
+    /// genotype, and the walks choose within the chosen groups.
     pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> genotype_site(
-        const handle_t& start, const handle_t& end, const vector<Traversal>& travs,
-        int ref_trav_idx, const Ploidies& ploidies, const net_handle_t& net,
-        SiteScore*& score) const;
+        const SiteCall& call, const Ploidies& ploidies, SiteScore*& score,
+        const vector<int>* group_of = nullptr) const;
+
+    /// Return the `candidate_groups` of the walks of `call` if `Options::group_candidates` is set,
+    /// and nothing otherwise.
+    vector<int> group_walks(const SiteCall& call) const;
 
     /// Make the `StagedSite` of a site from its walks and genotype, moving `call_info` into it.
     ///

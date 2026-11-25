@@ -216,7 +216,7 @@ bool FlowCaller::emit_site(const CandidateFinder::Site& site, const vector<int>&
                           site.ref_trav_idx,
                           site.travs.size(),
                           ploidy};
-        return site_emitter.emit(
+        const SiteEmitter::Outcome outcome = site_emitter.emit(
             graph, called,
             [&](size_t allele) {
                 return make_pair(trav_string(graph, site.travs[allele], vcf_writer.translation()),
@@ -229,6 +229,7 @@ bool FlowCaller::emit_site(const CandidateFinder::Site& site, const vector<int>&
                                              vcf_genotype, call_info,
                                              vcf_writer.sample_name(), record);
             });
+        return outcome != SiteEmitter::Outcome::Dropped;
     }
     const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
     auto [contig, position] = get_ref_position(graph, visit_handle(graph, site.snarl.start()),

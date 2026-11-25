@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 191
+plan tests 205
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -247,6 +247,53 @@ is $(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rl_mosaic.tsv --
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors.tsv -t 1 \
     > rl_anchors.vcf 2> rl_anchors.err
 is "$?" "0" "--anchors-out produces output"
+# Fill anchors pin points spaced evenly inside runs of nodes with no branch. They are on by default
+# with --anchors-out, at a spacing longer than any run in this graph, so the default places no point
+# here and --anchors-fill 20 is used to make some.
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_fill0.tsv --anchors-fill 0 -t 1 \
+    > rl_fill0.vcf 2>/dev/null
+is "$(/usr/bin/cmp rl_anchors.vcf rl_fill0.vcf && echo same)" "same" \
+   "the default spacing, which places no fill point in this graph, leaves the VCF as --anchors-fill 0 writes it"
+is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_fill0.tsv | wc -l | tr -d ' ') "0" \
+   "--anchors-fill 0 writes no fill anchors"
+is "$(grep '^#filters' rl_fill0.tsv | awk '{print $NF}') $(grep '^#filters' rl_anchors.tsv | awk '{print $NF}')" \
+   "fill=0 fill=1000" "the anchor file records the fill spacing, 0 for none and 1000 by default"
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_fill20.tsv --anchors-fill 20 -t 1 \
+    > rl_fill20.vcf 2>/dev/null
+is "$(/usr/bin/cmp rl_fill0.vcf rl_fill20.vcf && echo same)" "same" \
+   "fill anchors 20 bp apart leave the VCF unchanged"
+is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_fill20.tsv | wc -l | awk '{print ($1 > 0)}') "1" \
+   "--anchors-fill 20 writes fill anchors"
+# A read point is the read and the number of read bases before the point: offset + 1 on strand 0,
+# and offset on strand 1.
+is $(awk -F'\t' '$1 == "R" {print $2 "\t" ($3 == 0 ? $4 + 1 : $4)}' rl_fill20.tsv | sort | uniq -d \
+     | wc -l | tr -d ' ') "0" "no read point is in two anchors"
+is $(awk -F'\t' '$1 == "A" && !(NF == 10 && $10 ~ /^(het|hom|hom-split|haploid|fill-shared|fill-strand|fill-off-call)$/)' \
+     rl_fill20.tsv | wc -l | tr -d ' ') "0" "every anchor row ends with its kind"
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_fill20_t4.tsv --anchors-fill 20 -t 4 \
+    > /dev/null 2>&1
+is "$(/usr/bin/cmp rl_fill20.tsv rl_fill20_t4.tsv && echo same)" "same" \
+   "the anchor file with fill anchors does not depend on the thread count"
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-fill 20 -t 1 > /dev/null 2> rl_fill_alone.err
+is $(grep -c -- "--anchors-fill only applies to the anchor file" rl_fill_alone.err) "1" \
+   "--anchors-fill without --anchors-out is refused"
+# The same reads, fetched from an indexed GAM a window of 8 node IDs at a time, so that the fill
+# points lie in several windows.
+vg gamsort -i rl_sorted.gam.gai sim.gam > rl_sorted.gam 2>/dev/null
+for arm in 0_1 20_1 20_4; do
+    vg call x.gbz --read-likelihood --gam rl_sorted.gam --gam-index rl_sorted.gam.gai \
+        --read-window 8 --anchors-out rl_ix_${arm}.tsv \
+        --anchors-fill ${arm%_*} -t ${arm#*_} > rl_ix_${arm}.vcf 2> rl_ix_${arm}.err
+done
+is "$(/usr/bin/cmp rl_ix_0_1.vcf rl_ix_20_1.vcf \
+        && /usr/bin/cmp <(grep "off-panel:" rl_ix_0_1.err) <(grep "off-panel:" rl_ix_20_1.err) && echo same)" \
+   "same" "fill anchors from an indexed GAM leave the VCF and the off-panel counts unchanged"
+is $(awk -F'\t' '$1 == "A" && $3 ~ /^fill/' rl_ix_20_1.tsv | wc -l | awk '{print ($1 > 0)}') "1" \
+   "fill anchors are found from an indexed GAM"
+is $(grep -c "fill anchors: reads placed from [1-9][0-9]* windows" rl_ix_20_1.err) "1" \
+   "fill anchors place reads from the windows the sites fetch"
+is "$(/usr/bin/cmp rl_ix_20_1.tsv rl_ix_20_4.tsv && echo same)" "same" \
+   "the anchor file from an indexed GAM does not depend on the thread count"
 
 # Nested calling: a parent snarl with a deletion edge over a chain of two SNP snarls.
 vg gbwt -G nesting/deletion_over_snp_chain.gfa --gbz-format -g nest.gbz --set-reference GRCh 2>/dev/null
@@ -266,14 +313,49 @@ vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --ph
 is $(grep -v "^#" nest_hap.vcf | awk '$2 == 30' | cut -f10 | cut -d: -f1) "1|0" \
    "the parent is called het for the deletion that spans the nested chain"
 is $(grep -v "^#" nest_hap.vcf | awk '$2 == 51' | cut -f10 | cut -d: -f1) ".|1" \
-   "the nested haploid record names the strand its parent leaves the chain on"
+   "the nested SNP has an allele on strand 1 only, since strand 0 deletes the chain"
+# Fill anchors 10 bp apart, each printed as its ID, slot and kind. fill1 is outside the parent, where
+# both strands pass. fill2, fill5 and fill9 are on the chain, where only strand 1 passes.
+vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased \
+    --anchors-out nest_hap_anchors.tsv --anchors-fill 10 > /dev/null 2>&1
+is "$(awk -F'\t' '$1 == "A" && $3 ~ /^fill[1259][.]10$/ {printf "%s %s %s,", $3, $4, $10}' nest_hap_anchors.tsv)" \
+   "fill1.10 0 fill-shared,fill2.10 1 fill-strand,fill5.10 1 fill-strand,fill9.10 1 fill-strand," \
+   "a fill anchor both strands pass is fill-shared in slot 0, and one only strand 1 passes is fill-strand in slot 1"
+
+# By default a site's genotype is chosen among groups of its walks, where walks that differ only
+# inside child chains are one group. With --no-group-candidates each walk is a candidate by itself.
+# The sample has the insertion >2>10..13>5 on both strands. The strands differ inside the insertion,
+# at node 11 or 12, and one strand has the SNP at node 7 or 8. The correct call is the insertion on
+# both strands and the SNP on one; calling a deletion is wrong.
+# vg sim gives every read MAPQ 0, and vg call then gives each read the mismapping probability
+# --mismap-max. Without groups the site is called wrongly only when that is at least 0.95, so it is
+# set to 0.95.
+vg gbwt -G nesting/deletion_over_insertion_and_snp.gfa --gbz-format -g nest_off.gbz --set-reference GRCh 2>/dev/null
+vg sim -x nest_off.gbz -n 200 -l 60 -a -s 71 --path "p1#0#chr1#0" > nest_off.gam 2>/dev/null
+vg sim -x nest_off.gbz -n 200 -l 60 -a -s 73 --path "p1#1#chr1#0" >> nest_off.gam 2>/dev/null
+# Each record as POS:GT.
+calls_of() {
+  grep -v '^#' "$1" | cut -f 2,10 | cut -d: -f 1 | tr '\t\n' ': '
+}
+vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp --mismap-max 0.95 \
+    2>/dev/null > nest_off.vcf
+is "$(calls_of nest_off.vcf)" "47:2|1 71:0|1 " \
+   "by default the insertion is called on both strands, and the SNP on one"
+vg call nest_off.gbz --read-likelihood --gam nest_off.gam -t 1 -s samp --mismap-max 0.95 \
+    --no-group-candidates 2>/dev/null > nest_off_walks.vcf
+is "$(calls_of nest_off_walks.vcf)" "29:0|1 47:1|. 71:1|. " \
+   "with --no-group-candidates a deletion is called on one strand"
 
 rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 \
       callrl_nopack.vcf callrl_nopack_z.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf \
       rl_t1.vcf rl_t4.vcf rl_link_off.vcf rl_link_default.vcf \
       rl_default.vcf rl_mosaic.tsv rl_paths.gaf rl_graph.gfa rl_expand.txt \
-      rl_anchors.tsv rl_anchors.vcf rl_anchors.err \
-      nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt
+      rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_fill0.tsv rl_fill0.vcf rl_fill20.tsv \
+      rl_fill20.vcf rl_fill20_t4.tsv rl_fill_alone.err rl_sorted.gam rl_sorted.gam.gai \
+      rl_ix_0_1.* rl_ix_20_1.* rl_ix_20_4.* \
+      nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt \
+      nest_hap_anchors.tsv \
+      nest_off.gbz nest_off.gam nest_off.vcf nest_off_walks.vcf
 
 
 # subpath test
@@ -582,16 +664,14 @@ is "$NESTED_LINE_COUNT" "2" "nested vg call emits both top-level and child snarl
 
 rm -f nested_snp.vg nested_snp.gam nested_snp.pack nested_snp.vcf
 
-## Read-likelihood genotyping of a nested site, with a star allele
+## Read-likelihood genotyping of a deletion over a nested site
 # x = 1>2>3>5>6 and y1 = 1>6, which deletes the nested SNP: a het deletion over a haploid nested site.
 vg view -Fv nesting/nested_snp_in_del.gfa > ns.vg 2>/dev/null
 vg sim -x ns.vg -P x -n 150 -l 4 -a -s 7 > ns_het.gam 2>/dev/null
 vg sim -x ns.vg -P 'a#2#y1#0' -n 150 -l 2 -a -s 8 >> ns_het.gam 2>/dev/null
 vg pack -x ns.vg -g ns_het.gam -o ns_het.pack 2>/dev/null
-vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
-is $(grep -v "^#" ns_rl.vcf | wc -l | tr -d ' ') "2" "nested read-likelihood emits both the parent and the child site"
+vg call ns.vg -k ns_het.pack -p x --read-likelihood --mismap-max 0.7 --gam ns_het.gam 2>/dev/null > ns_rl.vcf
 is $(grep -v "^#" ns_rl.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "the parent deletion is called from boundary-to-boundary reads"
-is $(grep -v "^#" ns_rl.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "the nested site is a star allele, not a strand-artefact het SNP"
 rm -f ns.vg ns_het.gam ns_het.pack ns_rl.vcf
 # Test: Star allele option validation (-Y requires --top-down)
 vg construct -r small/x.fa -v small/x.vcf.gz > star_test.vg

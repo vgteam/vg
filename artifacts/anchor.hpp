@@ -14,6 +14,9 @@
  * A site's reads are divided among its *slots*, one for each distinct allele of its chosen
  * genotype, in phase order. An *anchor* is one pin together with the reads of one slot that cross
  * it.
+ *
+ * A *fill anchor* pins a point that the graph alone chooses, inside a run of nodes with no branch,
+ * so that sequence far from any site's pins is pinned too (see `FillAnchors`).
  */
 
 #include <array>
@@ -91,36 +94,6 @@ struct AnchorPinCounters {
     void report(ostream& out) const;
 };
 
-/**
- * A tally of how often a read's strand log-odds put it on the slot its allele chose.
- *
- * At a heterozygous site the alleles show which strand each read is on, so this measures how well
- * the strand log-odds would divide a homozygous site under `AnchorParams::hom_split`. Shared across
- * threads.
- */
-struct AnchorPhaseCheckCounters {
-    /// Reads with strand log-odds, checked.
-    atomic<size_t> checked{0};
-    /// Checked reads whose strand log-odds favour their slot.
-    atomic<size_t> agree{0};
-    /// Checked reads whose strand log-odds are at least `AnchorParams::phase_min` in size.
-    atomic<size_t> confident{0};
-    /// Confident reads whose strand log-odds favour their slot.
-    atomic<size_t> confident_agree{0};
-    /// Reads with no strand log-odds, or a strand from another phase set, which were not checked.
-    atomic<size_t> no_opinion{0};
-
-    /**
-     * Count one read placed in `slot` by its allele, whose strand log-odds are `lo`.
-     *
-     * @param phase_min The size of strand log-odds that counts as confident.
-     */
-    void count(double lo, int slot, double phase_min);
-
-    /// Write the tally to a log, if any read was checked.
-    void report(ostream& out) const;
-};
-
 /// A tally of what happened to reads and sites while anchors were made. Shared across threads.
 struct AnchorCounters {
     /// How the pins were resolved.
@@ -164,12 +137,6 @@ struct AnchorCounters {
     ///
     /// Reads with no strand log-odds, or with a strand from another phase set, are left out.
     atomic<size_t> het_phase_tilted{0};
-    /// Read placements that `AnchorParams::strict_hets` moved off the slot their allele match
-    /// chose.
-    atomic<size_t> het_strict_moved{0};
-
-    /// How often the strand log-odds agree with the alleles at heterozygous sites.
-    AnchorPhaseCheckCounters phase_check;
 
     /// Write the tally to a log.
     void report(ostream& out) const;
@@ -387,13 +354,46 @@ struct AnchorParams {
     /// confident, so they are no longer an independent check on it.
     bool phase_hets = true;
 
-    /// Whether to choose a read's slot at a heterozygous site by the sign of its strand log-odds
-    /// alone, ignoring the allele match.
-    ///
-    /// This is a comparison for `phase_hets`. A read with no strand log-odds keeps the slot of its
-    /// allele match, so both rules place the same reads.
-    bool strict_hets = false;
+    /// The spacing, in bases, of the fill points placed inside runs of nodes with no branch, or 0
+    /// for no fill anchors (see `FillAnchors`).
+    size_t fill_spacing = 0;
 };
+
+/// What placed an anchor's pin. When two anchors would hold one read point, the anchor whose pin
+/// source comes first in this list keeps it.
+enum class PinSource : uint8_t {
+    /// A snarl, which pins next to its boundary nodes.
+    snarl,
+    /// An off-panel site, which pins inside a node around the bases its alleles change.
+    off_panel,
+    /// A fill point, inside a run of nodes with no branch (see `FillAnchors`).
+    fill,
+};
+
+/// The kind of an anchor, which the anchor file writes in its `kind` column.
+enum class AnchorKind : uint8_t {
+    /// One strand of a genotype with two different alleles.
+    het,
+    /// The one slot of a homozygous genotype, which holds every read.
+    hom,
+    /// One strand of a homozygous genotype whose reads were divided by their strand log-odds.
+    hom_split,
+    /// The one slot of a genotype of one allele: a nested haploid chain, or a site in a region
+    /// of ploidy 1.
+    haploid,
+    /// A fill point that both of the sample's strands cross, or that no site holds.
+    fill_shared,
+    /// A fill point that only one strand's called walk crosses.
+    fill_strand,
+    /// A fill point that no called walk crosses.
+    fill_off_call,
+};
+
+/// The number of anchor kinds.
+constexpr size_t ANCHOR_KIND_COUNT = 7;
+
+/// Return the name the anchor file writes for an anchor kind.
+const char* anchor_kind_name(AnchorKind kind);
 
 /**
  * A collector of anchors, which writes them to the anchor TSV once all are in.
@@ -435,19 +435,21 @@ public:
         /// be 1.
         int slot = 0;
         /// The candidate traversal the slot carries, as an index into the site's candidate
-        /// traversals. This is not a VCF allele number.
+        /// traversals, or -1 for a fill anchor, which has none. This is not a VCF allele number.
         int allele = -1;
         /// The site's GQN, or NaN where it has none.
         double gqn = -1.0;
-        /// The share of the site's reads that its genotype explains.
+        /// The share of the site's reads that its genotype explains, or NaN for a fill anchor.
         double explained = 1.0;
         /// The site's reliability: the mean confidence of the reads written for it, each read
         /// counted once, or -1 where the site wrote no read.
         ///
         /// The read rows give confidences to one decimal only, so it is written here as well.
         double reliability = -1.0;
-        /// Whether the anchor belongs to an off-panel site, which lies inside nodes.
-        bool edit = false;
+        /// What placed the anchor's pin.
+        PinSource source = PinSource::snarl;
+        /// The kind of the anchor, for the file's `kind` column.
+        AnchorKind kind = AnchorKind::het;
         /// The reads placed in the anchor.
         vector<ReadRow> reads;
     };
@@ -461,6 +463,12 @@ public:
         size_t placements_left_out = 0;
         /// The off-panel anchors left out, because too few of their reads were left.
         size_t anchors_left_out = 0;
+        /// The read rows of fill anchors left out, because another anchor holds their point.
+        size_t fill_placements_left_out = 0;
+        /// The fill anchors left out, because too few of their reads were left.
+        size_t fill_anchors_left_out = 0;
+        /// The anchors written of each kind, indexed by `AnchorKind`.
+        std::array<size_t, ANCHOR_KIND_COUNT> written_by_kind{};
     };
 
     /// Make a writer that collects anchors from up to `threads` OpenMP threads at once.
@@ -473,11 +481,16 @@ public:
     size_t anchor_count() const;
 
     /**
-     * Sort the collected anchors by (node, snarl, slot) and write them to a file.
+     * Sort the collected anchors and write them to a file.
+     *
+     * Anchors are ordered by node. On one node, the anchors of sites come first, ordered by
+     * (snarl, slot, pin), and fill anchors after them, ordered by pin.
      *
      * No point of a read alignment is written in two anchors. An off-panel anchor leaves out a
-     * read whose point a snarl's anchor holds, or an earlier off-panel anchor in the file. It is
-     * then left out itself if it holds fewer than `params.min_reads` reads.
+     * read whose point a snarl's anchor holds, or an earlier off-panel anchor in the file. A fill
+     * anchor leaves out a read whose point a snarl's or an off-panel anchor holds, or an earlier
+     * fill anchor in the file. Each off-panel and fill anchor is then left out itself if it holds
+     * fewer than `params.min_reads` reads.
      *
      * @returns false if the file could not be opened.
      */
@@ -528,11 +541,10 @@ struct AnchorCall {
  * `read_strand`, indexed like `evidence.reads`, holds each read's tempered strand log-odds with
  * this site left out. A positive value favours slot 0, 0 means the read has none, and NaN means
  * its strand is from another phase set, or from more than one (see `read_strand_usable`). It
- * changes the slot choice in three cases:
+ * changes the slot choice in two cases:
  *
  * - At a heterozygous site under `params.phase_hets` (the default), the disfavoured slot's v_i
  *   is multiplied by exp(-|log-odds|), as `phase_aware_correction` weights it.
- * - Under `params.strict_hets`, the sign alone chooses a heterozygous site's slot.
  * - Under `params.hom_split`, a diploid homozygous site with enough confidently placed reads on
  *   each strand gets two slots, and the sign divides its reads between them. A read with no
  *   log-odds goes by a hash of its name, and a read whose log-odds are NaN is dropped.
@@ -547,6 +559,19 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& ca
                         string_view snarl_id, const AnchorParams& params,
                         vector<AnchorWriter::Anchor>& out,
                         const vector<double>* read_strand = nullptr);
+
+/**
+ * Return `evidence` with each read's share of some candidate alleles moved to the alleles they
+ * are written as.
+ *
+ * A VCF record writes two traversals that spell one sequence as one allele, and a traversal that
+ * is symbolically the reference as allele 0, which the reference traversal spells. Each pair in
+ * `written_as` is a traversal and the traversal its allele is spelled from. Every read's share of
+ * the first is added to its share of the second, and the first keeps none, so each row still sums
+ * to 1. A pair naming a traversal outside the evidence is skipped.
+ */
+AnchorSiteEvidence pool_written_alleles(const AnchorSiteEvidence& evidence,
+                                        const vector<pair<int, int>>& written_as);
 
 /**
  * A collector that turns each chosen site into anchors as the sites are rendered, and writes the
@@ -596,6 +621,10 @@ public:
     void collect(const AnchorSiteEvidence& evidence, const AnchorCall& call,
                  const string& site_name, bool is_leaf, const multipass::ReadStrandTable& strands,
                  size_t record_key);
+
+    /// Add an anchor that belongs to no site, such as a fill anchor. Do nothing unless anchors
+    /// are being collected.
+    void add(AnchorWriter::Anchor&& anchor);
 
     /// Write the anchor file, naming `sample_name`, and report the counters. Do nothing unless
     /// anchors are being collected.

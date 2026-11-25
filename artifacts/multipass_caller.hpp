@@ -21,6 +21,7 @@
 #include "allele_splicer.hpp"
 #include "descent_policy.hpp"
 #include "edit_snarl_decomposition_overlay.hpp"
+#include "fill_pins.hpp"
 #include "genotype_linker.hpp"
 #include "genotype_rescorer.hpp"
 #include "../src/graph_caller.hpp"
@@ -64,6 +65,11 @@ using namespace std;
  *    (see `RecordRenderer`).
  * 4. The anchor file and the mosaic are written, and the passes are reported.
  *
+ * With fill anchors on, the fill points are placed before the direct pass. The reads crossing them
+ * are placed from each window the read source fetches whole during the pass, and from the other
+ * windows, which are fetched after it while the read source is still open. The render marks which
+ * called walks cross them.
+ *
  * It walks the sites of a `SnarlDecomposition` itself, rather than being a `GraphCaller`. It
  * writes its records through a `SortedVCFWriter`, to which it adds its own header lines and
  * record steps.
@@ -80,16 +86,13 @@ public:
      * It skips a site unless its longest traversal is at least `allele_length_range.first` long
      * and none is longer than `allele_length_range.second`. With `genotype_snarls` it writes every
      * site, and trims alleles only as far as the boundary nodes, so that every sample gets the
-     * same alleles. With `top_down` it genotypes each child against the traversal sets its
-     * parent's called alleles allow. With `star_allele` it gives a parent allele that skips a
-     * child a star allele rather than a missing one.
+     * same alleles.
      */
     MultiPassCaller(const PathPositionHandleGraph& graph, ReadLikelihoodSnarlCaller& genotyper,
                     const SnarlDecomposition& decomposition, SortedVCFWriter& output,
                     const string& sample_name, SiteTraversalFinder& traversal_finder,
                     ReferencePathTable ref_paths, bool genotype_snarls,
-                    const pair<size_t, size_t>& allele_length_range, bool top_down,
-                    bool star_allele);
+                    const pair<size_t, size_t>& allele_length_range);
 
     /**
      * Run every pass and add the records to the output's buffer, then write the anchors and the
@@ -155,6 +158,10 @@ public:
     /// linkage model and gets anchors.
     void set_off_reference_nesting(bool on) { off_reference_nesting = on; }
 
+    /// Set whether groups of each site's walks, from `candidate_groups`, choose its genotype. The
+    /// walks then choose within the chosen groups.
+    void set_group_candidates(bool on) { group_candidates = on; }
+
     /// Write one record per difference block between the reference and the symbolic allele of
     /// each called strand, instead of one record per site.
     void set_atomize_blocks(bool on) { block_records.set_enabled(on); }
@@ -183,10 +190,15 @@ public:
     }
 
     /// Write assembly anchors to `path`; see AnchorCollector::configure.
+    ///
+    /// Fill anchors are written too where `params.fill_spacing` is above 0, their reads scored by
+    /// `fill_scores`.
     void set_anchors_out(const string& path, const AnchorParams& params,
                          const string& graph_name, const string& reads_source,
-                         double mismap_min) {
+                         double mismap_min, const FillScoreParams& fill_scores) {
         anchor_collector.configure(path, params, graph_name, reads_source, mismap_min);
+        fill_anchors.configure(path.empty() ? 0 : params.fill_spacing, fill_scores,
+                               params.min_read_score);
     }
 
     /// Turn read phasing on or off (see `ReadPhaser`).
@@ -199,9 +211,8 @@ public:
     /// Turn re-genotyping from the phase on or off (see `GenotypeRescorer`).
     ///
     /// It needs read phasing, which gives each read its strand log-odds.
-    void set_regenotype(bool on, const RegenotypeParams& params, size_t passes,
-                        const string& ledger) {
-        rescorer.configure(on, params, passes, ledger);
+    void set_regenotype(bool on, const RegenotypeParams& params, size_t passes) {
+        rescorer.configure(on, params, passes);
     }
 
     /// Set the source the reads of the sites come from.
@@ -214,10 +225,9 @@ public:
     /// Turn on off-panel detection.
     ///
     /// `reads` counts each read's substitutions as it fetches them (see
-    /// `SiteReadSource::count_edits`). With a `dump` path, every candidate is written there at the
-    /// end.
-    void set_off_panel(const SiteReadSource* reads, const string& dump, const EditCallBar& bar) {
-        off_panel.configure(reads, dump, bar);
+    /// `SiteReadSource::count_edits`).
+    void set_off_panel(const SiteReadSource* reads, const EditCallBar& bar) {
+        off_panel.configure(reads, bar);
     }
 
     /// Set where and how to write the mosaic.
@@ -262,8 +272,9 @@ private:
     /// Get the staged site that the render is writing as `site`.
     const StagedSite& rendered_site(const CalledSite& site) const;
 
-    /// Write the records of a staged site at `genotype`, during the render.
-    void write_site(StagedSite& site, const vector<int>& genotype);
+    /// Write the records of a staged site at `genotype`, during the render, and return how they
+    /// numbered its alleles, or nothing where the site got no line.
+    RecordRenderer::WrittenAlleles write_site(StagedSite& site, const vector<int>& genotype);
 
     /// Give `record` the quality fields of its chosen genotype, if the linkage model moved its
     /// site's genotype (see ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).
@@ -394,14 +405,6 @@ private:
     /// This turns both off.
     bool genotype_snarls;
 
-    /// Genotype each child against the traversal sets its parent's called alleles allow (see
-    /// `TreeGenotyper`).
-    bool top_down = false;
-
-    /// Whether to give a star allele, rather than a missing one, to a parent allele that skips a
-    /// child, in top-down calling.
-    bool star_allele = false;
-
     /// The width, in node IDs, of the windows the direct pass batches top-level sites by, or 0
     /// for no batching.
     size_t snarl_batch_window = 0;
@@ -419,6 +422,9 @@ private:
     /// Whether to genotype and file chains that the reference walk does not cross, rather than
     /// skip them.
     bool off_reference_nesting = false;
+
+    /// Whether groups of each site's walks, from `candidate_groups`, choose its genotype.
+    bool group_candidates = false;
 
     /// Every phased site.
     ///
@@ -467,8 +473,10 @@ private:
     /// Collects the anchors and writes the anchor file, if one was asked for.
     AnchorCollector anchor_collector;
 
-    /// Records what became of each off-panel candidate, and writes the dump and the summary.
-    /// Declared after the reference offsets it reads.
+    /// The fill points and the reads that cross them, if fill anchors are made.
+    FillAnchors fill_anchors;
+
+    /// Records what became of each off-panel candidate, and writes the summary.
     OffPanelLedger off_panel;
 
     /// Finds each site's reference path and candidate traversals. Declared after the members it

@@ -15,7 +15,9 @@ Checks, in order of how badly a failure would mislead:
   3. A rows are ordered by node ID;
   4. the slots of one site have disjoint read sets;
   5. every R row belongs to an A row, its read id resolves in the #read table, and the header
-     declares a version this script understands.
+     declares a version this script understands;
+  6. every A row's kind is a known one, and a fill kind exactly where the snarl column names a fill
+     anchor (fill<node>.<pin>).
 
 Checks 1 and 4 both assume the read NAME identifies one alignment. Paired-end mates share a name, so
 on short-read data it does not, and both checks then fire on something `vg` cannot fix: two genuinely
@@ -39,6 +41,9 @@ import argparse
 import gzip
 import sys
 from collections import defaultdict
+
+# The values of the kind column of an A row.
+KINDS = ("het", "hom", "hom-split", "haploid", "fill-shared", "fill-strand", "fill-off-call")
 
 
 def open_maybe_gzip(path):
@@ -126,7 +131,7 @@ def main():
             if line.startswith("#"):
                 continue
             fields = line.rstrip("\n").split("\t")
-            if fields[0] == "A" and len(fields) == 9:
+            if fields[0] == "A" and len(fields) == 10:
                 current = (int(fields[1]), fields[2], int(fields[3]))
                 in_anchor = set()
             elif fields[0] == "R" and current is not None and len(fields) == 5:
@@ -165,10 +170,15 @@ def main():
                 continue
             fields = line.split("\t")
             if fields[0] == "A":
-                if len(fields) != 9:
-                    fail(f"line {lineno}: an A row has {len(fields)} fields, expected 9")
+                if len(fields) != 10:
+                    fail(f"line {lineno}: an A row has {len(fields)} fields, expected 10")
                     continue
                 node, snarl, slot = int(fields[1]), fields[2], int(fields[3])
+                if fields[9] not in KINDS:
+                    fail(f"line {lineno}: kind {fields[9]!r} is not one of {', '.join(KINDS)}")
+                if snarl.startswith("fill") != fields[9].startswith("fill-"):
+                    fail(f"line {lineno}: snarl {snarl} and kind {fields[9]} disagree about "
+                         "whether it is a fill anchor")
                 # v7: gqn is signed in [-1, 1], and `.` means the site offered no gap to normalise.
                 # A negative number is a value, not a sentinel -- that distinction is the whole
                 # point of the version, so check it here rather than trust it.
@@ -232,7 +242,7 @@ def main():
 
     if version is None:
         fail("no #anchors-version header, so the format is unknown")
-    elif version != "9":
+    elif version != "10":
         # v3 and v4 are refused rather than tolerated: both have these columns and both get `slot`
         # wrong in a way that reads cleanly and joins wrongly. v3 wrote it in allele order for
         # every site; v4 fixed the diploid pair and still wrote 0 for both strands of a nested
@@ -244,9 +254,10 @@ def main():
         # columns, same widths, joins wrongly. v7 lacks the pin column, which v8 adds at the end
         # of the A row so that an anchor inside a node can say where in it it lies. v8 is refused
         # because it does not keep a read point unique: an off-panel site could pin where a snarl
-        # or a touching off-panel change also pins, so check 1 would fail on it.
-        fail(f"#anchors-version {version} is not the one this script understands (9)")
-    if version == "9" and not id_name:
+        # or a touching off-panel change also pins, so check 1 would fail on it. v9 lacks the kind
+        # column, which v10 adds at the end of the A row along with fill anchors.
+        fail(f"#anchors-version {version} is not the one this script understands (10)")
+    if version == "10" and not id_name:
         fail("no #read table, but every version from 2 on interns every read name")
 
     if shared_names:

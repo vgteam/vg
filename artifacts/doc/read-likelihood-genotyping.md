@@ -200,9 +200,7 @@ follows one whose correction changes no site's direct call, whose linkage pass c
 genotype, or whose chosen genotypes return to those of an earlier round. Every correction that is
 applied is followed by a linkage pass, so the settled genotypes are chosen from the likelihoods
 that `GL` reports. With `--regeno-passes 1` there is one round. After it, the correction is
-computed and reported, on standard error and in the `--regeno-ledger` file, but not applied, and no
-linkage pass follows. `--regeno-ledger` writes one
-line for each site whose direct call the last correction changed.
+computed and reported on standard error, but not applied, and no linkage pass follows.
 
 ## Settling genotypes
 
@@ -222,6 +220,14 @@ Direct genotyping computes the site likelihood $\mathcal{L}(G)$ of every genotyp
 made from the site's candidate alleles. It is described in
 [read-likelihood-direct-genotyping.md](read-likelihood-direct-genotyping.md). The genotype with the
 highest $\mathcal{L}(G)$ is the site's direct call.
+Where the site's candidate alleles have groups (see
+[Choosing among alleles that differ inside child chains](#choosing-among-alleles-that-differ-inside-child-chains)),
+the [grouped likelihood](read-likelihood-direct-genotyping.md#groups-of-alleles)
+$\tilde{\mathcal{L}}(G)$ takes the place of $\mathcal{L}(G)$ here, in the [VCF fields](#vcf-fields),
+in the linkage model and in [re-genotyping](#re-genotyping-from-the-phase), whose corrections are
+added to it. `GQN` then divides a difference in $\ln \tilde{\mathcal{L}}(G)$ by the achievable gap
+of $\mathcal{L}(G)$, which takes no account of the groups (see
+[Normalised quality](#normalised-quality)).
 
 A tie, as when every read fits the tied genotypes equally well, goes to the homozygous reference
 genotype if it is one of the tied genotypes. Otherwise it goes to the tied genotype that comes
@@ -365,6 +371,18 @@ these cases:
 - When the reference paths include a [gRef fragment](#graph). A chain on a gRef fragment then gets
   records, with the fragment as their contig.
 
+### Choosing among alleles that differ inside child chains
+
+Several candidate alleles of a site can take one route and differ only inside a child chain. The
+reads that fit the route are then split among those alleles, so a genotype of alleles that take
+other routes can fit the reads better. With `--group-candidates`, on by default, vg groups the
+candidate alleles of each site that differ only inside child chains: two alleles share a group when
+their [symbolic forms](#reporting-each-difference-once) are equal. The groups then choose the site's
+genotype, and the alleles choose within the chosen groups, by the
+[grouped likelihood](read-likelihood-direct-genotyping.md#groups-of-alleles). Grouping does not
+depend on nested calling: under `--no-nested`, the site's records report the differences inside its
+child chains from the alleles chosen within the groups. `--no-group-candidates` turns grouping off.
+
 ## Phasing
 
 Phasing decides each genotype's phase: which strand carries which allele. At ploidy 2, a site's
@@ -425,9 +443,8 @@ phasing](read-likelihood-read-phasing.md#read-phasing).
 strand, and so corrects each site's likelihoods, at the start of every round after the first (see
 [Rounds](#rounds)). Off-reference chains, and chains that a block record spells out, keep the
 likelihoods of the direct pass. It needs `--read-phasing` and, like it, is off by default and on
-under `--preset ont` and `--preset hifi`. It cannot be combined with `--top-down`: an explicit
-`--regenotype` with it is an error, and a preset's is turned off. The correction is described in
-[Re-genotyping from the phase](read-likelihood-read-phasing.md#re-genotyping-from-the-phase).
+under `--preset ont` and `--preset hifi`. The correction is described
+in [Re-genotyping from the phase](read-likelihood-read-phasing.md#re-genotyping-from-the-phase).
 
 ## Output
 
@@ -607,11 +624,10 @@ options change only quality fields and `FILTER`.
 
 #### Nesting tags
 
-`vg call` has two other ways of genotyping nested sites, chosen by general options that also work
-with `--read-likelihood`: `--all-snarls` genotypes every site on its own, and `--top-down` genotypes
-children after their parents and takes a child's candidate alleles from its parent's genotype. With
-either, and whenever [off-reference chains](#which-child-chains-are-genotyped) are genotyped,
-records carry vg's nesting INFO tags:
+`vg call` has one other way of genotyping nested sites, chosen by a general option that also works
+with `--read-likelihood`: `--all-snarls` genotypes every site on its own. With it, and whenever
+[off-reference chains](#which-child-chains-are-genotyped) are genotyped, records carry vg's nesting
+INFO tags:
 
 - `INFO/LV` counts the record's enclosing sites that have records on the record's own contig.
 - `INFO/CH` counts the changes of contig on the way up from the record through the records of its
@@ -627,11 +643,57 @@ records carry vg's nesting INFO tags:
 - `INFO/RC`, `INFO/RS` and `INFO/RD` give a contig, start and end at which to look the record up,
   normally those of its outermost enclosing site; the VCF header gives the details.
 
+### Mapping without the reference
+
+The anchor file ties reads to the sample's strands, and the mosaic names the panel haplotypes those
+strands copy, so both depend on where the mapper placed each read. `vg haplotypes` makes a graph for
+the sample whose haplotypes are pieced together from panel haplotypes chosen to resemble the
+sample's. With `--include-reference`, which its presets turn on, the graph also keeps the reference
+paths, which were not chosen that way. The mapper can place a read that the sampled haplotypes fit
+imperfectly on a reference path instead, including on sequence that only the reference visits, and
+so away from the sample's alleles.
+
+To prevent this, map the reads to a copy of the graph without the reference paths, and call on the
+graph that has them, since `vg call` reports positions on the reference paths. Removing the
+reference paths leaves out the nodes that no other path visits, and keeps the rest with their IDs,
+so a placement in the copy is also a placement in the graph. For a `graph.gbz` whose reference
+sample is `CHM13`:
+
+```
+vg gbwt -Z graph.gbz -o graph.gbwt
+vg gbwt -x graph.gbz -R CHM13 -g graph.noref.gbz graph.gbwt
+```
+
+The first command copies out the GBZ file's GBWT, the index that holds its paths, because `vg gbwt`
+cannot remove paths from a GBWT inside a GBZ file. The second reads the paths from `graph.gbwt` and
+the node sequences from `graph.gbz`, removes the paths of sample `CHM13`, and writes the rest as
+`graph.noref.gbz`. `vg paths -M -x graph.gbz` lists each path's sample and sense; give `-R` once for
+each sample whose paths are marked `REFERENCE`, and when there are several, name the one to report
+positions on with `--ref-sample` when calling. Then index the copy, map the reads to it, and call
+on the graph. For nanopore reads:
+
+```
+vg autoindex -w lr-giraffe -G graph.noref.gbz -p map
+vg giraffe -b r10 -Z graph.noref.gbz -d map.dist -m map.longread.withzip.min \
+    -z map.longread.zipcodes -f reads.fq.gz -o gaf > reads.gaf
+vg call graph.gbz --read-likelihood --preset ont --gaf-reads reads.gaf \
+    --mosaic-out mosaic.tsv --anchors-out anchors.tsv > calls.vcf
+```
+
+`--gaf-reads` alone loads every read into memory; for a whole genome, sort and index the GAF and
+give the index with `--gaf-index` (see [Read input](read-likelihood-direct-genotyping.md#read-input)).
+
+`vg giraffe` can also sample haplotypes itself, with `--haplotype-name` and `--kff-name`. With its
+default sampling preset, and with the presets that `-b hifi` and `-b r10` select, the graph it
+samples and maps to keeps the reference paths.
+
 ### Mosaic (`--mosaic-out`)
 
 The mosaic file describes each of the sample's strands as a walk through the graph, and says which
 panel haplotype the strand copies along each part of the walk. The file is the phasing in another
-form, so `--mosaic-out` is rejected without the linkage model or with `--no-phased`.
+form, so `--mosaic-out` is rejected without the linkage model or with `--no-phased`. For a graph
+sampled with its reference paths kept, map the reads as described under [Mapping without the
+reference](#mapping-without-the-reference).
 
 The file is tab-separated. Header lines start with `#` and are identified by their first field:
 
@@ -715,9 +777,12 @@ Three options change how the rows are formed, and the header records each choice
 ### Assembly anchors (`--anchors-out`)
 
 The anchor file records, for each genotyped site, which reads support which of the sample's
-strands, for use in pangenome-guided assembly. `--anchors-out` also turns on the genotyping of
+strands, for use in pangenome-guided assembly. It also records the reads at points spaced along
+runs of nodes with no branch, the [fill anchors](#fill-anchors). `--anchors-out` also turns on the genotyping of
 [off-reference chains](#which-child-chains-are-genotyped), which can change the VCF's phases
-and, under `--regenotype`, its genotypes; `--no-off-ref-nesting` turns that off.
+and, under `--regenotype`, its genotypes; `--no-off-ref-nesting` turns that off. For a graph
+sampled with its reference paths kept, map the reads as described under [Mapping without the
+reference](#mapping-without-the-reference).
 
 A **pin** is a point between two adjacent bases of the graph, with no sequence of its own. Each site
 has two. The **start pin** lies just after the site's start boundary node, where an allele's walk
@@ -728,7 +793,7 @@ alleles change: the start pin lies just after the last unchanged base before the
 just before the first unchanged base after them, an indel's whole repeat tract counting as changed.
 Where the changed bases end the site's walk, the end pin lies just after the last of them. An
 insertion with no repeat tract changes no base, and its one pin is the point where it goes.
-Off-panel changes on one node that the call bar admits, large indels aside, whose changed bases
+Off-panel changes on one node that the call bar admits whose changed bases
 touch or overlap are one site where the reads spell alleles that carry each of them and they are not
 all indels at one anchor, with ID `op<node>.<offset>.M<length>`: `offset` is its first
 changed base along the node's forward strand and `length` the bases it replaces, and its ALTs are
@@ -738,13 +803,19 @@ No point of a read alignment is in two anchors. A point of a read is the number 
 before it, and two alignments of one read name, such as paired-end mates, are told apart. Where an
 off-panel site's anchor would hold a point that a snarl's anchor holds, or that an off-panel anchor
 earlier in the file holds, it leaves that read out, and an off-panel anchor left with fewer than
-`--anchors-reads` reads is not written. vg reports on standard error how many read placements
-and anchors it left out.
+`--anchors-reads` reads is not written. A [fill anchor](#fill-anchors) gives way to both kinds of
+site anchor in the same way. vg reports on standard error how many read placements and anchors it
+left out.
 
 A site's reads are divided among its **slots**. A slot is a strand. Slot 0 is the strand of the
 first allele of `GT`, to the left of the `|`, and slot 1 the strand of the second. But a diploid
 site that is not phaseable pools both strands in one slot, 0, unless `--anchors-hom-split` divides
-its reads between slots 0 and 1, which then carry the same allele. A haploid site also has a single
+its reads between slots 0 and 1, which then carry the same allele. The alleles are those of the
+site's line: two called traversals that spell one sequence are one VCF allele, so a site called
+with both is homozygous, and a called traversal that is symbolically the reference is allele 0.
+Each read's $p_{ra}$ of such a traversal is added to that of the traversal its allele is spelled
+from. Alleles that `-L` merges as similar are not pooled. A site with no line keeps its called
+traversals. A haploid site also has a single
 slot, 0, except at a site of a nested haploid chain whose `GT` is `.|a`, where it is 1. An
 **anchor** is one pin together with the reads of one slot that cross it.
 
@@ -769,10 +840,15 @@ fitted in the same way from the final phase.
 
 - At a phaseable site, a read's slot is by default chosen from its $x_{ra}$ with $v_a$ replaced by
   the per-read weights $\pi$ of [Likelihood
-  correction](read-likelihood-read-phasing.md#likelihood-correction). The read's anchor confidence
-  is still computed from the $x_{ra}$. `--no-anchors-phase-hets` chooses the slot from the $x_{ra}$
-  alone. `--anchors-strict-hets` chooses it from the sign of $y_{rs}$ alone, slot 0 for a positive
-  sign, and a read whose $y_{rs}$ is 0 then keeps the slot its $x_{ra}$ give.
+  correction](read-likelihood-read-phasing.md#likelihood-correction). At a site in a
+  [run](read-likelihood-read-phasing.md#runs), $y_{rs}$ comes from $\Lambda_{rs}$ as [Strand
+  log-odds](read-likelihood-read-phasing.md#strand-log-odds) defines it, and a read whose strand
+  comes from another run has its $y_{rs}$ replaced by
+  $\mathrm{logit}(p \sigma(y_{rs}) + (1 - p) \sigma(-y_{rs}))$, with $p$ the probability that read
+  phasing orients the two runs as the reads would. At a site in no run, $y_{rs}$ comes from the
+  read's whole sum over its other sites of the phase set, whatever their runs. The read's anchor
+  confidence is still computed from the $x_{ra}$. `--no-anchors-phase-hets` chooses the slot from
+  the $x_{ra}$ alone.
 - `--anchors-hom-split`, which needs `--read-phasing`, divides the reads of a diploid site that is
   not phaseable between two slots by the sign of their $y_{rs}$. A site is split only when, for each
   sign, at least `--split-min-side` reads have a $y_{rs}$ of that sign and of absolute value at
@@ -781,28 +857,89 @@ fitted in the same way from the final phase.
   set's labelling. Any other read whose $y_{rs}$ is 0 is placed by a coin flip derived from its
   name, so it takes the same slot at every site.
 
+#### Fill anchors
+
+A site's pins lie at its boundaries, so sequence that no site varies, and the inside of a site
+whose alleles are long, can lie far from every pin. **Fill anchors** pin points that the graph
+alone chooses, so that such sequence is pinned too. `--anchors-fill` sets their spacing $K$, 1000
+bp by default, and 0 turns them off.
+
+A **unitig** is a longest run of nodes in which each node's right side has one edge, to the next
+node of the run, and that node's left side has that one edge alone. The two nodes of each such join
+differ. Inside each unitig of length $L$ greater than $K$, $n = \lceil L/K \rceil - 1$ **fill
+points** divide the length evenly: the $i$-th point has $iL/(n+1)$ bases of the unitig before it,
+rounded to the nearest base, half up. A unitig is read from its end whose node has the smaller ID. A
+unitig of one node is read along the node's forward strand, and so is one that closes on itself,
+starting from its node with the smallest ID. A point that falls on a join between two nodes moves
+forward one base at a time until it lies inside a node. It is dropped if it reaches the end of the
+unitig, and a later point that the move reaches or passes is dropped too. The points depend only on
+the graph and $K$, so every run on one graph uses the same ones.
+
+Each read that crosses a fill point is placed there, as at a site's pin, and the reads at a point
+make one **fill anchor**, which has one slot. The reads pass the same filters as a site's reads:
+`--read-min-mapq`, and no secondary alignments. A read is placed only where it visits the point's
+node once, has a read base aligned to the node base before the point, along the node's forward
+strand, and has a read base on the point's other side outside its soft clips. A read's anchor
+confidence at a fill anchor is $-10 \log_{10} e_r$, which is its confidence at a site with one
+allele.
+
+The slot and kind of a fill anchor come from the called walks of its **deciding site**: the
+innermost site that holds the point's node and has a called genotype. A nested chain of one copy
+whose strand is not known, as where the linkage model gave its parent no phase, is passed over, so
+the site around it decides. So is a site that was not genotyped, as under `--no-nested` or below a
+nested site that could not be genotyped.
+
+- **fill-shared**, in slot 0, where both of the sample's strands cross the point: in sequence that
+  both called alleles of the deciding site share, at a homozygous site, at a site in a region of
+  ploidy 1, or where no site holds the node.
+- **fill-strand**, in slot $s$, where only the called walk of strand $s$ crosses it: on a node that
+  only one called allele visits, or in a nested haploid chain on strand $s$.
+- **fill-off-call**, in slot 0, where no called walk of the deciding site crosses it, or where sites
+  hold the node but none has a called genotype.
+
+A fill-strand slot is field $s$ of the deciding site's phased `GT`, as a site anchor's slot is. The
+`A` row does not name the deciding site, so the slot names a haplotype only where a reader finds
+that site, from the snarl decomposition, and it is phased.
+
+A fill anchor gives way at a read point to every snarl's and off-panel site's anchor, and to a fill
+anchor written before it. It is written only if at least `--anchors-reads` of its reads remain,
+whatever its kind. `--anchors-min-q` applies to its reads. `--anchors-het-only`,
+`--anchors-leaf-only` and `--anchors-min-gqn` choose sites, so they do not apply to it.
+
+A fill anchor is only as right as the read placements it rests on. In centromeric arrays and other
+large repeats, a read from one copy of the repeat can be placed on another copy in the panel. A
+site anchor leaves out a read whose best allele is not one the site was called with, which drops
+some of those reads, but a fill anchor keeps every read that crosses its point, so in such repeats a
+fill anchor holds misplaced reads more often than the site anchors around it. Where sequence has
+close copies elsewhere in the genome, reads from those copies can be placed on anchors of every
+kind. Better graphs or haplotype sampling are the remedy, not a rule about anchors.
+
 #### Rows of the anchor file
 
 The file is tab-separated. Each anchor is written as an `A` row, followed by one `R` row for each
 of its reads. Header lines start with `#`, and a reader should skip keys it does not recognise.
-Among them, the `#read` lines list the read names, which `R` rows refer to by index. The `#H` lines
-name the columns of each kind of row, and the `#note` lines describe them.
+Among them, `#anchors-version` gives the format version, 10, which changes whenever the columns or
+their meaning change. The `#filters` line gives the thresholds the anchors were written with,
+`fill=` the spacing of the fill anchors among them. The `#read` lines list the read names, which
+`R` rows refer to by index. The `#H` lines name the columns of each kind of row, and the `#note`
+lines describe them.
 
 | `A` column | Meaning |
 |---|---|
 | `node` | the graph's ID of the node the pin lies on. For a snarl it is the pin's boundary node: the first node of `snarl` for the start pin, the second for the end pin. Under `--translation` or `--gbz-translation`, `snarl` names the translated segments, while `node` stays the graph's ID |
-| `snarl` | the site's ID, as in the VCF `ID` column: its start and end boundary node IDs, each preceded by `>` or `<` for its orientation. It is also written for off-reference sites, which have no VCF record |
+| `snarl` | the site's ID, as in the VCF `ID` column: its start and end boundary node IDs, each preceded by `>` or `<` for its orientation. It is also written for off-reference sites, which have no VCF record. A fill anchor's is `fill<node>.<pin>` |
 | `slot` | the slot |
-| `allele` | the slot's allele, as its index in the site's list of candidate alleles rather than a VCF allele number. The list is not written, so the index serves to compare a site's slots |
-| `gqn` | the `GQN` that a whole-site record for the site would carry, moved or not; `.` where it has none |
-| `explained` | the site's explained share |
-| `reliability` | the site's anchor reliability, counting the reads placed at an off-panel site before any was left out for a point another anchor holds |
+| `allele` | the slot's allele, as its index in the site's list of candidate alleles rather than a VCF allele number: at a site with a line, the candidate its VCF allele is spelled from. The list is not written, so the index serves to compare a site's slots. `.` for a fill anchor |
+| `gqn` | the `GQN` that a whole-site record for the site would carry, moved or not; `.` where it has none, and for a fill anchor |
+| `explained` | the site's explained share; `.` for a fill anchor |
+| `reliability` | the site's anchor reliability, counting the reads placed at an off-panel site before any was left out for a point another anchor holds; `.` for a fill anchor |
 | `pin` | where the pin lies in `node`: the node's bases before it, along the node's forward strand |
+| `kind` | `het` for a strand of a genotype with two different alleles, `hom` for the one slot of a homozygous genotype, `hom-split` for a slot of a homozygous genotype that `--anchors-hom-split` divided, `haploid` for the one slot of a genotype of one allele (a nested haploid chain, or a site in a region of ploidy 1), and `fill-shared`, `fill-strand` or `fill-off-call` for a fill anchor |
 
 | `R` column | Meaning |
 |---|---|
 | `read_id` | the read's index in the `#read` lines; paired mates share a name, and so an index |
-| `strand` | the direction in which the read crosses the pin, not one of the sample's strands: 0 in the site's direction, 1 against it |
+| `strand` | the direction in which the read crosses the pin, not one of the sample's strands: 0 in the site's direction, 1 against it. A fill anchor's direction is its node's forward strand |
 | `offset` | the 0-based offset, in the read as sequenced, of the read's last base before the pin, reading in the site's direction. The point of the read the pin is at follows that base on strand 0 and precedes it on strand 1, so it has `offset` + 1 read bases before it on strand 0 and `offset` on strand 1 |
 | `score` | the read's anchor confidence |
 
@@ -816,6 +953,7 @@ name the columns of each kind of row, and the `#note` lines describe them.
 - `--anchors-keep-off-call` keeps reads whose best candidate allele was not called; by default they
   are left out.
 - `--anchors-reads` skips anchors with fewer reads than its value.
+- `--anchors-fill` sets the spacing of the [fill anchors](#fill-anchors), and 0 writes none.
 - With `--anchors-end-new` set to $N$, a slot's end anchor is written only if at least $N$ of the
   slot's reads cross the end pin but not the start pin, which drops end anchors that mostly repeat
   the start anchor's reads.
@@ -835,9 +973,9 @@ the Ploidy row, `--cluster` and `--cluster-min-len`. Its other options are rejec
 that modify `--anchors-out` (`--no-off-ref-nesting` among them), `--mosaic-out` and `--regenotype`
 are also rejected when those are not in use. Other general options used on this page, such as
 `--genotype-snarls`, `--sample`, `--snarls`, `--ref-path`, `--path-prefix`, `--ref-sample`,
-`--all-snarls`, `--top-down`, `--translation` and `--gbz-translation`, are described by
-`vg call --help`. `--read-likelihood` cannot be combined with `--bottom-up`, `--chains`, `--gaf`,
-`--traversals`, `--vcf` or `--legacy`.
+`--all-snarls`, `--translation` and `--gbz-translation`, are described by `vg call --help`.
+`--read-likelihood` cannot be combined with `--bottom-up`, `--top-down`, `--star-allele`,
+`--chains`, `--gaf`, `--traversals`, `--vcf` or `--legacy`.
 
 | Part | Options |
 |---|---|
@@ -848,15 +986,14 @@ are also rejected when those are not in use. Other general options used on this 
 | [Mixture weights](read-likelihood-direct-genotyping.md#mixture-weights) | `--flat-mixture` |
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
-| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
+| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
 | [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
 | [Phasing](#phasing) | `--phased`, `--no-phased`, `--read-phasing`, `--no-read-phasing`, `--phase-min-q`, `--phase-coherence`, `--phase-coh-rounds`, `--phase-break`, `--phase-relink`, `--phase-hang`, `--phase-prior`, `--phase-cap` |
 | [Re-genotyping](#re-genotyping-from-the-phase) | `--regenotype`, `--no-regenotype`, `--regeno-temper`, `--regeno-ceiling`, `--regeno-passes`, `--regeno-haploid`, `--no-regeno-haploid`, `--regeno-ledger` |
 | [Quality fields](#options-that-change-the-fields) | `--no-share-quality`, `--depth-quality`, `--min-confidence` |
 | [Allele merging](#options-that-change-the-fields) | `--cluster`, `--cluster-min-len` |
 | [Mosaic](#mosaic---mosaic-out) | `--mosaic-out`, `--mosaic-patch-gaps`, `--no-mosaic-patch-gaps`, `--no-mosaic-nested`, `--mosaic-break-unexplained` |
-| [Anchors](#assembly-anchors---anchors-out) | `--anchors-out`, `--anchors-reads`, `--anchors-min-gqn`, `--anchors-min-q`, `--anchors-het-only`, `--anchors-leaf-only`, `--anchors-keep-off-call`, `--anchors-end-new`, `--anchors-phase-hets`, `--no-anchors-phase-hets`, `--anchors-strict-hets`, `--anchors-hom-split`, `--split-min-q`, `--split-min-side` |
-| Debugging and evaluation | `--dump-likelihoods` (writes each read's $e_r$ and $p_{ra}$ at every site to a file, as TSV), `--regeno-shuffle` (randomises the sign of each $\Lambda_{rs}$ before re-genotyping, as a control for how much the phase contributes); `--flat-mixture` and `--anchors-strict-hets`, listed above, also serve to measure the parts they replace |
+| [Anchors](#assembly-anchors---anchors-out) | `--anchors-out`, `--anchors-fill`, `--anchors-reads`, `--anchors-min-gqn`, `--anchors-min-q`, `--anchors-het-only`, `--anchors-leaf-only`, `--anchors-keep-off-call`, `--anchors-end-new`, `--anchors-phase-hets`, `--no-anchors-phase-hets`, `--anchors-hom-split`, `--split-min-q`, `--split-min-side` |
 | Presets | `--preset` |
 
 ### Fixed constants
@@ -878,3 +1015,4 @@ holds it.
 | the `min_length` argument of `set_depth_quality` | `artifacts/read_likelihood_caller.hpp` | the change in allele length at which `--depth-quality` applies |
 | the minimum counted reads in `read_phase_flips` | `artifacts/read_phasing.cpp` | the reads a site needs before low coherence can remove it from the phase chain |
 | `RegenotypeParams::fit_bins`, `fit_min_per_bin`, and the grid in `fit_calibration` | `artifacts/regenotype.hpp`, `artifacts/regenotype.cpp` | the bins, the fewest observations per bin, and the candidate values used to fit $\tau$ |
+| `PANEL_FIT_MIN_PAIRS`, `PANEL_FIT_BINS`, and the grid in `fit_panel_errors` | `artifacts/read_phasing.cpp` | the fewest pairs of sites the panel's error rates $\lambda$ and $f$ are fitted to, the bins of the fit's report, and the candidate rates |

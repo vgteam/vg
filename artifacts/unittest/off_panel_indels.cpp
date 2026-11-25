@@ -1,8 +1,9 @@
 /// \file off_panel_indels.cpp
 ///
 /// Unit tests for off-panel indel detection: a read's indels along its walk, stitched across nodes
-/// and left-aligned, the classes a read falls into for one indel, and the key an indel is counted
-/// under, which does not depend on where the aligner put it or on which window counts it.
+/// and left-aligned, the classes a read falls into for one indel, the key an indel is counted
+/// under, which does not depend on where the aligner put it or on which window counts it, and the
+/// classes a read falls into for an indel of 50 bases or more, which is matched loosely.
 
 #include <string>
 #include <tuple>
@@ -222,6 +223,56 @@ TEST_CASE("An indel is counted under its left-aligned anchor, whichever window c
         REQUIRE(site.alleles.sequence(graph, 1)
                 == "CGTCAAAAGTCCG");
     }
+}
+
+TEST_CASE("A large deletion's reads fall into their classes", "[off_panel]") {
+    WalkIndel deletion;
+    deletion.at = 100;
+    deletion.deleted = 60;
+    const int64_t after = 160;
+    LargeIndelParams params;
+    auto alignment = [](int64_t begin, int64_t end, vector<WalkIndel> indels, size_t clip_begin,
+                        size_t clip_end) {
+        WalkAlignment aln;
+        aln.begin = begin;
+        aln.end = end;
+        aln.indels = std::move(indels);
+        aln.clip_begin = clip_begin;
+        aln.clip_end = clip_end;
+        return aln;
+    };
+    WalkIndel shifted;
+    shifted.at = 104;
+    shifted.deleted = 55;
+    int clip = 0;
+    WalkAlignment aln = alignment(0, 300, {shifted}, 0, 0);
+    REQUIRE(observe_large_indel(aln, deletion, after, params, aln.begin, aln.end, &clip)
+            == IndelObservation::ALT);
+    REQUIRE(clip == 0);
+    aln = alignment(20, 101, {}, 0, 40);
+    REQUIRE(observe_large_indel(aln, deletion, after, params, aln.begin, aln.end, &clip)
+            == IndelObservation::ALT);
+    REQUIRE(clip == 1);
+    aln = alignment(158, 300, {}, 40, 0);
+    REQUIRE(observe_large_indel(aln, deletion, after, params, aln.begin, aln.end, &clip)
+            == IndelObservation::ALT);
+    REQUIRE(clip == 2);
+    aln = alignment(50, 140, {}, 0, 0);
+    REQUIRE(observe_large_indel(aln, deletion, after, params, aln.begin, aln.end)
+            == IndelObservation::REF);
+    // Past the walk's start, where the read carries on.
+    aln = alignment(0, 140, {}, 0, 0);
+    REQUIRE(observe_large_indel(aln, deletion, after, params, -1000, aln.end)
+            == IndelObservation::REF);
+    aln = alignment(95, 110, {}, 0, 0);
+    REQUIRE(observe_large_indel(aln, deletion, after, params, aln.begin, aln.end)
+            == IndelObservation::NONE);
+    WalkIndel other;
+    other.at = 110;
+    other.deleted = 25;
+    aln = alignment(0, 300, {other}, 0, 0);
+    REQUIRE(observe_large_indel(aln, deletion, after, params, aln.begin, aln.end)
+            == IndelObservation::OTHER);
 }
 
 }

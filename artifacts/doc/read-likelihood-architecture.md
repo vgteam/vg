@@ -74,7 +74,14 @@ matched to its site by its ID (`MultiPassCaller::record_id_of_site`).
    (`ReadStrandTable::build_lambda`) and freezes the phase (`PhaseTable::freeze_for_render`).
    `RecordRenderer::render` then hands the nested sites that get a line of their own to the render
    queues, builds each queued site's records once, from its chosen genotype, with the caller's
-   `MultiPassCaller::StagedSiteEmitter`, and collects each site's anchors.
+   `MultiPassCaller::StagedSiteEmitter`, and then collects each site's anchors over the alleles
+   its records numbered. With fill anchors on, it also marks which strands' called walks cross
+   each fill point (`FillAnchors::mark_walk`).
+   The fill points were placed before the direct pass (`FillAnchors::place_points`), and the sites
+   holding each point were found at its end (`place`). With a windowed read source, the reads
+   crossing the points of each window the pass fetched whole were placed from that window while
+   the pass held it (`resolve_window_reads`). The reads of the other windows were fetched at the
+   end of the pass (`resolve_reads`).
 5. **Files and reports.** Write the anchor file (`AnchorCollector`) and the mosaic
    (`MosaicWriter`), and report the linkage, phasing, mosaic and block counts.
 
@@ -85,8 +92,7 @@ but phasing is not written (`--no-phased`), the `PhaseTable` stays empty, so rea
 re-genotyping do nothing, and nested calling is off. Without nested calling, `DescentPolicy` lists
 no children. By default, `SiteWalker` walks the children of a top-level site that cannot be
 genotyped as top-level sites; `--all-snarls` makes it walk the children of every site, and turns
-nested calling off. `--top-down` makes `TreeGenotyper` genotype each child against the traversals
-its parent's called alleles allow, and `SiteWalker` walk no children.
+nested calling off.
 
 The linkage pass drops a child that no allele of its parent's chosen genotype crosses, and can
 bring back a child that an earlier linkage pass dropped. A child whose parent has too many
@@ -183,10 +189,10 @@ grouped by the step they serve; the driver and its walk come first.
 | | `regenotype.hpp`, `genotype_rescorer.hpp`, `round_history.hpp` | strand log-odds, tempering and the per-read likelihood correction; `GenotypeRescorer`, which applies the correction to every staged site; and `RoundHistory`, the chosen genotypes of each round |
 | Output | `record_renderer.hpp` | `RecordRenderer`, which builds each staged site's records once and collects its anchors |
 | | `allele_splicer.hpp` | `AlleleSplicer`, which spells a site's alleles with the chosen alleles of the sites staged under it |
-| | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the dump and the summary |
+| | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the summary |
 | | `sorted_vcf_writer.hpp`, `site_emitter.hpp`, `vcf_record.hpp` | `SortedVCFWriter`, the record buffer and VCF writer that vg's callers hold; `SiteEmitter`, which builds one site's record from the caller's allele and field callbacks, and which a caller subclasses to change its decisions; and the helpers that build a record |
 | | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks |
-| | `anchor.hpp`, `mosaic_writer.hpp` | the anchor file (`AnchorCollector`, `AnchorWriter`) and the mosaic file (`MosaicWriter`) |
+| | `anchor.hpp`, `fill_pins.hpp`, `mosaic_writer.hpp` | the anchor file (`AnchorCollector`, `AnchorWriter`), the fill anchors in it (`FillAnchors`), and the mosaic file (`MosaicWriter`) |
 | Command line | `subcommand/call_main.cpp` | the options, grouped by subsystem, the `--preset` table, and the construction of every object above |
 
 ## Words the headers use
