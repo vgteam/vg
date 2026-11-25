@@ -452,27 +452,52 @@ optional<StringAlignment> align_global(const string& first, const string& second
 optional<StringAlignment> align_guided(const string& first, const string& second,
                                        const vector<pair<size_t, size_t>>& corners,
                                        size_t margin, const StringAlignerParams& params) {
-    const size_t n = first.size();
-    const size_t m = second.size();
-    // The corners, from the first cell to the last, never going back in either string.
+    // As `align_global` does, match the bases the two share at their starts and then at their
+    // ends, and align only what lies between.
+    size_t prefix = 0;
+    while (prefix < first.size() && prefix < second.size() && first[prefix] == second[prefix]) {
+        ++prefix;
+    }
+    size_t suffix = 0;
+    while (suffix < first.size() - prefix && suffix < second.size() - prefix
+           && first[first.size() - 1 - suffix] == second[second.size() - 1 - suffix]) {
+        ++suffix;
+    }
+    const size_t n = first.size() - prefix - suffix;
+    const size_t m = second.size() - prefix - suffix;
+    StringAlignment result;
+    add_run(result.runs, AlignmentOp::Match, prefix);
+    if (n == 0 || m == 0) {
+        add_run(result.runs, n == 0 ? AlignmentOp::Insertion : AlignmentOp::Deletion,
+                std::max(n, m));
+        result.cost = params.gap_cost(std::max(n, m));
+        add_run(result.runs, AlignmentOp::Match, suffix);
+        return result;
+    }
+    // The corners in what lies between, from its first cell to its last, never going back in
+    // either string.
     vector<pair<size_t, size_t>> at{{0, 0}};
     for (const auto& [i, j] : corners) {
-        at.emplace_back(std::clamp(i, at.back().first, n), std::clamp(j, at.back().second, m));
+        at.emplace_back(std::clamp(i > prefix ? i - prefix : 0, at.back().first, n),
+                        std::clamp(j > prefix ? j - prefix : 0, at.back().second, m));
     }
     at.emplace_back(n, m);
-    // Each row's cells are the columns that the rectangles of the corners, widened by `margin`,
-    // hold in it. They are one interval, since the rectangles of two corners that follow each
-    // other meet, and both its ends only move right from one row to the next.
+    // Each row's cells are the columns that the bands of the corners hold in it. The band of two
+    // corners that follow each other holds the rows from the one to the other, and the diagonals
+    // from the one's to the other's, each widened by `margin`. The bands of the corners a row is
+    // in meet, so its cells are one interval.
     vector<size_t> lo(n + 1, m);
     vector<size_t> hi(n + 1, 0);
     for (size_t e = 0; e + 1 < at.size(); ++e) {
+        const int64_t from = (int64_t)at[e].second - (int64_t)at[e].first;
+        const int64_t to = (int64_t)at[e + 1].second - (int64_t)at[e + 1].first;
+        const int64_t low = std::min(from, to) - (int64_t)margin;
+        const int64_t high = std::max(from, to) + (int64_t)margin;
         const size_t top = at[e].first > margin ? at[e].first - margin : 0;
         const size_t bottom = std::min(n, at[e + 1].first + margin);
-        const size_t left = at[e].second > margin ? at[e].second - margin : 0;
-        const size_t right = std::min(m, at[e + 1].second + margin);
         for (size_t i = top; i <= bottom; ++i) {
-            lo[i] = std::min(lo[i], left);
-            hi[i] = std::max(hi[i], right);
+            lo[i] = std::min(lo[i], (size_t)std::clamp<int64_t>((int64_t)i + low, 0, (int64_t)m));
+            hi[i] = std::max(hi[i], (size_t)std::clamp<int64_t>((int64_t)i + high, 0, (int64_t)m));
         }
     }
     // Where each row's cells start in the trace.
@@ -485,8 +510,8 @@ optional<StringAlignment> align_guided(const string& first, const string& second
     if (start[n + 1] > params.max_cells) {
         return std::nullopt;
     }
-    const char* a = first.data();
-    const char* b = second.data();
+    const char* a = first.data() + prefix;
+    const char* b = second.data() + prefix;
     vector<uint8_t> trace(start[n + 1]);
     // The costs of the cells of the row above and of this row, from their first column.
     vector<int32_t> match_above(widest, g_no_cost);
@@ -566,7 +591,6 @@ optional<StringAlignment> align_guided(const string& first, const string& second
         deletion_above.swap(deletion_here);
         long_deletion_above.swap(long_deletion_here);
     }
-    StringAlignment result;
     result.cost = match_above[m - lo[n]];
     const vector<AlignmentRun> runs = trace_cells(trace, a, n, b, m, [&](size_t i, size_t j) {
         return start[i] + (j - lo[i]);
@@ -574,6 +598,7 @@ optional<StringAlignment> align_guided(const string& first, const string& second
     for (size_t r = runs.size(); r-- > 0;) {
         add_run(result.runs, runs[r].op, runs[r].length);
     }
+    add_run(result.runs, AlignmentOp::Match, suffix);
     result.cells_filled = start[n + 1];
     result.cells_traced = start[n + 1];
     return result;

@@ -123,9 +123,12 @@ optional<StringAlignment> align_global(const string& first, const string& second
  * Each corner is a number of bases of `first` and of `second` that the alignment is expected to
  * pass near, in order. The first cell and the last are corners too, and a corner is moved forward
  * where it would go back from the one before. The region is, for each two corners that follow
- * each other, the rectangle between them widened by `margin` cells on every side. So a stretch
- * whose two strings have about the same length is a band about one diagonal, and a stretch with a
- * long gap has a rectangle of its own. The aligner keeps a byte for each cell of the region.
+ * each other, the band of the rows from the one to the other and of the diagonals from the one's
+ * to the other's, each widened by `margin`. So a stretch whose two strings have about the same
+ * length is a band about one diagonal, and only a stretch with a long gap is wide. As in
+ * `align_global`, the bases the two share at their starts and at their ends are matched first,
+ * and the corners are taken in what lies between. The aligner keeps a byte for each cell of the
+ * region.
  *
  * @return Nothing if the region has more cells than `params.max_cells`.
  */

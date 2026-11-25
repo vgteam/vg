@@ -274,7 +274,7 @@ TEST_CASE("The guided aligner finds the least cost inside its region", "[string_
     }
     StringAlignerParams small = params;
     small.max_cells = 100;
-    REQUIRE(!align_guided(string(50, 'A'), string(50, 'A'), {}, 8, small));
+    REQUIRE(!align_guided(string(50, 'A'), string(50, 'C'), {}, 8, small));
 }
 
 TEST_CASE("The wavefront aligner gives up an alignment that costs more than a bound",
