@@ -1,5 +1,8 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <omp.h>
+#include <sstream>
 #include <limits>
 #include <map>
 #include <optional>
@@ -1253,8 +1256,21 @@ shared_ptr<FlatRun> BlockRecordWriter::align_flat(string reference, vector<strin
         if (!run->strands.empty() && run->strands.front().sequence == strand.sequence) {
             strand.differences = run->strands.front().differences;
         } else if (strand.sequence != run->reference) {
+            static const bool log_align = getenv("VG_LOG_FLAT_ALIGN") != nullptr;
+            const auto began = std::chrono::steady_clock::now();
             optional<StringAlignment> aligned =
                 align_global(run->reference, strand.sequence, flat_aligner);
+            if (log_align) {
+                const double seconds = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - began).count();
+                std::ostringstream line;
+                line << "[flat-align] " << run->reference.size() << " " << strand.sequence.size()
+                     << " " << (aligned ? aligned->band : 0) << " "
+                     << (aligned ? aligned->cells_filled : 0) << " "
+                     << (aligned ? aligned->cells_traced : 0) << " " << seconds << " "
+                     << omp_get_thread_num() << "\n";
+                cerr << line.str();
+            }
             if (!aligned && flat_wide_cells > flat_aligner.max_cells) {
                 StringAlignerParams wide = flat_aligner;
                 wide.max_cells = flat_wide_cells;
