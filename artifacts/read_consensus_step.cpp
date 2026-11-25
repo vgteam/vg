@@ -404,13 +404,25 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
             continue;
         }
         on.candidate = true;
-        // The consensus becomes an allele where the reads gain `min_gain` nats by it.
+        // The consensus becomes an allele where the reads gain `min_gain` nats by it. A read
+        // is scored first against the one of the two whose length is nearer its own, and
+        // against the other only as far as that can be within one read's say of the first:
+        // below that, the difference is one read's say whatever the score.
         double gain = 0.0;
-        for (size_t r = 0; r < bases.size(); ++r) {
-            const optional<double> against = calculator.sequence_nats(bases[r], called[strand]);
-            const optional<double> with = calculator.sequence_nats(bases[r], *consensus);
-            if (with && against) {
-                gain += std::clamp(*with - *against, -clamp, clamp);
+        for (const string& read : bases) {
+            auto apart = [&](const string& sequence) {
+                return read.size() > sequence.size() ? read.size() - sequence.size()
+                                                     : sequence.size() - read.size();
+            };
+            const bool consensus_first = apart(*consensus) <= apart(called[strand]);
+            const string& first = consensus_first ? *consensus : called[strand];
+            const string& second = consensus_first ? called[strand] : *consensus;
+            const optional<double> near = calculator.sequence_nats(read, first);
+            const optional<double> far =
+                near ? calculator.sequence_nats(read, second, *near - clamp) : std::nullopt;
+            if (near && far) {
+                const double more = std::clamp(*near - *far, -clamp, clamp);
+                gain += consensus_first ? more : -more;
             }
         }
         if (gain >= options.min_gain) {
