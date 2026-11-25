@@ -2485,7 +2485,7 @@ is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' -v novel=$RCNOVEL '$3 == ">4>7_0" {pr
 is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7_0"' | cut -f1-5,8 | diff - <(grep -v '^#' rcn.off.vcf | cut -f1-5,8) | wc -l | tr -d ' ')/$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7_0" && $8 ~ /RC/' | wc -l | tr -d ' ')" \
    "0/0" \
    "and the other snarls are called as without it, unmarked"
-is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 tested, 1 candidate strands, 0 runs treated, 0 of them made one site, 1 sites gained an allele or were made of a run, 1 of them called with a consensus allele; left alone: 0 snarls over a limit of the scorer$/found/p' rcn.on.err)" \
+is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 tested, 1 candidate strands, 0 runs treated, 0 of them made one site, 1 sites gained an allele or were made of a run, 1 of them called with a consensus allele; consensus alleles: 1 as a called walk with changes, 0 as bases where the called sequence is no walk, 0 as bases at a snarl with nested sites; left alone: 0 snarls over a limit of the scorer$/found/p' rcn.on.err)" \
    "found" \
    "and reports what it did in one line, with the runs of neighbouring snarls, of which the chain has none"
 is "$($RCN_CALL --read-consensus 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.on.vcf) | wc -l | tr -d ' ')" "0" \
@@ -2516,18 +2516,27 @@ is "$($RCN_CALL --read-consensus --flatten-records --flatten-distance 0 2>/dev/n
 $RCN_CALL --flatten-distance 5 >/dev/null 2>rcn.refuse.txt
 is "$(grep -c -- '--flatten-distance only applies to flat records, which --flatten-records turns on' rcn.refuse.txt)" "1" \
    "--flatten-distance is refused without --flatten-records"
-# In an exact mosaic, the walk of the consensus's allele row is the two bound nodes alone, and its
-# bases put the consensus after the first of them, on no node.
+# Return what the bases of the allele row of a mosaic on standard input spell, given the bases of
+# the nodes of its walk, in order, as arguments.
+rc_row_spells() {
+  awk -F'\t' -v nodes="$*" '$1 == "A" {
+    split(nodes, own, " "); n = split($8, entry, ","); s = ""
+    for (i = 1; i <= n; ++i) { p = index(entry[i], "+"); b = p ? substr(entry[i], 1, p - 1) : entry[i]
+      s = s (b == "*" ? own[i] : b) (p ? substr(entry[i], p + 1) : "") }
+    print s }'
+}
+# In an exact mosaic, the walk of the consensus's allele row is the walk strand Y is called as, and
+# its bases change the steps of that walk to spell the consensus.
 $RCN_CALL --read-consensus --mosaic-out rcn.mos.tsv --mosaic-exact 2>/dev/null > rcn.mos.vcf
-is "$(awk -F'\t' -v bases="*+$RCNOVEL,*" '$1 == "A" {print $3 "/" $7 "/" ($8 == bases)}' rcn.mos.tsv)" \
-   "1/>4>7/1" \
+is "$(awk -F'\t' '$1 == "A" {print $3 "/" $7}' rcn.mos.tsv)/$(rc_row_spells $RCN4 C $RCN7 < rcn.mos.tsv | grep -c "^$RCN4$RCNOVEL$RCN7$")" \
+   "1/>4>5>7/1" \
    "the exact mosaic gives the consensus allele as an allele row with its bases"
 vg paths -x rcn.gbz -A > rcn.paths.gaf 2>/dev/null
 vg view -g rcn.gbz > rcn.graph.gfa 2>/dev/null
 is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcn.mos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
         --vcf rcn.mos.vcf --quiet >rcn.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" rcn.expand.txt)/$(grep -c '1 steps joined by an A row rather than an edge' rcn.expand.txt)" \
-   "0/6,6,0/1" \
-   "and the mosaic's strands have the bases of every record, the consensus joining its two nodes by its bases"
+   "0/6,6,0/0" \
+   "and the mosaic's strands have the bases of every record, each step joined to the next by an edge"
 # The step needs the read-likelihood genotyper and the phase, and its settings need the step.
 vg call rcn.gbz --gam rcn.gam -t 1 -s samp --read-consensus >/dev/null 2>rcn.refuse.txt
 is "$(grep -c -- '--read-consensus only appl.* to the read-likelihood genotyper' rcn.refuse.txt)" "1" \
@@ -2566,13 +2575,13 @@ is "$(grep -v '^#' rcm.vcf | cut -f3 | tr '\n' ' ')/$(awk -v alt=${RCN7:14:1}$RC
    "with it the two snarls are one site, named by its outer bound nodes and written as flat records, one of them the bases"
 is "$(sed -n 's/.* \([0-9]*\) runs treated, \([0-9]*\) of them made one site, \([0-9]*\) sites gained an allele or were made of a run, \([0-9]*\) of them called.*/\1,\2,\3,\4/p' rcm.err)" \
    "1,1,1,1" "and the step reports the run it treated and made one site, and that site and its call"
-is "$(awk -F'\t' -v bases="*+$RCM_MERGED,*" '$1 == "A" {print $3 "/" $7 "/" ($8 == bases)}' rcm.mos.tsv)" \
-   "1/>4>10/1" \
-   "the exact mosaic gives the one site's consensus allele as an allele row over its two bound nodes"
+is "$(awk -F'\t' '$1 == "A" {print $3 "/" $7}' rcm.mos.tsv)/$(rc_row_spells $RCN4 G $RCN7 C $RCN10 < rcm.mos.tsv | grep -c "^$RCN4$RCM_MERGED$RCN10$")" \
+   "1/>4>6>7>9>10/1" \
+   "the exact mosaic gives the one site's consensus allele as an allele row over the walk strand Y is called as"
 is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.mos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
         --vcf rcm.vcf --quiet >rcm.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" rcm.expand.txt)/$(grep -c '1 steps joined by an A row rather than an edge' rcm.expand.txt)" \
-   "0/4,4,0/1" \
-   "and the mosaic's strands have the bases of every record, with the consensus's bases between the two nodes"
+   "0/4,4,0/0" \
+   "and the mosaic's strands have the bases of every record, each step joined to the next by an edge"
 # The nesting tags of -A are found by walking the sites, which has to reach the one site.
 is "$($RCM_CALL --read-consensus -A 2>/dev/null | awk '$3 == ">4>10_1" {print ($8 ~ /;LV=0;/)}')" "1" \
    "with -A the one site's records get nesting tags as a snarl's do"
