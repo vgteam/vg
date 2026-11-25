@@ -389,18 +389,7 @@ optional<StringAlignment> align_global(const string& first, const string& second
 
     const char* a = first.data() + prefix;
     const char* b = second.data() + prefix;
-    // The trace of each thread's alignments is kept from one to the next, so that alignments of
-    // many sizes do not each map and unmap memory of their own. One larger than a default band
-    // is let go when the alignment is done.
-    thread_local vector<uint8_t> trace;
-    struct LetGo {
-        vector<uint8_t>& trace;
-        ~LetGo() {
-            if (trace.capacity() > StringAlignerParams().max_cells) {
-                vector<uint8_t>().swap(trace);
-            }
-        }
-    } let_go{trace};
+    vector<uint8_t> trace;
     // The least cost of any alignment, once a band wide enough to show it has been filled.
     optional<int64_t> least;
     int64_t narrower_cost = -1;
