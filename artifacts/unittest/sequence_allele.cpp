@@ -205,6 +205,39 @@ TEST_CASE("A sequence allele spells its sequence between the bounds of its snarl
     REQUIRE(none.walks.empty());
 }
 
+TEST_CASE("A walk allele spells its sequence with changes to the steps of the walk",
+          "[sequence_allele]") {
+    bdsg::HashGraph graph;
+    const Traversal walk{graph.create_handle("ACGTACGT", 1), graph.create_handle("GGCC", 2),
+                         graph.create_handle("TTAA", 3), graph.create_handle("CAGTCAGT", 4)};
+    for (size_t k = 0; k + 1 < walk.size(); ++k) {
+        graph.create_edge(walk[k], walk[k + 1]);
+    }
+    CandidateAlleles alleles{{walk}, 0};
+    const StringAlignerParams aligner{.wavefront = true};
+    for (const string interior : {"GGCATTAA", "TAA", "GGCCTTAAGG", "TTGGCCTTAA", ""}) {
+        const optional<size_t> allele = add_walk_allele(graph, alleles, walk, interior, aligner);
+        REQUIRE(allele == alleles.walks.size() - 1);
+        REQUIRE(alleles.walks[*allele] == walk);
+        REQUIRE(!alleles.spelled_by_walk(*allele));
+        REQUIRE(alleles.sequence(graph, *allele) == "ACGTACGT" + interior + "CAGTCAGT");
+        // The bound nodes keep their bases.
+        const StepSequences steps = alleles.step_sequences(graph, *allele);
+        REQUIRE(steps.front() == "ACGTACGT");
+        REQUIRE(steps.back() == "CAGTCAGT");
+    }
+    // A run of mismatches changes the step that holds it.
+    REQUIRE(alleles.edits[1] == vector<AlleleEdit>{{1, 3, 1, "A"}});
+    // A deletion across two nodes changes both, and the node it takes whole stays in the walk.
+    REQUIRE(alleles.edits[2] == vector<AlleleEdit>{{1, 0, 4, ""}, {2, 0, 1, ""}});
+    REQUIRE(alleles.step_sequences(graph, 2)[1].empty());
+    // An insertion goes after the base before it, or before the first base between the bounds.
+    REQUIRE(alleles.edits[3] == vector<AlleleEdit>{{2, 4, 0, "GG"}});
+    REQUIRE(alleles.edits[4] == vector<AlleleEdit>{{1, 0, 0, "TT"}});
+
+    REQUIRE(!add_walk_allele(graph, alleles, {walk.front()}, "A", aligner));
+}
+
 TEST_CASE("Reads that span a snarl with a sequence allele are scored by aligning them to every allele",
           "[sequence_allele]") {
     const TwoBranchSite site;

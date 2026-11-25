@@ -22,6 +22,7 @@
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "../src/handle.hpp"
 #include "materialized_site.hpp"
+#include "string_aligner.hpp"
 #include "../src/snarls.hpp"
 #include "../src/traversal_finder.hpp"
 #include <vg/vg.pb.h>
@@ -74,6 +75,25 @@ EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t of
  */
 optional<size_t> add_sequence_allele(const HandleGraph& graph, CandidateAlleles& alleles,
                                      const string& interior);
+
+/**
+ * Add an allele to `alleles`, the alleles of a snarl: `walk`, a walk across the snarl, with
+ * changes to the sequences of its steps so that it spells `interior` between the snarl's two
+ * bounds.
+ *
+ * The bases `walk` spells between the bounds are aligned to `interior` with `aligner`, and the
+ * gaps moved left. Each difference becomes changes to the steps that hold its bases: a run of
+ * mismatches or a deletion changes each step it covers, so a node whose bases are all deleted
+ * stays in the walk with none, and an insertion goes after the base before it, or before the
+ * first base between the bounds where it comes first. So the two bound nodes keep their bases,
+ * unless the walk has no bases between the bounds and `interior` has some.
+ *
+ * @return The index of the new allele, or nothing, with `alleles` as it was, if `walk` has fewer
+ * than two steps or the alignment is not found.
+ */
+optional<size_t> add_walk_allele(const HandleGraph& graph, CandidateAlleles& alleles,
+                                 const Traversal& walk, const string& interior,
+                                 const StringAlignerParams& aligner);
 
 /**
  * Make the ID of an edit site, `op<node>.<offset>.<kind><alt>`.

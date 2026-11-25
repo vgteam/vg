@@ -51,6 +51,64 @@ optional<size_t> add_sequence_allele(const HandleGraph& graph, CandidateAlleles&
     return allele;
 }
 
+optional<size_t> add_walk_allele(const HandleGraph& graph, CandidateAlleles& alleles,
+                                 const Traversal& walk, const string& interior,
+                                 const StringAlignerParams& aligner) {
+    if (walk.size() < 2) {
+        return std::nullopt;
+    }
+    // The first base of each step in the bases the walk spells.
+    vector<size_t> starts;
+    string spelled;
+    for (const handle_t& step : walk) {
+        starts.push_back(spelled.size());
+        spelled += graph.get_sequence(step);
+    }
+    const size_t before = graph.get_length(walk.front());
+    const string called = spelled.substr(before, starts.back() - before);
+    optional<StringAlignment> alignment = align_global(called, interior, aligner);
+    if (!alignment) {
+        return std::nullopt;
+    }
+    left_align_gaps(called, interior, alignment->runs);
+    // The step that holds base `at` of the walk's bases.
+    auto step_of = [&](size_t at) {
+        return (size_t)(std::ranges::upper_bound(starts, at) - starts.begin()) - 1;
+    };
+    vector<AlleleEdit> edits;
+    size_t i = before;
+    size_t j = 0;
+    for (const AlignmentRun& run : alignment->runs) {
+        if (run.op == AlignmentOp::Insertion) {
+            // It goes after the base before it, or where that is the start bound node's, before
+            // the base after it, so that a bound node keeps its bases where it can.
+            const size_t k = step_of(i == before && i < starts.back() ? i : i - 1);
+            edits.push_back(AlleleEdit{k, i - starts[k], 0, interior.substr(j, run.length)});
+            j += run.length;
+            continue;
+        }
+        if (run.op != AlignmentOp::Match) {
+            // Cut the run's bases from each step that holds some of them.
+            const bool mismatch = run.op == AlignmentOp::Mismatch;
+            for (size_t from = i; from < i + run.length;) {
+                const size_t k = step_of(from);
+                const size_t to = std::min(i + run.length, starts[k] + graph.get_length(walk[k]));
+                edits.push_back(AlleleEdit{k, from - starts[k], to - from,
+                                           mismatch ? interior.substr(j + from - i, to - from)
+                                                    : string()});
+                from = to;
+            }
+        }
+        i += run.length;
+        j += run.op == AlignmentOp::Deletion ? 0 : run.length;
+    }
+    const size_t allele = alleles.walks.size();
+    alleles.walks.push_back(walk);
+    alleles.edits.resize(allele + 1);
+    alleles.edits[allele] = std::move(edits);
+    return allele;
+}
+
 string edit_site_id(nid_t node, uint32_t offset, char kind, const string& alt) {
     return "op" + std::to_string(node) + "." + std::to_string(offset) + "." + kind + alt;
 }

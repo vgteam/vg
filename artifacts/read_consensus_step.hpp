@@ -71,6 +71,14 @@ struct ReadConsensusCounts {
     /// scorer aligns of a read, and tested snarls where a consensus has, or where the reads and
     /// alleles need more alignments than the scorer makes.
     size_t over_cap = 0;
+    /// Consensus alleles of those sites entered as the walk their strand is called as, with
+    /// changes to its steps.
+    size_t threaded = 0;
+    /// Those entered as their bases between the bounds, because no walk spells what the strand
+    /// is called as.
+    size_t unspelled = 0;
+    /// Those entered as their bases between the bounds of a snarl with sites nested in it.
+    size_t nested = 0;
 };
 
 /**
@@ -248,12 +256,13 @@ private:
                    RunFinding& found) const;
 
     /// Make the one site that `run` becomes, with what each strand is called as across the run
-    /// and each consensus in `found` as its alleles, and genotype it.
+    /// and each consensus in `found` as its alleles, and genotype it. Count in `entered` how
+    /// each consensus is entered.
     ///
     /// @return Nothing if no consensus is a new allele, or the site could not be genotyped.
     optional<StagedSite> merge_run(const Parts& parts, const AlleleSplicer& splicer,
                                    const vector<StagedSite*>& snarls, const Run& run,
-                                   const RunFinding& found) const;
+                                   const RunFinding& found, ReadConsensusCounts& entered) const;
 
     /// Return what the span summary of `site` says of it: whether its reads can gain
     /// `min_gain` nats by an allele, and its signal in a run.

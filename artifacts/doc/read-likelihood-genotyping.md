@@ -344,12 +344,20 @@ on each snarl that has a phase, at any level, and on each of its strands:
    becomes an allele of the snarl, unless one of the snarl's alleles spells it already. Two strands
    with the same consensus add one allele. With a consensus, the snarl also gains what each
    strand is called as, where the sites nested in the snarl make that a sequence none of its
-   alleles spells, so that a strand can keep what it has. The allele is given as its bases between the bounds. It
-   visits no node between them, so it crosses no site nested in the snarl, as a deletion of
-   everything between the bounds does, and no panel haplotype carries it.
+   alleles spells, so that a strand can keep what it has. No panel haplotype carries a
+   consensus allele.
+6. The consensus allele is the walk the strand is called as, with changes to the bases of its
+   steps where the consensus differs. The two are aligned and the gaps moved left, and each
+   difference changes the steps that hold its bases: a node whose bases are all deleted stays
+   in the walk with none, and an insertion goes after the base before it, or before the first
+   base after the start bound where it comes first. Where the snarl has sites nested in it, or
+   no walk spells what the strand is called as, the allele is instead given as its bases between
+   the bounds, as is what a strand is called as. Such an allele visits no node between the
+   bounds, so it crosses no site nested in the snarl, as a deletion of everything between the
+   bounds does.
 
 A snarl gains its consensus whatever the snarls nested in it gain. The two are not called
-together on one strand: the consensus allele crosses no nested site, so a strand that takes it has
+together on one strand: the consensus allele of such a snarl crosses no nested site, so a strand that takes it has
 no allele at the snarls nested in the snarl, and the linkage pass chooses.
 
 A snarl that gained an allele is genotyped again from its reads, at the ploidy it has. Each read
@@ -415,7 +423,10 @@ snarls included:
   reference allele, with the junctions between them, which is its reference allele. Then comes
   what each strand is called as across the run, as the walk that takes the strand's allele at
   each member where that walk spells it, and otherwise as its bases between the bounds. Last come
-  the consensuses, as their bases between the bounds. Alleles that spell the same bases are one,
+  the consensuses, each as that walk of its strand with changes to its steps, as at one snarl,
+  and as its bases between the bounds where the walk does not spell what the strand is called
+  as. The nodes between two members are steps of the walk like any other. Alleles that spell the
+  same bases are one,
   and a run whose consensuses are all spelled by the others stays as it is.
 - It is genotyped from its reads as a snarl that gained an allele is, with every read that spans
   it aligned to every allele, and filed with the linkage model in place of its first member. The
@@ -454,8 +465,10 @@ written as flat records is written as one site record with `INFO/RC`, not as
 no block covers. Its `AT` walk is the two bound nodes alone. vg reports on standard error how many
 snarls it tested on their own and how many strands were candidates at them, how many runs were
 treated and how many of those became one site, how many sites gained an allele or were made of a
-run and how many of them are called with such an allele, and how many snarls were over a limit of
-the scorer.
+run and how many of them are called with such an allele, how many consensus alleles of those
+sites are a walk with changes and how many are given as bases, because no walk spells what the
+strand is called as or because the snarl has sites nested in it, and how many snarls were over a
+limit of the scorer.
 
 ## Ploidy
 
@@ -1064,8 +1077,9 @@ entry, `*` stands for the bases the visit already has, so `*` alone leaves the s
 entry can end with `+` and bases, or with `+` alone: those bases, or none, lie after the step on no
 node, and the next step follows them without an edge of the graph. So `*+ACG` leaves the step as
 it is and puts `ACG` between it and the next step, and `*+` joins the two steps directly. The row
-of an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) has the two
-bound nodes alone as its `walk`, and the first entry of its `bases` has the bases between them.
+of an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) that is
+given as its bases between the bounds has the two bound nodes alone as its `walk`, and the first
+entry of its `bases` has the bases between them.
 
 A site's row never changes the bases of its two bound nodes: their entries start with `*`. A
 change to a bound node is in that node's own row. So no two `A` rows of a strand change the same
