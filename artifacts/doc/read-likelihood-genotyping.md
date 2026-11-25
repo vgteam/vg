@@ -708,11 +708,18 @@ the last site's end boundary node: the allele the strand carries at each site of
 each nested site spelled by the allele that strand carries there, at every depth, the changes of
 the edit sites between the sites, and the nodes between the sites. The run's **reference** is the
 same with every site at its reference allele, which is the reference path through the run. vg
-aligns each strand's sequence to the reference by itself, end to end, at the least cost: 40 for a
-mismatch, and for a gap of $L$ bases the lesser of $78 + 7L$ and $162 + 3L$. These are the scores
-that minimap2 aligns two assemblies of one species with (its `asm5` preset), as costs of an
-end-to-end alignment, so that the records are cut as an assembly-to-reference alignment cuts
-them. It then moves each gap as far left as it goes within the run.
+aligns each strand's sequence to the reference by itself, end to end, at the least cost inside a
+region the sites guide: 40 for a mismatch, and for a gap of $L$ bases the lesser of $78 + 7L$ and
+$162 + 3L$. These are the scores that minimap2 aligns two assemblies of one species with (its
+`asm5` preset), as costs of an end-to-end alignment, so that the records are cut as an
+assembly-to-reference alignment cuts them. The bases the two share at their starts and at their
+ends are matched first. In what lies between, the strand is expected to reach the first and the
+last base between each site's bound nodes where the reference does, moved by what its alleles at
+that site and at the sites before add to or take from the reference's length. The region is, for
+each two such points that follow each other, the reference bases from the one to the other and
+the alignment diagonals from the one's to the other's, each widened by 256 on either side. So
+only a site whose allele changes the length is wide. vg then moves each gap as far left as it goes
+within the run.
 
 Each maximal run of alignment columns that are not matches is a **difference**, and the records are
 cut from the differences:
@@ -747,10 +754,9 @@ A site is written as it is without `--flatten-records`, and so are the sites nes
 has no strands to spell (it has no genotype or no phase, or the strands of its phase do not carry
 the genotype that is written), where a gap at the site's first base has no reference base before
 it, or where the
-aligner reaches its limit. The aligner fills a band of the alignment matrix and widens it until it
-can show that the alignment costs the least, keeping a byte for each cell of the band. A band of
-more than $2^{27}$ cells is filled for one strand at a time, and the aligner gives up when the
-band would hold more than $2^{30}$ cells, or the proof more than $2^{30}$. A run of several sites
+aligner reaches its limit. The aligner keeps a byte for each cell of the region. A region of
+more than $2^{27}$ cells is filled for one strand at a time, and the aligner gives up on one of
+more than $2^{30}$. A run of several sites
 whose strands cannot be aligned, or spelled along it, is written as a run for each of its sites
 and for each edit site between them. The call reports on stderr, in lines starting `[vg call] flatten:`, the runs and
 lines written, the sites in the runs, the runs of several sites, the nested sites and the edit
@@ -1360,6 +1366,7 @@ holds it.
 | `banded` and `band`, in `score_by_optimal_pairing` | `artifacts/allele_likelihood.cpp` | the grid size, in read visits times allele visits, above which optimal pairing is restricted to a band, and the band's half-width in allele visits |
 | `AlleleLikelihoodParams::sequence_allele_max_bases`, `sequence_allele_max_alignments` | `artifacts/allele_likelihood.hpp` | the most bases of a read between a snarl's bounds that are aligned, and the most alignments of a read to an allele at one snarl, at a snarl with an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) |
 | `ReadConsensusParams::min_reads`, `max_reads`, `max_rounds`, `max_medoid` | `artifacts/read_consensus.hpp` | for a consensus of reads: the fewest and the most reads it is built from, the most times they are aligned to it, and the most inserted strings compared to choose the bases of an insertion |
+| `BlockRecordWriter::FLAT_GUIDE_MARGIN` | `artifacts/block_records.hpp` | the cells by which the region a [flat run](#flat-records)'s sites guide its alignments is widened on each side |
 | `ReadConsensusOptions::run_max_junction` | `artifacts/read_consensus_step.hpp` | for a [run](#runs-of-neighbouring-snarls): the most bases in a junction, and between two seeds that follow each other |
 | `max_yens_traversals` | `src/subcommand/call_main.cpp` | the most candidate alleles support enumeration keeps |
 | the difference limit in `LinkageModel::run_length_site` | `artifacts/linkage_model.cpp` | the largest homopolymer length difference to which `--hp-prior` applies |

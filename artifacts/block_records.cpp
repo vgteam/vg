@@ -1252,12 +1252,10 @@ shared_ptr<FlatRun> BlockRecordWriter::align_flat(
     const vector<vector<pair<size_t, size_t>>>& guides) const {
     auto run = std::make_shared<FlatRun>();
     run->reference = std::move(reference);
-    static const size_t margin = getenv("VG_FLAT_MARGIN") ? std::stoul(getenv("VG_FLAT_MARGIN"))
-                                                          : 64;
     // Align a strand with `params`, inside the region its guide gives where it has one.
     auto align = [&](size_t s, const string& sequence, const StringAlignerParams& params) {
         return s < guides.size()
-                   ? align_guided(run->reference, sequence, guides[s], margin, params)
+                   ? align_guided(run->reference, sequence, guides[s], FLAT_GUIDE_MARGIN, params)
                    : align_global(run->reference, sequence, params);
     };
     for (size_t s = 0; s < strands.size(); ++s) {
@@ -1268,21 +1266,6 @@ shared_ptr<FlatRun> BlockRecordWriter::align_flat(
             static const bool log_align = getenv("VG_LOG_FLAT_ALIGN") != nullptr;
             const auto began = std::chrono::steady_clock::now();
             optional<StringAlignment> aligned = align(s, strand.sequence, flat_aligner);
-            if (getenv("VG_DEBUG_GUIDE") && aligned && s < guides.size()) {
-                // For measurement: the least cost the unguided aligner finds, and the guide.
-                StringAlignerParams wide = flat_aligner;
-                wide.max_cells = flat_wide_cells;
-                optional<StringAlignment> best = align_global(run->reference, strand.sequence, wide);
-                std::ostringstream line;
-                line << "[guide-debug] " << run->reference.size() << " " << strand.sequence.size()
-                     << " " << aligned->cost << " " << (best ? best->cost : -1) << " "
-                     << guides[s].size();
-                for (const auto& [i, j] : guides[s]) {
-                    line << " " << i << ":" << j;
-                }
-                line << "\n";
-                cerr << line.str();
-            }
             if (log_align) {
                 const double seconds = std::chrono::duration<double>(
                     std::chrono::steady_clock::now() - began).count();

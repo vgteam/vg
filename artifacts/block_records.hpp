@@ -302,14 +302,20 @@ public:
     /// site of the run has written its own, and counts the result for the report.
     void set_flat_check(bool on) { flat_check = on; }
 
+    /// The cells by which the region a flat run's sites guide each strand's alignment in is
+    /// widened on each side (see `align_guided`).
+    static constexpr size_t FLAT_GUIDE_MARGIN = 256;
+
     /**
      * Align each strand of a run of sites to the run's reference `reference`.
      *
      * `strands` gives the sequence of each strand of the run, in the order of the phase. Each
-     * strand is aligned by itself at the least cost (see `align_global`), and its gaps are
-     * moved as far left as they go without leaving the first base of the run. An alignment
-     * whose band does not fit the aligner's cells is made again with up to `flat_wide_cells`,
-     * one such alignment at a time, since the aligner keeps a byte for each cell.
+     * strand is aligned by itself at the least cost (see `align_global`), or, where `guides`
+     * gives it corners, at the least cost inside the region they guide, widened by
+     * `FLAT_GUIDE_MARGIN` (see `align_guided`). Its gaps are then moved as far left as they go
+     * without leaving the first base of the run. An alignment that does not fit the aligner's
+     * cells is made again with up to `flat_wide_cells`, one such alignment at a time, since the
+     * aligner keeps a byte for each cell.
      *
      * @param refused Set to why, where nothing is returned.
      * @return Nothing if the aligner reaches its limit, or if a difference that needs the
