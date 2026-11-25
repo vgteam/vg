@@ -669,6 +669,16 @@ public:
         // A calculator that fetches no reads has nothing to set.
     }
 
+    /**
+     * Set whether this thread holds the reads it fetches. While it does, the reads of the first
+     * fetch are kept, and a later fetch of node ranges inside that first fetch's is answered
+     * from them, in the same order, without reading the source again. Turning it off lets
+     * them go. The default does nothing.
+     */
+    virtual void hold_reads(bool /*on*/) const {
+        // A calculator that fetches no reads holds none.
+    }
+
     /// The limits of `compute` at a snarl with a sequence allele.
     struct SequenceAlleleLimits {
         /// The most bases between the bounds that are aligned
@@ -772,6 +782,8 @@ public:
     vector<SpanningRead> spanning_reads(const MaterializedSite& site) const override;
 
     void set_counted_fetches(bool counted) override { counted_fetches = counted; }
+
+    void hold_reads(bool on) const override;
 
     optional<double> sequence_nats(const string& bases, const string& sequence,
                                    optional<double> at_least = std::nullopt) const override;

@@ -440,7 +440,10 @@ strands' called sequences across the run do not have.
 The step fetches reads only at the snarls whose reads can gain by an allele. The direct pass
 keeps, for each snarl, the number of reads that span it, the number of those that no allele
 explains, and the gaps its reads have around each bound. A snarl is tested on its own where its
-signal is `--consensus-min-gain` or more, and in a run where the run is tested.
+signal is `--consensus-min-gain` or more and it is in no treated run, and in a run where the run
+is tested. The runs are tested first. The reads of a run, or of a snarl on its own, are fetched
+once, and where it is treated it becomes one site and is genotyped again from those reads before
+they are let go.
 The scorer aligns a read with at most 10,000 bases between the bounds, and makes at most 2,000
 alignments at one snarl (see [Fixed constants](#fixed-constants)). A snarl with a called sequence
 or a consensus of more bases than that, or whose reads and alleles need more alignments, gains no
@@ -455,7 +458,7 @@ A site with such an allele called at it is written as any other site, and its re
 steps it changes, so [block records](#block-records) cut the site there. One given as its bases
 puts them after the start bound's node, which no block covers, so its site is written as one site
 record, whose `AT` walk for that allele is the two bound nodes alone. vg reports on standard error how many
-snarls it tested on their own and how many strands were candidates at them, how many runs were
+snarls in no treated run it tested on their own and how many strands were candidates at them, how many runs were
 treated as runs of several and how many of those became one site, how many sites were made of a
 run, of one snarl or of several, and how many of them are called with such an allele, how many
 consensus alleles of those sites are a walk with changes and how many are given as bases, and

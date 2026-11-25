@@ -74,14 +74,6 @@ struct ReadConsensusStep::Alone {
     /// after it (`SpanSummary::start_gap`, `end_gap`).
     size_t start_gap = 0;
     size_t end_gap = 0;
-    /// Whether the site's reads were fetched and compared with the called sequences.
-    bool tested = false;
-    /// Whether the site is over a limit of the scorer (`RunFinding::over_cap`).
-    bool over_cap = false;
-    /// The number of the site's strands that are candidates.
-    size_t candidates = 0;
-    /// Whether a strand has a consensus that is to become an allele of the site.
-    bool treated = false;
 };
 
 ReadConsensusStep::Alone ReadConsensusStep::measure(const Parts& parts,
@@ -123,10 +115,28 @@ ReadConsensusStep::Alone ReadConsensusStep::measure(const Parts& parts,
     return alone;
 }
 
+ReadConsensusStep::RunFinding ReadConsensusStep::treat_run(const Parts& parts,
+                                                           const AlleleSplicer& splicer,
+                                                           const vector<StagedSite*>& snarls,
+                                                           const Run& run,
+                                                           optional<StagedSite>& merged,
+                                                           ReadConsensusCounts& entered) const {
+    const AlleleLikelihoodCalculator& calculator = parts.genotyper->calculator();
+    calculator.hold_reads(true);
+    RunFinding found = examine_run(parts, splicer, snarls, run);
+    if (found.treats()) {
+        merged = merge_run(parts, splicer, snarls, run, found, entered);
+    }
+    calculator.hold_reads(false);
+    return found;
+}
+
 void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splicer,
                                   const vector<StagedSite*>& snarls,
                                   const vector<Alone>& alone, vector<Run>& runs,
-                                  vector<RunFinding>& run_findings) const {
+                                  vector<RunFinding>& run_findings,
+                                  vector<optional<StagedSite>>& merged,
+                                  vector<ReadConsensusCounts>& entered) const {
     const HandleGraph& graph = *parts.graph;
     const size_t none = std::numeric_limits<size_t>::max();
     // A site can be in a run where enough reads span it and it has a called sequence of no
@@ -269,14 +279,18 @@ void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splic
 
     // The runs share no site, so they are tested at once.
     vector<RunFinding> found_at(tested.size());
+    vector<optional<StagedSite>> merged_at(tested.size());
+    vector<ReadConsensusCounts> entered_at(tested.size());
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t r = 0; r < tested.size(); ++r) {
-        found_at[r] = examine_run(parts, splicer, snarls, tested[r]);
+        found_at[r] = treat_run(parts, splicer, snarls, tested[r], merged_at[r], entered_at[r]);
     }
     for (size_t r = 0; r < tested.size(); ++r) {
         if (found_at[r].treats()) {
             runs.push_back(std::move(tested[r]));
             run_findings.push_back(std::move(found_at[r]));
+            merged.push_back(std::move(merged_at[r]));
+            entered.push_back(entered_at[r]);
         }
     }
 }
@@ -681,64 +695,60 @@ size_t ReadConsensusStep::run(const Parts& parts) {
     max_alignments = limits.max_alignments;
     clamp = calculator.read_clamp();
     calculator.set_counted_fetches(false);
-    // Test each site on its own, as a run of one, where its reads can gain by an allele.
+    // What each site's span summary says of it on its own.
     vector<Alone> alone(snarls.size());
-    vector<unique_ptr<RunFinding>> found_alone(snarls.size());
 #pragma omp parallel for schedule(dynamic, 64)
     for (size_t i = 0; i < snarls.size(); ++i) {
         alone[i] = measure(parts, splicer, *snarls[i]);
-        if (!alone[i].can_disagree) {
-            continue;
-        }
-        RunFinding found = examine_run(parts, splicer, snarls, Run{{i}, {}});
-        alone[i].tested = found.fetched;
-        alone[i].over_cap = found.over_cap;
-        alone[i].candidates = (found.strands[0].candidate ? 1 : 0)
-                              + (found.strands[1].candidate ? 1 : 0);
-        alone[i].treated = found.treats();
-        if (alone[i].treated) {
-            found_alone[i] = std::make_unique<RunFinding>(std::move(found));
-        }
     }
 
-    // The runs that are treated: the runs of several sites with a consensus, and each
-    // site with a consensus of its own that is in none of those.
+    // The runs that are treated, each made one site as it is found, from the reads fetched to
+    // test it: the runs of several sites with a consensus, and then each site in none of those
+    // that has a consensus of its own, as a run of one.
     vector<Run> runs;
     vector<RunFinding> run_findings;
-    find_runs(parts, splicer, snarls, alone, runs, run_findings);
+    vector<optional<StagedSite>> merged;
+    vector<ReadConsensusCounts> entered;
+    find_runs(parts, splicer, snarls, alone, runs, run_findings, merged, entered);
     vector<char> in_run(snarls.size(), 0);
     for (const Run& run : runs) {
         for (const size_t i : run.members) {
             in_run[i] = 1;
         }
     }
+    vector<RunFinding> found_alone(snarls.size());
+    vector<optional<StagedSite>> merged_alone(snarls.size());
+    vector<ReadConsensusCounts> entered_alone(snarls.size());
+#pragma omp parallel for schedule(dynamic, 64)
     for (size_t i = 0; i < snarls.size(); ++i) {
-        counted.tested += alone[i].tested ? 1 : 0;
-        counted.over_cap += alone[i].over_cap ? 1 : 0;
-        counted.candidate_strands += alone[i].candidates;
-        if (found_alone[i] && !in_run[i]) {
+        if (alone[i].can_disagree && !in_run[i]) {
+            found_alone[i] = treat_run(parts, splicer, snarls, Run{{i}, {}}, merged_alone[i],
+                                       entered_alone[i]);
+        }
+    }
+    for (size_t i = 0; i < snarls.size(); ++i) {
+        const RunFinding& found = found_alone[i];
+        counted.tested += found.fetched ? 1 : 0;
+        counted.over_cap += found.over_cap ? 1 : 0;
+        counted.candidate_strands += (found.strands[0].candidate ? 1 : 0)
+                                     + (found.strands[1].candidate ? 1 : 0);
+        if (found.treats()) {
             runs.push_back(Run{{i}, {}});
-            run_findings.push_back(std::move(*found_alone[i]));
+            run_findings.push_back(std::move(found_alone[i]));
+            merged.push_back(std::move(merged_alone[i]));
+            entered.push_back(entered_alone[i]);
         }
     }
     found_alone.clear();
+    merged_alone.clear();
+    calculator.set_counted_fetches(true);
 
-    // Every treated run becomes one site and is genotyped again, whatever is treated under it:
-    // the sites nested in it are removed with its members. The runs are taken in the order of
+    // Every treated run takes the place of its members, whatever is treated under it: the
+    // sites nested in it are removed with its members. The runs are filed in the order of
     // their first members.
     vector<size_t> tasks(runs.size());
     std::iota(tasks.begin(), tasks.end(), 0);
     std::ranges::sort(tasks, {}, [&](size_t r) { return runs[r].members.front(); });
-
-    // Make the one site of each run. The sites differ, so they can be made at once.
-    vector<ReadConsensusCounts> entered(tasks.size());
-    vector<optional<StagedSite>> merged(tasks.size());
-#pragma omp parallel for schedule(dynamic, 1)
-    for (size_t t = 0; t < tasks.size(); ++t) {
-        merged[t] = merge_run(parts, splicer, snarls, runs[tasks[t]], run_findings[tasks[t]],
-                              entered[t]);
-    }
-    calculator.set_counted_fetches(true);
 
     // File each site again, one at a time, in the order of the sites.
     LinkageCollector* model = parts.linker->collector();
@@ -749,12 +759,12 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         const Run& run = runs[tasks[t]];
         counted.runs_treated += run.members.size() > 1 ? 1 : 0;
         StagedSite& site = *snarls[run.members.front()];
-        if (!merged[t]) {
+        if (!merged[tasks[t]]) {
             continue;
         }
         ++filed;
-        counted.threaded += entered[t].threaded;
-        counted.unspelled += entered[t].unspelled;
+        counted.threaded += entered[tasks[t]].threaded;
+        counted.unspelled += entered[tasks[t]].unspelled;
         // The one site takes the place of the run's first member. The other members, the sites
         // under any member and the edit sites between them are removed below. A run of one
         // keeps its member's key, so only the sites under it are named.
@@ -771,7 +781,7 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         absorbed.insert(run_findings[tasks[t]].edits_between.begin(),
                         run_findings[tasks[t]].edits_between.end());
         model->retract(site.record_key);
-        site = std::move(*merged[t]);
+        site = std::move(*merged[tasks[t]]);
         changed.push_back(site.record_key);
         parts.linker->file(site, site.placement.level > 0 ? site.ploidy == 1
                                                           : site.placement.one_copy);

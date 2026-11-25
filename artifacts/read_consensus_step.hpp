@@ -234,11 +234,19 @@ private:
     struct RunFinding;
 
     /// Find and test the runs of two or more among `snarls`, of each of which `alone` says what
-    /// is known on its own. Add to `runs` each run that is treated, and to `run_findings` what
-    /// was found at it.
+    /// is known on its own. Add to `runs` each run that is treated, to `run_findings` what was
+    /// found at it, and to `merged` and `entered` what `treat_run` made of it.
     void find_runs(const Parts& parts, const AlleleSplicer& splicer,
                    const vector<StagedSite*>& snarls, const vector<Alone>& alone,
-                   vector<Run>& runs, vector<RunFinding>& run_findings) const;
+                   vector<Run>& runs, vector<RunFinding>& run_findings,
+                   vector<optional<StagedSite>>& merged,
+                   vector<ReadConsensusCounts>& entered) const;
+
+    /// Test `run` (`examine_run`) and, where it is treated, make its one site (`merge_run`)
+    /// into `merged`, from the reads fetched once, which this thread holds until it is done.
+    RunFinding treat_run(const Parts& parts, const AlleleSplicer& splicer,
+                         const vector<StagedSite*>& snarls, const Run& run,
+                         optional<StagedSite>& merged, ReadConsensusCounts& entered) const;
 
     /// Fetch the reads that span `run`, build the consensus of each strand's, and score the
     /// reads against it and against the strand's called sequence across the run. The run is

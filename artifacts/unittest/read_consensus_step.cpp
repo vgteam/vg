@@ -528,8 +528,8 @@ TEST_CASE("A run whose consensus changes the node between two snarls becomes one
     for (const bool flatten : {false, true}) {
         const Called called = call_graph(make_unique, THREE_PANEL, reads, options, flatten);
         // Each of the two snarls has reads that no allele explains, and the run of the two is
-        // treated before either.
-        REQUIRE(called.counts.tested == 2);
+        // treated before either, so neither is tested on its own.
+        REQUIRE(called.counts.tested == 0);
         require_first_two_merged(called, reads[0], reads[1], flatten);
     }
 }
