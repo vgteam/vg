@@ -1114,7 +1114,9 @@ The script prints the number of strands, nodes and stretches it does not compare
 site with the records of other sites inside it is not compared, since its record spells each
 allele once, with the alleles that one strand has at the sites inside; the sites inside are
 compared. Records with no phase, strands with no allele at a record, sites and nodes the strand
-does not cross, and two records of edit sites that take one base are the other reasons.
+does not cross, and two records of edit sites that take one base are the other reasons. A phased
+record with no allele for a strand says that the strand does not cross the site, so a strand that
+crosses such a site is reported as a difference.
 
 ### Assembly anchors (`--anchors-out`)
 

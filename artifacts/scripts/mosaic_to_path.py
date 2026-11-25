@@ -325,10 +325,15 @@ def check_strand(fragments, strand, vcf, reference, sequences, counts):
             continue
         made = [change_of(record, strand) for record in records]
         reasons = [change[3] for change in made if change[3]]
+        found = [(f, c) for f in fragments for c in crossings(f.places, first, last)]
+        # A phased record with no allele for a strand says that the strand does not cross the site.
+        if found and any('|' in gt and gt.split('|')[strand:strand + 1] == ['.']
+                         for _, _, _, gt in records):
+            differs(f"{name}: the strand crosses the site, and a record there has no allele for it")
+            continue
         if reasons:
             counts[f'site strands not compared: {reasons[0]}'] += 1
             continue
-        found = [(f, c) for f in fragments for c in crossings(f.places, first, last)]
         if not found:
             counts['site strands not compared: the strand does not cross the site from start to '
                    'end'] += 1
