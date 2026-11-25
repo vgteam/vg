@@ -259,6 +259,7 @@ struct WavefrontAligners {
     struct Entry {
         StringAlignerParams params;
         wavefront_aligner_t* aligner;
+        bool piggyback;
     };
     vector<Entry> entries;
 
@@ -268,11 +269,11 @@ struct WavefrontAligners {
         }
     }
 
-    /// Return the aligner with the costs of `params`.
-    wavefront_aligner_t* with(const StringAlignerParams& params) {
+    /// Return the aligner with the costs of `params`, in the piggyback mode where `piggyback`.
+    wavefront_aligner_t* with(const StringAlignerParams& params, bool piggyback = false) {
         for (const Entry& entry : entries) {
             const StringAlignerParams& has = entry.params;
-            if (has.mismatch == params.mismatch && has.gap_open == params.gap_open
+            if (entry.piggyback == piggyback && has.mismatch == params.mismatch && has.gap_open == params.gap_open
                 && has.gap_extend == params.gap_extend && has.long_gaps == params.long_gaps
                 && (!has.long_gaps || (has.long_gap_open == params.long_gap_open
                                        && has.long_gap_extend == params.long_gap_extend))) {
@@ -284,7 +285,7 @@ struct WavefrontAligners {
         attributes.alignment_form.span = alignment_end2end;
         attributes.heuristic.strategy = wf_heuristic_none;
         // The bidirectional aligner keeps memory in proportion to the cost of the alignment.
-        attributes.memory_mode = wavefront_memory_ultralow;
+        attributes.memory_mode = piggyback ? wavefront_memory_med : wavefront_memory_ultralow;
         if (params.long_gaps) {
             attributes.distance_metric = gap_affine_2p;
             attributes.affine2p_penalties.match = 0;
@@ -300,7 +301,7 @@ struct WavefrontAligners {
             attributes.affine_penalties.gap_opening = params.gap_open;
             attributes.affine_penalties.gap_extension = params.gap_extend;
         }
-        entries.push_back({params, wavefront_aligner_new(&attributes)});
+        entries.push_back({params, wavefront_aligner_new(&attributes), piggyback});
         return entries.back().aligner;
     }
 };
@@ -318,6 +319,28 @@ optional<StringAlignment> align_wavefront(const string& first, const string& sec
     }
     thread_local WavefrontAligners aligners;
     wavefront_aligner_t* aligner = aligners.with(params);
+    bool aligned = false;
+    if (params.piggyback_bytes > 0) {
+        wavefront_aligner_t* piggyback = aligners.with(params, true);
+        wavefront_aligner_set_max_memory(piggyback, params.piggyback_bytes,
+                                         params.piggyback_bytes);
+        if (params.max_cost >= 0) {
+            wavefront_aligner_set_max_alignment_steps(
+                piggyback, (int)std::min<int64_t>(std::numeric_limits<int>::max(),
+                                                  params.max_cost + 1));
+        } else {
+            wavefront_aligner_set_max_alignment_steps(piggyback,
+                                                      std::numeric_limits<int>::max());
+        }
+        const int status = wavefront_align(piggyback, first.data(), (int)first.size(),
+                                           second.data(), (int)second.size());
+        if (status == WF_STATUS_ALG_COMPLETED) {
+            aligner = piggyback;
+            aligned = true;
+        } else if (status == WF_STATUS_MAX_STEPS_REACHED) {
+            return std::nullopt;
+        }
+    }
     // The aligner stops at a score. Its two directions can meet a little past the cost of the
     // alignment, by no more than the costs of opening gaps and of one step, so the score it
     // stops at is that much more than `max_cost`.
@@ -331,8 +354,8 @@ optional<StringAlignment> align_wavefront(const string& first, const string& sec
                      ? std::numeric_limits<int>::max()
                      : (int)std::min<int64_t>(std::numeric_limits<int>::max(),
                                               params.max_cost + slack));
-    if (wavefront_align(aligner, first.data(), (int)first.size(), second.data(),
-                        (int)second.size()) != WF_STATUS_ALG_COMPLETED) {
+    if (!aligned && wavefront_align(aligner, first.data(), (int)first.size(), second.data(),
+                                    (int)second.size()) != WF_STATUS_ALG_COMPLETED) {
         return std::nullopt;
     }
     const cigar_t& cigar = *aligner->cigar;
