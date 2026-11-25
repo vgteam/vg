@@ -98,6 +98,29 @@ using namespace std;
                                   bool allow_negative_scores = false,
                                   bool preserve_deletions = false) const;
         
+        /// Jointly surject alternative graph placements of one unpaired read.
+        ///
+        /// For each input placement, find candidate alignments on the selected
+        /// target paths. Each candidate contains one non-supplementary alignment
+        /// and any supplementary pieces. Rank candidates by the non-supplementary
+        /// alignment's score; supplementary scores do not contribute.
+        ///
+        /// Return the winning candidate first and mark other candidates secondary.
+        /// Supplementary pieces inherit their candidate's secondary status.
+        ///
+        /// Haplotype quality compares candidates from the same input placement.
+        /// Final mapping quality (global quality) compares all candidates and is
+        /// capped by the input primary alignment's MAPQ when available.
+        ///
+        /// Paired and mapper-provided supplementary inputs are not supported.
+        vector<Alignment> surject_diploid(const vector<Alignment>& placements,
+                                         const unordered_set<path_handle_t>& paths,
+                                         bool allow_negative_scores = false,
+                                         bool preserve_deletions = false) const;
+
+        /// Cap for computed diploid haplotype and global qualities
+        int32_t max_diploid_mapping_quality = 60;
+
         /// Same semantics as with alignments except that connections are always
         /// preserved as splices. The output consists of a multipath alignment with
         /// a single path, separated by splices (either from large deletions or from
@@ -324,11 +347,17 @@ using namespace std;
         /// Do the extra score setup for the DP-only Aligner.
         void set_dp_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
+        /// When candidate_groups is provided, keep all candidate placements on the
+        /// target paths and store their indices in alns_out as groups.
+        /// Each group starts with a non-supplementary alignment, followed by its
+        /// supplementary pieces. Secondary alternative placements get separate groups.
+        /// candidate_groups can only be used with Alignment input, not multipath input.
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                               vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                               const unordered_set<path_handle_t>& paths,
                               vector<tuple<string, int64_t, bool>>& positions_out,
-                              bool allow_negative_scores, bool preserve_deletions) const;
+                              bool allow_negative_scores, bool preserve_deletions,
+                              vector<vector<size_t>>* candidate_groups = nullptr) const;
         
         vector<pair<Alignment, pair<step_handle_t, step_handle_t>>>
         realigning_surject(const PathPositionHandleGraph* graph, const Alignment& source,

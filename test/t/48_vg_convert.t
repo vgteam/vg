@@ -107,7 +107,7 @@ printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:4
 #manually convert to cg:
 printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M5D16M\n" > mut.cg.gaf
 #this is what we expect back, mut.gaf where insertions and snps are converted to Ns:
-printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-ACTAG:16\n" > mut.cs.exp.gaf
+printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-ACTAG:16\ttp:A:P\n" > mut.cs.exp.gaf
 vg convert x.vg -F mut.cg.gaf -t 1 | vg convert x.vg -G - -t 1 | grep -v "^@" > mut.cs.back.gaf
 diff mut.cs.back.gaf mut.cs.exp.gaf
 is "$?" 0 "vg convert cg-gaf -> gam -> cs-gaf gives expected output (snps converted to matches, insertion converted to Ns)"
@@ -491,7 +491,7 @@ S\t4\tGAT
 S\t5\tTA\n" > reference.gfa
 vg convert --gfa-in reference.gfa > reference.vg
 printf "read\t10\t0\t10\t+\t>1>2>3>4>5\t12\t0\t12\t9\t12\t60\tcs:Z::2?C:2!2:5\n" > v1.1.gaf
-printf "read\t10\t0\t10\t+\t>1>2>3>4>5\t12\t0\t12\t9\t12\t60\tcs:Z::2*TC:2-CA:5\n" > v1.0.gaf
+printf "read\t10\t0\t10\t+\t>1>2>3>4>5\t12\t0\t12\t9\t12\t60\tcs:Z::2*TC:2-CA:5\ttp:A:P\n" > v1.0.gaf
 vg convert --gaf-to-gam v1.1.gaf reference.vg > read.gam
 is $? 0 "GAF version 1.1 can be converted to GAM"
 vg convert --gam-to-gaf read.gam reference.vg | grep -v "^@" > read.gaf
