@@ -604,6 +604,8 @@ optional<StagedSite> TreeGenotyper::merged_site(const StagedSite& first, const S
     site->record_key = record_key_of(site->id);
     site->placement = first.placement;
     site->net = parts.sites->add_merged_site(start, end);
+    // It has no child sites, and its walks read it as its bounds do.
+    site->children.known = true;
     site->alleles = std::move(alleles);
     site->reference = first.reference;
     site->ploidy = first.ploidy;

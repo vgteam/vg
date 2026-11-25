@@ -498,12 +498,11 @@ void require_first_two_merged(const Called& called, const Alignment& plain,
     REQUIRE(called.counts.sites_called == 1);
     REQUIRE(record_of(called.records, ">1>4").empty());
     REQUIRE(record_of(called.records, ">4>7").empty());
-    // The one site is written as flat records. With flat records everywhere, it and the third
-    // snarl are one run.
+    // With flat records, the one site and the third snarl are one run.
     const string merged = record_of(called.records, flatten ? ">1>10" : ">1>7");
     REQUIRE(!merged.empty());
     REQUIRE((";" + field(merged, 7) + ";").find(";RC;") != string::npos);
-    REQUIRE((";" + field(merged, 7) + ";").find(";FL;") != string::npos);
+    REQUIRE(((";" + field(merged, 7) + ";").find(";FL;") != string::npos) == flatten);
     REQUIRE(record_of(called.records, ">7>10").empty() == flatten);
     const string first = spelled_flat(plain.sequence(), called.records, 0);
     const string second = spelled_flat(plain.sequence(), called.records, 1);
