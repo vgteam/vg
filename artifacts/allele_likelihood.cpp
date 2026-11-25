@@ -2198,8 +2198,7 @@ static StringAlignerParams sequence_aligner(const EditAlignmentScorer& scorer) {
     aligner.gap_open = 2 * std::max(0, (int32_t)scorer.gap_open - (int32_t)scorer.gap_extension);
     aligner.gap_extend = 2 * (int32_t)scorer.gap_extension + (int32_t)scorer.match;
     aligner.long_gaps = false;
-    aligner.max_cells = (size_t)1 << 26;
-    aligner.max_work = (size_t)1 << 28;
+    aligner.wavefront = true;
     return aligner;
 }
 
@@ -2345,26 +2344,16 @@ optional<double> GraphAlignedAlleleLikelihoodCalculator::sequence_nats(
     const StringAlignerParams aligner = sequence_aligner(plain_scorer);
     // The cost of the alignment, and its gaps of read bases: runs of bases the read has and
     // the sequence lacks.
-    int64_t cost = 0;
-    size_t gaps = 0;
-    const bool read_longer = bases.size() > sequence.size();
-    const size_t apart = read_longer ? bases.size() - sequence.size()
-                                     : sequence.size() - bases.size();
-    if ((sequence.size() + 1) * (apart + 2 * aligner.first_band + 1) > aligner.max_cells) {
-        // The two differ in length by more than the aligner's limit on cells lets it align.
-        // Any alignment of them has a gap of the bases one has more than the other, so it
-        // costs at least what that one gap costs.
-        cost = aligner.gap_cost(apart);
-        gaps = read_longer ? 1 : 0;
-    } else {
-        const optional<StringAlignment> alignment = align_global(sequence, bases, aligner);
-        if (!alignment) {
-            return std::nullopt;
-        }
-        cost = alignment->cost;
-        gaps = (size_t)std::ranges::count(alignment->runs, AlignmentOp::Insertion,
-                                          &AlignmentRun::op);
+    optional<StringAlignment> alignment = align_global(sequence, bases, aligner);
+    if (!alignment) {
+        return std::nullopt;
     }
+    // The gaps are counted with each as far left as it goes, where gaps that touch are one, so
+    // that the count is the same whichever alignment of the least cost was found.
+    left_align_gaps(sequence, bases, alignment->runs);
+    const int64_t cost = alignment->cost;
+    const size_t gaps = (size_t)std::ranges::count(alignment->runs, AlignmentOp::Insertion,
+                                                   &AlignmentRun::op);
     const double interior = 0.5 * ((double)plain_scorer.match
                                        * (double)(sequence.size() + bases.size())
                                    - (double)cost);

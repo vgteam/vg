@@ -1004,11 +1004,6 @@ protected:
      * each gap. The string aligner finds the alignment of least such cost, which is the one of
      * the highest score.
      *
-     * The read is not aligned to an allele whose length differs from that of the read's bases
-     * by more than the aligner's limit on cells lets it align (see `sequence_nats`). Its
-     * entry for that allele is the most any alignment of the two could score: that of one gap
-     * of the bases one has more than the other, with every other base matched.
-     *
      * @return False, leaving `row` as it was, if the read has more bases between the bounds
      * than `sequence_allele_max_bases`, or an alignment is not found within the aligner's limits.
      */

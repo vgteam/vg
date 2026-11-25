@@ -439,10 +439,7 @@ The scorer aligns a read with at most 10,000 bases between the bounds, and makes
 alignments at one snarl (see [Fixed constants](#fixed-constants)). A snarl with a called sequence
 or a consensus of more bases than that, or whose reads and alleles need more alignments, gains no
 allele, and such a run is left alone. A read with more bases is scored as one that does not span
-the snarl. An allele can have any number of bases: a read is not aligned to an allele whose length
-differs from the read's by more than the aligner's memory limit lets it align (about 6,700 bases
-at an allele of 10,000), and is scored there by the most an alignment of the two could score, that
-of one gap of the difference with every other base matched. The step fetches
+the snarl. An allele can have any number of bases. The step fetches
 reads without adding to the read-start counts of
 the [depth term](read-likelihood-direct-genotyping.md#depth-term) or to the off-panel candidates,
 so both are as the direct pass left them.
