@@ -356,7 +356,12 @@ on each snarl that has a phase, at any level, and on each of its strands:
 A merged site is genotyped from its reads, at the ploidy it has. Each read that spans it is scored
 by aligning its bases between the bounds to every allele's (see
 [Relative likelihood](read-likelihood-direct-genotyping.md#relative-likelihood)), and the other
-reads are scored as before and say nothing about the new alleles. It is then filed with the linkage
+reads are scored as before and say nothing about the new alleles. A read is aligned first to the
+allele whose length is nearest its own, and to each other allele only as far as it can score
+within 104 nats of its best so far: an allele that scores less gets a relative likelihood of 0,
+where e^-104 is 0 as a float and far below what the chance that the read is mismapped adds. The
+step's own gain of a read by a consensus is likewise found only as far as it can be within one
+read's say. It is then filed with the linkage
 model in place of its first member's call, and a linkage pass and read phasing run again before any
 further round. So the linkage model, to which a consensus is an allele no haplotype carries, read
 phasing and re-genotyping treat the site as if the direct pass had found it.
