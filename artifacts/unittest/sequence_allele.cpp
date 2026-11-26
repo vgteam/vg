@@ -5,6 +5,7 @@
 /// sites nested under the snarl.
 
 #include <cstdio>
+#include <set>
 #include <vector>
 
 #include <bdsg/hash_graph.hpp>
@@ -478,17 +479,25 @@ TEST_CASE("A first fetch held answers a fetch inside it as the source does", "[s
         aln.mutable_path()->add_mapping()->mutable_position()->set_node_id(id + 1);
     }
     size_t fetches = 0;
+    // The source keeps the first read with each name and start node in one fetch.
     const FirstFetchHold::Fetch fetch = [&](const vector<pair<nid_t, nid_t>>& ranges,
                                             const function<void(const SiteRead&)>& visit) {
         ++fetches;
         const auto merged = WindowedSiteReadSource::merge_ranges(ranges);
+        set<pair<string, nid_t>> seen;
+        bool dropped = false;
         for (const Alignment& aln : all) {
             if (WindowedSiteReadSource::touches(aln, merged)) {
+                if (!seen.emplace(aln.name(), aln.path().mapping(0).position().node_id()).second) {
+                    dropped = true;
+                    continue;
+                }
                 SiteRead read;
                 read.aln = &aln;
                 visit(read);
             }
         }
+        return dropped;
     };
     auto names = [&](FirstFetchHold* hold, const vector<pair<nid_t, nid_t>>& ranges) {
         vector<string> seen;
@@ -508,6 +517,23 @@ TEST_CASE("A first fetch held answers a fetch inside it as the source does", "[s
     REQUIRE(fetches == 1);
     // Outside them: the source is read again.
     REQUIRE(names(&hold, {{4, 7}}) == names(nullptr, {{4, 7}}));
+    REQUIRE(fetches == 3);
+
+    // Two reads with one name and start node: the first goes on to node 9, the second to
+    // node 10. A fetch of nodes 1 to 10 keeps only the first, and a fetch of node 10 alone
+    // delivers the second, so a hold whose first fetch left a read out answers nothing itself.
+    all.clear();
+    for (const nid_t end : {9, 10}) {
+        Alignment& aln = all.emplace_back();
+        aln.set_name("twin");
+        aln.mutable_path()->add_mapping()->mutable_position()->set_node_id(1);
+        aln.mutable_path()->add_mapping()->mutable_position()->set_node_id(end);
+    }
+    FirstFetchHold twins;
+    REQUIRE(names(&twins, {{1, 10}}) == vector<string>{"twin"});
+    fetches = 0;
+    REQUIRE(names(&twins, {{10, 10}}) == names(nullptr, {{10, 10}}));
+    REQUIRE(names(nullptr, {{10, 10}}) == vector<string>{"twin"});
     REQUIRE(fetches == 3);
 }
 

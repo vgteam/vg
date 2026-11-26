@@ -609,12 +609,16 @@ struct AlleleLikelihoodParams {
  * The first fetch reads the source and keeps a copy of every read it delivers. A later fetch
  * whose node ranges all lie inside the first fetch's is answered from the copies, in the order
  * the first fetch delivered them, with the reads that touch its ranges, as the source would
- * answer it. Any other fetch reads the source again, and keeps nothing.
+ * answer it. Any other fetch reads the source again, and keeps nothing. So does every fetch
+ * where the first fetch left out a read for having the name and start of an earlier one, since a
+ * fetch of fewer nodes can then deliver a read the first one did not.
  */
 class FirstFetchHold {
 public:
-    /// How the source is read: the node ranges, and what to do with each read.
-    using Fetch = function<void(const vector<pair<nid_t, nid_t>>&,
+    /// How the source is read: the node ranges, and what to do with each read. It returns
+    /// whether it left out a read for having the name and start of an earlier one (see
+    /// `SiteReadSource::for_each_read_uncounted`).
+    using Fetch = function<bool(const vector<pair<nid_t, nid_t>>&,
                                 const function<void(const SiteRead&)>&)>;
 
     /// Visit the reads touching `ranges`, from the kept reads or by `fetch`.
@@ -623,6 +627,8 @@ public:
 
 private:
     bool filled = false;
+    /// Whether the first fetch left out a repeated read.
+    bool dropped = false;
     /// The merged node ranges of the first fetch.
     vector<pair<nid_t, nid_t>> held_ranges;
     vector<Alignment> reads;
@@ -698,9 +704,11 @@ public:
      * Set whether this thread holds the reads of its first fetch (see `FirstFetchHold`). While
      * it does, a later fetch of node ranges inside the first fetch's is answered from them, and
      * any other fetch reads the source again. Turning it off lets them go. Unlike
-     * `SiteReadSource::hold_reads`, which keeps the reads of a wide site's fetch for the sites
-     * below it, this keeps the reads of any first fetch, counted or not, and works with every
-     * source. The default does nothing.
+     * `SiteReadSource::hold_reads`, which keeps the reads of a wide site's counted fetch for the
+     * sites below it, this keeps the reads of any first fetch, and works with every source. It
+     * is only for fetches that count nothing (`set_counted_fetches(false)`), since an answer
+     * from it adds nothing to the source's tallies. Turn it off however the work ends, as a
+     * scoped guard does. The default does nothing.
      */
     virtual void hold_first_fetch(bool /*on*/) const {
         // A calculator that fetches no reads holds none.

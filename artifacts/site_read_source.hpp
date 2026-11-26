@@ -105,9 +105,14 @@ public:
     /// A query made after the sites are genotyped uses this, so that the off-panel candidates
     /// reported are the ones the sites were genotyped with. The default calls `for_each_read`,
     /// which suits a source that counts nothing as it fetches. Must be safe to call concurrently.
-    virtual void for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
+    ///
+    /// @return Whether the fetch left out a read for having the name and start of an earlier
+    /// one, so that a fetch of fewer nodes could deliver a read this one did not. The default
+    /// says no.
+    virtual bool for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
                                          const function<void(const SiteRead&)>& iteratee) const {
         for_each_read(ranges, iteratee);
+        return false;
     }
 
     /// Visits the reads of one window that touch the given ranges, each once, as `for_each_read`
@@ -316,7 +321,7 @@ public:
     /// A query inside one window gets the window from the cache, or fetches and caches it
     /// unsummarized, as a wide site's fetch does. A query over several windows is fetched by its
     /// ranges, and its reads come without an index of their mappings.
-    void for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
+    bool for_each_read_uncounted(const vector<pair<nid_t, nid_t>>& ranges,
                                  const function<void(const SiteRead&)>& iteratee) const final;
 
     /// Call `observer` with each window this source fetches whole, once it is cached.

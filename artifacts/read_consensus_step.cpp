@@ -122,13 +122,18 @@ ReadConsensusStep::RunFinding ReadConsensusStep::treat_run(const Parts& parts,
                                                            const Run& run,
                                                            optional<StagedSite>& merged,
                                                            ReadConsensusCounts& entered) const {
-    const AlleleLikelihoodCalculator& calculator = parts.genotyper->calculator();
-    calculator.hold_first_fetch(true);
+    // Hold this thread's first fetch until the end of the scope, whatever leaves it.
+    struct Holding {
+        const AlleleLikelihoodCalculator& calculator;
+        explicit Holding(const AlleleLikelihoodCalculator& calculator) : calculator(calculator) {
+            calculator.hold_first_fetch(true);
+        }
+        ~Holding() { calculator.hold_first_fetch(false); }
+    } holding(parts.genotyper->calculator());
     RunFinding found = examine_run(parts, splicer, snarls, run);
     if (found.treats()) {
         merged = merge_run(parts, splicer, snarls, run, found, entered);
     }
-    calculator.hold_first_fetch(false);
     return found;
 }
 

@@ -2621,7 +2621,7 @@ void FirstFetchHold::visit(const vector<pair<nid_t, nid_t>>& ranges, const Fetch
     if (!filled) {
         filled = true;
         held_ranges = merged;
-        fetch(ranges, [&](const SiteRead& read) { reads.push_back(*read.aln); });
+        dropped = fetch(ranges, [&](const SiteRead& read) { reads.push_back(*read.aln); });
     }
     // Whether every range of `merged` lies in one of the held ranges.
     const bool within = std::ranges::all_of(merged, [&](const pair<nid_t, nid_t>& range) {
@@ -2629,7 +2629,7 @@ void FirstFetchHold::visit(const vector<pair<nid_t, nid_t>>& ranges, const Fetch
                                                &pair<nid_t, nid_t>::first);
         return holder != held_ranges.begin() && std::prev(holder)->second >= range.second;
     });
-    if (!within) {
+    if (!within || dropped) {
         fetch(ranges, iteratee);
         return;
     }
@@ -2652,18 +2652,20 @@ void GraphAlignedAlleleLikelihoodCalculator::hold_first_fetch(bool on) const {
 void GraphAlignedAlleleLikelihoodCalculator::visit_reads(
     const vector<pair<nid_t, nid_t>>& ranges,
     const function<void(const SiteRead&)>& iteratee) const {
-    auto fetch = [&](const vector<pair<nid_t, nid_t>>& wanted,
-                     const function<void(const SiteRead&)>& visit) {
-        if (counted_fetches) {
-            read_source.for_each_read(wanted, visit);
-        } else {
-            read_source.for_each_read_uncounted(wanted, visit);
-        }
-    };
     if (first_fetch_hold) {
-        first_fetch_hold->visit(ranges, fetch, iteratee);
+        if (counted_fetches) {
+            throw std::logic_error("a first fetch is held only while fetches count nothing");
+        }
+        first_fetch_hold->visit(ranges,
+                                [&](const vector<pair<nid_t, nid_t>>& wanted,
+                                    const function<void(const SiteRead&)>& visit) {
+                                    return read_source.for_each_read_uncounted(wanted, visit);
+                                },
+                                iteratee);
+    } else if (counted_fetches) {
+        read_source.for_each_read(ranges, iteratee);
     } else {
-        fetch(ranges, iteratee);
+        read_source.for_each_read_uncounted(ranges, iteratee);
     }
 }
 
