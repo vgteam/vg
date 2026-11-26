@@ -511,5 +511,78 @@ TEST_CASE("A first fetch held answers a fetch inside it as the source does", "[s
     REQUIRE(fetches == 3);
 }
 
+
+TEST_CASE("A read is scored against a sequence allele only as far as its score can matter",
+          "[sequence_allele]") {
+    const TwoBranchSite site;
+    InMemorySiteReadSource source;
+    QualAdjAlignmentScorer qual_scorer;
+    MatrixAlignmentScorer plain_scorer;
+    AlleleLikelihoodParams params;
+    params.insertion_gap_nats = 0.9;
+    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
+                                                      plain_scorer, params);
+    const string reference = NOVEL.substr(0, 40);
+    string changed = reference;
+    changed[17] = changed[17] == 'A' ? 'C' : 'A';
+    const string inserted = reference.substr(0, 20) + NOVEL + reference.substr(20);
+    for (const string& bases : {reference, changed, inserted}) {
+        const optional<double> exact = calculator.sequence_nats(bases, reference);
+        REQUIRE(exact);
+        // A bound the score meets gives the score.
+        REQUIRE(calculator.sequence_nats(bases, reference, *exact) == exact);
+        REQUIRE(calculator.sequence_nats(bases, reference, *exact - 50.0) == exact);
+        // A bound above it gives -inf, or the score itself where the aligner finishes first.
+        const optional<double> above = calculator.sequence_nats(bases, reference, *exact + 1.0);
+        REQUIRE(above);
+        REQUIRE((*above == -std::numeric_limits<double>::infinity() || *above == *exact));
+    }
+    // Where the gap of the bases the read has more than the allele already costs more than the
+    // bound allows, nothing is aligned and the answer is -inf.
+    const string longer = NOVEL + NOVEL + NOVEL + NOVEL + NOVEL;
+    const optional<double> far = calculator.sequence_nats(longer, reference);
+    REQUIRE(far);
+    REQUIRE(calculator.sequence_nats(longer, reference, *far + 200.0)
+            == -std::numeric_limits<double>::infinity());
+}
+
+TEST_CASE("A read's row at a snarl with a sequence allele does not depend on the allele order",
+          "[sequence_allele]") {
+    // Each entry of a row within SEQUENCE_ALLELE_MARGIN (104 nats) of the row's best is exact,
+    // whatever the order the alleles are aligned in; an entry further below may be 0 instead of
+    // its tiny value.
+    const TwoBranchSite site;
+    const string branch = site.graph.get_sequence(site.graph.get_handle(2));
+    CandidateAlleles alleles = site.alleles();
+    REQUIRE(add_sequence_allele(site.graph, alleles,
+                                branch.substr(0, 10) + NOVEL + NOVEL + branch.substr(10)) == 2);
+    CandidateAlleles turned_round;
+    turned_round.walks = {alleles.walks[2], alleles.walks[1], alleles.walks[0]};
+    turned_round.edits = {alleles.edits[2], {}, {}};
+    turned_round.ref_allele = 2;
+    vector<Alignment> reads = walk_reads(site);
+    reads.push_back(read_of(site.graph, "inserted",
+                            {{1, {{20, 20, ""}}},
+                             {2, {{10, 10, ""}, {0, 2 * NOVEL.size(), NOVEL + NOVEL},
+                                  {10, 10, ""}}},
+                             {4, {{20, 20, ""}}}}));
+    const AlleleReadLikelihoods matrix = score(site, alleles, reads);
+    const AlleleReadLikelihoods turned = score(site, turned_round, reads);
+    REQUIRE(matrix.num_reads() == turned.num_reads());
+    const double floor = std::exp(-104.0);
+    for (size_t r = 0; r < matrix.num_reads(); ++r) {
+        REQUIRE(matrix.best_ln_likelihood(r) == turned.best_ln_likelihood(r));
+        for (size_t a = 0; a < 3; ++a) {
+            const double one = matrix.rel(r, a);
+            const double other = turned.rel(r, 2 - a);
+            if (one >= floor || other >= floor) {
+                REQUIRE(one == other);
+            } else {
+                REQUIRE((one == 0.0 || other == 0.0 || one == other));
+            }
+        }
+    }
+}
+
 }
 }
