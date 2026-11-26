@@ -97,15 +97,38 @@ optional<Medoid> medoid_of(const vector<const string*>& strings, bool need_dista
 
 /// Return the result of one round: `backbone` with each base and each gap between bases set
 /// to what most of `reads` have there. Nothing if an alignment is not found.
+///
+/// With `settle`, return `backbone` as soon as the reads aligned so far show that the rest
+/// cannot change it: each base of the backbone leads every other vote by at least the number
+/// of reads left, and no gap has inserted bases in so many reads that the rest could make them
+/// more than half.
 optional<string> vote(const vector<const string*>& reads, const string& backbone,
-                      const ReadConsensusParams& params, ReadConsensusStats* stats) {
+                      const ReadConsensusParams& params, ReadConsensusStats* stats,
+                      bool settle = false) {
     if (stats != nullptr) {
         ++stats->rounds;
     }
     vector<std::array<uint32_t, VOTES>> columns(backbone.size(), std::array<uint32_t, VOTES>{});
     // The strings the reads insert before each base of the backbone, and after the last.
     vector<vector<string>> inserted(backbone.size() + 1);
-    for (const string* read : reads) {
+    auto settled = [&](size_t left) {
+        for (size_t i = 0; i < backbone.size(); ++i) {
+            const size_t own = vote_of(backbone[i]);
+            for (size_t v = 0; v < VOTES; ++v) {
+                if (v != own && columns[i][v] + left > columns[i][own]) {
+                    return false;
+                }
+            }
+        }
+        return std::ranges::all_of(inserted, [&](const vector<string>& at) {
+            return (at.size() + left) * 2 <= reads.size();
+        });
+    };
+    for (size_t aligned = 0; aligned < reads.size(); ++aligned) {
+        const string* read = reads[aligned];
+        if (settle && 2 * aligned > reads.size() && settled(reads.size() - aligned)) {
+            return backbone;
+        }
         optional<StringAlignment> alignment = align_global(backbone, *read, params.aligner);
         if (!alignment) {
             return std::nullopt;
@@ -285,16 +308,20 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
     if (stats != nullptr) {
         stats->reads = used.size();
     }
-    optional<string> first = vote(used, backbone, params, stats);
+    // The first round is cut short where it cannot change the backbone, which is then the
+    // consensus if the reads are neither all longer nor all shorter.
+    const auto [shortest, longest] = std::ranges::minmax_element(
+        used, {}, [](const string* read) { return read->size(); });
+    const bool within = (*shortest)->size() <= backbone.size()
+                        && backbone.size() <= (*longest)->size();
+    optional<string> first = vote(used, backbone, params, stats, within);
     if (stats != nullptr) {
         stats->first_seconds = seconds();
     }
     if (!first) {
         return std::nullopt;
     }
-    const auto [shortest, longest] = std::ranges::minmax_element(
-        used, {}, [](const string* read) { return read->size(); });
-    if ((*shortest)->size() <= backbone.size() && backbone.size() <= (*longest)->size()
+    if (within
         && (*first == backbone
             || (params.keep_homopolymer_lengths
                 && keep_homopolymer_lengths(*first, backbone, params.aligner,
