@@ -702,8 +702,7 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
                                 [&](int allele) { return site.is_consensus_allele(allele); })
             || (site.flat && site.flat->run->consensus_called));
     RecordRenderer::WrittenAlleles written;
-    bool has_line = false;
-    site_emitter.emit(
+    const SiteEmitter::Outcome outcome = site_emitter.emit(
         graph,
         CalledSite{
             .start = sites.get_site_start(site.net),
@@ -734,11 +733,10 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
             if (consensus_called) {
                 record.infoFlags["RC"] = true;
             }
-        },
-        &has_line);
+        });
     site.spliced.reset();
     site.flat.reset();
-    return has_line ? written : RecordRenderer::WrittenAlleles();
+    return outcome == SiteEmitter::Outcome::Written ? written : RecordRenderer::WrittenAlleles();
 }
 
 void MultiPassCaller::finish_moved_record(vcflib::Variant& record) {

@@ -96,6 +96,8 @@ void write_alignment_to_file(const Alignment& aln, const string& filename);
 /// 'M' (the default) to roll them into matches, or 'X' to mark mismatches as a
 /// different operation.
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar, char mismatch_operation = 'M');
+/// Return a CIGAR as a string. Adjacent operations of the same
+/// type are merged. The CIGAR must not be empty.
 string cigar_string(const vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 
@@ -162,6 +164,16 @@ inline void append_cigar_operation(const int length, const char operation, vecto
  * be set similarly for the mate. Note that mateseq must not be "=". If
  * tlen_max is given, it is a limit on the magnitude of tlen to consider the
  * read properly paired.
+ *
+ * @param[in] bam_header the file's metadata
+ * @param[in] alignment vg's representation of the read (name, sequence, quality scores)
+ * @param[in] refseq (reference sequence) what chromosome it was placed on (chr1)
+ * @param[in] refpos (reference position) what sequence offset it was placed at on that chromosome
+ *            (124566). This follows SAM/BAM conventions, and gives the lowest position in the reference
+ *            regardless of read orientation.
+ * @param[in] refrev (reference reverse-ness) whether it was placed on the reverse strand (true) or
+ *            forward strand (false)
+ * @param[in] cigar the alignment description (50M 2I)
  *
  * Remember to clean up with bam_destroy1(b);
  */
@@ -315,6 +327,10 @@ int softclip_end(const Alignment& alignment);
 int softclip_trim(Alignment& alignment);
 int query_overlap(const Alignment& aln1, const Alignment& aln2);
 int edit_count(const Alignment& alignment);
+/// Count the matched, mismatched, inserted and deleted bases in an Alignment's
+/// edits. A softclip counts as inserted bases.
+void count_edit_bases(const Alignment& aln, uint64_t& matches, uint64_t& mismatches,
+                      uint64_t& inserted, uint64_t& deleted);
 size_t to_length_after_pos(const Alignment& aln, const Position& pos);
 size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);

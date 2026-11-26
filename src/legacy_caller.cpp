@@ -186,7 +186,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
             CalledSite site{visit_handle(graph, snarl.start()), visit_handle(graph, snarl.end()),
                             path_name, (int64_t)ref_offsets.find(path_name)->second, genotype, 0,
                             called_traversals.size(), ploidy};
-            was_called = site_emitter.emit(
+            const SiteEmitter::Outcome outcome = site_emitter.emit(
                 graph, site,
                 [&](size_t allele) {
                     return make_pair(trav_string(graph, called_traversals[allele],
@@ -201,7 +201,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                  vcf_genotype, call_info,
                                                  vcf_writer.sample_name(), record);
                 });
-
+            was_called = outcome != SiteEmitter::Outcome::Dropped;
         }
     }        
     if (!is_vg) {

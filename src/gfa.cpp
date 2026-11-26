@@ -11,36 +11,63 @@ using namespace std;
 
 /// Determine if a path should be written as a GFA W line or a GFA P line.
 static bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle);
+
 /// Write out a W line for a path. Uses a map to keep track of fake offset
 /// ranges used to distinguish multiple phase blocks without their own
 /// subranges on a haplotype, since GFA doesn't support them.
 static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& fake_subrange_end);
 
-void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
-                  bool rgfa_pline, bool use_w_lines) {
-    
+void graph_to_gfa(
+    const PathHandleGraph* graph, ostream& out,
+    const set<string>& rgfa_paths, bool include_rgfa_paths,
+    bool use_w_lines
+) {
     // TODO: Support sorting nodes, paths, and/or edges for canonical output
     // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
-    
-    // Compute reference-sense sample header tags
+
+    write_gfa_header(graph, out, rgfa_paths, include_rgfa_paths);
+    write_gfa_nodes(graph, out, rgfa_paths);
+    write_gfa_edges(graph, out);
+    write_gfa_paths(graph, out, rgfa_paths, include_rgfa_paths, use_w_lines);
+}
+
+/// Return the samples of the reference paths that will be written as P or W
+/// lines. A reference path named in rgfa_paths is written only as rGFA tags,
+/// unless include_rgfa_paths is set.
+static gbwtgraph::sample_name_set reference_samples_for_gfa(
+    const PathHandleGraph* graph,
+    const set<string>& rgfa_paths, bool include_rgfa_paths
+) {
     gbwtgraph::sample_name_set reference_samples;
     graph->for_each_path_matching({PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& h) {
-            if (!rgfa_paths.count(graph->get_path_name(h)) || rgfa_pline) {
-                // If it is going to be something other than an rGFA path,
-                // we'll have to convey its reference-ness another way.
+            if (!rgfa_paths.count(graph->get_path_name(h)) || include_rgfa_paths) {
                 reference_samples.insert(graph->get_sample_name(h));
             }
         });
+    return reference_samples;
+}
+
+void write_gfa_header(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths, bool include_rgfa_paths) {
+    gbwtgraph::sample_name_set reference_samples = reference_samples_for_gfa(graph, rgfa_paths, include_rgfa_paths);
     
-    // Start with the header for a GFA1.1 file
+    // Start with the header for a GFA version 1.1 file
     out << "H\tVN:Z:1.1";
     if (!reference_samples.empty()) {
         // Include a reference sample name tag if we have reference paths.
         out << "\t" << gbwtgraph::REFERENCE_SAMPLE_LIST_GFA_TAG << ":Z:" << gbwtgraph::compose_reference_samples_tag(reference_samples);
     }
     out << "\n";
+}
 
-    //Compute the rGFA tags of given paths (todo: support non-zero ranks)
+/// Map each node that a path named in rgfa_paths visits to that path and the
+/// offset of the node on it. If several of the paths visit a node, the first
+/// path in name order wins.
+/// Throws std::runtime_error if one of the paths visits a node in reverse
+/// orientation, because rGFA tags describe only forward visits.
+static unordered_map<nid_t, pair<path_handle_t, size_t>> rgfa_node_offsets(
+    const PathHandleGraph* graph, const set<string>& rgfa_paths
+) {
+    // TODO: Support non-zero ranks.
     unordered_map<nid_t, pair<path_handle_t, size_t>> node_offsets;
     for (const string& path_name : rgfa_paths) {
         path_handle_t path_handle = graph->get_path_handle(path_name);
@@ -63,8 +90,12 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                 offset += graph->get_length(handle);
             });
     }
+    return node_offsets;
+}
+
+void write_gfa_nodes(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths) {
+    unordered_map<nid_t, pair<path_handle_t, size_t>> node_offsets = rgfa_node_offsets(graph, rgfa_paths);
   
-    //Go through each node in the graph
     graph->for_each_handle([&](const handle_t& h) {
         out << "S\t";
         nid_t node_id = graph->get_id(h);
@@ -80,7 +111,9 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         out << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
     });
+}
 
+void write_gfa_edges(const HandleGraph* graph, ostream& out) {
     graph->for_each_edge([&](const edge_t& h) {
         
         nid_t from_id = graph->get_id(h.first);
@@ -106,8 +139,11 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             << "\t" << to_id << "\t" << (to_is_reverse ? '-' : '+') << "\t0M\n"; // Writing `std::endl` would flush the buffer.
         return true;
     }, false);
-    
-    // Sort the paths by name, making sure to treat subpath coordinates numerically
+}
+
+/// Return all paths in the graph, sorted by name. Paths whose names differ
+/// only in the subrange are sorted by the subrange, compared as numbers.
+static vector<path_handle_t> paths_sorted_by_name(const PathHandleGraph* graph) {
     vector<path_handle_t> path_handles;
     graph->for_each_path_matching(nullptr, nullptr, nullptr, [&](const path_handle_t& h) {
             path_handles.push_back(h);
@@ -126,13 +162,44 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             }
             return false;
         });
+    return path_handles;
+}
+
+/// Write a P line for a path.
+static void write_p_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle) {
+    out << "P\t";
+    out << graph->get_path_name(path_handle) << "\t";
+
+    bool first = true;
+    graph->for_each_step_in_path(path_handle, [&](const step_handle_t& ph) {
+        handle_t step_handle = graph->get_handle_of_step(ph);
+
+        if (!first) {
+            out << ',';
+        }
+        out << graph->get_id(step_handle);
+        out << (graph->get_is_reverse(step_handle) ? '-' : '+');
+        first = false;
+        return true;
+    });
+
+    out << "\t*" << "\n";
+}
+
+void write_gfa_paths(
+    const PathHandleGraph* graph, ostream& out,
+    const set<string>& rgfa_paths, bool include_rgfa_paths,
+    bool use_w_lines
+) {
+    gbwtgraph::sample_name_set reference_samples = reference_samples_for_gfa(graph, rgfa_paths, include_rgfa_paths);
+    vector<path_handle_t> path_handles = paths_sorted_by_name(graph);
 
     vector<path_handle_t> w_line_paths;
 
     // Paths as P-lines
     for (const path_handle_t& h : path_handles) {
         auto path_name = graph->get_path_name(h);
-        if (rgfa_pline || !rgfa_paths.count(path_name)) {
+        if (include_rgfa_paths || !rgfa_paths.count(path_name)) {
             if (graph->get_sense(h) != PathSense::REFERENCE && reference_samples.count(graph->get_sample_name(h))) {
                 // We have a mix of reference and non-reference paths on the same sample which GFA can't handle.
                 cerr << "warning [gfa]: path " << path_name << " will be interpreted as reference sense "
@@ -142,23 +209,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             if (use_w_lines && should_write_as_w_line(graph, h)) {
                 w_line_paths.push_back(h);
             } else {
-                out << "P\t";
-                out << path_name << "\t";
-                
-                bool first = true;
-                graph->for_each_step_in_path(h, [&](const step_handle_t& ph) {
-                    handle_t step_handle = graph->get_handle_of_step(ph);
-                    
-                    if (!first) {
-                        out << ',';
-                    }
-                    out << graph->get_id(step_handle);
-                    out << (graph->get_is_reverse(step_handle) ? '-' : '+');
-                    first = false;
-                    return true;
-                });
-                
-                out << "\t*" << "\n";
+                write_p_line(graph, out, h);
             }
         }
     }
@@ -187,7 +238,10 @@ bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_han
     return true;
 }
 
-void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& fake_subrange_end) {
+void write_w_line(
+    const PathHandleGraph* graph, ostream& out, path_handle_t path_handle,
+    unordered_map<tuple<string, int64_t, string>, size_t>& fake_subrange_end
+) {
     // Extract the path metadata
     string sample = graph->get_sample_name(path_handle);
     string contig = graph->get_locus_name(path_handle);

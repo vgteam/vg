@@ -13,18 +13,21 @@ code belongs.
 
 ## Say what it is
 
-1. **Finish the sentence "A `Name` is a ___ that ___."** The first blank is a
-   concrete noun for a part or a character: a directory, an index, a cursor, a
-   ledger, a queue, a builder, a judge, a view, a translator, a record, a
-   table, a set. The second blank says what it holds or does. "Helpers",
-   "support", "utilities", "logic", "manager of X stuff", "context" and "data"
-   do not fill the first blank. The sentence becomes the class's core idea, and
-   can be written down in its doc comment. Here it is particularly important to
-   say what the thing is, not what it is not: "files that are not directories"
-   names no thing a reader can look for, and "regular files" does. Never define
-   the `Barber` class with something like "a man who shaves all those who do
-   not shave themselves."
-2. **Name it as that thing.** The name is the noun from the sentence, qualified
+1. **Picture the thing.** Before naming or writing it, decide what physical
+   or familiar object it would be: a directory, an index, a cursor, a ledger, a
+   queue, a builder, a judge, a view, a translator, a record, a table, a set.
+   Imagine it in use: what it is handed when made, what it keeps, who asks it
+   what, and what it answers. "Helpers", "support", "utilities", "logic",
+   "manager of X stuff", "context" and "data" are not objects anyone can
+   picture. Picture what the thing is, not what it is not: "files that are not
+   directories" names no thing a reader can look for, and "regular files" does.
+   Never define the `Barber` class with something like "a man who shaves all
+   those who do not shave themselves."
+
+   Then write the class's doc comment about that thing in plain sentences:
+   what it is, what it holds, and what it can be asked. A `PriceIndex` might
+   be "An index of product prices by name."
+2. **Name it as that thing.** The name is the noun you pictured, qualified
    as needed (`PriceIndex`, `PageCursor`). Name a collection as one object
    (`OrderQueue`, `RateTable`), not with a bare plural (`Orders`), which names
    its contents. The noun must mean the thing in its ordinary dictionary sense,
@@ -96,7 +99,7 @@ code belongs.
     that explains how to use it to represent a concept.
 13. **Document each member that is an object of a class with behaviour** (not a
     plain container or number) with the part it plays for its owner: "Looks up
-    each customer's home branch." Give each nested class a summary sentence of
+    each customer's home branch." Give each nested class a doc comment of
     its own, as rule 1 says, because a nested class with no description is just
     a bag of its owner's helpers.
 14. **Group by concept.** Within each access section, put members and methods
