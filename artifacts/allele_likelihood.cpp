@@ -2194,8 +2194,16 @@ pair<size_t, size_t> GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::bases_
 
 /// The nats below a read's best score at which the read's entry for an allele is taken as 0.
 /// The entry, e^(score - best), is then below 2^-150, which is 0 as a float, as read phasing
-/// keeps it, and far below what the chance that the read is mismapped adds to it.
+/// keeps it (`PhaseReadEvidence::rel` in read_phasing.hpp, and `AnchorSiteEvidence::rel` in
+/// anchor.hpp), and far below what the chance that the read is mismapped adds to it.
 static constexpr double SEQUENCE_ALLELE_MARGIN = 104.0;
+static_assert(std::is_same_v<decltype(PhaseReadEvidence::rel)::value_type, float>
+                  && std::is_same_v<decltype(AnchorSiteEvidence::rel)::value_type, float>,
+              "SEQUENCE_ALLELE_MARGIN assumes read phasing keeps an entry as a float");
+static_assert(SEQUENCE_ALLELE_MARGIN
+                  >= -(numeric_limits<float>::min_exponent - numeric_limits<float>::digits - 1)
+                         * 0.6931471805599453,
+              "e^-SEQUENCE_ALLELE_MARGIN must round to 0 as a float");
 
 /// Return the costs that make the string aligner find the alignment of a read's bases to a
 /// sequence that `scorer` scores highest (see `score_spanned`).
