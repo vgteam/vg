@@ -552,7 +552,7 @@ private:
     /// Whether the top-level sites are written as flat records (see `set_flatten_records`).
     bool flatten_records = false;
     /// See `set_flatten_distance`.
-    size_t flatten_distance = 1000;
+    size_t flatten_distance = 500;
     /// The most bases the reference of a run of several sites can have.
     static constexpr size_t flat_run_max_bases = 50000;
     /// The record keys of the sites in the render queues whose lines are kept out of the

@@ -627,7 +627,7 @@ void help_call(char** argv) {
          << "      --flatten-distance N  put two snarls of a chain in one run of flat" << endl
          << "                            records where the nodes from the end of one to" << endl
          << "                            the start of the next have at most N bases;" << endl
-         << "                            with 0, each snarl is a run of its own [1000]" << endl
+         << "                            with 0, each snarl is a run of its own [500]" << endl
          << "  read consensus:" << endl
          << "      --read-consensus      add to a snarl, or to a run of neighbouring" << endl
          << "                            snarls of a chain, the consensus of the reads of" << endl
@@ -896,7 +896,7 @@ int main_call(int argc, char** argv) {
     // Whether each top-level snarl is written as the base-level differences of its called
     // haplotypes from its reference allele.
     bool flatten_records = false;
-    size_t flatten_distance = 1000;
+    size_t flatten_distance = 500;
     // The step that adds alleles built from the reads to snarls.
     vg::multipass::ReadConsensusOptions read_consensus;
     string translation_file_name;

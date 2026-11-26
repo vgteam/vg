@@ -692,7 +692,7 @@ The records are cut over a **run** of sites. A run is a longest series of top-le
 follow each other in one chain, where:
 
 - the nodes from one snarl's end boundary node to the next snarl's start boundary node, both
-  included, have at most `--flatten-distance` bases (1000 by default). Two snarls that share a
+  included, have at most `--flatten-distance` bases (500 by default). Two snarls that share a
   boundary node have the bases of that node between them;
 - one phase set holds all of them, they have the same ploidy, and each heterozygous one has a
   phased GT;
