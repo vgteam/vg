@@ -1100,6 +1100,9 @@ private:
         htsFile* file = nullptr;
     };
 
+    /// The most bytes of decompressed blocks each thread's handle keeps.
+    static constexpr int BLOCK_CACHE_BYTES = 64 << 20;
+
     /// Return this thread's state, opening its handle on first use.
     ThreadState& thread_state() const;
 
