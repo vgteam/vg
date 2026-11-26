@@ -1,12 +1,10 @@
 #include <algorithm>
-#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <sstream>
-#include <thread>
 #include <tuple>
 #include <unordered_set>
 
@@ -710,18 +708,20 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         alone[i] = measure(parts, splicer, *snarls[i]);
     }
 
-    // The runs of several sites that are tested, and the tested runs each site is in.
+    // The runs of several sites that are tested. Each site is in at most one.
     vector<Run> tested = find_runs(parts, snarls, alone);
-    vector<vector<size_t>> runs_of(snarls.size());
+    const size_t none = std::numeric_limits<size_t>::max();
+    vector<size_t> run_of(snarls.size(), none);
     for (size_t r = 0; r < tested.size(); ++r) {
         for (const size_t i : tested[r].members) {
-            runs_of[i].push_back(r);
+            run_of[i] = r;
         }
     }
-    // The work: each tested run, and each site that can disagree on its own, which is tested
-    // where it is in no treated run. They are taken in the order of the lowest node ID of a
-    // run's first bound, and of a site's start bound, a run before a site at the same ID, so
-    // that work on neighbouring sites is done together and finds their reads cached.
+    // The work: each tested run, then, where it is not treated, its members that can disagree
+    // on their own, one after another; and each site in no tested run that can disagree on its
+    // own. They are taken in the order of the lowest node ID of a run's first bound, and of a
+    // site's start bound, so that work on neighbouring sites is done together and finds their
+    // reads cached.
     struct Work {
         nid_t at;
         bool alone;
@@ -736,44 +736,38 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         work.push_back(Work{at, false, r});
     }
     for (size_t i = 0; i < snarls.size(); ++i) {
-        if (alone[i].can_disagree) {
+        if (alone[i].can_disagree && run_of[i] == none) {
             work.push_back(
                 Work{parts.graph->get_id(parts.sites->get_site_start(snarls[i]->net)), true, i});
         }
     }
     std::ranges::sort(work, {}, [](const Work& w) { return std::tie(w.at, w.alone, w.index); });
-    // What each tested run and each site found, and whether each tested run is done. A site
-    // waits for the tested runs it is in, which come before it in the work.
     vector<RunFinding> found_run(tested.size());
     vector<optional<StagedSite>> merged_run(tested.size());
     vector<ReadConsensusCounts> entered_run(tested.size());
-    unique_ptr<std::atomic<bool>[]> run_done(new std::atomic<bool>[tested.size()]);
-    for (size_t r = 0; r < tested.size(); ++r) {
-        run_done[r].store(false);
-    }
     vector<RunFinding> found_alone(snarls.size());
     vector<optional<StagedSite>> merged_alone(snarls.size());
     vector<ReadConsensusCounts> entered_alone(snarls.size());
+    // Test the site `i` on its own.
+    auto treat_alone = [&](size_t i) {
+        found_alone[i] = treat_run(parts, splicer, snarls, Run{{i}, {}, run_of[i] != none},
+                                   merged_alone[i], entered_alone[i]);
+    };
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t w = 0; w < work.size(); ++w) {
         const size_t index = work[w].index;
-        if (!work[w].alone) {
-            found_run[index] = treat_run(parts, splicer, snarls, tested[index],
-                                         merged_run[index], entered_run[index]);
-            run_done[index].store(true, std::memory_order_release);
+        if (work[w].alone) {
+            treat_alone(index);
             continue;
         }
-        bool in_treated_run = false;
-        for (const size_t r : runs_of[index]) {
-            while (!run_done[r].load(std::memory_order_acquire)) {
-                std::this_thread::yield();
+        found_run[index] = treat_run(parts, splicer, snarls, tested[index], merged_run[index],
+                                     entered_run[index]);
+        if (!found_run[index].treats()) {
+            for (const size_t i : tested[index].members) {
+                if (alone[i].can_disagree) {
+                    treat_alone(i);
+                }
             }
-            in_treated_run = in_treated_run || found_run[r].treats();
-        }
-        if (!in_treated_run) {
-            found_alone[index] = treat_run(parts, splicer, snarls,
-                                           Run{{index}, {}, !runs_of[index].empty()},
-                                           merged_alone[index], entered_alone[index]);
         }
     }
     // The runs that are treated: the runs of several sites with a consensus, and then each
