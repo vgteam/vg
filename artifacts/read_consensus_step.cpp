@@ -123,12 +123,12 @@ ReadConsensusStep::RunFinding ReadConsensusStep::treat_run(const Parts& parts,
                                                            optional<StagedSite>& merged,
                                                            ReadConsensusCounts& entered) const {
     const AlleleLikelihoodCalculator& calculator = parts.genotyper->calculator();
-    calculator.hold_reads(true);
+    calculator.hold_first_fetch(true);
     RunFinding found = examine_run(parts, splicer, snarls, run);
     if (found.treats()) {
         merged = merge_run(parts, splicer, snarls, run, found, entered);
     }
-    calculator.hold_reads(false);
+    calculator.hold_first_fetch(false);
     return found;
 }
 

@@ -2609,63 +2609,61 @@ double GraphAlignedAlleleLikelihoodCalculator::mismap_probability(const Alignmen
 
 namespace {
 
-/// The reads a thread holds (see `AlleleLikelihoodCalculator::hold_reads`).
-struct HeldReads {
-    bool on = false;
-    bool filled = false;
-    /// The merged node ranges of the fetch the reads came from.
-    vector<pair<nid_t, nid_t>> ranges;
-    vector<Alignment> reads;
-};
-thread_local HeldReads held_reads;
+/// The first fetch this thread holds, while it holds one (see
+/// `AlleleLikelihoodCalculator::hold_first_fetch`).
+thread_local optional<FirstFetchHold> first_fetch_hold;
 
-/// Return whether every range of `inner` lies in one of `outer`, both merged.
-bool ranges_within(const vector<pair<nid_t, nid_t>>& inner,
-                   const vector<pair<nid_t, nid_t>>& outer) {
-    return std::ranges::all_of(inner, [&](const pair<nid_t, nid_t>& range) {
-        auto holder = std::ranges::upper_bound(outer, range.first, {},
+}
+
+void FirstFetchHold::visit(const vector<pair<nid_t, nid_t>>& ranges, const Fetch& fetch,
+                           const function<void(const SiteRead&)>& iteratee) {
+    const vector<pair<nid_t, nid_t>> merged = WindowedSiteReadSource::merge_ranges(ranges);
+    if (!filled) {
+        filled = true;
+        held_ranges = merged;
+        fetch(ranges, [&](const SiteRead& read) { reads.push_back(*read.aln); });
+    }
+    // Whether every range of `merged` lies in one of the held ranges.
+    const bool within = std::ranges::all_of(merged, [&](const pair<nid_t, nid_t>& range) {
+        auto holder = std::ranges::upper_bound(held_ranges, range.first, {},
                                                &pair<nid_t, nid_t>::first);
-        return holder != outer.begin() && std::prev(holder)->second >= range.second;
+        return holder != held_ranges.begin() && std::prev(holder)->second >= range.second;
     });
+    if (!within) {
+        fetch(ranges, iteratee);
+        return;
+    }
+    for (const Alignment& aln : reads) {
+        if (WindowedSiteReadSource::touches(aln, merged)) {
+            SiteRead read;
+            read.aln = &aln;
+            iteratee(read);
+        }
+    }
 }
 
-}
-
-void GraphAlignedAlleleLikelihoodCalculator::hold_reads(bool on) const {
-    held_reads = HeldReads();
-    held_reads.on = on;
+void GraphAlignedAlleleLikelihoodCalculator::hold_first_fetch(bool on) const {
+    first_fetch_hold.reset();
+    if (on) {
+        first_fetch_hold.emplace();
+    }
 }
 
 void GraphAlignedAlleleLikelihoodCalculator::visit_reads(
     const vector<pair<nid_t, nid_t>>& ranges,
     const function<void(const SiteRead&)>& iteratee) const {
-    if (held_reads.on) {
-        const vector<pair<nid_t, nid_t>> merged = WindowedSiteReadSource::merge_ranges(ranges);
-        if (!held_reads.filled) {
-            held_reads.filled = true;
-            held_reads.ranges = merged;
-            auto keep = [&](const SiteRead& read) { held_reads.reads.push_back(*read.aln); };
-            if (counted_fetches) {
-                read_source.for_each_read(ranges, keep);
-            } else {
-                read_source.for_each_read_uncounted(ranges, keep);
-            }
+    auto fetch = [&](const vector<pair<nid_t, nid_t>>& wanted,
+                     const function<void(const SiteRead&)>& visit) {
+        if (counted_fetches) {
+            read_source.for_each_read(wanted, visit);
+        } else {
+            read_source.for_each_read_uncounted(wanted, visit);
         }
-        if (ranges_within(merged, held_reads.ranges)) {
-            for (const Alignment& aln : held_reads.reads) {
-                if (WindowedSiteReadSource::touches(aln, merged)) {
-                    SiteRead read;
-                    read.aln = &aln;
-                    iteratee(read);
-                }
-            }
-            return;
-        }
-    }
-    if (counted_fetches) {
-        read_source.for_each_read(ranges, iteratee);
+    };
+    if (first_fetch_hold) {
+        first_fetch_hold->visit(ranges, fetch, iteratee);
     } else {
-        read_source.for_each_read_uncounted(ranges, iteratee);
+        fetch(ranges, iteratee);
     }
 }
 

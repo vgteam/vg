@@ -467,5 +467,49 @@ TEST_CASE("A strand with a sequence allele crosses no site nested in its snarl",
     }
 }
 
+
+TEST_CASE("A first fetch held answers a fetch inside it as the source does", "[sequence_allele]") {
+    // Reads on nodes 1 to 8, each on two neighbouring nodes.
+    vector<Alignment> all;
+    for (nid_t id = 1; id < 8; ++id) {
+        Alignment& aln = all.emplace_back();
+        aln.set_name("read" + std::to_string(id));
+        aln.mutable_path()->add_mapping()->mutable_position()->set_node_id(id);
+        aln.mutable_path()->add_mapping()->mutable_position()->set_node_id(id + 1);
+    }
+    size_t fetches = 0;
+    const FirstFetchHold::Fetch fetch = [&](const vector<pair<nid_t, nid_t>>& ranges,
+                                            const function<void(const SiteRead&)>& visit) {
+        ++fetches;
+        const auto merged = WindowedSiteReadSource::merge_ranges(ranges);
+        for (const Alignment& aln : all) {
+            if (WindowedSiteReadSource::touches(aln, merged)) {
+                SiteRead read;
+                read.aln = &aln;
+                visit(read);
+            }
+        }
+    };
+    auto names = [&](FirstFetchHold* hold, const vector<pair<nid_t, nid_t>>& ranges) {
+        vector<string> seen;
+        auto keep = [&](const SiteRead& read) { seen.push_back(read.aln->name()); };
+        if (hold != nullptr) {
+            hold->visit(ranges, fetch, keep);
+        } else {
+            fetch(ranges, keep);
+        }
+        return seen;
+    };
+    FirstFetchHold hold;
+    REQUIRE(names(&hold, {{2, 5}}) == names(nullptr, {{2, 5}}));
+    fetches = 0;
+    // Inside the first fetch's ranges: the same reads in the same order, with no fetch.
+    REQUIRE(names(&hold, {{3, 3}, {5, 5}}) == names(nullptr, {{3, 3}, {5, 5}}));
+    REQUIRE(fetches == 1);
+    // Outside them: the source is read again.
+    REQUIRE(names(&hold, {{4, 7}}) == names(nullptr, {{4, 7}}));
+    REQUIRE(fetches == 3);
+}
+
 }
 }
