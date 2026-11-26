@@ -1244,6 +1244,29 @@ void FlatRun::cut_differences() {
     std::ranges::stable_sort(cuts, {}, &FlatCut::begin);
 }
 
+vector<pair<size_t, size_t>> flat_guide(const vector<GuideSite>& sites,
+                                        vector<pair<size_t, int64_t>> edits,
+                                        size_t reference_length, int64_t& end) {
+    std::ranges::sort(edits);
+    vector<pair<size_t, size_t>> corners;
+    size_t next_edit = 0;
+    int64_t moved = 0;
+    auto at = [&](size_t offset) {
+        for (; next_edit < edits.size() && edits[next_edit].first < offset; ++next_edit) {
+            moved += edits[next_edit].second;
+        }
+        return make_pair(offset, (size_t)std::max<int64_t>(0, (int64_t)offset + moved));
+    };
+    for (const GuideSite& site : sites) {
+        corners.push_back(at(site.first));
+        moved += site.change;
+        corners.push_back(at(site.last));
+    }
+    at(std::numeric_limits<size_t>::max());
+    end = (int64_t)reference_length + moved;
+    return corners;
+}
+
 shared_ptr<FlatRun> BlockRecordWriter::align_flat(
     string reference, vector<string> strands, FlatRefusal& refused,
     const vector<vector<pair<size_t, size_t>>>& guides) const {

@@ -298,5 +298,21 @@ TEST_CASE("Flat records of a run of two sites are cut from one alignment of each
     }
 }
 
+
+TEST_CASE("A flat run's guide is moved by its sites and by the edit sites between them",
+          "[flat_records]") {
+    // Two sites, the first adding 10 bases and the second taking 4, and between them an edit
+    // site that takes 300.
+    const vector<GuideSite> sites{{10, 30, 10}, {500, 520, -4}};
+    int64_t end = 0;
+    const vector<pair<size_t, size_t>> corners = flat_guide(sites, {{200, -300}}, 1000, end);
+    REQUIRE(corners == vector<pair<size_t, size_t>>{{10, 10}, {30, 40}, {500, 210}, {520, 226}});
+    REQUIRE(end == 1000 + 10 - 300 - 4);
+    // Without the edit site, the second site's corners and the end are not moved by it.
+    const vector<pair<size_t, size_t>> without = flat_guide(sites, {}, 1000, end);
+    REQUIRE(without[2] == pair<size_t, size_t>{500, 510});
+    REQUIRE(end == 1000 + 10 - 4);
+}
+
 }
 }

@@ -192,6 +192,30 @@ struct FlatCounters {
     std::array<std::atomic<size_t>, (size_t)FlatRefusal::Count> run_refuse{};
 };
 
+/// A site of a flat run as the guide of a strand's alignment sees it (see `flat_guide`).
+struct GuideSite {
+    /// The offsets in the run's reference of the first and of the last base between the
+    /// site's bound nodes.
+    size_t first;
+    size_t last;
+    /// What the strand's allele at the site adds to the reference's length there, or takes.
+    int64_t change;
+};
+
+/**
+ * Return the corners that guide a strand's alignment to a flat run's reference (see
+ * `align_guided`), and set `end` to where the strand ends along them.
+ *
+ * The strand reaches the first and the last base between each site's bound nodes where the
+ * reference does, moved by what its alleles at the sites before, at the edit sites before (each
+ * an offset in the reference and a change in length, in `edits`), and, for the last base, at
+ * that site, add to or take from the reference's length. `end` is `reference_length` moved by
+ * every change.
+ */
+vector<pair<size_t, size_t>> flat_guide(const vector<GuideSite>& sites,
+                                        vector<pair<size_t, int64_t>> edits,
+                                        size_t reference_length, int64_t& end);
+
 /**
  * A writer that writes a site as block records instead of one site record, and decides which
  * child chains those blocks already report.

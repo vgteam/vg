@@ -533,8 +533,21 @@ bool MultiPassCaller::align_flat_run(const FlatRunPlan& plan, FlatRefusal& refus
     };
     vector<vector<pair<size_t, size_t>>> guides(ploidy);
     for (int strand = 0; strand < (int)ploidy; ++strand) {
-        // The edit sites between the sites, by the offset of their first node, and what each
-        // changes in length.
+        vector<GuideSite> guide_sites;
+        for (size_t m = 0; m < plan.sites.size(); ++m) {
+            const StagedSite& site = *plan.sites[m];
+            const Traversal& walk = site.alleles.walks[site.alleles.ref_allele];
+            size_t length = 0;
+            for (const handle_t& step : walk) {
+                length += graph.get_length(step);
+            }
+            const optional<string> spelled = splicer.strand_sequence(site, strand);
+            guide_sites.push_back(GuideSite{
+                origins[m] + graph.get_length(walk.front()),
+                origins[m] + length - graph.get_length(walk.back()),
+                spelled ? (int64_t)spelled->size() - (int64_t)length : 0});
+        }
+        // The edit sites between the sites, by the offset of their first node.
         vector<pair<size_t, int64_t>> edits;
         for (const StagedSite* edit : plan.between) {
             const nid_t node = graph.get_id(edit->alleles.walks.front().front());
@@ -545,44 +558,11 @@ bool MultiPassCaller::align_flat_run(const FlatRunPlan& plan, FlatRefusal& refus
                 }
             }
         }
-        std::ranges::sort(edits);
-        size_t next_edit = 0;
-        int64_t moved = 0;
-        auto at = [&](size_t offset) {
-            for (; next_edit < edits.size() && edits[next_edit].first < offset; ++next_edit) {
-                moved += edits[next_edit].second;
-            }
-            return make_pair(offset, (size_t)std::max<int64_t>(0, (int64_t)offset + moved));
-        };
-        for (size_t m = 0; m < plan.sites.size(); ++m) {
-            const StagedSite& site = *plan.sites[m];
-            const Traversal& walk = site.alleles.walks[site.alleles.ref_allele];
-            size_t length = 0;
-            for (const handle_t& step : walk) {
-                length += graph.get_length(step);
-            }
-            const size_t first = origins[m] + graph.get_length(walk.front());
-            const size_t last = origins[m] + length - graph.get_length(walk.back());
-            const optional<string> spelled = splicer.strand_sequence(site, strand);
-            guides[strand].push_back(at(first));
-            moved += spelled ? (int64_t)spelled->size() - (int64_t)length : 0;
-            guides[strand].push_back(at(last));
-        }
-        at(reference.size());
-        if (getenv("VG_GUIDE_DRIFT") != nullptr) {
-            int64_t between = 0;
-            for (const auto& edit : edits) {
-                between += edit.second;
-            }
-            const int64_t drift = (int64_t)reference.size() + moved - between
-                                  - (int64_t)strands[strand].size();
-            if (drift != 0) {
-                cerr << "[guide-drift] " << drift << "\n";
-            }
-        }
+        int64_t end = 0;
+        guides[strand] = flat_guide(guide_sites, std::move(edits), reference.size(), end);
         // The guide ends where the strand does.
         static const bool check = getenv("VG_CHECK_FLAT_RECORDS") != nullptr;
-        if (check && (int64_t)reference.size() + moved != (int64_t)strands[strand].size()) {
+        if (check && end != (int64_t)strands[strand].size()) {
             throw std::logic_error("the guide of a flat run of " + plan.sites.front()->id
                                    + " ends off its strand's end");
         }
