@@ -5,6 +5,7 @@
 #include "read_consensus.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <array>
 #include <cstdlib>
 #include <limits>
@@ -97,7 +98,10 @@ optional<Medoid> medoid_of(const vector<const string*>& strings, bool need_dista
 /// Return the result of one round: `backbone` with each base and each gap between bases set
 /// to what most of `reads` have there. Nothing if an alignment is not found.
 optional<string> vote(const vector<const string*>& reads, const string& backbone,
-                      const ReadConsensusParams& params) {
+                      const ReadConsensusParams& params, ReadConsensusStats* stats) {
+    if (stats != nullptr) {
+        ++stats->rounds;
+    }
     vector<std::array<uint32_t, VOTES>> columns(backbone.size(), std::array<uint32_t, VOTES>{});
     // The strings the reads insert before each base of the backbone, and after the last.
     vector<vector<string>> inserted(backbone.size() + 1);
@@ -105,6 +109,9 @@ optional<string> vote(const vector<const string*>& reads, const string& backbone
         optional<StringAlignment> alignment = align_global(backbone, *read, params.aligner);
         if (!alignment) {
             return std::nullopt;
+        }
+        if (stats != nullptr) {
+            stats->cost += alignment->cost;
         }
         left_align_gaps(backbone, *read, alignment->runs);
         size_t i = 0;
@@ -254,7 +261,7 @@ optional<string> keep_homopolymer_lengths(const string& sequence, const string& 
 }
 
 optional<string> read_consensus(const vector<string>& reads, const string& backbone,
-                                const ReadConsensusParams& params) {
+                                const ReadConsensusParams& params, ReadConsensusStats* stats) {
     if (reads.size() < std::max<size_t>(params.min_reads, 1)) {
         return std::nullopt;
     }
@@ -271,7 +278,17 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
     // One round from the backbone. The backbone is the consensus where that round changes
     // nothing, or only what `keep_homopolymer_lengths` undoes, and the reads are neither all
     // longer than the backbone nor all shorter.
-    optional<string> first = vote(used, backbone, params);
+    const auto began = std::chrono::steady_clock::now();
+    auto seconds = [&]() {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+    };
+    if (stats != nullptr) {
+        stats->reads = used.size();
+    }
+    optional<string> first = vote(used, backbone, params, stats);
+    if (stats != nullptr) {
+        stats->first_seconds = seconds();
+    }
     if (!first) {
         return std::nullopt;
     }
@@ -322,7 +339,7 @@ optional<string> read_consensus(const vector<string>& reads, const string& backb
         current = std::move(*first);
     }
     for (; round < params.max_rounds; ++round) {
-        optional<string> next = vote(used, current, params);
+        optional<string> next = vote(used, current, params, stats);
         if (!next) {
             return std::nullopt;
         }

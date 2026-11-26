@@ -929,7 +929,20 @@ void MultiPassCaller::add_read_consensus_alleles() {
         StrandCalibration{std::max(regenotyping.temper, 0.0),
                           regenotyping.ceiling < 0.0 ? 1.0 : regenotyping.ceiling},
         regenotyping);
+    // For measurement: the windows the step loads, and the queries the cache answers.
+    static const bool log_step = getenv("VG_LOG_CONSENSUS") != nullptr;
+    const auto* windowed = dynamic_cast<const WindowedSiteReadSource*>(read_source);
+    const WindowedSiteReadSource::FetchStats before =
+        log_step && windowed != nullptr ? windowed->fetch_stats()
+                                        : WindowedSiteReadSource::FetchStats();
     const size_t changed = read_consensus.run(read_consensus_parts());
+    if (log_step && windowed != nullptr) {
+        const WindowedSiteReadSource::FetchStats after = windowed->fetch_stats();
+        cerr << "[consensus-step] windows fetched whole " << after.whole_fetches - before.whole_fetches
+             << ", cache hits " << after.cache_hits - before.cache_hits << ", misses "
+             << after.cache_misses - before.cache_misses << ", fetched by ranges "
+             << after.straddles - before.straddles << endl;
+    }
     // The step fetched reads, which no later pass does.
     release_reads();
     if (changed > 0) {

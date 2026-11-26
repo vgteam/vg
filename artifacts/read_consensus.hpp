@@ -62,8 +62,21 @@ struct ReadConsensusParams {
  * @return Nothing if there are fewer than `params.min_reads` reads, or an alignment is not found
  * within the limits of `params.aligner`.
  */
+/// What building one consensus took, for measurement.
+struct ReadConsensusStats {
+    /// The reads used.
+    size_t reads = 0;
+    /// The rounds of aligning every read to a backbone.
+    size_t rounds = 0;
+    /// The summed cost of those alignments.
+    int64_t cost = 0;
+    /// The seconds the first round took.
+    double first_seconds = 0.0;
+};
+
 optional<string> read_consensus(const vector<string>& reads, const string& backbone,
-                                const ReadConsensusParams& params = ReadConsensusParams());
+                                const ReadConsensusParams& params = ReadConsensusParams(),
+                                ReadConsensusStats* stats = nullptr);
 
 /**
  * Return `sequence` with each difference from `backbone` that only changes the length of a run of

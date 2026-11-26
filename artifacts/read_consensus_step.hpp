@@ -233,14 +233,10 @@ private:
     /// What the step found at one run.
     struct RunFinding;
 
-    /// Find and test the runs of two or more among `snarls`, of each of which `alone` says what
-    /// is known on its own. Add to `runs` each run that is treated, to `run_findings` what was
-    /// found at it, and to `merged` and `entered` what `treat_run` made of it.
-    void find_runs(const Parts& parts, const AlleleSplicer& splicer,
-                   const vector<StagedSite*>& snarls, const vector<Alone>& alone,
-                   vector<Run>& runs, vector<RunFinding>& run_findings,
-                   vector<optional<StagedSite>>& merged,
-                   vector<ReadConsensusCounts>& entered) const;
+    /// Return the runs of two or more among `snarls` that are to be tested, of each of which
+    /// `alone` says what is known on its own.
+    vector<Run> find_runs(const Parts& parts, const vector<StagedSite*>& snarls,
+                          const vector<Alone>& alone) const;
 
     /// Test `run` (`examine_run`) and, where it is treated, make its one site (`merge_run`)
     /// into `merged`, from the reads fetched once, which this thread holds until it is done.

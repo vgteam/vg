@@ -1,8 +1,13 @@
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <sstream>
+#include <thread>
+#include <tuple>
 #include <unordered_set>
 
 #include "read_consensus_step.hpp"
@@ -28,6 +33,8 @@ struct ReadConsensusStep::Run {
     /// The nodes from each member's end bound to the next member's start bound, both included.
     /// It is the one node where the two share a bound.
     vector<vector<handle_t>> junctions;
+    /// For measurement: whether a run of one is a member of a run of several that is tested.
+    bool in_tested = false;
 };
 
 struct ReadConsensusStep::RunFinding {
@@ -131,12 +138,9 @@ ReadConsensusStep::RunFinding ReadConsensusStep::treat_run(const Parts& parts,
     return found;
 }
 
-void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splicer,
-                                  const vector<StagedSite*>& snarls,
-                                  const vector<Alone>& alone, vector<Run>& runs,
-                                  vector<RunFinding>& run_findings,
-                                  vector<optional<StagedSite>>& merged,
-                                  vector<ReadConsensusCounts>& entered) const {
+vector<ReadConsensusStep::Run> ReadConsensusStep::find_runs(const Parts& parts,
+                                                            const vector<StagedSite*>& snarls,
+                                                            const vector<Alone>& alone) const {
     const HandleGraph& graph = *parts.graph;
     const size_t none = std::numeric_limits<size_t>::max();
     // A site can be in a run where enough reads span it and it has a called sequence of no
@@ -276,23 +280,7 @@ void ReadConsensusStep::find_runs(const Parts& parts, const AlleleSplicer& splic
         }
         close();
     }
-
-    // The runs share no site, so they are tested at once.
-    vector<RunFinding> found_at(tested.size());
-    vector<optional<StagedSite>> merged_at(tested.size());
-    vector<ReadConsensusCounts> entered_at(tested.size());
-#pragma omp parallel for schedule(dynamic, 1)
-    for (size_t r = 0; r < tested.size(); ++r) {
-        found_at[r] = treat_run(parts, splicer, snarls, tested[r], merged_at[r], entered_at[r]);
-    }
-    for (size_t r = 0; r < tested.size(); ++r) {
-        if (found_at[r].treats()) {
-            runs.push_back(std::move(tested[r]));
-            run_findings.push_back(std::move(found_at[r]));
-            merged.push_back(std::move(merged_at[r]));
-            entered.push_back(entered_at[r]);
-        }
-    }
+    return tested;
 }
 
 ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
@@ -413,8 +401,27 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
         if (clamp * (double)on.reads < options.min_gain) {
             continue;
         }
-        optional<string> consensus = read_consensus(bases, called[strand], options.consensus);
+        static const bool log_builds = getenv("VG_LOG_CONSENSUS") != nullptr;
+        ReadConsensusStats stats;
+        const auto began = std::chrono::steady_clock::now();
+        optional<string> consensus = read_consensus(bases, called[strand], options.consensus,
+                                                    log_builds ? &stats : nullptr);
+        // For measurement: one line for each consensus built, ended once its gain is known.
+        auto log_build = [&](const char* outcome) {
+            if (!log_builds) {
+                return;
+            }
+            std::ostringstream line;
+            line << "[consensus-build] " << count << " " << run.in_tested << " "
+                 << called[strand].size() << " " << stats.reads << " " << stats.rounds << " "
+                 << stats.cost << " "
+                 << std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
+                        .count()
+                 << " " << stats.first_seconds << " " << outcome << "\n";
+            cerr << line.str();
+        };
         if (!consensus || *consensus == called[strand]) {
+            log_build("unchanged");
             continue;
         }
         on.candidate = true;
@@ -439,6 +446,7 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
                 gain += consensus_first ? more : -more;
             }
         }
+        log_build(gain >= options.min_gain ? "accepted" : "rejected");
         if (gain >= options.min_gain) {
             on.consensus = std::move(consensus);
         }
@@ -702,28 +710,84 @@ size_t ReadConsensusStep::run(const Parts& parts) {
         alone[i] = measure(parts, splicer, *snarls[i]);
     }
 
-    // The runs that are treated, each made one site as it is found, from the reads fetched to
-    // test it: the runs of several sites with a consensus, and then each site in none of those
-    // that has a consensus of its own, as a run of one.
-    vector<Run> runs;
-    vector<RunFinding> run_findings;
-    vector<optional<StagedSite>> merged;
-    vector<ReadConsensusCounts> entered;
-    find_runs(parts, splicer, snarls, alone, runs, run_findings, merged, entered);
-    vector<char> in_run(snarls.size(), 0);
-    for (const Run& run : runs) {
-        for (const size_t i : run.members) {
-            in_run[i] = 1;
+    // The runs of several sites that are tested, and the tested runs each site is in.
+    vector<Run> tested = find_runs(parts, snarls, alone);
+    vector<vector<size_t>> runs_of(snarls.size());
+    for (size_t r = 0; r < tested.size(); ++r) {
+        for (const size_t i : tested[r].members) {
+            runs_of[i].push_back(r);
         }
+    }
+    // The work: each tested run, and each site that can disagree on its own, which is tested
+    // where it is in no treated run. They are taken in the order of the lowest node ID of a
+    // run's first bound, and of a site's start bound, a run before a site at the same ID, so
+    // that work on neighbouring sites is done together and finds their reads cached.
+    struct Work {
+        nid_t at;
+        bool alone;
+        size_t index;
+    };
+    vector<Work> work;
+    for (size_t r = 0; r < tested.size(); ++r) {
+        nid_t at = std::numeric_limits<nid_t>::max();
+        for (const size_t i : tested[r].members) {
+            at = std::min(at, parts.graph->get_id(parts.sites->get_site_start(snarls[i]->net)));
+        }
+        work.push_back(Work{at, false, r});
+    }
+    for (size_t i = 0; i < snarls.size(); ++i) {
+        if (alone[i].can_disagree) {
+            work.push_back(
+                Work{parts.graph->get_id(parts.sites->get_site_start(snarls[i]->net)), true, i});
+        }
+    }
+    std::ranges::sort(work, {}, [](const Work& w) { return std::tie(w.at, w.alone, w.index); });
+    // What each tested run and each site found, and whether each tested run is done. A site
+    // waits for the tested runs it is in, which come before it in the work.
+    vector<RunFinding> found_run(tested.size());
+    vector<optional<StagedSite>> merged_run(tested.size());
+    vector<ReadConsensusCounts> entered_run(tested.size());
+    unique_ptr<std::atomic<bool>[]> run_done(new std::atomic<bool>[tested.size()]);
+    for (size_t r = 0; r < tested.size(); ++r) {
+        run_done[r].store(false);
     }
     vector<RunFinding> found_alone(snarls.size());
     vector<optional<StagedSite>> merged_alone(snarls.size());
     vector<ReadConsensusCounts> entered_alone(snarls.size());
-#pragma omp parallel for schedule(dynamic, 64)
-    for (size_t i = 0; i < snarls.size(); ++i) {
-        if (alone[i].can_disagree && !in_run[i]) {
-            found_alone[i] = treat_run(parts, splicer, snarls, Run{{i}, {}}, merged_alone[i],
-                                       entered_alone[i]);
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t w = 0; w < work.size(); ++w) {
+        const size_t index = work[w].index;
+        if (!work[w].alone) {
+            found_run[index] = treat_run(parts, splicer, snarls, tested[index],
+                                         merged_run[index], entered_run[index]);
+            run_done[index].store(true, std::memory_order_release);
+            continue;
+        }
+        bool in_treated_run = false;
+        for (const size_t r : runs_of[index]) {
+            while (!run_done[r].load(std::memory_order_acquire)) {
+                std::this_thread::yield();
+            }
+            in_treated_run = in_treated_run || found_run[r].treats();
+        }
+        if (!in_treated_run) {
+            found_alone[index] = treat_run(parts, splicer, snarls,
+                                           Run{{index}, {}, !runs_of[index].empty()},
+                                           merged_alone[index], entered_alone[index]);
+        }
+    }
+    // The runs that are treated: the runs of several sites with a consensus, and then each
+    // site in none of those that has a consensus of its own, as a run of one.
+    vector<Run> runs;
+    vector<RunFinding> run_findings;
+    vector<optional<StagedSite>> merged;
+    vector<ReadConsensusCounts> entered;
+    for (size_t r = 0; r < tested.size(); ++r) {
+        if (found_run[r].treats()) {
+            runs.push_back(std::move(tested[r]));
+            run_findings.push_back(std::move(found_run[r]));
+            merged.push_back(std::move(merged_run[r]));
+            entered.push_back(entered_run[r]);
         }
     }
     for (size_t i = 0; i < snarls.size(); ++i) {
