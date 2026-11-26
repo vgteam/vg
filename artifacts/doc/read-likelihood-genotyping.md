@@ -331,7 +331,7 @@ on each snarl that has a phase, at any level, and on each of its strands:
 3. One threshold, `--consensus-min-gain` (9 nats), decides what is built and what is kept. A
    strand gets a consensus where it has enough spanning reads to gain that much, each by one
    read's say: 4 reads with the `ont` preset.
-4. The consensus is that of the strand's spanning reads. At most 20 are used, those
+4. The consensus is that of the strand's spanning reads. At most 12 are used, those
    nearest the median length. Each is aligned to the called sequence, each
    base becomes whichever of a base or a deletion most reads have there, and an insertion is made
    where more than half the reads insert bases; the result is aligned to again until it stops

@@ -21,7 +21,7 @@ using namespace std;
 struct ReadConsensusParams {
     /// The most reads the consensus is built from. With more, those whose lengths are nearest
     /// the median length are used.
-    size_t max_reads = 20;
+    size_t max_reads = 12;
     /// The fewest reads a consensus is built from.
     size_t min_reads = 3;
     /// The most times the reads are aligned to a backbone.
