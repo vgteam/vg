@@ -50,12 +50,6 @@ struct StringAlignerParams {
     /// returned, once every alignment is known to cost more than this. An alignment that
     /// costs a little more can still be returned.
     int64_t max_cost = -1;
-    /// With the wavefront algorithm, where above 0: the alignment is first made in libwfa2's
-    /// piggyback mode (`wavefront_memory_med`), which keeps the backtrace in blocks and is
-    /// faster than the bidirectional mode, and given up there once its memory passes this many
-    /// bytes, as libwfa2 measures it every 3,000 steps of score. Only then is it made in the
-    /// bidirectional mode, whose memory grows with the cost alone.
-    uint64_t piggyback_bytes = 0;
 
     /// Return the cost of a gap of `length` bases.
     int64_t gap_cost(size_t length) const;

@@ -39,7 +39,7 @@ struct ReadConsensusParams {
     /// length. A shorter run takes the length the reads give it.
     size_t homopolymer_min_run = 9;
     /// The costs and limits of each alignment of a read to a backbone.
-    StringAlignerParams aligner{.wavefront = true, .piggyback_bytes = (uint64_t)64 << 20};
+    StringAlignerParams aligner{.wavefront = true};
 };
 
 /**
