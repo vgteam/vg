@@ -569,6 +569,17 @@ bool MultiPassCaller::align_flat_run(const FlatRunPlan& plan, FlatRefusal& refus
             guides[strand].push_back(at(last));
         }
         at(reference.size());
+        if (getenv("VG_GUIDE_DRIFT") != nullptr) {
+            int64_t between = 0;
+            for (const auto& edit : edits) {
+                between += edit.second;
+            }
+            const int64_t drift = (int64_t)reference.size() + moved - between
+                                  - (int64_t)strands[strand].size();
+            if (drift != 0) {
+                cerr << "[guide-drift] " << drift << "\n";
+            }
+        }
         // The guide ends where the strand does.
         static const bool check = getenv("VG_CHECK_FLAT_RECORDS") != nullptr;
         if (check && (int64_t)reference.size() + moved != (int64_t)strands[strand].size()) {
