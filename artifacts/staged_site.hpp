@@ -3,12 +3,15 @@
 
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
+#include "block_records.hpp"
 #include "descent_policy.hpp"
 #include "linkage_model.hpp"
 #include "panel_lookup.hpp"
@@ -128,6 +131,9 @@ struct StagedSite {
     /// For a nested chain, it is the number of the parent's called alleles that cross the chain,
     /// or the parent's ploidy when none does. `score` also holds the answer at the other ploidy.
     int ploidy = 2;
+    /// For a nested chain, the number of the sample's haplotypes in the region around the site
+    /// (`Ploidies::region_ploidy`), and 0 for any other site.
+    int region_ploidy = 0;
     /// The genotyper's call, which the record is written from.
     unique_ptr<SnarlCaller::CallInfo> call_info;
     /// The object `call_info` holds, typed as a read-likelihood score, or null if another genotyper
@@ -165,6 +171,22 @@ struct StagedSite {
     /// sites under it. The render sets them while it writes the site's records, and then
     /// frees them.
     optional<SplicedAlleles> spliced;
+
+    /// The site's part of the flat records of its run, if the site is written as flat records
+    /// (`--flatten-records`). The render sets it before it writes any record, and frees it once
+    /// the site's records are written.
+    optional<FlatSite> flat;
+
+    /// The index of the first allele that is a consensus of the site's reads (see
+    /// `ReadConsensusStep`), or the largest number where the site has none. Every allele from it
+    /// on is one.
+    size_t first_consensus_allele = std::numeric_limits<size_t>::max();
+
+    /// Return whether allele `allele` is a consensus of the site's reads.
+    bool is_consensus_allele(int allele) const {
+        return allele >= 0 && (size_t)allele >= first_consensus_allele
+               && (size_t)allele < alleles.walks.size();
+    }
 };
 
 /// The sources the passes read for what a staged site does not hold.
@@ -256,6 +278,23 @@ public:
 
     /// Visit every staged site, dropped or not, one at a time, in the order of `in_order`.
     void for_each(const function<void(StagedSite&)>& visit);
+
+    /**
+     * Remove the sites whose record keys are in `keys`, and every gathered nested site under a
+     * site with one of those keys, at any depth, dropped or not.
+     *
+     * A key need not be staged: the nested sites whose parent it names are removed all the
+     * same. This moves the sites that stay, so no pointer to a staged site and no index in
+     * `nested()` survives it.
+     *
+     * Never call this during a pass, or before the first linkage pass has gathered the nested
+     * sites.
+     *
+     * @param removed Called on each site before it is removed.
+     * @return The number of sites removed.
+     */
+    size_t remove_with_nested(const unordered_set<size_t>& keys,
+                              const function<void(const StagedSite&)>& removed);
 
     /// The counts of sites that `hand_off` held back.
     struct HandOff {

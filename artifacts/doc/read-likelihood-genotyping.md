@@ -121,8 +121,10 @@ sites is described under [Passes and rounds](#passes-and-rounds), after the voca
 
 ## Passes and rounds
 
-vg goes over the sites in **passes**. The **direct pass** comes first and runs once. It is the only
-pass that fetches reads: the steps after it work from the evidence it keeps for each read.
+vg goes over the sites in **passes**. The **direct pass** comes first and runs once. It fetches
+the reads: the steps after it work from the evidence it keeps for each read, except for the
+[read-consensus step](#alleles-built-from-the-reads---read-consensus), which fetches the reads of
+the sites it tests.
 **Rounds** follow, each built around a **linkage pass**. Last, the **render** builds the records,
 and vg writes the output files:
 
@@ -138,6 +140,8 @@ round 1, 2, ...                     round 2 on only with --regenotype
         phasing from the panel      put each genotype's alleles on the strands
         ploidy of the next level    from the genotypes just chosen
     read phasing                    re-decide the phases from the reads (--read-phasing)
+    read consensus                  round 1 only, with --read-consensus: add alleles built from
+                                    the reads, then a linkage pass and read phasing again
 render                              build each site's records from its settled genotype
 write                               the VCF, and the mosaic and anchor files if asked for
 ```
@@ -292,12 +296,174 @@ A site's candidate alleles come from the panel or from the reads.
 vg keeps a site's candidate alleles in a list, in the order in which vg's search finds them, with
 the reference allele added at the end if the search did not find it.
 
+With [`--read-consensus`](#alleles-built-from-the-reads---read-consensus), a snarl can also gain
+an allele built from its reads after the direct pass.
+
 `--max-snarl-edges` sets a limit on a site's edges, counting the edges of the sites nested in it.
 vg skips a site over the limit, and genotypes the sites of its child chains as top-level sites.
 They take the ploidy of their contig or region, and join the contig's top-level sites in the
 linkage model. A skipped site with no child chains gets no genotype and no record, even with
 `--genotype-snarls`. The limit exists because Yen's search is slow on very large sites. Under
 haplotype enumeration, which does not use Yen's search, there is no limit by default.
+
+### Alleles built from the reads (`--read-consensus`)
+
+Haplotype enumeration offers only the alleles of the panel, and
+[off-panel detection](read-likelihood-direct-genotyping.md) adds changes inside nodes. With
+`--read-consensus`, off by default, a snarl whose reads carry a longer sequence that no walk spells
+gains that sequence as an allele. It needs `--phased`. The step runs once, at the end of round 1,
+on each snarl that has a phase, at any level, and on each of its strands:
+
+1. The strand's reads are the reads that **span** the snarl, from its start bound's node to its
+   end bound's, and that [read phasing](#from-the-reads) puts on the strand: those whose strand
+   log-odds, without the snarl's own term, are positive for strand 0 and negative for strand 1.
+   Where fewer than half of the spanning reads have a strand, as in a long homozygous stretch or
+   without `--read-phasing`, all of them are taken to be on strand 0. A snarl with one strand has
+   all of them on it.
+2. The strand's **called sequence** is its allele with each site nested in the snarl spelled by
+   the allele the strand has there, as a [flat record](#flat-records) spells it. A read's
+   **gain** by another sequence is what the read's bases between the bounds score more against
+   that sequence than against the called sequence, in nats, each scored as a read is against an
+   allele given as its bases. A gain is no more than **one read's say**, the most by which the
+   genotyper lets one read favour an allele (the negative log of
+   [`--mismap-min`](read-likelihood-direct-genotyping.md#mismapping-probability)), and no less than that below zero. So one or two
+   reads cannot carry an allele.
+3. One threshold, `--consensus-min-gain` (9 nats), decides what is built and what is kept. A
+   strand gets a consensus where it has enough spanning reads to gain that much, each by one
+   read's say: 4 reads with the `ont` preset.
+4. The consensus is that of the strand's spanning reads. At most 12 are used, those
+   nearest the median length. Each is aligned to the called sequence, each
+   base becomes whichever of a base or a deletion most reads have there, and an insertion is made
+   where more than half the reads insert bases; the result is aligned to again until it stops
+   changing. A difference that only changes the length of a run of one base is undone where the
+   run has at least nine bases in the sequence now called; a shorter run takes the reads' length.
+   The called sequence is the consensus where the first round changes nothing else and the
+   reads are neither all longer than the called sequence nor all shorter. The strand is a
+   **candidate** where the consensus differs from the called sequence.
+5. A consensus by which the strand's reads gain `--consensus-min-gain` nats in all
+   becomes an allele, unless one of the snarl's alleles spells it already. Two strands with the
+   same consensus add one allele. No panel haplotype carries a consensus allele. A snarl that
+   gains a consensus is a run of one: it becomes a [merged site](#a-run-as-one-site), whose
+   alleles are its reference allele, what each strand is called as, and the consensuses, and
+   which has no sites nested in it.
+6. A consensus allele is the walk the strand takes across the site, with changes to the bases of
+   its steps where the consensus differs. The two are aligned and the gaps moved left, and each
+   difference changes the steps that hold its bases: a node whose bases are all deleted stays
+   in the walk with none, and an insertion goes after the base before it, or before the first
+   base after the start bound where it comes first. Where the strand has no walk across the
+   site, the allele is given as its bases between the bounds, after the start bound's node.
+
+A merged site is genotyped from its reads, at the ploidy it has. Each read that spans it is scored
+by aligning its bases between the bounds to every allele's (see
+[Relative likelihood](read-likelihood-direct-genotyping.md#relative-likelihood)), and the other
+reads are scored as before and say nothing about the new alleles. A read is aligned first to the
+allele whose length is nearest its own, and to each other allele only as far as it can score
+within 104 nats of its best so far: an allele that scores less gets a relative likelihood of 0,
+where e^-104 is 0 as a float and far below what the chance that the read is mismapped adds. The
+step's own gain of a read by a consensus is likewise found only as far as it can be within one
+read's say. It is then filed with the linkage
+model in place of its first member's call, and a linkage pass and read phasing run again before any
+further round. So the linkage model, to which a consensus is an allele no haplotype carries, read
+phasing and re-genotyping treat the site as if the direct pass had found it.
+
+#### Runs of neighbouring snarls
+
+In a tandem repeat the mapper can place one difference in any of several neighbouring snarls of a
+chain, and it does not choose the same one for every read. Then no one snarl holds
+the difference in enough reads, and the bases that two reads have
+between the bounds of one snarl cannot be compared. A difference can also lie in the nodes between
+two snarls, where no snarl holds it. So the step tests a **run** of snarls as it tests one snarl,
+and before it treats any snarl as a run of one. Runs follow the chain, not reference positions. A run
+inside a snarl too large to be treated itself is a run of the snarls of a chain nested in it.
+
+1. Two snarls are **neighbours** where one follows the other in a chain, at any level: they
+   share a bound node, or only nodes that every walk of the chain takes lie between them. One
+   phase set orders the strands of both, enough reads span each to gain `--consensus-min-gain`
+   nats, and each has a called
+   sequence of no more bases than the scorer aligns of a read. Their **junction** is those
+   nodes' bases, the bound nodes included, and has at most 1,000 bases.
+2. A spanning read **loses** what it scores, between the bounds, against the allele it fits
+   best below a sequence that spells it. A snarl's **signal** is the sum of its spanning reads'
+   losses, each no more than one read's say: the most its reads could gain by a new allele, as
+   step 5 above sums their gains. A read's **gap** is a
+   run of bases it inserts in a node or beside it, or a run of a node's bases it lacks. Where
+   enough of the reads that span a snarl to gain `--consensus-min-gain` nats have a gap inside
+   the node of its bound that faces a neighbour, or in the nodes of their junction beyond that
+   node, and a gap of that length costs a read `--consensus-min-gain` nats, the signal of both
+   snarls is the say of that many reads at least. So a difference that lies in the nodes
+   between two snarls, in no snarl, makes a run of the two. A **seed** is a snarl with a signal
+   of `--consensus-min-gain` or more.
+3. A run begins and ends at a seed, and holds every snarl between two of its seeds. Two seeds
+   that follow each other in a sequence of neighbours are in one run where at most 1,000 bases
+   lie between them, in the nodes of the junctions and in the snarls that are no seeds, and the
+   run has no more bases between its outer bounds than the scorer aligns of a read. The bases of
+   a snarl are those of its longest called sequence. Where one more seed would pass either
+   number, the run ends and the next begins at that seed.
+4. A run of two or more is **tested**: the strand's called sequence across the run is its
+   called sequence at each member with the junctions between them, a read spans the run where it
+   spans from the first member's start bound to the last member's end bound, and steps 1 to 5
+   above apply to the run as to one snarl, with each read put on the strand that its strand
+   log-odds at the members, summed, favour.
+5. The run is **treated** where a strand has a consensus by which its reads gain
+   `--consensus-min-gain` nats and the run can become [one site](#a-run-as-one-site). A snarl
+   in no treated run is treated as a run of one where it has a consensus, as above.
+
+#### A run as one site
+
+A treated run becomes one site, the **merged site**, in place of its members, so that its alleles
+can differ from what is called anywhere between the run's outer bounds, the nodes between two
+snarls included:
+
+- Its bounds are the start bound of the run's first member and the end bound of its last. It is
+  named by them as a snarl is, has the first member's place in the nesting tree and on the
+  reference and its ploidy, and has no child sites.
+- Its alleles are sequences across the run. The first is the walk that takes each member's
+  reference allele, with the junctions between them, which is its reference allele. Then comes
+  what each strand is called as across the run, and last the consensuses. Each is the strand's
+  walk across the run, which takes the strand's allele at each member, with the junctions between
+  them. Where the sites nested in the members, or a consensus, make the allele differ from what
+  that walk spells, it changes the bases of the walk's steps, as a consensus does at one snarl.
+  The nodes between two members are steps of the walk like any other. Alleles that spell the same
+  bases are one, and a run whose consensuses are all spelled by the others stays as it is.
+- It is genotyped from its reads as above, and filed with the linkage model in place of its first
+  member. The other members, every site nested in a member, and the
+  [edit sites](read-likelihood-direct-genotyping.md) inside the nodes of the junctions are no
+  longer sites: the merged site's alleles spell what was called at them. Phasing, re-genotyping
+  and the records treat the merged site as a snarl. A site that holds the run's chain spells the
+  merged site's chosen alleles in its own, as it does those of any site nested in it.
+
+A run cannot become one site, and is left alone, where its members are not placed alike on the
+reference, or where a change is called at an edit site inside a node of a junction, which the
+strands' called sequences across the run do not have.
+
+#### Which snarls are tested, and limits
+
+The step fetches reads only at the snarls whose reads can gain by an allele. The direct pass
+keeps, for each snarl, the number of reads that span it, the number of those that no allele
+explains, and the gaps its reads have around each bound. A snarl is tested on its own where its
+signal is `--consensus-min-gain` or more and it is in no treated run, and in a run where the run
+is tested. The runs are tested first. The reads of a run, or of a snarl on its own, are fetched
+once, and where it is treated it becomes one site and is genotyped again from those reads before
+they are let go.
+The scorer aligns a read with at most 10,000 bases between the bounds, and makes at most 2,000
+alignments at one snarl (see [Fixed constants](#fixed-constants)). A snarl with a called sequence
+or a consensus of more bases than that, or whose reads and alleles need more alignments, gains no
+allele, and such a run is left alone. A read with more bases is scored as one that does not span
+the snarl. An allele can have any number of bases. The step fetches
+reads without adding to the read-start counts of
+the [depth term](read-likelihood-direct-genotyping.md#depth-term) or to the off-panel candidates,
+so both are as the direct pass left them.
+
+A site with such an allele called at it is written as any other site, and its records have
+`INFO/RC`. A consensus allele that is a walk with changes differs from the reference allele at the
+steps it changes, so [block records](#block-records) cut the site there. One given as its bases
+puts them after the start bound's node, which no block covers, so its site is written as one site
+record, whose `AT` walk for that allele is the two bound nodes alone. vg reports on standard error how many
+snarls in no treated run it tested on their own and how many strands were candidates at them, how many runs were
+treated as runs of several and how many of those became one site, how many sites were made of a
+run, of one snarl or of several, and how many of them are called with such an allele, how many
+consensus alleles of those sites are a walk with changes and how many are given as bases, and
+how many snarls were over a limit of the scorer.
 
 ## Ploidy
 
@@ -471,7 +637,9 @@ A called allele can also differ from the reference allele in several places, sep
 both share. `--atomize-blocks`, on by default with nested calling, then writes one record per
 difference. `--no-atomize-blocks` turns it off, and so does `--genotype-snarls`, which writes the
 same records for every sample. vg aligns the symbolic form of each called allele to that of the
-reference allele, minimising edit distance. Each maximal stretch of nodes and chain symbols that the
+reference allele, minimising edit distance. A step of a called allele whose bases the allele
+changes, as an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) does,
+matches no step of the reference allele. Each maximal stretch of nodes and chain symbols that the
 alignment does not match is a **block**, and becomes a record. A block record's `GT` gives the
 allele that each strand carries over that block. A strand's block allele spells the strand's own
 walk inside its blocks and the reference's over the steps it matches. A matched chain symbol says
@@ -509,7 +677,100 @@ When every crossing of a child chain by the alleles of the parent's settled geno
 block, the block's ALT spells out the chain. The records of the chain, and of the sites nested in
 it, would repeat that ALT, so they are not written. The chain is still genotyped and phased from
 the panel, and its sites get anchors. Each linkage pass decides again, from the parent's chosen
-genotype, whether a block spells the chain out.
+genotype, whether a block spells the chain out. An ALT that both strands carry is spelled once, as
+the first strand has it, so it does not spell a site at which the two strands carry different
+alleles. Such a site keeps its record where the record that would spell it out is of a site whose
+two strands carry one walk.
+
+#### Flat records
+
+`--flatten-records`, off by default, writes the top-level sites as the base-level differences of
+their called strands from the reference, and writes no records for the sites nested in them. It
+needs `--phased`, and cannot be combined with `--genotype-snarls`. Only the records change: the
+genotypes, the phase, the anchors and the mosaic are what they are without it.
+
+The records are cut over a **run** of sites. A run is a longest series of top-level snarls that
+follow each other in one chain, where:
+
+- the nodes from one snarl's end boundary node to the next snarl's start boundary node, both
+  included, have at most `--flatten-distance` bases (500 by default). Two snarls that share a
+  boundary node have the bases of that node between them;
+- one phase set holds all of them, they have the same ploidy, and each heterozygous one has a
+  phased GT;
+- the reference path reads them one after another; and
+- the run's reference has at most 50,000 bases. A snarl that would take a run past that starts
+  the next run.
+
+A top-level [edit site](read-likelihood-direct-genotyping.md) in the nodes between two snarls of
+a run is in the run, and gets no records of its own. Where such an edit site cannot be, because
+it is in another phase set, has an unphased heterozygous GT, or has a node outside those nodes,
+the two snarls are in different runs. Every other top-level site is a run of its own, and with
+`--flatten-distance 0` every site is.
+
+A strand's **sequence over a run** is spelled from the first site's start boundary node through
+the last site's end boundary node: the allele the strand carries at each site of the run, with
+each nested site spelled by the allele that strand carries there, at every depth, the changes of
+the edit sites between the sites, and the nodes between the sites. The run's **reference** is the
+same with every site at its reference allele, which is the reference path through the run. vg
+aligns each strand's sequence to the reference by itself, end to end, at the least cost inside a
+region the sites guide: 40 for a mismatch, and for a gap of $L$ bases the lesser of $78 + 7L$ and
+$162 + 3L$. These are the scores that minimap2 aligns two assemblies of one species with (its
+`asm5` preset), as costs of an end-to-end alignment, so that the records are cut as an
+assembly-to-reference alignment cuts them. The bases the two share at their starts and at their
+ends are matched first. In what lies between, the strand is expected to reach the first and the
+last base between each site's bound nodes where the reference does, moved by what its alleles at
+that site and at the sites before add to or take from the reference's length. The region is, for
+each two such points that follow each other, the reference bases from the one to the other and
+the alignment diagonals from the one's to the other's, each widened by 256 on either side. So
+only a site whose allele changes the length is wide. vg then moves each gap as far left as it goes
+within the run.
+
+Each maximal run of alignment columns that are not matches is a **difference**, and the records are
+cut from the differences:
+
+- A run of mismatches is one record (an MNP where it is longer than one base).
+- A gap is one record, with the reference base before it at the start of REF and of each ALT. A gap
+  with mismatches touching it is one record that covers both.
+- A difference that both strands have, with the same reference bases and the same bases in their
+  place, is one record with GT `1|1`. Any other difference is a record of its own strand, with GT
+  `1|0` or `0|1`. The `0` says only that the other strand lacks this difference: what the other
+  strand has at those reference bases is in its own records. So two records of a run can cover
+  the same reference bases, one for each strand, and no flat record has two ALTs.
+
+`POS` is the position of the record's first reference base on the reference path, as in every other
+record. A record belongs to the site of the run it starts in, or to the site before it where it
+starts in the nodes between two sites. The `GT` lists the strands in the order of the phase. It is
+phased, with that site's `PS`, where the site's own GT is phased, and is otherwise written with
+`/` and no `PS`. A run whose strands both spell the reference writes nothing.
+
+The other fields follow the [block records](#block-records). The ID of a record of a run of one
+site is the site's ID, and that of a run of several is the ID of a site from the start boundary
+node of the run's first site to the end boundary node of its last, in both cases followed by `_`
+and the record's index among the run's records. `INFO/SB` gives that index and the number of flat
+records of the run. `QUAL`, `FILTER`, `DP`, `DR`, `BL`, `GQ`, `GQI`, `GQN` and `GP` are those of
+the site the record belongs to, and `AD` and `GL` are copied from that site's record through the
+site allele each strand carries. A difference that comes from a nested site, from an edit site
+between two sites, or from another site of the run therefore carries the evidence of the site it
+belongs to. `INFO/FL` marks a flat record. `INFO/AT` is `.` for each allele, since no walk of the
+graph spells a flat allele.
+
+A site is written as it is without `--flatten-records`, and so are the sites nested in it, where it
+has no strands to spell (it has no genotype or no phase, or the strands of its phase do not carry
+the genotype that is written), where a gap at the site's first base has no reference base before
+it, or where the
+aligner reaches its limit. The aligner keeps a byte for each cell of the region. A region of
+more than $2^{27}$ cells is filled for one strand at a time, and the aligner gives up on one of
+more than $2^{30}$. A run of several sites
+whose strands cannot be aligned, or spelled along it, is written as a run for each of its sites
+and for each edit site between them. The call reports on stderr, in lines starting `[vg call] flatten:`, the runs and
+lines written, the sites in the runs, the runs of several sites, the nested sites and the edit
+sites between sites left without a line, the runs of several sites written site by site, by
+reason, and the sites not flattened, by reason.
+
+With the environment variable `VG_CHECK_FLAT_RECORDS` set, vg checks every run once all its sites
+have written their records: it puts the run's flat records back into the run's reference, taking
+for each strand the allele its GT entry names, and compares the result with the strand's sequence
+over the run. A `[vg call] flatten check:` line reports the runs checked and the runs that failed.
 
 ### VCF fields
 
@@ -527,7 +788,9 @@ genotype, whether a block spells the chain out.
 | `DR` | the **depth ratio**: the site's effective read count over the expected read count of the genotype the record is written with (see [Depth term inputs](read-likelihood-direct-genotyping.md#depth-term-inputs)) |
 | `BL` | mean over reads of each read's best log-likelihood score at the site, $\max_a \ell_{ra}$, in nats (see [Relative likelihood](read-likelihood-direct-genotyping.md#relative-likelihood)) |
 | `FORMAT/PS` | the phase set |
-| `INFO/SB` | not strand bias: on a block record, its index counting from 0 among the site's block records, and the number of block records the site writes (see [Reporting each difference once](#reporting-each-difference-once)) |
+| `INFO/SB` | not strand bias: on a block record, its index counting from 0 among the site's block records, and the number of block records the site writes (see [Reporting each difference once](#reporting-each-difference-once)); likewise on a [flat record](#flat-records) |
+| `INFO/FL` | the record is a [flat record](#flat-records), written with `--flatten-records` |
+| `INFO/RC` | the called genotype of the record's snarl, or of its [merged site](#a-run-as-one-site), has an [allele built from the reads](#alleles-built-from-the-reads---read-consensus), written with `--read-consensus`; on a flat record, the called genotype of its top-level snarl or of a snarl nested in it has one |
 | `FILTER=noreads` | the site had no reads, so no genotype is called (`GT` is `./.`). Such a record is written only with `--genotype-snarls`, which also writes reference calls |
 | `FILTER=lowconf` | `GQN` is below `--min-confidence`, when that is above 0 |
 
@@ -699,7 +962,7 @@ The file is tab-separated. Header lines start with `#` and are identified by the
 
 | Key | Meaning |
 |---|---|
-| `#mosaic-version` | the format version |
+| `#mosaic-version` | the format version: 5, or 6 for a file with `A` rows (see [Called alleles](#called-alleles---mosaic-exact)) |
 | `#graph` | the input graph |
 | `#sample` | the sample name, set with `--sample` |
 | `#reference` | a reference path that positions refer to, one line for each, except gRef fragments |
@@ -708,7 +971,8 @@ The file is tab-separated. Header lines start with `#` and are identified by the
 | `#patch`, `#nested`, `#unexplained` | the choices of the three options described below |
 | `#haplotype` | a panel haplotype's index and name, one line for each |
 | `#note` | text describing the columns |
-| `#H` | the column names |
+| `#H` | the column names of `H` rows |
+| `#A` | the column names of `A` rows, in a version 6 file |
 
 A reader should skip header keys it does not recognise.
 
@@ -762,6 +1026,8 @@ crosses it, and is otherwise a row that cannot be walked. A strand can also carr
 than its haplotype at a site, as a
 [mutation](read-likelihood-linkage-model.md#mutation-and-escape), and its segment then names that
 haplotype, whose walk spells the haplotype's allele there rather than the strand's.
+`--mosaic-exact` adds the rows that give the strand's own allele at such sites (see
+[Called alleles](#called-alleles---mosaic-exact)).
 
 Three options change how the rows are formed, and the header records each choice:
 
@@ -773,6 +1039,99 @@ Three options change how the rows are formed, and the header records each choice
   strand it could not determine, those sites are left out of the segments by default, and the
   walk crosses them by the rule above. `--mosaic-break-unexplained` writes a `*` row for them
   instead.
+
+#### Called alleles (`--mosaic-exact`)
+
+The walk the `H` rows expand to takes each panel haplotype's own allele at every site. The strand
+was called with another allele where it carries a
+[mutation](read-likelihood-linkage-model.md#mutation-and-escape) of its haplotype, where its
+haplotype is an [unknown allele](read-likelihood-linkage-model.md#mutation-and-escape), where the
+allele is one [no panel haplotype carries](read-likelihood-direct-genotyping.md), and at a site
+with no record that lies on a segment of a haplotype with another allele. With `--mosaic-exact` the
+file also has rows that start with `A`, which put the strand's own alleles on that walk, and its
+version is 6. The `H` rows are the same with and without the option.
+
+An `A` row gives one stretch of one strand. There are two kinds:
+
+- A row for a top-level site gives the strand from the site's start bound node to its end bound
+  node. It is the strand that the site's record spells: the allele the strand was called with,
+  with every site nested in it spelled by the allele the strand was called with there, with or
+  without a record of its own. With [`--flatten-records`](#flat-records), it is the strand whose
+  differences from the reference the flat records of the site's run are, between those two
+  nodes.
+- A row for one node of the top-level chain gives the node's bases with the changes that the
+  strand's alleles make to them at the [edit sites](read-likelihood-direct-genotyping.md) on the
+  chain. Where two of those changes take one base of the node, the one further along the node is
+  made, as in the records.
+
+| Column | Meaning |
+|---|---|
+| `contig`, `strand` | as in an `H` row |
+| `fragment` | the mosaic fragment whose walk the row is put on |
+| `start_node`, `end_node` | as oriented node IDs: the site's two bound nodes, in the order the strand passes them, or the one node twice |
+| `walk` | the strand's walk from `start_node` to `end_node`, both included: `>` and a node ID for a node read forwards, `<` and a node ID for one read backwards |
+| `bases` | `.` where `walk` is a walk of the graph and every step of it has the bases of its node; otherwise one entry for each step of `walk`, separated by commas |
+
+An entry of `bases` gives the bases the strand has at its step, read along `walk`. Within an
+entry, `*` stands for the bases the visit already has, so `*` alone leaves the step as it is. An
+entry can end with `+` and bases, or with `+` alone: those bases, or none, lie after the step on no
+node, and the next step follows them without an edge of the graph. So `*+ACG` leaves the step as
+it is and puts `ACG` between it and the next step, and `*+` joins the two steps directly. The row
+of an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) that is
+given as its bases between the bounds has the two bound nodes alone as its `walk`, and the first
+entry of its `bases` has the bases between them.
+
+A site's row never changes the bases of its two bound nodes: their entries start with `*`. A
+change to a bound node is in that node's own row. So no two `A` rows of a strand change the same
+visit of a node, and the rows can be applied in any order.
+
+To rebuild a strand:
+
+1. Expand each fragment's `H` rows to walks, and join them on the nodes they share.
+2. For each `A` row of the fragment, find each visit of `start_node` on that walk, and the next
+   visit of `end_node` after it, which is the same visit for a row of one node.
+3. Replace the visits between the two with the steps of `walk` between its first and last.
+4. Give each step of `walk` its entry of `bases`.
+
+A strand's `A` rows follow its `H` rows, in the order of the walk. A row is written only where
+it changes the walk of the `H` rows: for a site, where the strand's walk between the bound nodes
+is another one, or a step has an entry other than `*`; for a node, where the strand's alleles
+change its bases.
+
+Three things limit what the rebuilt strand says, and `vg call` reports the count of each:
+
+- A site gets no row where the strand's `H` rows do not join its two bound nodes in one walk, or
+  join them from end to start. The `H` rows run from a strand's first site with a record to its
+  last, so a site before or after them is one of these.
+- A top-level site with no phase gets no row, and neither do the sites nested in it.
+- A change of an edit site gets no row where the strand's walk does not visit the node, or
+  visits it between the bound nodes of a top-level site.
+
+`walk` is found by its bound nodes, so a strand that crosses one site several times in one
+fragment gets the same walk at each crossing.
+
+`artifacts/scripts/mosaic_to_path.py` rebuilds the strands of a mosaic of either version from the
+graph's paths as above. It checks that every `A` row has a stretch to go on, that no two rows
+change the same visit, and, with `--gfa`, that every step of a rebuilt strand is an edge of the
+graph or is joined by a row's `+`. With `--vcf` it also compares the bases of each strand with
+the records:
+
+- For each site with records, top-level or nested, the reference from the first base of the start
+  bound node to the last base of the end bound node, with the strand's allele of each of the
+  site's records put in, must be what the strand has there. The two bound nodes count with their
+  own bases. A site written as [flat records](#flat-records) or as block records is compared with
+  all its records together.
+- For the nodes that the records of edit sites change, the reference over those nodes, with the
+  strand's alleles put in, must be what the strand's visits of those nodes have.
+- Where an `A` row makes a strand differ from the reference, a record must lie there.
+
+The script prints the number of strands, nodes and stretches it does not compare, by reason. A
+site with the records of other sites inside it is not compared, since its record spells each
+allele once, with the alleles that one strand has at the sites inside; the sites inside are
+compared. Records with no phase, strands with no allele at a record, sites and nodes the strand
+does not cross, and two records of edit sites that take one base are the other reasons. A phased
+record with no allele for a strand says that the strand does not cross the site, so a strand that
+crosses such a site is reported as a difference.
 
 ### Assembly anchors (`--anchors-out`)
 
@@ -985,14 +1344,15 @@ are also rejected when those are not in use. Other general options used on this 
 | [Mismapping](read-likelihood-direct-genotyping.md#mismapping-probability) | `--mismap-min`, `--mismap-max`, `--no-mismap-term` |
 | [Mixture weights](read-likelihood-direct-genotyping.md#mixture-weights) | `--flat-mixture` |
 | [Depth term](read-likelihood-direct-genotyping.md#depth-term) | `--depth-term`, `--depth-count-raw` |
+| [Alleles built from the reads](#alleles-built-from-the-reads---read-consensus) | `--read-consensus`, `--consensus-min-gain` |
 | [Linkage](read-likelihood-linkage-model.md) | `--linkage-weight`, `--linkage-scale`, `--linkage-prior`, `--linkage-mutation`, `--hp-prior`, `--hp-prior-run` |
-| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--no-off-ref-nesting` |
+| [Nested sites](#nested-sites) | `--nested`, `--no-nested`, `--group-candidates`, `--no-group-candidates`, `--atomize-blocks`, `--no-atomize-blocks`, `--flatten-records`, `--flatten-distance`, `--no-off-ref-nesting` |
 | [Ploidy](#ploidy) | `--ploidy`, `--ploidy-regex`, `--ploidy-bed`, `--ploidy-preset` |
 | [Phasing](#phasing) | `--phased`, `--no-phased`, `--read-phasing`, `--no-read-phasing`, `--phase-min-q`, `--phase-coherence`, `--phase-coh-rounds`, `--phase-break`, `--phase-relink`, `--phase-hang`, `--phase-prior`, `--phase-cap` |
 | [Re-genotyping](#re-genotyping-from-the-phase) | `--regenotype`, `--no-regenotype`, `--regeno-temper`, `--regeno-ceiling`, `--regeno-passes`, `--regeno-haploid`, `--no-regeno-haploid`, `--regeno-ledger` |
 | [Quality fields](#options-that-change-the-fields) | `--no-share-quality`, `--depth-quality`, `--min-confidence` |
 | [Allele merging](#options-that-change-the-fields) | `--cluster`, `--cluster-min-len` |
-| [Mosaic](#mosaic---mosaic-out) | `--mosaic-out`, `--mosaic-patch-gaps`, `--no-mosaic-patch-gaps`, `--no-mosaic-nested`, `--mosaic-break-unexplained` |
+| [Mosaic](#mosaic---mosaic-out) | `--mosaic-out`, `--mosaic-patch-gaps`, `--no-mosaic-patch-gaps`, `--no-mosaic-nested`, `--mosaic-break-unexplained`, `--mosaic-exact` |
 | [Anchors](#assembly-anchors---anchors-out) | `--anchors-out`, `--anchors-fill`, `--anchors-reads`, `--anchors-min-gqn`, `--anchors-min-q`, `--anchors-het-only`, `--anchors-leaf-only`, `--anchors-keep-off-call`, `--anchors-end-new`, `--anchors-phase-hets`, `--no-anchors-phase-hets`, `--anchors-hom-split`, `--split-min-q`, `--split-min-side` |
 | Presets | `--preset` |
 
@@ -1008,6 +1368,10 @@ holds it.
 | `LinkageModel::Params::window`, `margin` | `artifacts/linkage_model.hpp` | the number of sites each forward–backward window keeps, and the extra sites decoded and discarded on each side |
 | `RATE_BUCKET`, `RATE_ID_WINDOW` | `artifacts/allele_likelihood.hpp` | reference bp per rate-window bucket (a rate window is three buckets), and node IDs per rate window when there are no reference positions |
 | `banded` and `band`, in `score_by_optimal_pairing` | `artifacts/allele_likelihood.cpp` | the grid size, in read visits times allele visits, above which optimal pairing is restricted to a band, and the band's half-width in allele visits |
+| `AlleleLikelihoodParams::sequence_allele_max_bases`, `sequence_allele_max_alignments` | `artifacts/allele_likelihood.hpp` | the most bases of a read between a snarl's bounds that are aligned, and the most alignments of a read to an allele at one snarl, at a snarl with an [allele built from the reads](#alleles-built-from-the-reads---read-consensus) |
+| `ReadConsensusParams::min_reads`, `max_reads`, `max_rounds`, `max_medoid` | `artifacts/read_consensus.hpp` | for a consensus of reads: the fewest and the most reads it is built from, the most times they are aligned to it, and the most inserted strings compared to choose the bases of an insertion |
+| `BlockRecordWriter::FLAT_GUIDE_MARGIN` | `artifacts/block_records.hpp` | the cells by which the region a [flat run](#flat-records)'s sites guide its alignments is widened on each side |
+| `ReadConsensusOptions::run_max_junction` | `artifacts/read_consensus_step.hpp` | for a [run](#runs-of-neighbouring-snarls): the most bases in a junction, and between two seeds that follow each other |
 | `max_yens_traversals` | `src/subcommand/call_main.cpp` | the most candidate alleles support enumeration keeps |
 | the difference limit in `LinkageModel::run_length_site` | `artifacts/linkage_model.cpp` | the largest homopolymer length difference to which `--hp-prior` applies |
 | the `int8_t` of `LinkageCollector::allele_arena` | `artifacts/linkage_model.hpp` | the most alleles a site's compact allele set may hold for the linkage model |

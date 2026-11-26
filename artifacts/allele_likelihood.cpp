@@ -3,9 +3,12 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <numeric>
+#include <omp.h>
 
 #include "../src/alignment.hpp"
 #include "off_panel.hpp"
+#include "string_aligner.hpp"
 #include "../src/path.hpp"
 #include "../src/statistics.hpp"
 
@@ -1949,9 +1952,12 @@ struct GraphAlignedAlleleLikelihoodCalculator::SiteAlleles {
      *
      * A read that lies inside one boundary node yields no row, so boundary sequence yields no
      * rows. An allele that deletes the whole interior gets length 0, and lambda then counts only
-     * the R - 1 reads that span its junction.
+     * the R - 1 reads that span its junction. A step on a boundary node with its own sequence
+     * counts the bases that sequence has more than the node, which are the bases a sequence
+     * allele puts between the bounds.
      */
-    vector<size_t> interior_lengths(const unordered_set<nid_t>& boundary_nodes) const;
+    vector<size_t> interior_lengths(const HandleGraph& graph,
+                                    const unordered_set<nid_t>& boundary_nodes) const;
 
     /**
      * Return the number of bases of each allele that each other allele lacks.
@@ -2000,7 +2006,7 @@ vector<size_t> GraphAlignedAlleleLikelihoodCalculator::SiteAlleles::spelled_leng
 }
 
 vector<size_t> GraphAlignedAlleleLikelihoodCalculator::SiteAlleles::interior_lengths(
-    const unordered_set<nid_t>& boundary_nodes) const {
+    const HandleGraph& graph, const unordered_set<nid_t>& boundary_nodes) const {
     vector<size_t> lengths;
     lengths.reserve(steps.size());
     for (const auto& allele : steps) {
@@ -2008,6 +2014,9 @@ vector<size_t> GraphAlignedAlleleLikelihoodCalculator::SiteAlleles::interior_len
         for (const AlleleStep& step : allele) {
             if (!boundary_nodes.contains(step.node_id)) {
                 len += step.sequence.size();
+            } else if (step.own_sequence) {
+                const size_t node_length = graph.get_length(graph.get_handle(step.node_id));
+                len += step.sequence.size() > node_length ? step.sequence.size() - node_length : 0;
             }
         }
         lengths.push_back(len);
@@ -2042,6 +2051,367 @@ vector<vector<size_t>> GraphAlignedAlleleLikelihoodCalculator::SiteAlleles::uniq
         }
     }
     return lengths;
+}
+
+/// The two boundary nodes of a snarl, as its alleles read them.
+struct GraphAlignedAlleleLikelihoodCalculator::SnarlBounds {
+    /// The nodes of the two bounds, and the way the alleles read them.
+    nid_t start = 0;
+    bool start_backward = false;
+    nid_t end = 0;
+    bool end_backward = false;
+
+    /// Set the bounds to those of the snarl `site`.
+    void set(const HandleGraph& graph, const MaterializedSite& site);
+
+    /// Return whether a read with the visits `read_steps` spans the snarl: it enters on the
+    /// start bound's node, leaves on the end bound's, visits neither in between, and its
+    /// visits are consecutive in the read.
+    bool spanned_by(const vector<ReadStep>& read_steps) const;
+
+    /**
+     * Return where the bases that a read spanning the snarl has between the bounds begin and
+     * end in the read.
+     *
+     * They are the bases after the read's last base on the start bound's node and before its
+     * first base on the end bound's, with any bases the read inserts after the one or before
+     * the other.
+     *
+     * @param on_insertion Called with the number of bases of each such insertion.
+     */
+    template<typename OnInsertion>
+    static pair<size_t, size_t> bases_between(const ReadStep& first, const ReadStep& last,
+                                              OnInsertion&& on_insertion);
+
+    /// Return the length of the longest gap a read has inside the node of its visit `step`: a
+    /// run of bases it inserts between two bases of the node, or a run of the node's bases it
+    /// lacks. The bases it inserts before the node's first base or after its last are not
+    /// inside the node.
+    static size_t longest_gap(const ReadStep& step);
+
+    /// Return the longest gap that a read with the path `path` has on one side of its mapping
+    /// `at`, a visit to a bound: in the bases that mapping inserts on that side, and in its
+    /// mappings to the nodes that every walk takes from the bound on that side and that are no
+    /// bound themselves, for up to `reach` node bases. It is 0 where another site starts at the
+    /// bound. The side is before the mapping if `back` and after it otherwise.
+    static size_t gap_beyond(const HandleGraph& graph, const Path& path, int64_t at, bool back,
+                             size_t reach);
+};
+
+void GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::set(const HandleGraph& graph,
+                                                             const MaterializedSite& site) {
+    start = graph.get_id(site.start);
+    start_backward = graph.get_is_reverse(site.start);
+    end = graph.get_id(site.end);
+    end_backward = graph.get_is_reverse(site.end);
+}
+
+size_t GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::longest_gap(const ReadStep& step) {
+    const Mapping& mapping = *step.mapping;
+    auto inserts = [&](int64_t i) {
+        return mapping.edit(i).from_length() == 0 && mapping.edit(i).to_length() > 0;
+    };
+    int64_t from = 0;
+    int64_t to = mapping.edit_size();
+    while (from < to && inserts(from)) {
+        ++from;
+    }
+    while (to > from && inserts(to - 1)) {
+        --to;
+    }
+    size_t longest = 0;
+    for (int64_t i = from; i < to; ++i) {
+        const Edit& edit = mapping.edit(i);
+        if (edit.from_length() != edit.to_length()) {
+            longest = std::max(longest, (size_t)std::max(edit.from_length(), edit.to_length()));
+        }
+    }
+    return longest;
+}
+
+size_t GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::gap_beyond(
+    const HandleGraph& graph, const Path& path, int64_t at, bool back, size_t reach) {
+    auto node_of = [&](int64_t i) {
+        const Position& position = path.mapping((int)i).position();
+        return graph.get_handle(position.node_id(), position.is_reverse());
+    };
+    // Every walk takes a node from the bound where it is the only node on that side of the
+    // one before it, has only that one before it, and only one node after it.
+    if (graph.get_degree(node_of(at), back) != 1) {
+        return 0;
+    }
+    size_t longest = 0;
+    const Mapping& bound = path.mapping((int)at);
+    const int64_t step = back ? -1 : 1;
+    for (int64_t e = back ? 0 : bound.edit_size() - 1;
+         e >= 0 && e < bound.edit_size() && bound.edit((int)e).from_length() == 0; e -= step) {
+        longest = std::max(longest, (size_t)bound.edit((int)e).to_length());
+    }
+    size_t bases = 0;
+    for (int64_t i = at + step; i >= 0 && i < path.mapping_size() && bases < reach; i += step) {
+        if (graph.get_degree(node_of(i), !back) != 1 || graph.get_degree(node_of(i), back) != 1) {
+            break;
+        }
+        for (const Edit& edit : path.mapping((int)i).edit()) {
+            if (edit.from_length() != edit.to_length()) {
+                longest = std::max(longest,
+                                   (size_t)std::max(edit.from_length(), edit.to_length()));
+            }
+            bases += (size_t)edit.from_length();
+        }
+    }
+    return longest;
+}
+
+template<typename OnInsertion>
+pair<size_t, size_t> GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::bases_between(
+    const ReadStep& first, const ReadStep& last, OnInsertion&& on_insertion) {
+    auto inserted = [&](const Edit& edit) -> size_t {
+        if (edit.from_length() != 0 || edit.to_length() <= 0) {
+            return 0;
+        }
+        on_insertion((size_t)edit.to_length());
+        return (size_t)edit.to_length();
+    };
+    size_t from = first.read_offset + first.read_length;
+    for (int64_t i = first.mapping->edit_size() - 1; i >= 0; --i) {
+        const size_t moved = inserted(first.mapping->edit(i));
+        if (moved == 0) {
+            break;
+        }
+        from -= moved;
+    }
+    size_t to = last.read_offset;
+    for (int64_t i = 0; i < last.mapping->edit_size(); ++i) {
+        const size_t moved = inserted(last.mapping->edit(i));
+        if (moved == 0) {
+            break;
+        }
+        to += moved;
+    }
+    return make_pair(from, to);
+}
+
+/// The nats below a read's best score at which the read's entry for an allele is taken as 0.
+/// The entry, e^(score - best), is then below 2^-150, which is 0 as a float, as read phasing
+/// keeps it (`PhaseReadEvidence::rel` in read_phasing.hpp, and `AnchorSiteEvidence::rel` in
+/// anchor.hpp), and far below what the chance that the read is mismapped adds to it.
+static constexpr double SEQUENCE_ALLELE_MARGIN = 104.0;
+static_assert(std::is_same_v<decltype(PhaseReadEvidence::rel)::value_type, float>
+                  && std::is_same_v<decltype(AnchorSiteEvidence::rel)::value_type, float>,
+              "SEQUENCE_ALLELE_MARGIN assumes read phasing keeps an entry as a float");
+static_assert(SEQUENCE_ALLELE_MARGIN
+                  >= -(numeric_limits<float>::min_exponent - numeric_limits<float>::digits - 1)
+                         * 0.6931471805599453,
+              "e^-SEQUENCE_ALLELE_MARGIN must round to 0 as a float");
+
+/// Return the costs that make the string aligner find the alignment of a read's bases to a
+/// sequence that `scorer` scores highest (see `score_spanned`).
+static StringAlignerParams sequence_aligner(const EditAlignmentScorer& scorer) {
+    StringAlignerParams aligner;
+    aligner.mismatch = 2 * ((int32_t)scorer.match + (int32_t)scorer.mismatch);
+    aligner.gap_open = 2 * std::max(0, (int32_t)scorer.gap_open - (int32_t)scorer.gap_extension);
+    aligner.gap_extend = 2 * (int32_t)scorer.gap_extension + (int32_t)scorer.match;
+    aligner.long_gaps = false;
+    aligner.wavefront = true;
+    return aligner;
+}
+
+/**
+ * The bases of each allele between the bounds of a snarl that has a sequence allele, whose
+ * reads are scored by alignment.
+ *
+ * A sequence allele is an allele of a snarl with changes to the sequences of its walk (see
+ * `add_sequence_allele`). Its walk does not spell it, so the nodes a read visits do not say how
+ * well the read fits it. The table is empty for any other site.
+ */
+struct GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles : SnarlBounds {
+    /// Whether each allele is a sequence allele. Empty when the site has none and was given no
+    /// read's bases.
+    vector<bool> is_sequence;
+    /// Whether the site has a sequence allele.
+    bool has_sequence = false;
+    /// Whether the reads that span the snarl are scored by alignment. Where the site has a
+    /// sequence allele and this is false, no read can be placed on a sequence allele.
+    bool aligned = false;
+    /// The bases of each allele between the bounds, where `aligned`.
+    vector<string> interiors;
+    SequenceAlleles(const HandleGraph& graph, const MaterializedSite& site,
+                    const EditAlignmentScorer& scorer);
+
+    /// Return whether the site has a sequence allele.
+    bool any() const { return has_sequence; }
+
+    /// Set the entries of the sequence alleles in the row of a read that was not aligned: the
+    /// greatest entry of the other alleles where spanning reads are aligned, so that the read
+    /// says nothing about the sequence alleles, and -inf where they are not.
+    void fill_unaligned(vector<double>& row) const;
+};
+
+GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::SequenceAlleles(
+    const HandleGraph& graph, const MaterializedSite& site, const EditAlignmentScorer& scorer) {
+    const CandidateAlleles& alleles = site.alleles;
+    bool found = false;
+    for (size_t a = 0; a < alleles.walks.size(); ++a) {
+        found = found || !alleles.spelled_by_walk(a);
+    }
+    if (!found || site.bounds_inside_nodes(graph)) {
+        return;
+    }
+    has_sequence = found;
+    for (size_t a = 0; a < alleles.walks.size(); ++a) {
+        is_sequence.push_back(!alleles.spelled_by_walk(a));
+    }
+    set(graph, site);
+    if (start == end) {
+        return;
+    }
+    const size_t before = graph.get_length(site.start);
+    const size_t after = graph.get_length(site.end);
+    for (size_t a = 0; a < alleles.walks.size(); ++a) {
+        const Traversal& walk = alleles.walks[a];
+        const string spelled = alleles.sequence(graph, a);
+        if (walk.size() < 2 || walk.front() != site.start || walk.back() != site.end
+            || spelled.size() < before + after) {
+            interiors.clear();
+            return;
+        }
+        interiors.push_back(spelled.substr(before, spelled.size() - before - after));
+    }
+    aligned = true;
+}
+
+bool GraphAlignedAlleleLikelihoodCalculator::SnarlBounds::spanned_by(
+    const vector<ReadStep>& read_steps) const {
+    if (read_steps.size() < 2 || read_steps.front().node_id != start
+        || read_steps.front().backward != start_backward || read_steps.back().node_id != end
+        || read_steps.back().backward != end_backward) {
+        return false;
+    }
+    for (size_t i = 1; i < read_steps.size(); ++i) {
+        const ReadStep& step = read_steps[i];
+        if (step.read_offset != read_steps[i - 1].read_offset + read_steps[i - 1].read_length) {
+            return false;
+        }
+        if (i + 1 < read_steps.size() && (step.node_id == start || step.node_id == end)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void GraphAlignedAlleleLikelihoodCalculator::SequenceAlleles::fill_unaligned(
+    vector<double>& row) const {
+    double fill = -numeric_limits<double>::infinity();
+    if (aligned) {
+        for (size_t a = 0; a < row.size(); ++a) {
+            if (!is_sequence[a]) {
+                fill = std::max(fill, row[a]);
+            }
+        }
+    }
+    for (size_t a = 0; a < row.size(); ++a) {
+        if (is_sequence[a]) {
+            row[a] = fill;
+        }
+    }
+}
+
+optional<GraphAlignedAlleleLikelihoodCalculator::SpannedBases>
+GraphAlignedAlleleLikelihoodCalculator::spanned_bases(
+    const Alignment& aln, const vector<ReadStep>& read_steps,
+    const EditAlignmentScorer& read_scorer) const {
+    const ReadStep& first = read_steps.front();
+    const ReadStep& last = read_steps.back();
+    double nats = 0.0;
+    int32_t score = score_shared_node(aln, first, read_scorer, nats)
+                    + score_shared_node(aln, last, read_scorer, nats);
+    // The bases the read inserts after the last base of the start bound's node, or before the
+    // first base of the end bound's, lie between the bounds. Take back what they were charged
+    // as gaps on the boundary nodes.
+    const auto [from, to] = SnarlBounds::bases_between(first, last, [&](size_t bases) {
+        score -= read_scorer.score_gap(bases);
+        nats -= params.insertion_gap_nats;
+    });
+    if (to < from || to > aln.sequence().size()
+        || to - from > params.sequence_allele_max_bases) {
+        return std::nullopt;
+    }
+    SpannedBases spanned{aln.sequence().substr(from, to - from),
+                         read_scorer.get_log_base() * (double)score + nats};
+    for (char& b : spanned.bases) {
+        b = (char)toupper(b);
+    }
+    return spanned;
+}
+
+bool GraphAlignedAlleleLikelihoodCalculator::score_spanned(const SpannedBases& spanned,
+                                                           const SequenceAlleles& sequences,
+                                                           vector<double>& row) const {
+    // The alleles in order of how near their length is to the read's, which the read is
+    // likeliest to fit best. Each after the first is aligned only as far as it can score within
+    // `SEQUENCE_ALLELE_MARGIN` nats of the best so far: below that, its entry of the matrix,
+    // e^(score - best), is 0 as a float, and it is stored as 0.
+    vector<size_t> order(row.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::ranges::stable_sort(order, {}, [&](size_t a) {
+        const size_t length = sequences.interiors[a].size();
+        return length > spanned.bases.size() ? length - spanned.bases.size()
+                                             : spanned.bases.size() - length;
+    });
+    vector<double> aligned(row.size());
+    double best = -numeric_limits<double>::infinity();
+    for (const size_t a : order) {
+        const optional<double> interior = sequence_nats(
+            spanned.bases, sequences.interiors[a],
+            std::isfinite(best) ? optional<double>(best - SEQUENCE_ALLELE_MARGIN - spanned.boundary)
+                                : std::nullopt);
+        if (!interior) {
+            return false;
+        }
+        aligned[a] = spanned.boundary + *interior;
+        best = std::max(best, aligned[a]);
+    }
+    row = std::move(aligned);
+    return true;
+}
+
+optional<double> GraphAlignedAlleleLikelihoodCalculator::sequence_nats(
+    const string& bases, const string& sequence, optional<double> at_least) const {
+    StringAlignerParams aligner = sequence_aligner(plain_scorer);
+    // Each unit of cost takes this much from the score at least: an insertion gap gives back
+    // `insertion_gap_nats`, and costs what a gap of one base does or more.
+    const double per_cost = 0.5 * plain_scorer.get_log_base()
+                            - std::max(params.insertion_gap_nats, 0.0)
+                                  / (double)aligner.gap_cost(1);
+    if (at_least && per_cost > 0.0) {
+        const double matched = 0.5 * plain_scorer.get_log_base() * (double)plain_scorer.match
+                               * (double)(sequence.size() + bases.size());
+        aligner.max_cost = (int64_t)std::ceil(std::max(matched - *at_least, 0.0) / per_cost);
+        // Every alignment has a gap of the bases one of the two has more than the other.
+        const size_t apart = bases.size() > sequence.size() ? bases.size() - sequence.size()
+                                                            : sequence.size() - bases.size();
+        if (aligner.gap_cost(apart) > aligner.max_cost) {
+            return -numeric_limits<double>::infinity();
+        }
+    }
+    // The cost of the alignment, and its gaps of read bases: runs of bases the read has and
+    // the sequence lacks.
+    optional<StringAlignment> alignment = align_global(sequence, bases, aligner);
+    if (!alignment) {
+        return aligner.max_cost < 0 ? std::nullopt
+                                    : optional<double>(-numeric_limits<double>::infinity());
+    }
+    // The gaps are counted with each as far left as it goes, where gaps that touch are one, so
+    // that the count is the same whichever alignment of the least cost was found.
+    left_align_gaps(sequence, bases, alignment->runs);
+    const int64_t cost = alignment->cost;
+    const size_t gaps = (size_t)std::ranges::count(alignment->runs, AlignmentOp::Insertion,
+                                                   &AlignmentRun::op);
+    const double interior = 0.5 * ((double)plain_scorer.match
+                                       * (double)(sequence.size() + bases.size())
+                                   - (double)cost);
+    return plain_scorer.get_log_base() * interior + params.insertion_gap_nats * (double)gaps;
 }
 
 const Alignment* GraphAlignedAlleleLikelihoodCalculator::orient_read(
@@ -2237,6 +2607,121 @@ double GraphAlignedAlleleLikelihoodCalculator::mismap_probability(const Alignmen
                                   : params.min_mismap_prob;
 }
 
+namespace {
+
+/// The first fetch this thread holds, while it holds one (see
+/// `AlleleLikelihoodCalculator::hold_first_fetch`).
+thread_local optional<FirstFetchHold> first_fetch_hold;
+
+}
+
+void FirstFetchHold::visit(const vector<pair<nid_t, nid_t>>& ranges, const Fetch& fetch,
+                           const function<void(const SiteRead&)>& iteratee) {
+    const vector<pair<nid_t, nid_t>> merged = WindowedSiteReadSource::merge_ranges(ranges);
+    if (!filled) {
+        filled = true;
+        held_ranges = merged;
+        dropped = fetch(ranges, [&](const SiteRead& read) { reads.push_back(*read.aln); });
+    }
+    // Whether every range of `merged` lies in one of the held ranges.
+    const bool within = std::ranges::all_of(merged, [&](const pair<nid_t, nid_t>& range) {
+        auto holder = std::ranges::upper_bound(held_ranges, range.first, {},
+                                               &pair<nid_t, nid_t>::first);
+        return holder != held_ranges.begin() && std::prev(holder)->second >= range.second;
+    });
+    if (!within || dropped) {
+        fetch(ranges, iteratee);
+        return;
+    }
+    for (const Alignment& aln : reads) {
+        if (WindowedSiteReadSource::touches(aln, merged)) {
+            SiteRead read;
+            read.aln = &aln;
+            iteratee(read);
+        }
+    }
+}
+
+void GraphAlignedAlleleLikelihoodCalculator::hold_first_fetch(bool on) const {
+    first_fetch_hold.reset();
+    if (on) {
+        first_fetch_hold.emplace();
+    }
+}
+
+void GraphAlignedAlleleLikelihoodCalculator::visit_reads(
+    const vector<pair<nid_t, nid_t>>& ranges,
+    const function<void(const SiteRead&)>& iteratee) const {
+    if (first_fetch_hold) {
+        if (counted_fetches) {
+            throw std::logic_error("a first fetch is held only while fetches count nothing");
+        }
+        first_fetch_hold->visit(ranges,
+                                [&](const vector<pair<nid_t, nid_t>>& wanted,
+                                    const function<void(const SiteRead&)>& visit) {
+                                    return read_source.for_each_read_uncounted(wanted, visit);
+                                },
+                                iteratee);
+    } else if (counted_fetches) {
+        read_source.for_each_read(ranges, iteratee);
+    } else {
+        read_source.for_each_read_uncounted(ranges, iteratee);
+    }
+}
+
+vector<AlleleLikelihoodCalculator::SpanningRead>
+GraphAlignedAlleleLikelihoodCalculator::spanning_reads(const MaterializedSite& site) const {
+    vector<SpanningRead> spanning;
+    const vector<Traversal>& traversals = site.alleles.walks;
+    if (traversals.empty() || site.bounds_inside_nodes(graph)
+        || graph.get_id(site.start) == graph.get_id(site.end)) {
+        return spanning;
+    }
+    unordered_set<nid_t> site_nodes;
+    unordered_set<nid_t> boundary_nodes;
+    collect_site_nodes(graph, site, site_nodes, boundary_nodes);
+    // The walks say which way the alleles read each node, which is the way a read is turned.
+    SiteAlleles alleles;
+    alleles.steps.reserve(traversals.size());
+    for (const Traversal& walk : traversals) {
+        alleles.steps.push_back(get_allele_steps(walk));
+    }
+    alleles.index(!params.optimal_pairing);
+    SnarlBounds bounds;
+    bounds.set(graph, site);
+
+    vector<ReadStep> read_steps;
+    read_source.for_each_read_uncounted(id_ranges(site_nodes), [&](const SiteRead& read) {
+        Alignment flipped;
+        const Alignment* aln = orient_read(read, site_nodes, boundary_nodes, alleles, read_steps,
+                                           flipped);
+        if (aln == nullptr || !bounds.spanned_by(read_steps)) {
+            return;
+        }
+        const auto [from, to] = SnarlBounds::bases_between(
+            read_steps.front(), read_steps.back(), [](size_t /*bases*/) {
+                // Only the range is wanted.
+            });
+        if (from > to || to > aln->sequence().size()) {
+            return;
+        }
+        SpanningRead found;
+        found.name = read.aln->name();
+        found.length = to - from;
+        if (found.length <= params.sequence_allele_max_bases) {
+            found.bases = aln->sequence().substr(from, found.length);
+            for (char& b : found.bases) {
+                b = (char)toupper(b);
+            }
+        }
+        spanning.push_back(std::move(found));
+    });
+    std::ranges::sort(spanning, [](const SpanningRead& a, const SpanningRead& b) {
+        return std::tie(a.name, a.length, a.bases) < std::tie(b.name, b.length, b.bases);
+    });
+    return spanning;
+}
+
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     const MaterializedSite& site, const vector<nid_t>& fallback_nodes, int region_ploidy) {
     const vector<Traversal>& traversals = site.alleles.walks;
@@ -2265,13 +2750,30 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     }
     alleles.index(!params.optimal_pairing);
 
+    vector<ReadStep> read_steps;
+    SequenceAlleles sequences(graph, site, plain_scorer);
+    if (sequences.aligned) {
+        // Count the alignments the reads that span the snarl need, and do not offer the
+        // sequence alleles if they are too many.
+        size_t spanning = 0;
+        visit_reads(ranges, [&](const SiteRead& read) {
+            Alignment flipped;
+            if (orient_read(read, site_nodes, boundary_nodes, alleles, read_steps, flipped)
+                    != nullptr
+                && sequences.spanned_by(read_steps)) {
+                ++spanning;
+            }
+        });
+        sequences.aligned = spanning * traversals.size() <= params.sequence_allele_max_alignments;
+    }
+
     if (params.length_weighted_mixture) {
         builder.set_allele_lengths(alleles.spelled_lengths());
         builder.set_unique_lengths(alleles.unique_lengths());
     }
     // These lengths ask how much sequence yields reads, while the unique lengths of the mixture
     // weights ask which sequence tells the alleles apart.
-    const vector<size_t> depth_lengths = alleles.interior_lengths(boundary_nodes);
+    const vector<size_t> depth_lengths = alleles.interior_lengths(graph, boundary_nodes);
     const SitePins pins(graph, site, changes);
 
     // Collect the anchor evidence, if anchors are being written, with the reads in the order
@@ -2297,11 +2799,59 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     AnchorCounters& anchor_pin_counters =
         params.anchor_counters != nullptr ? *params.anchor_counters : unowned_counters;
 
-    vector<ReadStep> read_steps;
     ReadScratch read_scratch;
     vector<double> row(traversals.size());
 
-    read_source.for_each_read(ranges, [&](const SiteRead& read) {
+    // The reads that span the snarl, and the nats they lose under their best alleles, if a
+    // summary of them is kept.
+    uint32_t spanning_reads = 0;
+    double loss_nats = 0.0;
+    // What the read at hand has between the bounds, if it spans the snarl: where its bases
+    // there begin and end, and what its score on the two bound nodes charges for the bases it
+    // inserts between the bounds.
+    bool spans = false;
+    size_t span_from = 0;
+    size_t span_to = 0;
+    int32_t edge_score = 0;
+    double edge_nats = 0.0;
+    // The longest gap each of those reads has inside the node of each bound.
+    vector<uint32_t> start_gaps;
+    vector<uint32_t> end_gaps;
+    SnarlBounds bounds;
+    const bool summarise_spans = params.span_rank > 0 && !boundary_nodes.empty()
+                                 && graph.get_id(site.start) != graph.get_id(site.end);
+    if (summarise_spans) {
+        bounds.set(graph, site);
+    }
+
+    // Add a read's row, unless it places the read on no allele, and its evidence.
+    auto add_row = [&](const vector<double>& scored, double mismap, const string& name,
+                       size_t length, const Position* start) {
+        if (!builder.add_read(scored, mismap, name, length, start)) {
+            return false;
+        }
+        if (phase_evidence != nullptr) {
+            // Keep only the hash of the name, because the names make the anchor evidence too
+            // heavy to keep for phasing.
+            phase_evidence->read_key.push_back((uint64_t)std::hash<string>{}(name));
+        }
+        return true;
+    };
+    // Where the sequence alleles are aligned to, a read's alignments to them are made once the
+    // reads are fetched, so that other threads can make them, and its row is added then, in
+    // the order of the reads. Not where anchors are written, which need the read itself.
+    struct Pending {
+        vector<double> row;
+        double mismap;
+        string name;
+        size_t length;
+        optional<Position> start;
+        optional<SpannedBases> spanned;
+    };
+    const bool defer = sequences.aligned && anchor_evidence == nullptr;
+    vector<Pending> pending;
+
+    visit_reads(ranges, [&](const SiteRead& read) {
         Alignment flipped;
         const Alignment* scored_aln = orient_read(read, site_nodes, boundary_nodes, alleles,
                                                   read_steps, flipped);
@@ -2311,24 +2861,85 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         // Score a read with no base qualities with the scorer that does not need them.
         const EditAlignmentScorer& read_scorer =
             scored_aln->quality().empty() ? plain_scorer : qual_scorer;
+        spans = false;
+        if (summarise_spans && bounds.spanned_by(read_steps)) {
+            edge_score = 0;
+            edge_nats = 0.0;
+            const auto [from, to] = SnarlBounds::bases_between(
+                read_steps.front(), read_steps.back(), [&](size_t bases) {
+                    edge_score += read_scorer.score_gap(bases);
+                    edge_nats += params.insertion_gap_nats;
+                });
+            if (from <= to && to <= scored_aln->sequence().size()) {
+                spans = true;
+                span_from = from;
+                span_to = to;
+                ++spanning_reads;
+                size_t start_gap = SnarlBounds::longest_gap(read_steps.front());
+                size_t end_gap = SnarlBounds::longest_gap(read_steps.back());
+                // The read's visits to the site are mappings of its path that follow each
+                // other. Its gaps in the nodes before the first and after the last count too.
+                const Path& path = scored_aln->path();
+                int64_t first = 0;
+                while (first < path.mapping_size()
+                       && &path.mapping((int)first) != read_steps.front().mapping) {
+                    ++first;
+                }
+                const int64_t last = first + (int64_t)read_steps.size() - 1;
+                if (params.span_gap_reach > 0 && last < path.mapping_size()
+                    && &path.mapping((int)last) == read_steps.back().mapping) {
+                    start_gap = std::max(start_gap,
+                                         SnarlBounds::gap_beyond(graph, path, first, true,
+                                                                 params.span_gap_reach));
+                    end_gap = std::max(end_gap,
+                                       SnarlBounds::gap_beyond(graph, path, last, false,
+                                                               params.span_gap_reach));
+                }
+                start_gaps.push_back((uint32_t)start_gap);
+                end_gaps.push_back((uint32_t)end_gap);
+            }
+        }
         score_row(*scored_aln, read_steps, read_scorer, alleles, read_scratch, row);
         if (changes.changes_reads()) {
             changes.adjust_row(read_steps, scored_aln->sequence(), read_scorer, plain_scorer,
                                params.insertion_gap_nats, row);
         }
-
+        if (spans && params.span_loss_cap > 0.0) {
+            // The read loses what its best allele's score between the bounds is below the score
+            // of a read that an allele spells base for base there, up to the cap.
+            // Its score between the bounds is its score less that on the two bound nodes.
+            double bound_nats = 0.0;
+            const int32_t bound_score =
+                score_shared_node(*scored_aln, read_steps.front(), read_scorer, bound_nats)
+                + score_shared_node(*scored_aln, read_steps.back(), read_scorer, bound_nats)
+                - edge_score;
+            const double log_base = read_scorer.get_log_base();
+            const double fit = *std::ranges::max_element(row)
+                               - (log_base * (double)bound_score + bound_nats - edge_nats);
+            const double spelled = log_base * (double)read_scorer.score_exact_match(
+                                                  *scored_aln, span_from, span_to - span_from);
+            loss_nats += std::min(params.span_loss_cap, std::max(0.0, spelled - fit));
+        }
+        optional<SpannedBases> spanned;
+        if (sequences.aligned && sequences.spanned_by(read_steps)) {
+            spanned = spanned_bases(*scored_aln, read_steps, read_scorer);
+        }
         const Alignment& aln = *read.aln;
         const double mismap = mismap_probability(aln);
         const Position* start =
             aln.path().mapping_size() > 0 ? &aln.path().mapping(0).position() : nullptr;
-        if (!builder.add_read(row, mismap, aln.name(), aln.sequence().size(), start)) {
+        if (defer) {
+            pending.push_back(Pending{row, mismap, aln.name(), aln.sequence().size(),
+                                      start != nullptr ? optional<Position>(*start)
+                                                       : std::nullopt,
+                                      std::move(spanned)});
             return;
         }
-
-        if (phase_evidence != nullptr) {
-            // Keep only the hash of the name, because the names make the anchor evidence too
-            // heavy to keep for phasing.
-            phase_evidence->read_key.push_back((uint64_t)std::hash<string>{}(aln.name()));
+        if (sequences.any() && !(spanned && score_spanned(*spanned, sequences, row))) {
+            sequences.fill_unaligned(row);
+        }
+        if (!add_row(row, mismap, aln.name(), aln.sequence().size(), start)) {
+            return;
         }
         if (anchor_evidence != nullptr) {
             // Resolve the pins against the read's own alignment, whose offsets are in the read
@@ -2338,7 +2949,49 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         }
     });
 
+    // Align the pending reads, as tasks of the threads that are free, and add their rows.
+    auto score_pending = [&](size_t i) {
+        Pending& read = pending[i];
+        if (!(read.spanned && score_spanned(*read.spanned, sequences, read.row))) {
+            sequences.fill_unaligned(read.row);
+        }
+    };
+    auto spawn = [&]() {
+        for (size_t i = 0; i < pending.size(); ++i) {
+#pragma omp task firstprivate(i)
+            score_pending(i);
+        }
+    };
+    // Inside a parallel region, the threads of its team take the tasks; outside one, a team is
+    // made for them.
+    if (omp_in_parallel()) {
+#pragma omp taskgroup
+        spawn();
+    } else if (!pending.empty()) {
+#pragma omp parallel
+#pragma omp single
+        spawn();
+    }
+    for (const Pending& read : pending) {
+        add_row(read.row, read.mismap, read.name, read.length,
+                read.start ? &*read.start : nullptr);
+    }
+
     AlleleReadLikelihoods result = builder.build();
+    if (summarise_spans) {
+        AlleleReadLikelihoods::SpanSummary summary;
+        summary.reads = spanning_reads;
+        summary.loss = loss_nats;
+        if (start_gaps.size() >= params.span_rank) {
+            std::ranges::nth_element(start_gaps, start_gaps.begin() + (params.span_rank - 1),
+                                     std::greater<>());
+            summary.start_gap = start_gaps[params.span_rank - 1];
+            std::ranges::nth_element(end_gaps, end_gaps.begin() + (params.span_rank - 1),
+                                     std::greater<>());
+            summary.end_gap = end_gaps[params.span_rank - 1];
+        }
+        result.set_span_summary(summary);
+    }
 
     // Set R, the mean read length, for the depth term's lambda, the mixture weights and the anchor
     // slot weights. The builder's R is the mean over this site's reads, which over-represents long

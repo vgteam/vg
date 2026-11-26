@@ -130,6 +130,10 @@ public:
         /// A read that fits several alleles equally well splits its count between them.
         vector<double> allele_support;
 
+        /// What the reads that span the site have between its bounds, which is empty unless the
+        /// calculator kept it (see `AlleleLikelihoodParams::span_rank`).
+        AlleleReadLikelihoods::SpanSummary spans;
+
         /// The mean over reads of the best log-likelihood score any allele gave them, in nats.
         /// Written as BL.
         ///
@@ -192,6 +196,9 @@ public:
     pair<vector<int>, unique_ptr<ReadLikelihoodCallInfo>> genotype_at(
         const MaterializedSite& site, const Ploidies& ploidies,
         const vector<nid_t>& fallback_nodes, const vector<int>* group_of = nullptr);
+
+    /// Get the calculator that makes the matrix of each site.
+    AlleleLikelihoodCalculator& calculator() const { return likelihood_calculator; }
 
     /**
      * Write the record's fields from the scores in `call_info`: DP, BL, DR, AD, GL and the rest.

@@ -1,4 +1,5 @@
 #include <atomic>
+#include <cstdlib>
 #include <fstream>
 #include <limits>
 
@@ -37,7 +38,8 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
 }
 
 void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
-                           const function<void()>& after_direct_pass) {
+                           const function<void()>& release_reads_now) {
+    release_reads = release_reads_now;
     // Sized here rather than inside the parallel region that writes it.
     staged_sites.start(max((size_t)get_thread_count(), (size_t)omp_get_max_threads()));
     if (off_panel.is_enabled()) {
@@ -107,7 +109,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
         fill_anchors.place(sites);
         fill_anchors.resolve_reads(*read_source);
     }
-    after_direct_pass();
+    release_reads();
 
     // Round 1's linkage pass, then read phasing and any further rounds, then the render.
     run_linkage_pass();
@@ -202,6 +204,18 @@ int MultiPassCaller::StagedSiteEmitter::write_blocks(const PathPositionHandleGra
                                                      const CalledSite& site,
                                                      const SiteRecord& record) {
     const StagedSite& staged = caller.rendered_site(site);
+    if (staged.flat) {
+        // The flat records stand in for the site's record or blocks.
+        caller.block_records.write_flat(
+            graph, *staged.flat, output.sample_name(), output.translation(), record, gl_layout,
+            [this](vcflib::Variant& line, size_t block) {
+                caller.finish_moved_record(line);
+                return output.add_variant(line, block);
+            });
+    }
+    // A site whose lines are kept out is still cut into blocks, so that it is reported as it is
+    // without flat records.
+    const bool withheld = caller.withholds_lines(staged);
     // The blocks spell the alleles the site record spells: the spliced ones, if the site has
     // them, or else its own, by their step sequences where they have them.
     AlleleSequences own_steps;
@@ -212,11 +226,15 @@ int MultiPassCaller::StagedSiteEmitter::write_blocks(const PathPositionHandleGra
         graph, staged.children, staged.spliced ? staged.spliced->travs : staged.alleles.walks,
         site.genotype, site.ref_trav_idx, output.sample_name(), output.translation(), record,
         gl_layout, genotype_snarls,
-        [this](vcflib::Variant& line, size_t block) {
+        [this, withheld](vcflib::Variant& line, size_t block) {
             caller.finish_moved_record(line);
-            return output.add_variant(line, block);
+            return withheld || output.add_variant(line, block);
         },
-        staged.spliced ? &staged.spliced->sequences : &own_steps);
+        staged.spliced ? &staged.spliced->sequences : &own_steps, !staged.spliced);
+}
+
+bool MultiPassCaller::StagedSiteEmitter::withholds_record(const CalledSite& site) {
+    return caller.withholds_lines(caller.rendered_site(site));
 }
 
 void MultiPassCaller::StagedSiteEmitter::finish_record(const CalledSite&, vcflib::Variant& record) {
@@ -251,6 +269,415 @@ const StagedSite& MultiPassCaller::rendered_site(const CalledSite& site) const {
     return *rendered_sites.at(record_key_of(*site.id));
 }
 
+void MultiPassCaller::set_flatten_records(bool on) {
+    flatten_records = on;
+    block_records.set_flat_check(on && getenv("VG_CHECK_FLAT_RECORDS") != nullptr);
+}
+
+bool MultiPassCaller::can_flatten(const StagedSite& site) const {
+    // The strands are those of the site's phase, which must carry the chosen genotype.
+    const vector<int> genotype = linker.chosen_genotype(site);
+    const LinkageCollector::PhaseCall* phase = phase_table.rendered(site.record_key);
+    if (genotype.empty() || phase == nullptr) {
+        block_records.count_flat_refusal(genotype.empty() ? FlatRefusal::NoGenotype
+                                                          : FlatRefusal::NoPhase);
+        return false;
+    }
+    vector<int> carried;
+    if (phase->ploidy == genotype.size()) {
+        for (int strand = 0; strand < (int)genotype.size(); ++strand) {
+            const optional<int> trav = splicer.strand_traversal(site, strand);
+            if (!trav) {
+                break;
+            }
+            carried.push_back(*trav);
+        }
+    }
+    vector<int> chosen = genotype;
+    std::ranges::sort(chosen);
+    std::ranges::sort(carried);
+    if (carried != chosen) {
+        block_records.count_flat_refusal(FlatRefusal::PhaseDiffers);
+        return false;
+    }
+    // A record is placed by its offset from the first base of the site's reference allele, so
+    // the resolved reference must be that allele.
+    const optional<string> reference = splicer.reference_sequence(site);
+    if (!reference || *reference != site.alleles.sequence(graph, site.alleles.ref_allele)) {
+        block_records.count_flat_refusal(FlatRefusal::ReferenceDiffers);
+        return false;
+    }
+    return true;
+}
+
+bool MultiPassCaller::orders_strands(const LinkageCollector::PhaseCall& phase) const {
+    // Where neither the panel nor the reads order the pair, the record claims no phase. A site
+    // with sites staged under it keeps its phase, since its one-copy children's `a|.` GTs name
+    // its strands; so does a one-copy chain, whose GT shape says which strand it is on.
+    return !(phase.ploidy == 2 && phase.order_arbitrary
+             && !read_strands.read_ordered().count(phase.record_key)
+             && !splicer.has_children(phase.record_key));
+}
+
+vector<MultiPassCaller::FlatRunPlan> MultiPassCaller::flat_runs(
+    const vector<StagedSite*>& roots, const vector<char>& can) const {
+    const size_t none = std::numeric_limits<size_t>::max();
+    auto phase_of = [&](size_t i) { return phase_table.rendered(roots[i]->record_key); };
+    auto reference_walk = [&](size_t i) -> const Traversal& {
+        return roots[i]->alleles.walks[roots[i]->alleles.ref_allele];
+    };
+    auto bases_of = [&](const Traversal& walk) {
+        size_t bases = 0;
+        for (const handle_t& step : walk) {
+            bases += graph.get_length(step);
+        }
+        return bases;
+    };
+    // A site can share a run where its record claims the phase its strands are spelled by.
+    auto shares = [&](size_t i) {
+        return can[i] && (phase_of(i)->trav_first == phase_of(i)->trav_second
+                          || orders_strands(*phase_of(i)));
+    };
+    auto same_phase = [&](size_t a, size_t b) {
+        const LinkageCollector::PhaseCall& first = *phase_of(a);
+        const LinkageCollector::PhaseCall& second = *phase_of(b);
+        return first.contig == second.contig && first.phase_set == second.phase_set
+               && first.ploidy == second.ploidy;
+    };
+    // The reference path reads site `b` right after the nodes `nodes` that follow site `a`, so
+    // that an offset along the run is an offset along the path.
+    auto path_follows = [&](size_t a, size_t b, const vector<handle_t>& nodes) {
+        const ReferencePlacement& first = roots[a]->reference;
+        const ReferencePlacement& second = roots[b]->reference;
+        if (first.no_reference || second.no_reference || first.path_name != second.path_name
+            || first.offset != second.offset) {
+            return false;
+        }
+        const auto here = get_ref_interval(graph, sites.get_site_start(roots[a]->net),
+                                           sites.get_site_end(roots[a]->net), first.path_name);
+        const auto there = get_ref_interval(graph, sites.get_site_start(roots[b]->net),
+                                            sites.get_site_end(roots[b]->net), first.path_name);
+        return get<0>(here) >= 0 && get<0>(there) >= 0 && !get<2>(here) && !get<2>(there)
+               && get<0>(there) + (int64_t)graph.get_length(nodes.back())
+                      == get<0>(here) + (int64_t)bases_of(reference_walk(a))
+                             - (int64_t)graph.get_length(nodes.front())
+                             + (int64_t)bases_of(nodes);
+    };
+
+    unordered_map<handle_t, size_t> by_start;
+    unordered_map<nid_t, vector<size_t>> edits_on;
+    for (size_t i = 0; i < roots.size(); ++i) {
+        if (!sites.is_edit(roots[i]->net)) {
+            by_start[sites.get_site_start(roots[i]->net)] = i;
+            continue;
+        }
+        for (const handle_t& step : roots[i]->alleles.walks.front()) {
+            edits_on[graph.get_id(step)].push_back(i);
+        }
+    }
+    // The snarl after each snarl in its run, with the nodes and the edit sites between them.
+    vector<size_t> next(roots.size(), none);
+    vector<char> follows(roots.size(), 0);
+    vector<vector<handle_t>> nodes_after(roots.size());
+    vector<vector<size_t>> edits_after(roots.size());
+    for (size_t i = 0; i < roots.size(); ++i) {
+        if (sites.is_edit(roots[i]->net) || !shares(i)) {
+            continue;
+        }
+        vector<handle_t> nodes;
+        size_t bases = 0;
+        size_t found = none;
+        if (!walk_to_next_site(
+                graph, sites.get_site_end(roots[i]->net), flatten_distance,
+                [&](const handle_t& at) {
+                    const auto starting = by_start.find(at);
+                    if (starting == by_start.end() || starting->second == i) {
+                        return false;
+                    }
+                    found = starting->second;
+                    return true;
+                },
+                nodes, bases)
+            || !shares(found) || !same_phase(i, found) || follows[found]
+            || !path_follows(i, found, nodes)) {
+            continue;
+        }
+        // Every edit site in the nodes between the two has to be in the run, with all its nodes
+        // there, or its changes would lie where the run's records are.
+        unordered_set<nid_t> between;
+        for (const handle_t& node : nodes) {
+            between.insert(graph.get_id(node));
+        }
+        vector<size_t> edits;
+        bool all_in = true;
+        for (const handle_t& node : nodes) {
+            const auto on_node = edits_on.find(graph.get_id(node));
+            for (size_t e = 0; on_node != edits_on.end() && e < on_node->second.size(); ++e) {
+                const size_t edit = on_node->second[e];
+                all_in = all_in && can[edit] && shares(edit) && same_phase(i, edit)
+                         && std::ranges::all_of(roots[edit]->alleles.walks.front(),
+                                                [&](const handle_t& step) {
+                                                    return between.contains(graph.get_id(step));
+                                                });
+                if (std::ranges::find(edits, edit) == edits.end()) {
+                    edits.push_back(edit);
+                }
+            }
+        }
+        if (!all_in) {
+            continue;
+        }
+        next[i] = found;
+        follows[found] = 1;
+        nodes_after[i] = std::move(nodes);
+        edits_after[i] = std::move(edits);
+    }
+
+    vector<FlatRunPlan> runs;
+    vector<char> in_run(roots.size(), 0);
+    for (size_t i = 0; i < roots.size(); ++i) {
+        if (!can[i] || follows[i] || sites.is_edit(roots[i]->net)) {
+            continue;
+        }
+        FlatRunPlan run;
+        size_t bases = 0;
+        for (size_t at = i, before = none; at != none; before = at, at = next[at]) {
+            // The bases the site adds to the run's reference, after the node it starts at.
+            const size_t own = bases_of(reference_walk(at));
+            if (!run.sites.empty()) {
+                const size_t more = bases_of(nodes_after[before]) + own
+                                    - graph.get_length(nodes_after[before].front())
+                                    - graph.get_length(nodes_after[before].back());
+                if (bases + more > flat_run_max_bases) {
+                    // The site would make the run too long, so it starts the next run.
+                    runs.push_back(std::move(run));
+                    run = FlatRunPlan();
+                    bases = 0;
+                } else {
+                    run.junctions.push_back(nodes_after[before]);
+                    for (const size_t edit : edits_after[before]) {
+                        run.between.push_back(roots[edit]);
+                        in_run[edit] = 1;
+                    }
+                    bases += more;
+                }
+            }
+            if (run.sites.empty()) {
+                bases = own;
+            }
+            run.sites.push_back(roots[at]);
+        }
+        runs.push_back(std::move(run));
+    }
+    for (size_t i = 0; i < roots.size(); ++i) {
+        if (can[i] && !in_run[i] && sites.is_edit(roots[i]->net)) {
+            runs.push_back(FlatRunPlan{{roots[i]}, {}, {}});
+        }
+    }
+    return runs;
+}
+
+bool MultiPassCaller::align_flat_run(const FlatRunPlan& plan, FlatRefusal& refused) const {
+    // The walk the run's reference spells, and the offset in it of each site's first base.
+    Traversal along;
+    vector<size_t> origins;
+    size_t bases = 0;
+    auto append = [&](const Traversal& walk, size_t from) {
+        for (size_t k = from; k < walk.size(); ++k) {
+            along.push_back(walk[k]);
+            bases += graph.get_length(walk[k]);
+        }
+    };
+    for (size_t m = 0; m < plan.sites.size(); ++m) {
+        if (m > 0) {
+            append(plan.junctions[m - 1], 1);
+        }
+        const CandidateAlleles& alleles = plan.sites[m]->alleles;
+        // A site after the first starts at the last node so far.
+        origins.push_back(m > 0 ? bases - graph.get_length(along.back()) : 0);
+        append(alleles.walks[alleles.ref_allele], m > 0 ? 1 : 0);
+    }
+    string reference;
+    for (const handle_t& step : along) {
+        reference += graph.get_sequence(step);
+    }
+    vector<const StagedSite*> on_walk(plan.sites.begin(), plan.sites.end());
+    on_walk.insert(on_walk.end(), plan.between.begin(), plan.between.end());
+    const size_t ploidy = phase_table.rendered(plan.sites.front()->record_key)->ploidy;
+    vector<string> strands;
+    for (int strand = 0; strand < (int)ploidy; ++strand) {
+        optional<string> sequence = splicer.sequence_along(along, on_walk, strand, ploidy == 1);
+        if (!sequence) {
+            refused = FlatRefusal::Unspelled;
+            return false;
+        }
+        strands.push_back(std::move(*sequence));
+    }
+    // Guide each strand's alignment by the sites: the strand reaches the first and the last base
+    // between a site's bound nodes where the reference does, moved by what the strand's alleles
+    // at the sites before, at the edit sites between them, and at that site, add to or take from
+    // the reference's length.
+    vector<size_t> step_start(along.size(), 0);
+    for (size_t k = 1; k < along.size(); ++k) {
+        step_start[k] = step_start[k - 1] + graph.get_length(along[k - 1]);
+    }
+    // Return the change in length that the allele strand `strand` carries at `site` makes.
+    auto change = [&](const StagedSite& site, int strand) -> int64_t {
+        const int ref = site.alleles.ref_allele;
+        const optional<int> carried = splicer.strand_traversal(site, strand);
+        if (!carried || *carried < 0 || ref < 0) {
+            return 0;
+        }
+        return (int64_t)site.alleles.sequence(graph, *carried).size()
+               - (int64_t)site.alleles.sequence(graph, ref).size();
+    };
+    vector<vector<pair<size_t, size_t>>> guides(ploidy);
+    for (int strand = 0; strand < (int)ploidy; ++strand) {
+        vector<GuideSite> guide_sites;
+        for (size_t m = 0; m < plan.sites.size(); ++m) {
+            const StagedSite& site = *plan.sites[m];
+            const Traversal& walk = site.alleles.walks[site.alleles.ref_allele];
+            size_t length = 0;
+            for (const handle_t& step : walk) {
+                length += graph.get_length(step);
+            }
+            const optional<string> spelled = splicer.strand_sequence(site, strand);
+            guide_sites.push_back(GuideSite{
+                origins[m] + graph.get_length(walk.front()),
+                origins[m] + length - graph.get_length(walk.back()),
+                spelled ? (int64_t)spelled->size() - (int64_t)length : 0});
+        }
+        // The edit sites between the sites, by the offset of their first node.
+        vector<pair<size_t, int64_t>> edits;
+        for (const StagedSite* edit : plan.between) {
+            const nid_t node = graph.get_id(edit->alleles.walks.front().front());
+            for (size_t k = 0; k < along.size(); ++k) {
+                if (graph.get_id(along[k]) == node) {
+                    edits.emplace_back(step_start[k], change(*edit, strand));
+                    break;
+                }
+            }
+        }
+        int64_t end = 0;
+        guides[strand] = flat_guide(guide_sites, std::move(edits), reference.size(), end);
+        // The guide ends where the strand does.
+        static const bool check = getenv("VG_CHECK_FLAT_RECORDS") != nullptr;
+        if (check && end != (int64_t)strands[strand].size()) {
+            throw std::logic_error("the guide of a flat run of " + plan.sites.front()->id
+                                   + " ends off its strand's end");
+        }
+    }
+    const shared_ptr<FlatRun> run = block_records.align_flat(
+        std::move(reference), std::move(strands), refused, guides);
+    if (!run) {
+        return false;
+    }
+    run->id = plan.sites.size() == 1
+                  ? plan.sites.front()->id
+                  : site_name(graph, sites.get_site_start(plan.sites.front()->net),
+                              sites.get_site_end(plan.sites.back()->net), output.translation());
+    run->check_waiting = plan.sites.size();
+    // Whether the called genotype of a site of the run, or of a site under one, has an allele
+    // built from the reads.
+    auto note_consensus = [&](const StagedSite& at) {
+        run->consensus_called =
+            run->consensus_called
+            || std::ranges::any_of(linker.chosen_genotype(at),
+                                   [&](int allele) { return at.is_consensus_allele(allele); });
+    };
+    for (const StagedSite* site : on_walk) {
+        note_consensus(*site);
+        splicer.for_each_under(site->record_key, note_consensus);
+    }
+    // A site writes the records from its first base up to that of the next site.
+    size_t cut = 0;
+    for (size_t m = 0; m < plan.sites.size(); ++m) {
+        FlatSite flat{run, origins[m], {}, cut, 0};
+        while (cut < run->cuts.size()
+               && (m + 1 == plan.sites.size()
+                   || (size_t)run->cuts[cut].begin() < origins[m + 1])) {
+            ++cut;
+        }
+        flat.cut_count = cut - flat.first_cut;
+        for (int strand = 0; strand < (int)ploidy; ++strand) {
+            flat.travs.push_back(*splicer.strand_traversal(*plan.sites[m], strand));
+        }
+        plan.sites[m]->flat = std::move(flat);
+    }
+    block_records.count_flat_run(*run, plan.sites.size());
+    return true;
+}
+
+void MultiPassCaller::plan_flat_records() {
+    flat_withheld.clear();
+    if (!flatten_records) {
+        return;
+    }
+    vector<StagedSite*> roots;
+    for (size_t q = 0; q < staged_sites.queue_count(); ++q) {
+        for (StagedSite& site : staged_sites.queue(q)) {
+            if (site.placement.parent_record_key == 0) {
+                roots.push_back(&site);
+            }
+        }
+    }
+    vector<char> can(roots.size(), 0);
+#pragma omp parallel for schedule(dynamic, 64)
+    for (size_t i = 0; i < roots.size(); ++i) {
+        can[i] = can_flatten(*roots[i]);
+    }
+    const vector<FlatRunPlan> runs = flat_runs(roots, can);
+    // The sites under the sites of each run that is written, and the edit sites between them.
+    vector<vector<size_t>> under(runs.size());
+    vector<vector<size_t>> between(runs.size());
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t r = 0; r < runs.size(); ++r) {
+        auto write = [&](const FlatRunPlan& plan) {
+            FlatRefusal refused{};
+            if (!align_flat_run(plan, refused)) {
+                if (plan.sites.size() > 1) {
+                    block_records.count_flat_run_refusal(refused);
+                } else {
+                    block_records.count_flat_refusal(refused);
+                }
+                return false;
+            }
+            for (const StagedSite* site : plan.sites) {
+                splicer.for_each_under(site->record_key, [&](const StagedSite& nested) {
+                    under[r].push_back(nested.record_key);
+                });
+            }
+            for (const StagedSite* site : plan.between) {
+                between[r].push_back(site->record_key);
+            }
+            return true;
+        };
+        if (!write(runs[r]) && runs[r].sites.size() > 1) {
+            // Each site of the run, and each edit site between them, is a run of its own.
+            for (StagedSite* site : runs[r].sites) {
+                write(FlatRunPlan{{site}, {}, {}});
+            }
+            for (StagedSite* site : runs[r].between) {
+                write(FlatRunPlan{{site}, {}, {}});
+            }
+        }
+    }
+    size_t nested = 0;
+    size_t edits = 0;
+    for (size_t r = 0; r < runs.size(); ++r) {
+        for (const size_t key : under[r]) {
+            // Only a site in a render queue has a line to leave out.
+            if (rendered_sites.contains(key)) {
+                nested += (size_t)flat_withheld.insert(key).second;
+            }
+        }
+        for (const size_t key : between[r]) {
+            edits += (size_t)flat_withheld.insert(key).second;
+        }
+    }
+    block_records.count_flat_withheld(nested, edits);
+}
+
 RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
                                                            const vector<int>& genotype) {
     if (nested_calling) {
@@ -267,6 +694,13 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
         own_steps = site.alleles.all_step_sequences(graph);
     }
     const AlleleSequences& steps = site.spliced ? site.spliced->sequences : own_steps;
+    // Whether the called genotype has an allele built from the reads, here or, for a site
+    // written as flat records, anywhere in its run.
+    const bool consensus_called =
+        read_consensus.enabled()
+        && (std::ranges::any_of(genotype,
+                                [&](int allele) { return site.is_consensus_allele(allele); })
+            || (site.flat && site.flat->run->consensus_called));
     RecordRenderer::WrittenAlleles written;
     const SiteEmitter::Outcome outcome = site_emitter.emit(
         graph,
@@ -296,8 +730,12 @@ RecordRenderer::WrittenAlleles MultiPassCaller::write_site(StagedSite& site,
             if (sites.is_edit(site.net)) {
                 record.infoFlags["OP"] = true;
             }
+            if (consensus_called) {
+                record.infoFlags["RC"] = true;
+            }
         });
     site.spliced.reset();
+    site.flat.reset();
     return outcome == SiteEmitter::Outcome::Written ? written : RecordRenderer::WrittenAlleles();
 }
 
@@ -326,6 +764,17 @@ static const char* const OP_HEADER_LINE =
     "the ALT is a change recurring in the reads that no walk of the graph spells, "
     "called at an edit site. Its ID starts with op\">";
 
+/// The header line of INFO/RC.
+static const char* const RC_HEADER_LINE =
+    "##INFO=<ID=RC,Number=0,Type=Flag,Description=\"Read consensus (--read-consensus): the "
+    "called genotype of the record's snarl has an allele that is the consensus of the reads "
+    "spanning the snarl. Its AT is the walk the strand is called as, whose bases the allele "
+    "changes, or the snarl's two bound nodes alone where the allele is given as its bases. The "
+    "record's site can be a run of neighbouring snarls of one chain made one site, which is "
+    "named by the run's two outer bound nodes. On a flat record (--flatten-records), the called "
+    "genotype of a top-level snarl of the record's run, or of a snarl nested in one, has such "
+    "an allele\">";
+
 /// The header line of INFO/SB.
 static const char* const SB_HEADER_LINE =
     "##INFO=<ID=SB,Number=2,Type=Integer,Description=\"Index and count of this "
@@ -341,6 +790,24 @@ static const char* const SB_HEADER_LINE =
     "consumer that sums, averages or otherwise aggregates evidence across records "
     "must group by the snarl's ID first and count each snarl once. Records without "
     "SB are unaffected: they are the only record their snarl emitted.\">";
+
+/// The header line of INFO/FL.
+static const char* const FL_HEADER_LINE =
+    "##INFO=<ID=FL,Number=0,Type=Flag,Description=\"Flat record (--flatten-records): a "
+    "base-level difference between the strands and the reference over a run of neighbouring "
+    "top-level sites of one chain, or over one top-level site, where each strand is spelled "
+    "with the called alleles of the sites of the run, of the sites nested in them and of the "
+    "edit sites between them, which have no records of their own. Each strand is aligned to "
+    "the reference by itself. A run of mismatches is one record, and so is a gap, with the "
+    "reference base before it. A difference both strands have is one record with GT 1|1, and "
+    "any other is a record of its own strand with GT 1|0 or 0|1, where 0 says only that the "
+    "other strand lacks this difference: two records can cover the same reference bases, one "
+    "for each strand. The ID is that of the one site, or names the start bound node of the "
+    "run's first site and the end bound node of its last, with _ and the record's index among "
+    "the run's records (INFO/SB) appended. AT is . for each allele, since no walk of the "
+    "graph spells them. QUAL and the FORMAT fields other than GT are those of the site of "
+    "the run that the record starts in, or after, with AD and GL taken through the site "
+    "allele each strand carries\">";
 
 void MultiPassCaller::add_header_lines() {
     if (emit_phasing) {
@@ -358,8 +825,14 @@ void MultiPassCaller::add_header_lines() {
     if (off_panel.is_enabled()) {
         output.add_info_line(OP_HEADER_LINE);
     }
-    if (block_records.is_enabled()) {
+    if (read_consensus.enabled()) {
+        output.add_info_line(RC_HEADER_LINE);
+    }
+    if (block_records.is_enabled() || flatten_records) {
         output.add_info_line(SB_HEADER_LINE);
+    }
+    if (flatten_records) {
+        output.add_info_line(FL_HEADER_LINE);
     }
 }
 
@@ -457,9 +930,48 @@ bool MultiPassCaller::run_regenotyping_round(size_t round, RoundHistory& history
     return true;
 }
 
+ReadConsensusStep::Parts MultiPassCaller::read_consensus_parts() {
+    return ReadConsensusStep::Parts{
+        .graph = &graph,
+        .sites = &sites,
+        .genotyper = &snarl_caller,
+        .tree_genotyper = &tree_genotyper,
+        .linker = &linker,
+        .staged_sites = &staged_sites,
+        .phase_table = &phase_table,
+        .read_strands = &read_strands,
+    };
+}
+
+void MultiPassCaller::add_read_consensus_alleles() {
+    if (!read_consensus.enabled() || !linker.enabled()) {
+        return;
+    }
+    // The step asks which strand each read is on, so the read strand table needs its sums, as
+    // the render builds them. No round of re-genotyping has run, so the calibration is the
+    // temper re-genotyping was given, or else one fitted here.
+    const RegenotypeParams& regenotyping = rescorer.params();
+    read_strands.build_lambda(
+        phase_table.calls(),
+        [&](const string& contig, size_t phase_set) { return phase_set_id(contig, phase_set); },
+        StrandCalibration{std::max(regenotyping.temper, 0.0),
+                          regenotyping.ceiling < 0.0 ? 1.0 : regenotyping.ceiling},
+        regenotyping);
+    const size_t changed = read_consensus.run(read_consensus_parts());
+    // The step fetched reads, which no later pass does.
+    release_reads();
+    if (changed > 0) {
+        // The sites that gained an allele have new calls, so choose the genotypes and phase the
+        // reads again, as a re-genotyping round does after its correction.
+        rerun_linkage_pass();
+        phase_reads();
+    }
+}
+
 void MultiPassCaller::phase_and_regenotype() {
     // Round 1 ends with read phasing. Its linkage pass has already run.
     phase_reads();
+    add_read_consensus_alleles();
     if (rescorer.enabled() && rescorer.passes() >= 2) {
         // Remember every state the rounds reach, so that a cycle is recognised.
         RoundHistory history;
@@ -471,6 +983,10 @@ void MultiPassCaller::phase_and_regenotype() {
     } else {
         // With one pass, compute and report the correction, and keep nothing.
         rescore();
+    }
+    if (read_consensus.enabled()) {
+        read_consensus.count_called(read_consensus_parts());
+        read_consensus.report(cerr);
     }
 }
 
@@ -494,8 +1010,39 @@ void MultiPassCaller::render_retained_records() {
         [&]() {
             splicer.index(staged_sites, emit_phasing);
             rendered_sites = staged_sites.by_key();
+            plan_flat_records();
+            if (mosaic_writer.is_exact()) {
+                // An exact mosaic needs each strand as the records spell it at every top-level
+                // site, and the sites are freed as they are rendered. The phase is final here.
+                StrandAlleles& kept = mosaic_writer.strand_alleles();
+                staged_sites.for_each([&](const StagedSite& site) {
+                    if (site.placement.parent_record_key != 0) {
+                        return;
+                    }
+                    const bool edit_site = sites.is_edit(site.net);
+                    kept.unphased_parents += (size_t)(splicer.has_children(site.record_key)
+                                                      && !phase_table.rendered(site.record_key));
+                    for (int strand = 0; strand < 2; ++strand) {
+                        Traversal walk;
+                        StepSequences steps;
+                        const optional<int> trav = splicer.strand_traversal(site, strand);
+                        if (!trav) {
+                            continue;
+                        }
+                        if (!edit_site) {
+                            splicer.strand_walk(site, strand, walk, steps);
+                            kept.add_site(graph, site.record_key, strand, walk, steps);
+                        } else if (!site.alleles.spelled_by_walk(*trav)) {
+                            kept.add_edit_site(graph, site.record_key, strand,
+                                               site.alleles.walks[*trav],
+                                               site.alleles.edits[*trav]);
+                        }
+                    }
+                });
+            }
         });
     rendered_sites.clear();
+    flat_withheld.clear();
     staged_sites.for_each([&](StagedSite& site) {
         if (sites.is_edit(site.net)) {
             edit_record_ids.emplace(sites.canonical(site.net), site.id);
@@ -506,7 +1053,7 @@ void MultiPassCaller::render_retained_records() {
 }
 
 size_t MultiPassCaller::rederive_reported_inline() {
-    if (!linker.enabled() || !staged_sites.has_children()) {
+    if (!staged_sites.has_children()) {
         return 0;
     }
     vector<StagedSite>& pending = staged_sites.nested();
@@ -514,6 +1061,8 @@ size_t MultiPassCaller::rederive_reported_inline() {
     const unordered_map<size_t, StagedSite*> record_by_key = staged_sites.by_key();
     // Count the chains held back from here, so that the report gives the chains held back now.
     block_records.restart_inline_count();
+    // Whether the record that spells each chain held back spells one traversal for both strands.
+    unordered_map<size_t, bool> spelled_once;
     // Visit parents before their children, so that a chain inherits its parent's final flag.
     staged_sites.for_each_parent_top_down(record_by_key, [&](const StagedSite& parent,
                                                              const vector<size_t>& children) {
@@ -521,19 +1070,30 @@ size_t MultiPassCaller::rederive_reported_inline() {
             // Its children were dropped with it.
             return;
         }
+        const vector<int> parent_genotype = linker.chosen_genotype(parent);
         const BlockRecordWriter::ChainInlineContext ctx = block_records.chain_inline_context(
-            graph, parent.children, parent.alleles.walks, linker.chosen_genotype(parent),
+            graph, parent.children, parent.alleles.walks, parent_genotype,
             parent.alleles.ref_allele);
+        // A record spells a traversal that both strands carry once, as the first strand has it.
+        // A chain whose strands differ is then not spelled for both, and keeps its line.
+        const bool once = parent.placement.reported_inline
+                              ? spelled_once[parent.record_key]
+                              : parent_genotype.size() == 2
+                                    && parent_genotype[0] == parent_genotype[1];
         for (size_t ci : children) {
             StagedSite& child = pending[ci];
             if (child.dropped) {
                 continue;
             }
+            const vector<int> genotype = linker.chosen_genotype(child);
+            const bool differs = genotype.size() == 2 && genotype[0] != genotype[1];
             const bool was = child.placement.reported_inline;
             child.placement.reported_inline =
-                parent.placement.reported_inline
-                || block_records.chain_reported_inline(graph, ctx,
-                                                       chain_holding(sites, graph, child.net));
+                !(once && differs)
+                && (parent.placement.reported_inline
+                    || block_records.chain_reported_inline(
+                        graph, ctx, chain_holding(sites, graph, child.net)));
+            spelled_once[child.record_key] = once;
             if (was != child.placement.reported_inline) {
                 ++rederived;
             }
@@ -745,7 +1305,9 @@ void MultiPassCaller::finalise_linkage_outputs() {
                 written.push_back(pc);
             }
         }
-        mosaic_writer.write(written, panel_lookup, sample_name);
+        // An exact mosaic also covers the genotyped sites with no record, since a strand's
+        // haplotype can take another allele than the called one there too.
+        mosaic_writer.write(written, panel_lookup, sample_name, &phase_table.calls(), &graph);
     }
 }
 
@@ -783,12 +1345,7 @@ int64_t MultiPassCaller::phase_record_genotype(size_t record_key,
         return -1;
     }
     const LinkageCollector::PhaseCall& phase = *found;
-    if (phase.ploidy == 2 && phase.order_arbitrary
-        && !read_strands.read_ordered().count(record_key)
-        && !splicer.has_children(record_key)) {
-        // Neither the panel nor the reads order the pair, so the record claims no phase. A site
-        // with sites staged under it keeps its phase, since its one-copy children's `a|.` GTs name
-        // its strands; so does a one-copy chain, whose GT shape says which strand it is on.
+    if (!orders_strands(phase)) {
         return -1;
     }
     if (!phased_gt(phase, site_genotype, trav_to_allele, gt)) {

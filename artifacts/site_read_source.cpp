@@ -713,12 +713,12 @@ void WindowedSiteReadSource::for_each_read(
     deliver(*entry, ranges, iteratee);
 }
 
-void WindowedSiteReadSource::for_each_read_uncounted(
+bool WindowedSiteReadSource::for_each_read_uncounted(
     const vector<pair<nid_t, nid_t>>& ranges,
     const function<void(const SiteRead&)>& iteratee) const {
 
     if (ranges.empty()) {
-        return;
+        return false;
     }
     nid_t min_id = ranges.front().first;
     nid_t max_id = ranges.front().second;
@@ -730,16 +730,16 @@ void WindowedSiteReadSource::for_each_read_uncounted(
         bool was_fetched = false;
         shared_ptr<const CacheEntry> entry = get_window(window_of(min_id), was_fetched, false);
         deliver(*entry, ranges, iteratee);
-        return;
+        return entry->dropped_repeats > 0;
     }
     const vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
-    fetch_span_keyed(ranges, [&](Alignment& aln, uint64_t) {
+    return fetch_span_keyed(ranges, [&](Alignment& aln, uint64_t) {
         if (touches(aln, merged)) {
             SiteRead read;
             read.aln = &aln;
             iteratee(read);
         }
-    });
+    }) > 0;
 }
 
 void WindowedSiteReadSource::deliver_wide(const vector<pair<nid_t, nid_t>>& ranges, nid_t min_id,
@@ -1750,6 +1750,9 @@ TabixGafSiteReadSource::ThreadState& TabixGafSiteReadSource::thread_state() cons
         if (state.file == nullptr) {
             throw runtime_error("could not open " + gaf_filename + " for reading");
         }
+        // Keep the blocks the thread decompressed, since neighbouring and overlapping fetches,
+        // as the read-consensus step makes, read many of the same blocks again.
+        bgzf_set_cache_size(hts_get_bgzfp(state.file), BLOCK_CACHE_BYTES);
     }
     return state;
 }

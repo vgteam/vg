@@ -12,7 +12,7 @@ PATH=../bin:$PATH # for vg
 
 # Never index a FORMAT sub-field by position; find it by name in column 9 first.
 
-plan tests 304
+plan tests 358
 
 ## Read-level genotyping (--read-likelihood)
 # Uses the same HGSVC fixture: the GAM is already present, so no new test data.
@@ -1139,6 +1139,41 @@ is $(awk -F'\t' '/^H\t/ && $3 == "0" && $11 != "." {n += $11} END {print n+0}' n
 is $(grep -c "collapsed sites phased with no line of their own" nestblk_mosaic.err) "0" \
    "and a site written as blocks is not reported as having no line"
 
+# --flatten-records writes the top-level site 1..6 as the base-level differences of its two strands
+# from its reference, with the calls of the sites nested in it put in. Strand 0 crosses the chain
+# with three substitutions, at the nested sites 2..5 and 5..9, and strand 1 deletes the chain. Each
+# difference is a record of its own strand: the deletion covers the substitutions, and the other
+# strand has allele 0 in each of them. The nested sites get no records.
+rm -f nestblk.flat.vcf nestblk.flat.err nestblk.flat.mosaic.tsv
+is "$(grep -c 'FL' nestblk.vcf)" "0" \
+   "without --flatten-records no header line or record has INFO/FL"
+VG_CHECK_FLAT_RECORDS=1 vg call nestblk.gbz --read-likelihood --gam nestblk.gam -t 1 -s samp --nested \
+    --phased --flatten-records --mosaic-out nestblk.flat.mosaic.tsv 2>nestblk.flat.err > nestblk.flat.vcf
+is "$?" 0 "vg call --flatten-records runs"
+is "$(bcftools view -H nestblk.flat.vcf 2>/dev/null | wc -l | tr -d ' ')/$(grep -c '^##INFO=<ID=FL,' nestblk.flat.vcf)" \
+   "$(grep -vc '^#' nestblk.flat.vcf)/1" \
+   "its VCF parses, and its header describes INFO/FL"
+is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '$2 < last {bad++} {last = $2} END {print bad+0}')" "0" \
+   "its records are sorted by position"
+is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '{printf "%s/%s/%s/%s/%s ", $2, $3, split($5, alts, ","), substr($10, 1, 3), ($8 ~ /(^|;)FL(;|$)/)}')/$(grep -v '^#' nestblk.flat.vcf | grep -c 'SB=[0-3],4')" \
+   "30/>1>6_0/1/0|1/1 51/>1>6_1/1/1|0/1 72/>1>6_2/1/1|0/1 83/>1>6_3/1/1|0/1 /4" \
+   "the site is four flat records with one ALT each: the deletion of one strand, and the three substitutions of the other inside it"
+# A record of a nested site is one with another ID than the flat site's that starts inside the
+# stretch the flat site's records cover.
+is "$(grep -v '^#' nestblk.flat.vcf | awk -F'\t' '{id = $3; sub(/_[0-9]+$/, "", id); n++; pos[n] = $2; stem[n] = id
+          if ($8 ~ /(^|;)FL(;|$)/) { end = $2 + length($4) - 1
+              if (!(id in lo) || $2 < lo[id]) lo[id] = $2
+              if (end > hi[id]) hi[id] = end }}
+        END { for (i = 1; i <= n; i++) for (s in lo) if (stem[i] != s && pos[i] >= lo[s] && pos[i] <= hi[s]) bad++
+              print n "/" bad+0 }')" "4/0" \
+   "no record of a nested site starts inside the stretch the flat records cover"
+is "$(sed -n 's/.*flatten check: \([0-9]*\) runs.* \([0-9]*\) FAILED.*/\1,\2/p' nestblk.flat.err)/$(sed -n 's/.* \([0-9]*\) nested sites and .* left without a line.*/\1/p' nestblk.flat.err)" \
+   "1,0/2" \
+   "the flat records put into the reference spell both strands, and stand in for the two nested sites"
+diff -q <(grep -v '^#graph' nestblk.flat.mosaic.tsv) <(grep -v '^#graph' nestblk.mosaic.tsv) >/dev/null
+is "$?" 0 "--flatten-records leaves the mosaic as it is"
+rm -f nestblk.flat.vcf nestblk.flat.err nestblk.flat.mosaic.tsv
+
 # A site whose only difference outside its child chains is one block is written as that block, not
 # as the whole site record, because the site record spells every allele in full and so repeats the
 # child's variant. Here the substitution 3/4 is no snarl of its own (the edge 4->6 sees to that), so
@@ -1319,6 +1354,53 @@ is $(grep -v "^#" chainblk.vcf | cut -f3 | sort | uniq -d | wc -l | tr -d ' ') "
    "and no ID is on more than one record"
 is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 == ">3>6" && $5 == "T"' | wc -l | tr -d ' ') "1" \
    "and the chain's own record reports the second strand's route through it"
+
+# A chain that every called strand crosses inside a difference block has no line of its own, since
+# the block's ALT spells it. That ALT is spelled once for a traversal both strands carry, so it
+# cannot spell a chain at which the two strands differ. Here both strands take the parent's
+# inverted walk, 2, 7, the chain backwards, 4, 9, which only p2#0 has, and they differ at the
+# chain's SNP. The chain keeps its line. Where both strands have the same SNP allele, it has none.
+rm -f invhet.gfa invhet_sim.gfa invhet.gbz invhet_sim.gbz invhet.gam invhet.vcf invhet.err
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTATTGACCAGTT\n'
+  printf 'S\t2\tGGCATTAGCCTTAGACCGATCAGGACTTAC\n'
+  printf 'S\t3\tTTGACCAGTTCAGGACTTAC\n'
+  printf 'S\t4\tGATCCATGCAAGTCGTACGATGCAAGCTTG\n'
+  printf 'S\t5\tA\nS\t6\tT\n'
+  printf 'S\t7\tCAGTTGACCTAGGCATCAGGACCTAGCCAT\n'
+  printf 'S\t8\tAAAAAAAAAACCCCCCCCCC\n'
+  printf 'S\t9\tAACCGGTTACGTTGCAATCGTGCAAGTCCA\n'
+  printf 'S\t10\tGGATCCTAGCATTCGGATCCAAGTTCCAGATTCAGGCATA\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t3\t+\t4\t+\t0M\n'
+  printf 'L\t4\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\nL\t5\t+\t7\t+\t0M\nL\t6\t+\t7\t+\t0M\n'
+  printf 'L\t7\t+\t8\t+\t0M\nL\t8\t+\t9\t+\t0M\nL\t9\t+\t10\t+\t0M\n'
+  printf 'L\t2\t+\t7\t-\t0M\nL\t4\t-\t9\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,3+,4+,5+,7+,8+,9+,10+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t241\t>1>2>3>4>5>7>8>9>10\n'
+  printf 'W\tp1\t1\tchr1\t0\t241\t>1>2>3>4>6>7>8>9>10\n'
+  printf 'W\tp2\t0\tchr1\t0\t201\t>1>2<7<5<4>9>10\n'
+} > invhet.gfa
+cp invhet.gfa invhet_sim.gfa
+printf 'W\tT\t0\tchr1\t0\t201\t>1>2<7<5<4>9>10\n' >> invhet_sim.gfa
+printf 'W\tT\t1\tchr1\t0\t201\t>1>2<7<6<4>9>10\n' >> invhet_sim.gfa
+vg gbwt -G invhet.gfa --gbz-format -g invhet.gbz --set-reference GRCh 2>/dev/null
+vg gbwt -G invhet_sim.gfa --gbz-format -g invhet_sim.gbz --set-reference GRCh 2>/dev/null >/dev/null
+vg sim -x invhet_sim.gbz -n 300 -l 60 -a -s 17 --path "T#0#chr1#0" >  invhet.gam 2>/dev/null
+vg sim -x invhet_sim.gbz -n 300 -l 60 -a -s 23 --path "T#1#chr1#0" >> invhet.gam 2>/dev/null
+INVHET_CALL="vg call invhet.gbz --read-likelihood -t 1 -s samp --nested --phased --mismap-max 0.05 --progress"
+$INVHET_CALL --gam invhet.gam 2>invhet.err > invhet.vcf
+is "$(grep -v '^#' invhet.vcf | awk -F'\t' '{split($10, f, ":"); gsub(/[|\/]/, "", f[1]); printf "%s/%s/%s ", $3, (length($4) == 1 ? $4 $5 : "long"), f[1]}')" \
+   ">2>9/long/11 >4>7/AT/10 " \
+   "a chain at which the strands differ keeps its line under a parent whose strands share one inverted walk"
+is "$(grep -c 'left unrendered because an enclosing block' invhet.err)" "0" \
+   "and is not counted as spelled by the parent's record"
+vg sim -x invhet_sim.gbz -n 600 -l 60 -a -s 23 --path "T#1#chr1#0" > invhet.gam 2>/dev/null
+$INVHET_CALL --gam invhet.gam 2>invhet.err > invhet.vcf
+is "$(grep -v '^#' invhet.vcf | cut -f3 | tr '\n' ' ')/$(grep -c 'block emission: 1 chains .* left unrendered' invhet.err)" \
+   ">2>9 /1" \
+   "a chain at which the strands agree is still spelled by the parent's record alone"
+rm -f invhet.gfa invhet_sim.gfa invhet.gbz invhet_sim.gbz invhet.gam invhet.vcf invhet.err
 
 # --- assembly anchors -------------------------------------------------------
 # An anchor is a zero-length pin at a snarl boundary, or beside an off-panel change, holding the
@@ -2268,6 +2350,262 @@ is $(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic fx.mosaic.tsv --
 
 rm -f fx.gfa fx_sim.gfa fx.gbz fx_sim.gbz fx.gam fx.snarls fx.err fx.mosaic.tsv \
       fx.paths.gaf fx.graph.gfa fx.expand.txt
+
+# --- the exact mosaic (--mosaic-exact) ----------------------------------------
+# A strand's H rows spell its haplotypes' alleles, which are not always the called ones. This
+# fixture has four SNPs and a panel of the reference and one haplotype with every ALT. The sample's
+# strands are neither: T#0 is the all-ALT haplotype but REF at the second SNP, and T#1 is the
+# reference but ALT at the third. At the default --linkage-scale a switch of haplotype over 40 bp
+# costs more than a mutation, so each strand stays on one haplotype and differs from it at one
+# site: strand T#1 at a het site with a record, and strand T#0 at a hom-ref site with none.
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTACCGTTAAGCA\n'
+  printf 'S\t2\tA\nS\t3\tT\n'
+  printf 'S\t4\tGGCATTAGCCTTAGACCGATTGCAAGTCCAGGTTACCGAT\n'
+  printf 'S\t5\tC\nS\t6\tG\n'
+  printf 'S\t7\tTTGACCAGTTCAGGACTTACGGCATTCGGATCCAAGTTCC\n'
+  printf 'S\t8\tA\nS\t9\tG\n'
+  printf 'S\t10\tAACCGGTTACGTTGCAATCGGTTACCAGTTGGATCCTAGC\n'
+  printf 'S\t11\tC\nS\t12\tT\n'
+  printf 'S\t13\tACGTTGCAATCGGTTACCAGTTAAGGCCTTAGCATTCGGA\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t1\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\nL\t3\t+\t4\t+\t0M\n'
+  printf 'L\t4\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\nL\t5\t+\t7\t+\t0M\nL\t6\t+\t7\t+\t0M\n'
+  printf 'L\t7\t+\t8\t+\t0M\nL\t7\t+\t9\t+\t0M\nL\t8\t+\t10\t+\t0M\nL\t9\t+\t10\t+\t0M\n'
+  printf 'L\t10\t+\t11\t+\t0M\nL\t10\t+\t12\t+\t0M\nL\t11\t+\t13\t+\t0M\nL\t12\t+\t13\t+\t0M\n'
+  printf 'P\tREF#0#chr1\t1+,2+,4+,5+,7+,8+,10+,11+,13+\t*\n'
+  printf 'W\tpA\t0\tchr1\t0\t164\t>1>2>4>5>7>8>10>11>13\n'
+  printf 'W\tpA\t1\tchr1\t0\t164\t>1>3>4>6>7>9>10>12>13\n'
+} > mx.gfa
+cp mx.gfa mx_sim.gfa
+printf 'W\tT\t0\tchr1\t0\t164\t>1>3>4>5>7>9>10>12>13\n' >> mx_sim.gfa
+printf 'W\tT\t1\tchr1\t0\t164\t>1>2>4>5>7>9>10>11>13\n' >> mx_sim.gfa
+vg gbwt -G mx.gfa --gbz-format -g mx.gbz --set-reference REF 2>/dev/null
+vg gbwt -G mx_sim.gfa --gbz-format -g mx_sim.gbz --set-reference REF 2>/dev/null >/dev/null
+vg sim -x mx_sim.gbz -n 300 -l 40 -a -s 17 --path "T#0#chr1#0" >  mx.gam 2>/dev/null
+vg sim -x mx_sim.gbz -n 300 -l 40 -a -s 23 --path "T#1#chr1#0" >> mx.gam 2>/dev/null
+vg paths -x mx.gbz -A > mx.paths.gaf 2>/dev/null
+vg view -g mx.gbz > mx.graph.gfa 2>/dev/null
+vg call mx.gbz --read-likelihood --mismap-max 0.7 --gam mx.gam -t 1 -s samp --phased \
+    --mosaic-out mx.mosaic.tsv 2>/dev/null >mx.vcf
+vg call mx.gbz --read-likelihood --mismap-max 0.7 --gam mx.gam -t 1 -s samp --phased \
+    --mosaic-out mx.exact.tsv --mosaic-exact 2>mx.exact.err >mx.exact.vcf
+is "$?" 0 "vg call --mosaic-exact runs"
+is "$(grep -v '^##' mx.exact.vcf | diff - <(grep -v '^##' mx.vcf) | wc -l | tr -d ' ')" "0" \
+   "--mosaic-exact does not change the calls"
+is "$(grep '^H' mx.exact.tsv | diff - <(grep '^H' mx.mosaic.tsv) | wc -l | tr -d ' ')" "0" \
+   "--mosaic-exact leaves every H row as it is"
+is "$(awk -F'\t' '$1=="#mosaic-version" {v=$2} $1=="A" || $1=="#A" {n++} END {print v "/" n+0}' mx.mosaic.tsv)" "5/0" \
+   "without --mosaic-exact the mosaic is version 5 and has no A rows"
+is "$(awk -F'\t' '$1=="#mosaic-version" {v=$2} $1=="#A" {h=NF} $1=="A" {n++; if (NF != 8) bad++}
+          END {print v "/" h "/" (n > 0) "/" bad+0}' mx.exact.tsv)" "6/8/1/0" \
+   "with it the mosaic is version 6, and has A rows of the eight columns its #A line names"
+# Without the A rows the check below has to fail, or passing it with them says nothing.
+python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic mx.mosaic.tsv --gaf mx.paths.gaf --gfa mx.graph.gfa \
+    --vcf mx.vcf --quiet >mx.expand.txt 2>&1
+is "$?/$(sed -n 's/.* \([0-9]*\) different.*/\1/p' mx.expand.txt)" "1/1" \
+   "the H rows alone take another allele than the called one on one strand of one record"
+MX_CHECKED='s/.*: \([0-9]*\) site strands checked, \([0-9]*\) equal; .* \([0-9]*\) different/\1,\2,\3/p'
+is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic mx.exact.tsv --gaf mx.paths.gaf --gfa mx.graph.gfa \
+        --vcf mx.exact.vcf --quiet >mx.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" mx.expand.txt)" \
+   "0/6,6,0" \
+   "with the A rows applied, every strand has the bases of every phased record, on a walk in the graph"
+# The site with no record is covered too: strand T#0 is REF there and its haplotype is not.
+is "$(sed -n 's/.*mosaic: \([0-9]*\) allele rows, .* and \([0-9]*\) are at sites with no VCF line.*/\1,\2/p' mx.exact.err)" "2,1" \
+   "one of the two A rows is at a top-level site that has no VCF line"
+is "$(awk -F'\t' '$1 == "A" {print $3 "/" $7 "/" $8}' mx.exact.tsv | tr '\n' ' ')" "0/>7>9>10/. 1/>4>5>7/. " \
+   "each A row gives its strand's walk between the bound nodes of its site, and no bases where the walk spells them"
+# The check has to fail on a wrong row, or passing it says nothing. Each of these changes one row.
+mx_check() {
+  python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic mx.bad.tsv --gaf mx.paths.gaf --gfa mx.graph.gfa \
+      --vcf mx.exact.vcf --quiet >mx.expand.txt 2>&1
+  echo "$?/$(grep -c "$1" mx.expand.txt)"
+}
+sed 's/>7>9>10/>7>8>10/' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check ' 1 different')" "1/1" "a row with another walk than the called allele's fails the check"
+sed 's/>4>5>7/>4>6>7/' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check ' 1 different')" "1/1" "and so does a row that leaves the reference at a site with no record"
+awk -F'\t' -v OFS='\t' '$7 == ">7>9>10" {$8 = "*,A,*"} {print}' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check ' 1 different')" "1/1" "a row with a wrong entry of bases fails the check"
+awk -F'\t' -v OFS='\t' '{print} $7 == ">7>9>10" {print}' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check 'FAIL *1  A rows that change the same visit')" "1/1" "two rows that change the same visit fail the check"
+sed 's/>7>9>10/>7>12>10/' mx.exact.tsv > mx.bad.tsv
+is "$(mx_check 'FAIL *2  step is not an edge in the graph')" "1/1" "a row with a step that is not an edge fails the check"
+
+rm -f mx.gfa mx_sim.gfa mx.gbz mx_sim.gbz mx.gam mx.paths.gaf mx.graph.gfa mx.vcf mx.mosaic.tsv \
+      mx.exact.tsv mx.exact.err mx.exact.vcf mx.expand.txt mx.bad.tsv
+
+# --read-consensus gives a snarl the consensus of the reads of a strand that disagree with what is
+# called on it. The graph is a chain of three snarls, 1..4, 4..7 and 7..10, each a choice of two
+# single bases. Strand X of the sample takes the reference. Strand Y takes the other base at the
+# two outer snarls, which phases its reads, and between nodes 4 and 7 has 60 bases that no walk
+# spells, in place of the one base there. `vg sim` reads follow walks of the graph, so the reads
+# are written out here: each is the whole of its strand, and a read of strand Y has the 60 bases
+# as an insertion after node 4, and then node 7.
+rm -f rcn.gfa rcn.gbz rcn.json rcn.gam rcn.off.vcf rcn.on.vcf rcn.on.err rcn.flat.vcf rcn.mos.tsv \
+      rcn.mos.vcf rcn.paths.gaf rcn.graph.gfa rcn.expand.txt rcn.refuse.txt
+RCN1=CCTAGGCTTAGGACCTGATCGGATCCAGTATTGACCAGTT; RCN4=GGCATTAGCCTTAGACCGATCAGGACTTAC
+RCN7=AACCGGTTACGTTGCAATCGTGCAAGTCCA; RCN10=GGATCCTAGCATTCGGATCCAAGTTCCAGATTCAGGCATA
+RCNOVEL=TGCATGCAAGTCGATCGGATTACAGCTAGCTAGGATCCATGCAATGCCGTAAGCTTGCAT
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\t%s\nS\t2\tA\nS\t3\tT\nS\t4\t%s\nS\t5\tC\nS\t6\tG\nS\t7\t%s\nS\t8\tA\nS\t9\tC\nS\t10\t%s\n' \
+    $RCN1 $RCN4 $RCN7 $RCN10
+  printf 'L\t1\t+\t2\t+\t0M\nL\t1\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\nL\t3\t+\t4\t+\t0M\n'
+  printf 'L\t4\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\nL\t5\t+\t7\t+\t0M\nL\t6\t+\t7\t+\t0M\n'
+  printf 'L\t7\t+\t8\t+\t0M\nL\t7\t+\t9\t+\t0M\nL\t8\t+\t10\t+\t0M\nL\t9\t+\t10\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,4+,5+,7+,8+,10+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t143\t>1>2>4>5>7>8>10\n'
+  printf 'W\tp1\t1\tchr1\t0\t143\t>1>3>4>6>7>9>10\n'
+  printf 'W\tp2\t0\tchr1\t0\t143\t>1>2>4>5>7>8>10\n'
+  printf 'W\tp2\t1\tchr1\t0\t143\t>1>3>4>5>7>9>10\n'
+} > rcn.gfa
+vg gbwt -G rcn.gfa --gbz-format -g rcn.gbz --set-reference GRCh 2>/dev/null
+rcn_match() { printf '{"position":{"node_id":"%s"},"edit":[{"from_length":%s,"to_length":%s}]}' $1 $2 $2; }
+for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+  printf '{"name":"x%s","mapping_quality":60,"sequence":"%sA%sC%sA%s","path":{"mapping":[%s,%s,%s,%s,%s,%s,%s]}}\n' \
+    $i $RCN1 $RCN4 $RCN7 $RCN10 "$(rcn_match 1 40)" "$(rcn_match 2 1)" "$(rcn_match 4 30)" \
+    "$(rcn_match 5 1)" "$(rcn_match 7 30)" "$(rcn_match 8 1)" "$(rcn_match 10 40)"
+  printf '{"name":"y%s","mapping_quality":60,"sequence":"%sT%s%s%sC%s","path":{"mapping":[%s,%s,{"position":{"node_id":"4"},"edit":[{"from_length":30,"to_length":30},{"to_length":60,"sequence":"%s"}]},%s,%s,%s]}}\n' \
+    $i $RCN1 $RCN4 $RCNOVEL $RCN7 $RCN10 "$(rcn_match 1 40)" "$(rcn_match 3 1)" $RCNOVEL \
+    "$(rcn_match 7 30)" "$(rcn_match 9 1)" "$(rcn_match 10 40)"
+done > rcn.json
+vg view -JaG rcn.json > rcn.gam
+# The chain has too few reads to fit the temper of the strand log-odds, so it is given.
+RCN_CALL="vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --read-phasing --regenotype --regeno-temper 1"
+$RCN_CALL 2>/dev/null > rcn.off.vcf
+is "$(grep -v '^#' rcn.off.vcf | cut -f3 | tr '\n' ' ')/$(grep -c 'RC' rcn.off.vcf)/$(grep -c $RCNOVEL rcn.off.vcf)" \
+   ">1>4 >7>10 /0/0" \
+   "without --read-consensus the snarl with unspelled bases has no record, and nothing names INFO/RC"
+$RCN_CALL --read-consensus 2>rcn.on.err > rcn.on.vcf
+is "$?" 0 "vg call --read-consensus runs"
+is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' -v novel=$RCNOVEL '$3 == ">4>7" {print $2 "/" $4 "/" ($5 == novel) "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)RC(;|$)/)}')/$(grep -c '^##INFO=<ID=RC,' rcn.on.vcf)" \
+   "72/C/1/0|1/1/1" \
+   "--read-consensus calls the 60 bases the reads of one strand carry, on that strand, and marks the record"
+is "$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7"' | cut -f1-5,8 | diff - <(grep -v '^#' rcn.off.vcf | cut -f1-5,8) | wc -l | tr -d ' ')/$(grep -v '^#' rcn.on.vcf | awk -F'\t' '$3 != ">4>7" && $8 ~ /RC/' | wc -l | tr -d ' ')" \
+   "0/0" \
+   "and the other snarls are called as without it, unmarked"
+is "$(sed -n 's/.*read consensus: 3 phased snarls, 1 tested, 1 candidate strands, 0 runs treated, 0 of them made one site, 1 sites gained an allele or were made of a run, 1 of them called with a consensus allele; consensus alleles: 1 as a walk with changes, 0 as bases where a strand has no walk across the site; left alone: 0 snarls over a limit of the scorer$/found/p' rcn.on.err)" \
+   "found" \
+   "and reports what it did in one line, with the runs of neighbouring snarls, of which the chain has none"
+is "$($RCN_CALL --read-consensus 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.on.vcf) | wc -l | tr -d ' ')" "0" \
+   "two runs with --read-consensus write the same records"
+is "$($RCN_CALL --read-consensus --consensus-min-gain 1000 2>&1 >/dev/null | grep -c 'read consensus: 3 phased snarls, 0 tested, 0 candidate strands')" "1" \
+   "reads that cannot gain --consensus-min-gain nats leave a snarl untested"
+# With flat records, the record of the top-level snarl is a flat one, and is marked too.
+# The three snarls follow each other in their chain, each sharing a bound node of 30 bases with
+# the next, so their flat records are those of one run, named by its two outer bound nodes.
+VG_CHECK_FLAT_RECORDS=1 $RCN_CALL --read-consensus --flatten-records 2>rcn.flat.err > rcn.flat.vcf
+is "$(grep -v '^#' rcn.flat.vcf | awk -F'\t' -v novel=$RCNOVEL '$5 == novel {print $2 "/" $3 "/" $4 "/" substr($10, 1, 3) "/" ($8 ~ /(^|;)RC(;|$)/) "/" ($8 ~ /(^|;)FL(;|$)/)}')" \
+   "72/>1>10_1/C/0|1/1/1" \
+   "--read-consensus with --flatten-records writes the consensus as a marked flat record"
+is "$(grep -v '^#' rcn.flat.vcf | awk -F'\t' '{printf "%s/%s/%s ", $2, $3, substr($10, 1, 3)}')/$(grep -v '^#' rcn.flat.vcf | grep -c 'SB=[012],3')" \
+   "41/>1>10_0/0|1 72/>1>10_1/0|1 103/>1>10_2/0|1 /3" \
+   "the flat records of a run of sites are numbered along the run, each placed and phased as its site's"
+is "$(grep -c ' 1 runs of two or more sites;' rcn.flat.err)/$(sed -n 's/.*flatten check: \([0-9]*\) runs.* \([0-9]*\) FAILED.*/\1,\2/p' rcn.flat.err)" \
+   "1/1,0" \
+   "and the run's records, put into the run's reference together, spell both strands"
+is "$($RCN_CALL --read-consensus --flatten-records --flatten-distance 30 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.flat.vcf) | wc -l | tr -d ' ')" "0" \
+   "two sites are in one run where the nodes between them have --flatten-distance bases"
+$RCN_CALL --read-consensus --flatten-records --flatten-distance 29 2>rcn.flat.err > rcn.flat.vcf
+is "$(grep -v '^#' rcn.flat.vcf | awk -F'\t' '{printf "%s/%s/%s ", $2, $3, ($8 ~ /(^|;)RC(;|$)/)}')/$(grep -c ' 0 runs of two or more sites;' rcn.flat.err)" \
+   "41/>1>4_0/0 72/>4>7_0/1 103/>7>10_0/0 /1" \
+   "and each is a run of its own where they have more"
+is "$($RCN_CALL --read-consensus --flatten-records --flatten-distance 0 2>/dev/null | grep -v '^##' | diff - <(grep -v '^##' rcn.flat.vcf) | wc -l | tr -d ' ')" "0" \
+   "as every site is with --flatten-distance 0"
+$RCN_CALL --flatten-distance 5 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--flatten-distance only applies to flat records, which --flatten-records turns on' rcn.refuse.txt)" "1" \
+   "--flatten-distance is refused without --flatten-records"
+# Return what the bases of the allele row of a mosaic on standard input spell, given the bases of
+# the nodes of its walk, in order, as arguments.
+rc_row_spells() {
+  awk -F'\t' -v nodes="$*" '$1 == "A" {
+    split(nodes, own, " "); n = split($8, entry, ","); s = ""
+    for (i = 1; i <= n; ++i) { p = index(entry[i], "+"); b = p ? substr(entry[i], 1, p - 1) : entry[i]
+      s = s (b == "*" ? own[i] : b) (p ? substr(entry[i], p + 1) : "") }
+    print s }'
+}
+# In an exact mosaic, the walk of the consensus's allele row is the walk strand Y is called as, and
+# its bases change the steps of that walk to spell the consensus.
+$RCN_CALL --read-consensus --mosaic-out rcn.mos.tsv --mosaic-exact 2>/dev/null > rcn.mos.vcf
+is "$(awk -F'\t' '$1 == "A" {print $3 "/" $7}' rcn.mos.tsv)/$(rc_row_spells $RCN4 C $RCN7 < rcn.mos.tsv | grep -c "^$RCN4$RCNOVEL$RCN7$")" \
+   "1/>4>5>7/1" \
+   "the exact mosaic gives the consensus allele as an allele row with its bases"
+vg paths -x rcn.gbz -A > rcn.paths.gaf 2>/dev/null
+vg view -g rcn.gbz > rcn.graph.gfa 2>/dev/null
+is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcn.mos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
+        --vcf rcn.mos.vcf --quiet >rcn.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" rcn.expand.txt)/$(grep -c '1 steps joined by an A row rather than an edge' rcn.expand.txt)" \
+   "0/6,6,0/0" \
+   "and the mosaic's strands have the bases of every record, each step joined to the next by an edge"
+# The step needs the read-likelihood genotyper and the phase, and its settings need the step.
+vg call rcn.gbz --gam rcn.gam -t 1 -s samp --read-consensus >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--read-consensus only appl.* to the read-likelihood genotyper' rcn.refuse.txt)" "1" \
+   "--read-consensus is refused without --read-likelihood"
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --no-phased --read-consensus >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--read-consensus needs the phase' rcn.refuse.txt)" "1" \
+   "--read-consensus is refused without --phased"
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --consensus-min-gain 9 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--consensus-min-gain only applies to read consensus, which --read-consensus turns on' rcn.refuse.txt)" "1" \
+   "the settings of --read-consensus are refused without it"
+vg call rcn.gbz --read-likelihood --gam rcn.gam -t 1 -s samp --phased --read-consensus --consensus-min-gain 0 >/dev/null 2>rcn.refuse.txt
+is "$(grep -c -- '--consensus-min-gain must be more than 0' rcn.refuse.txt)" "1" \
+   "--consensus-min-gain is refused at 0"
+
+# A difference inside the node between two snarls is in neither of them, so the two become one
+# site. Here strand Y takes the panel's walk >1>3>4>6>7>9>10, and has the 60 bases inside node 7,
+# after its first 15: no read has a base more between the bounds of any snarl.
+for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+  printf '{"name":"x%s","mapping_quality":60,"sequence":"%sA%sC%sA%s","path":{"mapping":[%s,%s,%s,%s,%s,%s,%s]}}\n' \
+    $i $RCN1 $RCN4 $RCN7 $RCN10 "$(rcn_match 1 40)" "$(rcn_match 2 1)" "$(rcn_match 4 30)" \
+    "$(rcn_match 5 1)" "$(rcn_match 7 30)" "$(rcn_match 8 1)" "$(rcn_match 10 40)"
+  printf '{"name":"z%s","mapping_quality":60,"sequence":"%sT%sG%s%s%sC%s","path":{"mapping":[%s,%s,%s,%s,{"position":{"node_id":"7"},"edit":[{"from_length":15,"to_length":15},{"to_length":60,"sequence":"%s"},{"from_length":15,"to_length":15}]},%s,%s]}}\n' \
+    $i $RCN1 $RCN4 ${RCN7:0:15} $RCNOVEL ${RCN7:15} $RCN10 "$(rcn_match 1 40)" "$(rcn_match 3 1)" \
+    "$(rcn_match 4 30)" "$(rcn_match 6 1)" $RCNOVEL "$(rcn_match 9 1)" "$(rcn_match 10 40)"
+done > rcm.json
+vg view -JaG rcm.json > rcm.gam
+RCM_CALL="vg call rcn.gbz --read-likelihood --gam rcm.gam -t 1 -s samp --phased --read-phasing --regenotype --regeno-temper 1"
+$RCM_CALL 2>/dev/null > rcm.off.vcf
+is "$(grep -v '^#' rcm.off.vcf | cut -f3 | tr '\n' ' ')/$(grep -c $RCNOVEL rcm.off.vcf)" \
+   ">1>4 >4>7 >7>10 /0" \
+   "without --read-consensus, bases the reads have inside the node between two snarls are in no record"
+$RCM_CALL --read-consensus --mosaic-out rcm.mos.tsv --mosaic-exact 2>rcm.err > rcm.vcf
+RCM_MERGED=G${RCN7:0:15}$RCNOVEL${RCN7:15}C
+is "$(grep -v '^#' rcm.vcf | cut -f3 | tr '\n' ' ')/$(awk -v alt=$RCM_MERGED '$3 == ">4>10" {print $2 "/" ($5 == alt) "/" ($8 ~ /;RC$/) "/" substr($10, 1, 3)}' rcm.vcf)" \
+   ">1>4 >4>10 /72/1/1/0|1" \
+   "with it the two snarls are one site, named by its outer bound nodes, whose called allele has the bases"
+is "$(sed -n 's/.* \([0-9]*\) runs treated, \([0-9]*\) of them made one site, \([0-9]*\) sites gained an allele or were made of a run, \([0-9]*\) of them called.*/\1,\2,\3,\4/p' rcm.err)" \
+   "1,1,1,1" "and the step reports the run it treated and made one site, and that site and its call"
+is "$(awk -F'\t' '$1 == "A" {print $3 "/" $7}' rcm.mos.tsv)/$(rc_row_spells $RCN4 G $RCN7 C $RCN10 < rcm.mos.tsv | grep -c "^$RCN4$RCM_MERGED$RCN10$")" \
+   "1/>4>6>7>9>10/1" \
+   "the exact mosaic gives the one site's consensus allele as an allele row over the walk strand Y is called as"
+is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.mos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
+        --vcf rcm.vcf --quiet >rcm.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" rcm.expand.txt)/$(grep -c '1 steps joined by an A row rather than an edge' rcm.expand.txt)" \
+   "0/4,4,0/0" \
+   "and the mosaic's strands have the bases of every record, each step joined to the next by an edge"
+# The nesting tags of -A are found by walking the sites, which has to reach the one site.
+is "$($RCM_CALL --read-consensus -A 2>/dev/null | awk '$3 == ">4>10" {print ($8 ~ /;LV=0;/)}')" "1" \
+   "with -A the one site's record gets nesting tags as a snarl's does"
+$RCM_CALL --read-consensus --flatten-records --mosaic-out rcm.fmos.tsv --mosaic-exact 2>/dev/null > rcm.flat.vcf
+is "$(grep -v '^#' rcm.flat.vcf | cut -f3 | tr '\n' ' ')/$(grep -v '^#' rcm.flat.vcf | grep -c ';RC;')/$(grep -c "C${RCNOVEL}" rcm.flat.vcf)" \
+   ">1>10_0 >1>10_1 >1>10_2 >1>10_3 /4/1" \
+   "written as flat records, the two sites are one run of four differences from the reference, one of them the inserted bases"
+is "$(python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.fmos.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
+        --vcf rcm.flat.vcf --quiet >rcm.expand.txt 2>&1; echo $?)/$(sed -n "$MX_CHECKED" rcm.expand.txt)" \
+   "0/2,2,0" \
+   "and each strand of the mosaic has the bases the run's flat records give, from the run's first bound node to its last"
+# The two checks have to fail on wrong bases, or passing them says nothing.
+sed "s/$RCNOVEL/A${RCNOVEL:1}/" rcm.mos.tsv > rcm.bad.tsv
+python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.bad.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
+    --vcf rcm.vcf --quiet >rcm.expand.txt 2>&1
+RCM_BAD=$?/$(sed -n "$MX_CHECKED" rcm.expand.txt)
+python3 -B ../artifacts/scripts/mosaic_to_path.py --mosaic rcm.bad.tsv --gaf rcn.paths.gaf --gfa rcn.graph.gfa \
+    --vcf rcm.flat.vcf --quiet >rcm.expand.txt 2>&1
+is "$RCM_BAD/$?/$(sed -n "$MX_CHECKED" rcm.expand.txt)" "1/4,3,1/1/2,1,1" \
+   "with one base of the allele row's bases changed, both checks find the strand different"
+rm -f rcn.gfa rcn.gbz rcn.json rcn.gam rcn.off.vcf rcn.on.vcf rcn.on.err rcn.flat.vcf rcn.mos.tsv \
+      rcn.mos.vcf rcn.paths.gaf rcn.graph.gfa rcn.expand.txt rcn.refuse.txt rcm.json rcm.gam \
+      rcn.flat.err \
+      rcm.off.vcf rcm.vcf rcm.err rcm.mos.tsv rcm.expand.txt rcm.flat.vcf rcm.fmos.tsv rcm.bad.tsv
 
 # The cactus snarl finder makes a unary snarl for the loop off node 2 here, which the
 # read-likelihood caller refuses with a message saying how to find snarls it can call.

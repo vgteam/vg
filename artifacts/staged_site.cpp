@@ -171,6 +171,43 @@ void StagedSiteTable::for_each(const function<void(StagedSite&)>& visit) {
     }
 }
 
+size_t StagedSiteTable::remove_with_nested(const unordered_set<size_t>& keys,
+                                           const function<void(const StagedSite&)>& removed) {
+    // The keys to remove: those given, and those of the nested sites under them.
+    unordered_set<size_t> doomed = keys;
+    vector<size_t> stack(keys.begin(), keys.end());
+    while (!stack.empty()) {
+        const size_t key = stack.back();
+        stack.pop_back();
+        if (const vector<size_t>* kids = children_of(key)) {
+            for (const size_t kid : *kids) {
+                if (doomed.insert(nested_sites[kid].record_key).second) {
+                    stack.push_back(nested_sites[kid].record_key);
+                }
+            }
+        }
+    }
+    size_t count = 0;
+    auto goes = [&](const StagedSite& site) {
+        if (!doomed.contains(site.record_key)) {
+            return false;
+        }
+        removed(site);
+        ++count;
+        return true;
+    };
+    for (auto& queue : queues) {
+        std::erase_if(queue, goes);
+    }
+    if (std::erase_if(nested_sites, goes) > 0) {
+        children.clear();
+        for (size_t i = 0; i < nested_sites.size(); ++i) {
+            children[nested_sites[i].placement.parent_record_key].push_back(i);
+        }
+    }
+    return count;
+}
+
 StagedSiteTable::HandOff StagedSiteTable::hand_off() {
     HandOff out;
     size_t next_queue = 0;

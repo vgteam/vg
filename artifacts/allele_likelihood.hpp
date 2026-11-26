@@ -11,12 +11,14 @@
  * is described in artifacts/doc/read-likelihood-direct-genotyping.md.
  */
 
+#include <cmath>
 #include <functional>
 #include <iostream>
 #include <limits>
 #include <atomic>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -302,6 +304,33 @@ public:
      */
     void attach_phase_evidence(unique_ptr<PhaseReadEvidence> evidence);
 
+    /// What the reads that span a snarl from bound to bound have between its bounds.
+    struct SpanSummary {
+        /// The number of reads that span the snarl.
+        uint32_t reads = 0;
+        /// The nats those reads lose, in all: what each scores between the bounds under its
+        /// best allele below a read that an allele spells base for base there, each read
+        /// counting at most `AlleleLikelihoodParams::span_loss_cap`.
+        double loss = 0.0;
+        /// The longest gap that the read with the `AlleleLikelihoodParams::span_rank`-th
+        /// longest has inside the node of
+        /// the start bound or in the nodes that every walk takes before that node, for up to
+        /// `AlleleLikelihoodParams::span_gap_reach` bases of them, in bases, or 0 where fewer
+        /// reads than that span the snarl.
+        /// A read's gap is a run of bases it inserts in a node or beside it, or a run of a
+        /// node's bases it lacks. The bases a read inserts between the bounds are no gap.
+        uint32_t start_gap = 0;
+        /// The same inside the node of the end bound and in the nodes after it.
+        uint32_t end_gap = 0;
+    };
+
+    /// Get the summary of the reads that span the site, which is empty unless the calculator
+    /// kept one.
+    const SpanSummary& span_summary() const { return spans; }
+
+    /// Set the summary of the reads that span the site.
+    void set_span_summary(const SpanSummary& summary) { spans = summary; }
+
     /// Give up the anchor evidence, or null if none was attached.
     unique_ptr<AnchorSiteEvidence> take_anchor_evidence() { return std::move(anchor_evidence); }
 
@@ -339,6 +368,8 @@ private:
     unique_ptr<AnchorSiteEvidence> anchor_evidence;
     /// The read-phasing evidence of the site, or null.
     unique_ptr<PhaseReadEvidence> phase_evidence;
+    /// The summary of the reads that span the site.
+    SpanSummary spans;
 
     /// The relative likelihoods, row major, n_reads * n_alleles, with a maximum of 1 in each row.
     vector<double> matrix;
@@ -538,6 +569,69 @@ struct AlleleLikelihoodParams {
     ///
     /// Phasing needs only the rows, not the positions that `collect_anchors` also resolves.
     bool collect_read_phasing = false;
+
+    /**
+     * The most bases of a read that are aligned at a snarl with a sequence allele, an allele
+     * that is given as a sequence between the snarl's bounds (see `add_sequence_allele`).
+     *
+     * A read that spans such a snarl is scored by aligning its bases between the bounds to each
+     * allele's. A read with more bases than this between the bounds is scored as a read that
+     * does not span the snarl. An allele can have any number of bases.
+     */
+    size_t sequence_allele_max_bases = 10000;
+
+    /// The most alignments of a read to an allele that are made at one snarl with a sequence
+    /// allele. Where the reads that span the snarl need more, its sequence alleles are not
+    /// offered.
+    size_t sequence_allele_max_alignments = 2000;
+
+    /**
+     * If not 0, the matrix of a snarl keeps a summary of the reads that span the snarl, and
+     * the gaps the read with the `span_rank`-th longest has around each bound (see
+     * `AlleleReadLikelihoods::SpanSummary`).
+     */
+    size_t span_rank = 0;
+
+    /// The most nats that one spanning read adds to `AlleleReadLikelihoods::SpanSummary::loss`:
+    /// what its score between a snarl's bounds, under its best allele, is below that of a read
+    /// an allele spells. 0 sums nothing.
+    double span_loss_cap = 0.0;
+
+    /// The most bases of the nodes that every walk takes before a snarl's start bound, and
+    /// after its end bound, in which a spanning read's gaps count towards
+    /// `AlleleReadLikelihoods::SpanSummary::start_gap` and `end_gap`.
+    size_t span_gap_reach = 0;
+};
+
+/**
+ * The reads of a first fetch, kept to answer later fetches inside its node ranges.
+ *
+ * The first fetch reads the source and keeps a copy of every read it delivers. A later fetch
+ * whose node ranges all lie inside the first fetch's is answered from the copies, in the order
+ * the first fetch delivered them, with the reads that touch its ranges, as the source would
+ * answer it. Any other fetch reads the source again, and keeps nothing. So does every fetch
+ * where the first fetch left out a read for having the name and start of an earlier one, since a
+ * fetch of fewer nodes can then deliver a read the first one did not.
+ */
+class FirstFetchHold {
+public:
+    /// How the source is read: the node ranges, and what to do with each read. It returns
+    /// whether it left out a read for having the name and start of an earlier one (see
+    /// `SiteReadSource::for_each_read_uncounted`).
+    using Fetch = function<bool(const vector<pair<nid_t, nid_t>>&,
+                                const function<void(const SiteRead&)>&)>;
+
+    /// Visit the reads touching `ranges`, from the kept reads or by `fetch`.
+    void visit(const vector<pair<nid_t, nid_t>>& ranges, const Fetch& fetch,
+               const function<void(const SiteRead&)>& iteratee);
+
+private:
+    bool filled = false;
+    /// Whether the first fetch left out a repeated read.
+    bool dropped = false;
+    /// The merged node ranges of the first fetch.
+    vector<pair<nid_t, nid_t>> held_ranges;
+    vector<Alignment> reads;
 };
 
 /**
@@ -553,6 +647,13 @@ public:
      * Nothing in the matrix depends on the ploidy the site is then genotyped at. An allele with
      * step sequences is scored against them rather than against the nodes of its walk.
      *
+     * At a snarl with a sequence allele, a read that spans the snarl from bound to bound is
+     * scored on every allele by aligning its bases between the bounds to the allele's. A read
+     * that does not span the snarl is scored on the other alleles as at any snarl, and fits each
+     * sequence allele as well as the allele it fits best, so that it says nothing about the
+     * sequence allele. Where the alignments would pass the limits of the parameters, no read can
+     * be placed on a sequence allele, and the others are scored as at any snarl.
+     *
      * @param site The site, whose alleles are in the order the caller will genotype them.
      * @param fallback_nodes Nodes to place the site's depth-rate window by, most preferred
      * first, when neither bound of the site is on a reference path.
@@ -564,6 +665,87 @@ public:
     virtual AlleleReadLikelihoods compute(const MaterializedSite& site,
                                           const vector<nid_t>& fallback_nodes,
                                           int region_ploidy) = 0;
+
+    /// A read that spans a snarl from bound to bound.
+    struct SpanningRead {
+        /// The name of the read.
+        string name;
+        /// The number of bases the read has between the bounds.
+        size_t length = 0;
+        /// Those bases, in upper case, read the way the snarl's alleles are. Empty where the read
+        /// has more of them than `AlleleLikelihoodParams::sequence_allele_max_bases`.
+        string bases;
+    };
+
+    /**
+     * Return the reads that span the snarl `site` from bound to bound, sorted by name and then
+     * by bases.
+     *
+     * A read spans the snarl as `compute` takes it to at a snarl with a sequence allele, and its
+     * bases between the bounds are the ones `compute` aligns there. The reads are fetched as
+     * `set_counted_fetches(false)` fetches them. The default returns none.
+     */
+    virtual vector<SpanningRead> spanning_reads(const MaterializedSite& /*site*/) const {
+        return {};
+    }
+
+    /**
+     * Set whether `compute` fetches a site's reads with `SiteReadSource::for_each_read`, as it
+     * does at first, or with `for_each_read_uncounted`, which adds nothing to the source's
+     * tallies of read starts or to its off-panel candidates.
+     *
+     * Not safe to call while a site is computed. The default does nothing.
+     */
+    virtual void set_counted_fetches(bool /*counted*/) {
+        // A calculator that fetches no reads has nothing to set.
+    }
+
+    /**
+     * Set whether this thread holds the reads of its first fetch (see `FirstFetchHold`). While
+     * it does, a later fetch of node ranges inside the first fetch's is answered from them, and
+     * any other fetch reads the source again. Turning it off lets them go. Unlike
+     * `SiteReadSource::hold_reads`, which keeps the reads of a wide site's counted fetch for the
+     * sites below it, this keeps the reads of any first fetch, and works with every source. It
+     * is only for fetches that count nothing (`set_counted_fetches(false)`), since an answer
+     * from it adds nothing to the source's tallies. Turn it off however the work ends, as a
+     * scoped guard does. The default does nothing.
+     */
+    virtual void hold_first_fetch(bool /*on*/) const {
+        // A calculator that fetches no reads holds none.
+    }
+
+    /// The limits of `compute` at a snarl with a sequence allele.
+    struct SequenceAlleleLimits {
+        /// The most bases between the bounds that are aligned
+        /// (`AlleleLikelihoodParams::sequence_allele_max_bases`).
+        size_t max_bases = 0;
+        /// The most alignments of a read to an allele that are made at one snarl
+        /// (`AlleleLikelihoodParams::sequence_allele_max_alignments`).
+        size_t max_alignments = 0;
+    };
+
+    /// Get the limits of `compute` at a snarl with a sequence allele. The default, for a
+    /// calculator that aligns no read to a sequence allele, is 0 for both.
+    virtual SequenceAlleleLimits sequence_allele_limits() const { return {}; }
+
+    /**
+     * Return the ln-likelihood score of a read that has `bases` between the bounds of a snarl
+     * against an allele that has `sequence` there, as `compute` scores a spanning read at a
+     * snarl with a sequence allele, without the read's score on the bound nodes. The default,
+     * for a calculator that aligns no read to a sequence, is nothing.
+     *
+     * @param at_least If given, the score need not be found where it is below this.
+     * @return Nothing if the two cannot be aligned within the aligner's limits, and -inf if
+     * the score is known to be below `at_least`.
+     */
+    virtual optional<double> sequence_nats(const string& /*bases*/, const string& /*sequence*/,
+                                           optional<double> /*at_least*/ = std::nullopt) const {
+        return std::nullopt;
+    }
+
+    /// Return the most nats by which one read can favour one allele over another: the least
+    /// chance that a read is mismapped bounds its say. The default is 0.
+    virtual double read_clamp() const { return 0.0; }
 };
 
 /**
@@ -632,6 +814,21 @@ public:
                                   const vector<nid_t>& fallback_nodes,
                                   int region_ploidy) override;
 
+    vector<SpanningRead> spanning_reads(const MaterializedSite& site) const override;
+
+    void set_counted_fetches(bool counted) override { counted_fetches = counted; }
+
+    void hold_first_fetch(bool on) const override;
+
+    optional<double> sequence_nats(const string& bases, const string& sequence,
+                                   optional<double> at_least = std::nullopt) const override;
+
+    double read_clamp() const override { return -std::log(params.min_mismap_prob); }
+
+    SequenceAlleleLimits sequence_allele_limits() const override {
+        return {params.sequence_allele_max_bases, params.sequence_allele_max_alignments};
+    }
+
     /**
      * Place rate windows on reference paths.
      *
@@ -689,6 +886,16 @@ protected:
 
     /// A table of the alleles of one site, as node visits with sequences, ready for scoring reads.
     struct SiteAlleles;
+
+    /// The two boundary nodes of a snarl, as its alleles read them.
+    struct SnarlBounds;
+
+    /// The bases of each allele between the bounds of a snarl that has a sequence allele.
+    struct SequenceAlleles;
+
+    /// Visit the reads on the nodes of `ranges`, counted or not as `set_counted_fetches` set.
+    void visit_reads(const vector<pair<nid_t, nid_t>>& ranges,
+                     const function<void(const SiteRead&)>& iteratee) const;
 
     /// A dynamic-programming grid that finds the optimal pairing of the visits of one read with
     /// those of one allele.
@@ -828,6 +1035,47 @@ protected:
                    const EditAlignmentScorer& read_scorer, const SiteAlleles& alleles,
                    ReadScratch& scratch, vector<double>& row) const;
 
+    /**
+     * Fill `row` with the ln-likelihood under each allele of a read that spans a snarl with a
+     * sequence allele, by aligning the read's bases between the snarl's bounds to each allele's.
+     *
+     * The read's bases between the bounds are those after its last base on the start bound's
+     * node and before its first base on the end bound's, with any bases it inserts there. Each
+     * allele's entry is the read's score on the two boundary nodes, from its own alignment, plus
+     * the score of the best global alignment of the read's bases between the bounds to the
+     * allele's, in nats, plus `insertion_gap_nats` for each gap of read bases in that alignment.
+     *
+     * The alignment is scored as `plain_scorer` scores a read's alignment to a walk: a matched
+     * base scores `match`, a mismatched one `-mismatch`, and a gap of n bases
+     * `-(gap_open + (n - 1) * gap_extension)`. With m matched bases, x mismatched, and the gaps
+     * G, between a read of r bases and an allele of a, 2m + 2x + (bases in gaps) = r + a, so the
+     * score is `(match * (r + a) - cost) / 2`, where the cost is `2 * (match + mismatch)` for
+     * each mismatch and `2 * (gap_open - gap_extension) + (2 * gap_extension + match) * n` for
+     * each gap. The string aligner finds the alignment of least such cost, which is the one of
+     * the highest score.
+     *
+     * The work is in two parts, so that the alignments can be made after the reads are
+     * fetched: `spanned_bases` takes what the read has between the bounds, and `score_spanned`
+     * aligns it.
+     */
+    struct SpannedBases {
+        /// The read's bases between the bounds, in upper case.
+        string bases;
+        /// The read's score on the two boundary nodes, in nats.
+        double boundary = 0.0;
+    };
+
+    /// Return what a read that spans a snarl with a sequence allele has between the bounds, or
+    /// nothing if it has more bases there than `sequence_allele_max_bases`.
+    optional<SpannedBases> spanned_bases(const Alignment& aln, const vector<ReadStep>& read_steps,
+                                         const EditAlignmentScorer& read_scorer) const;
+
+    /// Fill `row` with the ln-likelihood of the read whose bases between the bounds are
+    /// `spanned` under each allele of `sequences`. Return false, leaving `row` as it was, if an
+    /// alignment is not found within the aligner's limits.
+    bool score_spanned(const SpannedBases& spanned, const SequenceAlleles& sequences,
+                       vector<double>& row) const;
+
     /// The statistics of the reads that begin in a rate window.
     struct WindowReadStats {
         /// The number of reads that begin on a reference node in the window, per base of
@@ -920,6 +1168,8 @@ protected:
 
 private:
     const SiteReadSource& read_source;
+    /// Whether `compute` fetches reads with `SiteReadSource::for_each_read`.
+    bool counted_fetches = true;
     /// The statistics of each node-ID fallback window, by window index.
     mutable unordered_map<size_t, WindowReadStats> window_rate;
     /// The counts of each reference bucket, by reference path index and bucket.

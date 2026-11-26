@@ -9,10 +9,12 @@
  * (`SiteChildren`). An allele of a site is a `Traversal`, a walk of handles from the start bound of
  * the site to its end bound.
  *
- * Namespace vg holds how edit sites are made. Namespace vg::multipass holds the caller's own types,
+ * Namespace vg holds how edit sites and sequence alleles are made. Namespace vg::multipass holds the caller's own types,
  * and the functions that read them from a decomposition.
  */
 
+#include <functional>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -20,6 +22,7 @@
 #include "edit_snarl_decomposition_overlay.hpp"
 #include "../src/handle.hpp"
 #include "materialized_site.hpp"
+#include "string_aligner.hpp"
 #include "../src/snarls.hpp"
 #include "../src/traversal_finder.hpp"
 #include <vg/vg.pb.h>
@@ -56,6 +59,41 @@ struct EditSite {
  */
 EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t offset, size_t at,
                    size_t length, const vector<string>& alts);
+
+/**
+ * Add a sequence allele to `alleles`, the alleles of a snarl: an allele that spells `interior`
+ * between the snarl's two bounds, whatever the graph has there.
+ *
+ * The allele's walk is the snarl's two boundary nodes alone, as the walks of `alleles` begin and
+ * end, and its one change puts `interior` after the last base of the first. So the allele spells
+ * the first boundary node, then `interior`, then the second boundary node. Its walk visits no
+ * node between the bounds, so it crosses no site nested in the snarl, and no panel haplotype
+ * carries it.
+ *
+ * @return The index of the new allele, or nothing, with `alleles` as it was, if `alleles` has no
+ * walk of two or more steps to take the bounds from, or the two bounds are on one node.
+ */
+optional<size_t> add_sequence_allele(const HandleGraph& graph, CandidateAlleles& alleles,
+                                     const string& interior);
+
+/**
+ * Add an allele to `alleles`, the alleles of a snarl: `walk`, a walk across the snarl, with
+ * changes to the sequences of its steps so that it spells `interior` between the snarl's two
+ * bounds.
+ *
+ * The bases `walk` spells between the bounds are aligned to `interior` with `aligner`, and the
+ * gaps moved left. Each difference becomes changes to the steps that hold its bases: a run of
+ * mismatches or a deletion changes each step it covers, so a node whose bases are all deleted
+ * stays in the walk with none, and an insertion goes after the base before it, or before the
+ * first base between the bounds where it comes first. So the two bound nodes keep their bases,
+ * unless the walk has no bases between the bounds and `interior` has some.
+ *
+ * @return The index of the new allele, or nothing, with `alleles` as it was, if `walk` has fewer
+ * than two steps or the alignment is not found.
+ */
+optional<size_t> add_walk_allele(const HandleGraph& graph, CandidateAlleles& alleles,
+                                 const Traversal& walk, const string& interior,
+                                 const StringAlignerParams& aligner);
 
 /**
  * Make the ID of an edit site, `op<node>.<offset>.<kind><alt>`.
@@ -170,6 +208,22 @@ NodePlacement placement_of_node(const SnarlDecomposition& decomposition, const H
 /// The key is the ID of the chain's first node. A trivial chain, of a node that bounds no site,
 /// has a key like any other chain. A key is never 0, since node IDs start at 1.
 size_t chain_key_of(const HandleGraph& graph, const ChildChain& chain);
+
+/**
+ * Walk from `end`, the end bound node of a site, to the start bound node of the next site of its
+ * chain.
+ *
+ * The walk goes on from a node where every walk of the chain takes the same node next. `nodes`
+ * is set to the nodes from `end` to the node the walk stops at, both included, and `bases` to
+ * the bases they have. They are the one node where the two sites share a bound.
+ *
+ * @param max_bases The most bases the nodes may have.
+ * @param starts_site Return whether a site starts at a node.
+ * @return Whether the walk stopped at a node that a site starts at.
+ */
+bool walk_to_next_site(const HandleGraph& graph, const handle_t& end, size_t max_bases,
+                       const function<bool(const handle_t&)>& starts_site,
+                       vector<handle_t>& nodes, size_t& bases);
 
 }
 }

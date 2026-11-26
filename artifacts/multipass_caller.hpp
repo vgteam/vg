@@ -32,6 +32,7 @@
 #include "phase_table.hpp"
 #include "ploidy_regions.hpp"
 #include "read_likelihood_caller.hpp"
+#include "read_consensus_step.hpp"
 #include "read_phaser.hpp"
 #include "read_strand_table.hpp"
 #include "record_renderer.hpp"
@@ -101,10 +102,12 @@ public:
      * @param recurse_type Which sites the direct pass goes on to after the top level. It visits
      * the children of every site (`RecurseAlways`), of every site that `TreeGenotyper::genotype`
      * returns false for (`RecurseOnFail`), or of none (`RecurseNever`), and so on down.
-     * @param after_direct_pass Runs once the direct pass is done, before the linkage pass. The
-     * passes after it read only what the direct pass kept, not reads.
+     * @param release_reads Frees what the read source keeps for fetching reads. It runs once
+     * the direct pass is done, before the linkage pass, and again after the read-consensus step
+     * if that ran, which fetches reads. The other passes after the direct pass read only what it
+     * kept, not reads.
      */
-    void call(GraphCaller::RecurseType recurse_type, const function<void()>& after_direct_pass);
+    void call(GraphCaller::RecurseType recurse_type, const function<void()>& release_reads);
 
     /// Get the emitter that writes the record of each staged site, so that its settings can be
     /// changed.
@@ -166,6 +169,28 @@ public:
     /// each called strand, instead of one record per site.
     void set_atomize_blocks(bool on) { block_records.set_enabled(on); }
 
+    /**
+     * Set whether the top-level sites are written as flat records: the base-level differences
+     * of each strand from the reference, over a run of neighbouring sites, with the called
+     * alleles of the sites nested in them spliced in (see `plan_flat_records` and
+     * `BlockRecordWriter::write_flat`). The sites nested in them then get no lines of their
+     * own. Only the records change: the phase, the anchors and the mosaic are what they are
+     * with this off. Off by default.
+     *
+     * A site whose strands cannot be aligned to its reference is written as it is with this
+     * off, and so are the sites nested in it.
+     *
+     * With the environment variable `VG_CHECK_FLAT_RECORDS` set, the flat records of each run
+     * are put back into its reference and compared with its strands, and the report counts the
+     * runs checked and the runs that failed.
+     */
+    void set_flatten_records(bool on);
+
+    /// Set the most bases that the nodes from one site's end bound to the next site's start
+    /// bound, both included, can have for the two to be in one run of flat records. With 0,
+    /// every site is a run of its own.
+    void set_flatten_distance(size_t bases) { flatten_distance = bases; }
+
     /// File each site in the linkage model while calling, so that it can choose the genotypes
     /// afterwards.
     ///
@@ -215,6 +240,15 @@ public:
         rescorer.configure(on, params, passes);
     }
 
+    /// Set the read-consensus step (see `ReadConsensusStep`), which runs where
+    /// `options.enabled`.
+    void set_read_consensus(const ReadConsensusOptions& options) {
+        read_consensus.set_options(options);
+    }
+
+    /// Get what the read-consensus step did.
+    const ReadConsensusCounts& read_consensus_counts() const { return read_consensus.counts(); }
+
     /// Set the source the reads of the sites come from.
     ///
     /// It can hold a wide site's reads for the sites below it (see `SiteReadSource::hold_reads`).
@@ -259,6 +293,7 @@ private:
         bool same_as_reference(const CalledSite& site, int trav) override;
         int64_t phase(const CalledSite& site, const vector<int>& genotype,
                       const map<int, int>& trav_to_allele, string& gt) override;
+        bool withholds_record(const CalledSite& site) override;
         int write_blocks(const PathPositionHandleGraph& graph, const CalledSite& site,
                          const SiteRecord& record) override;
         void finish_record(const CalledSite& site, vcflib::Variant& record) override;
@@ -275,6 +310,85 @@ private:
     /// Write the records of a staged site at `genotype`, during the render, and return how they
     /// numbered its alleles, or nothing where the site got no line.
     RecordRenderer::WrittenAlleles write_site(StagedSite& site, const vector<int>& genotype);
+
+    /// Return whether the records `site` has without `--flatten-records` are kept out of the
+    /// output: those of a site written as flat records, of a site nested in one, and of an edit
+    /// site between two sites of a run.
+    ///
+    /// Such a site is still rendered, with its lines dropped, so that the linkage model, the
+    /// anchors and the mosaic are told what they are told without `--flatten-records`.
+    bool withholds_lines(const StagedSite& site) const {
+        return site.flat.has_value() || flat_withheld.contains(site.record_key);
+    }
+
+    /// A run of sites that `--flatten-records` writes together, before its strands are spelled.
+    struct FlatRunPlan {
+        /// The sites that write the run's records: neighbouring top-level snarls of one chain,
+        /// in the order of the chain, or one top-level edit site.
+        vector<StagedSite*> sites;
+        /// The nodes from each site's end bound to the next site's start bound, both included.
+        vector<vector<handle_t>> junctions;
+        /// The top-level edit sites in the nodes of the junctions.
+        vector<StagedSite*> between;
+    };
+
+    /**
+     * Return whether the strands of the top-level site `site` can be spelled for flat records,
+     * counting why not.
+     *
+     * They can where the site has a genotype and a phase whose strands carry it, and its
+     * resolved reference is its reference allele, which its records are placed by.
+     */
+    bool can_flatten(const StagedSite& site) const;
+
+    /// Return whether the phase of the site with `phase` orders its two strands, so that its
+    /// record claims a phase.
+    bool orders_strands(const LinkageCollector::PhaseCall& phase) const;
+
+    /**
+     * Group the top-level sites `roots` into the runs that are written as flat records.
+     *
+     * A run is a longest series of snarls that follow each other in a chain, where at most
+     * `flatten_distance` bases lie in the nodes from one's end bound to the next one's start
+     * bound, one phase orders the strands of all of them, the reference path reads them one
+     * after another, and the run's reference has no more than `flat_run_max_bases` bases. The
+     * edit sites in the nodes between two sites of a run are in the run, and two snarls with an
+     * edit site between them that cannot be are in no run together. Every other site that can
+     * be written as flat records is a run of its own.
+     *
+     * @param can Whether each site of `roots` can be written as flat records.
+     */
+    vector<FlatRunPlan> flat_runs(const vector<StagedSite*>& roots, const vector<char>& can) const;
+
+    /**
+     * Spell each strand along the run of `plan`, align it to the run's reference, and give each
+     * site of the run its part of the run's records, in `StagedSite::flat`.
+     *
+     * A strand is spelled by the splicer, from the first site's start bound to the last site's
+     * end bound, with every site of the run in it.
+     *
+     * @param refused Set to why not, where false is returned.
+     * @return False, giving no site anything, if a strand cannot be spelled or aligned.
+     */
+    bool align_flat_run(const FlatRunPlan& plan, FlatRefusal& refused) const;
+
+    /// Return the objects the read-consensus step works with.
+    ReadConsensusStep::Parts read_consensus_parts();
+
+    /// Run the read-consensus step, if it is on, and choose the genotypes and phase the reads
+    /// again if it gave any site an allele.
+    void add_read_consensus_alleles();
+
+    /**
+     * Decide, before any record is written, which top-level sites are written as flat records,
+     * in which runs, and so which other sites get no line.
+     *
+     * The line of a site nested in a site of a run, or of an edit site between two sites of a
+     * run, is left out only once the run is known to align. A run of several sites that does
+     * not is written as a run for each of its sites. A site alone that does not is written as
+     * it is without flat records, with the sites nested in it.
+     */
+    void plan_flat_records();
 
     /// Give `record` the quality fields of its chosen genotype, if the linkage model moved its
     /// site's genotype (see ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).
@@ -326,8 +440,8 @@ private:
     /// Decide again which chains an enclosing block spells (`StagedSite::reported_inline`), from
     /// the chosen genotypes the render builds each parent's blocks from.
     ///
-    /// Without the linkage model every chosen genotype is the direct call, which the direct pass
-    /// tested, so there is nothing to redo.
+    /// A chain whose two strands carry different alleles is not spelled by a record that spells
+    /// one traversal for both strands, so its line is not held back.
     ///
     /// @return The number of chains whose flag changed.
     size_t rederive_reported_inline();
@@ -435,6 +549,16 @@ private:
     /// Spells the alleles of each site with the chosen alleles of the sites under it, from
     /// `phase_table`.
     AlleleSplicer splicer;
+    /// Whether the top-level sites are written as flat records (see `set_flatten_records`).
+    bool flatten_records = false;
+    /// See `set_flatten_distance`.
+    size_t flatten_distance = 500;
+    /// The most bases the reference of a run of several sites can have.
+    static constexpr size_t flat_run_max_bases = 50000;
+    /// The record keys of the sites in the render queues whose lines are kept out of the
+    /// output, because the flat records of a run spell them: the sites nested in a site of the
+    /// run, and the edit sites between two of its sites.
+    unordered_set<size_t> flat_withheld;
 
     /// Which allele each panel haplotype carries at a site. Empty without the linkage model.
     PanelLookup panel_lookup;
@@ -469,6 +593,10 @@ private:
 
     /// Re-genotyping from the phase, if it is on.
     GenotypeRescorer rescorer;
+    /// The step that adds alleles built from the reads, if it is on.
+    ReadConsensusStep read_consensus;
+    /// Frees what the read source keeps for fetching reads (see `call`).
+    function<void()> release_reads;
 
     /// Collects the anchors and writes the anchor file, if one was asked for.
     AnchorCollector anchor_collector;

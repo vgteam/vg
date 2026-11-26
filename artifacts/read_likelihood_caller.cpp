@@ -135,6 +135,7 @@ static void fill_matrix_fields(const AlleleReadLikelihoods& matrix,
         }
     }
     info.mean_best_ln = best_ln_n ? best_ln_total / (double)best_ln_n : 0.0;
+    info.spans = matrix.span_summary();
 
     info.n_reads = matrix.num_reads();
     info.scored_traversals.assign(traversals.begin(), traversals.end());
@@ -152,6 +153,7 @@ static unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> copy_matrix
     copy->scored_traversals = info.scored_traversals;
     copy->allele_support = info.allele_support;
     copy->mean_best_ln = info.mean_best_ln;
+    copy->spans = info.spans;
     copy->depth = info.depth;
     copy->ploidy = ploidy;
     return copy;

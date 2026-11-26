@@ -54,8 +54,9 @@ matched to its site by its ID (`MultiPassCaller::record_id_of_site`).
    stages each child in the same way, at both ploidy 1 and ploidy 2 when it has more than one
    candidate allele. Under the linkage model it also genotypes and stages the chains no called
    allele crosses (see "retained only" below), and, with off-reference genotyping on, the chains
-   off the reference. The direct pass is the only pass that fetches reads; the later ones use the
-   per-read evidence it staged, and `main_call` frees the read source's cache once it ends.
+   off the reference. The later passes use the per-read evidence the direct pass staged, and
+   `main_call` frees the read source's cache once it ends. Only the read-consensus step fetches
+   reads again.
 2. **Round 1.** The linkage pass (`GenotypeLinker::link`) has the linkage model choose the
    genotypes one level at a time, parents before children, and, when phasing is written, writes
    each site's phase to the `PhaseTable`. Between levels it sets each child's ploidy from its
@@ -63,7 +64,16 @@ matched to its site by its ID (`MultiPassCaller::record_id_of_site`).
    `MultiPassCaller` tests again, through `BlockRecordWriter`, which chains a parent's block
    record already spells, so that no chain is written twice. Read phasing (`ReadPhaser::phase`),
    when it is on, then re-decides the phase from reads that span several sites: it swaps strands
-   in the `PhaseTable` and fills the `ReadStrandTable`.
+   in the `PhaseTable` and fills the `ReadStrandTable`. With `--read-consensus`,
+   `ReadConsensusStep::run` then compares the reads that span each phased snarl with what each
+   strand is called as there (`AlleleSplicer::strand_sequence`), adds the consensus of a strand's
+   disagreeing reads to the snarl as a sequence allele (`add_sequence_allele`), has
+   `TreeGenotyper::regenotype` genotype the snarl again from its reads, and files it with the
+   linkage model in place of its entry. It does the same across a run of neighbouring snarls of
+   one chain, which becomes one site in place of its snarls (`TreeGenotyper::merged_site`), with
+   the run's consensus as an allele. Its reads come through
+   `SiteReadSource::for_each_read_uncounted`, and `main_call` frees the read source's cache again
+   after it. If any snarl gained an allele, the linkage pass and read phasing run again.
 3. **Later rounds**, with re-genotyping. Each round corrects every staged site's likelihoods from
    the phase (`GenotypeRescorer::rescore`), gives the corrected likelihoods to the linkage model
    (`GenotypeLinker::resync`), runs the linkage pass again, and runs read phasing again.
@@ -170,12 +180,12 @@ grouped by the step they serve; the driver and its walk come first.
 | Step | Module | What it holds |
 |---|---|---|
 | Driver | `multipass_caller.hpp` | `MultiPassCaller`, which holds the options and the widgets, and runs the passes in `call()` |
-| | `edit_snarl_decomposition_overlay.hpp` | `EditSnarlDecompositionOverlay`, the snarl decomposition with the edit sites laid over it as leaf children, through which the caller walks its sites |
+| | `edit_snarl_decomposition_overlay.hpp` | `EditSnarlDecompositionOverlay`, the snarl decomposition with the edit sites laid over it as leaf children, and the sites made of a run of neighbouring snarls, through which the caller walks its sites |
 | | `site_walker.hpp`, `site_scheduler.hpp` | `SiteWalker`, the walk over a decomposition's sites, and the batching scheduler it shares with `GraphCaller` |
-| | `site_values.hpp` | the plain values copied out of the overlay (`SiteChildren`, `ChildSite`), and the spelling of edit sites' alleles |
+| | `site_values.hpp` | the plain values copied out of the overlay (`SiteChildren`, `ChildSite`), the spelling of edit sites' alleles, and `add_sequence_allele`, which gives a snarl an allele that is a sequence between its bounds; no caller adds one yet |
 | | `staged_site.hpp` | `StagedSite`, one site's result from the direct pass, and `StagedSiteTable`, which holds every staged site from the direct pass to the render |
 | Site likelihood computation | `site_read_source.hpp` | `SiteRead`, a read as a site sees it, and `SiteReadSource`, which delivers the reads of a site from a GAM or GAF file in memory, an indexed GAM file, a bgzipped GAF file through its tabix index, or a GAF-base database |
-| | `allele_likelihood.hpp` | `GraphAlignedAlleleLikelihoodCalculator`, which scores each read against each candidate allele by pairing their node visits, and `AlleleReadLikelihoods`, the resulting matrix of relative likelihoods, which computes $\mathcal{L}(G)$ for each genotype |
+| | `allele_likelihood.hpp` | `GraphAlignedAlleleLikelihoodCalculator`, which scores each read against each candidate allele by pairing their node visits, and `AlleleReadLikelihoods`, the resulting matrix of relative likelihoods, which computes $\mathcal{L}(G)$ for each genotype; at a snarl with a sequence allele it scores each read that spans the snarl by aligning it to every allele with the string aligner |
 | Genotyping | `candidate_finder.hpp` | `CandidateFinder`, which finds a site's reference path and candidate alleles; `FlowCaller` uses it too |
 | | `read_likelihood_caller.hpp` | `ReadLikelihoodSnarlCaller`, which makes one site's direct call from its likelihoods at explicit ploidies, returns it as a `SiteScore`, and computes its quality fields |
 | | `edit_site_placer.hpp` | `EditSitePlacer`, which places the off-panel edit sites among the sites and adds them to the overlay |
@@ -188,10 +198,13 @@ grouped by the step they serve; the driver and its walk come first.
 | | `read_strand_table.hpp` | `ReadStrandTable`, what read phasing decided about each site's reads, and `TemperFit`, the temper fitted in the first re-genotyping round |
 | | `regenotype.hpp`, `genotype_rescorer.hpp`, `round_history.hpp` | strand log-odds, tempering and the per-read likelihood correction; `GenotypeRescorer`, which applies the correction to every staged site; and `RoundHistory`, the chosen genotypes of each round |
 | Output | `record_renderer.hpp` | `RecordRenderer`, which builds each staged site's records once and collects its anchors |
-| | `allele_splicer.hpp` | `AlleleSplicer`, which spells a site's alleles with the chosen alleles of the sites staged under it |
+| | `allele_splicer.hpp` | `AlleleSplicer`, which spells a site's alleles with the chosen alleles of the sites staged under it, and gives each strand's resolved sequence and the resolved reference |
+| | `string_aligner.hpp` | `align_global`, a banded global aligner of two strings that returns the alignment's operations, and `left_align_gaps`; `--flatten-records` aligns strands to the reference with them |
+| | `read_consensus.hpp` | `read_consensus`, the consensus of the reads that span a window, built by aligning each read to a backbone with the string aligner |
+| | `read_consensus_step.hpp` | `ReadConsensusStep`, which gives a snarl, or the snarls of a run of neighbours in one chain, the consensus of the reads of a strand that disagree with what is called there, as sequence alleles, and has them genotyped again, or makes the run one site with the consensus as an allele (`--read-consensus`) |
 | | `off_panel_ledger.hpp` | `OffPanelLedger`, which records what became of each off-panel candidate and writes the summary |
 | | `sorted_vcf_writer.hpp`, `site_emitter.hpp`, `vcf_record.hpp` | `SortedVCFWriter`, the record buffer and VCF writer that vg's callers hold; `SiteEmitter`, which builds one site's record from the caller's allele and field callbacks, and which a caller subclasses to change its decisions; and the helpers that build a record |
-| | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks |
+| | `symbolic_allele.hpp`, `block_records.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once, and `BlockRecordWriter`, which writes a site as its difference blocks, or, with `--flatten-records`, as flat records |
 | | `anchor.hpp`, `fill_pins.hpp`, `mosaic_writer.hpp` | the anchor file (`AnchorCollector`, `AnchorWriter`), the fill anchors in it (`FillAnchors`), and the mosaic file (`MosaicWriter`) |
 | Command line | `subcommand/call_main.cpp` | the options, grouped by subsystem, the `--preset` table, and the construction of every object above |
 

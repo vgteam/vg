@@ -618,6 +618,29 @@ void help_call(char** argv) {
          << "                            a called allele and the reference, rather than one" << endl
          << "                            per snarl [on]" << endl
          << "      --no-atomize-blocks   write one record per snarl" << endl
+         << "      --flatten-records     write the top-level snarls as the base-level" << endl
+         << "                            differences of each called haplotype from the" << endl
+         << "                            reference, with the calls in their nested snarls" << endl
+         << "                            put in, over each run of neighbouring snarls:" << endl
+         << "                            one record per run of mismatches or gap, and" << endl
+         << "                            none for nested snarls" << endl
+         << "      --flatten-distance N  put two snarls of a chain in one run of flat" << endl
+         << "                            records where the nodes from the end of one to" << endl
+         << "                            the start of the next have at most N bases;" << endl
+         << "                            with 0, each snarl is a run of its own [500]" << endl
+         << "  read consensus:" << endl
+         << "      --read-consensus      add to a snarl, or to a run of neighbouring" << endl
+         << "                            snarls of a chain, the consensus of the reads of" << endl
+         << "                            a called haplotype that span it, where they gain" << endl
+         << "                            by it over what is called on it, and genotype" << endl
+         << "                            the snarls again; needs --phased" << endl
+         << "      --consensus-min-gain=N" << endl
+         << "                            add a consensus by which the reads of a" << endl
+         << "                            haplotype gain N nats or more over what is" << endl
+         << "                            called, each read counting at most the say" << endl
+         << "                            that --mismap-min leaves one read; test a snarl" << endl
+         << "                            where its spanning reads lose N nats in all under" << endl
+         << "                            the call, counted the same way [9]" << endl
          << "  read scoring:" << endl
          << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
          << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
@@ -744,6 +767,9 @@ void help_call(char** argv) {
          << "  mosaic:" << endl
          << "      --mosaic-out FILE     write the genome as a mosaic of the -z/-g" << endl
          << "                            haplotypes to FILE (implies --phased)" << endl
+         << "      --mosaic-exact        also write an allele row wherever a strand's called" << endl
+         << "                            allele is not the one its haplotype spells, so" << endl
+         << "                            that the mosaic rebuilds the called genotypes" << endl
          << "      --mosaic-break-unexplained" << endl
          << "                            end a mosaic segment where no haplotype explains" << endl
          << "                            a stretch, instead of continuing the flanking one" << endl
@@ -867,6 +893,14 @@ int main_call(int argc, char** argv) {
     bool mosaic_keep_nested = true;
     // Where no haplotype explains a stretch, continue the flanking haplotype through it.
     bool mosaic_connect_unexplained = true;
+    // Whether the mosaic also gives the called allele wherever a strand's haplotype spells another.
+    bool mosaic_exact = false;
+    // Whether each top-level snarl is written as the base-level differences of its called
+    // haplotypes from its reference allele.
+    bool flatten_records = false;
+    size_t flatten_distance = 500;
+    // The step that adds alleles built from the reads to snarls.
+    vg::multipass::ReadConsensusOptions read_consensus;
     string translation_file_name;
     bool   gbz_translation = false;
     string ref_fasta_filename;
@@ -1059,6 +1093,11 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MOSAIC_PATCH = 1054;
     constexpr int OPT_NO_MOSAIC_NESTED = 1055;
     constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
+    constexpr int OPT_MOSAIC_EXACT = 1124;
+    constexpr int OPT_FLATTEN_RECORDS = 1125;
+    constexpr int OPT_READ_CONSENSUS = 1126;
+    constexpr int OPT_CONSENSUS_MIN_GAIN = 1127;
+    constexpr int OPT_FLATTEN_DISTANCE = 1132;
     optind = 2; // force optind past command positional argument
     // The long options, grouped by the subsystem they configure, by its name. Every subsystem with
     // a switch is part of the read-likelihood genotyper.
@@ -1113,6 +1152,7 @@ int main_call(int argc, char** argv) {
         }}},
         {"the read-likelihood genotyper", {"--read-likelihood", nullptr,
          [&] { return read_likelihood; }, {
+            {"read-consensus", no_argument, nullptr, OPT_READ_CONSENSUS},
             {"no-phased", no_argument, nullptr, OPT_NO_PHASED},
             {"gam", required_argument, nullptr, OPT_GAM},
             {"gaf-reads", required_argument, nullptr, OPT_GAF},
@@ -1158,6 +1198,7 @@ int main_call(int argc, char** argv) {
             {"no-group-candidates", no_argument, nullptr, OPT_NO_GROUP_CANDIDATES},
             {"atomize-blocks", no_argument, nullptr, OPT_ATOMIZE_BLOCKS},
             {"no-atomize-blocks", no_argument, nullptr, OPT_NO_ATOMIZE_BLOCKS},
+            {"flatten-records", no_argument, nullptr, OPT_FLATTEN_RECORDS},
             {"phased", no_argument, nullptr, OPT_PHASED},
             {"mosaic-out", required_argument, nullptr, OPT_MOSAIC_OUT},
             {"anchors-out", required_argument, nullptr, OPT_ANCHORS_OUT},
@@ -1196,9 +1237,18 @@ int main_call(int argc, char** argv) {
             {"no-mosaic-patch-gaps", no_argument, nullptr, OPT_NO_MOSAIC_PATCH},
             {"no-mosaic-nested", no_argument, nullptr, OPT_NO_MOSAIC_NESTED},
             {"mosaic-break-unexplained", no_argument, nullptr, OPT_MOSAIC_BREAK_UNEXPL},
+            {"mosaic-exact", no_argument, nullptr, OPT_MOSAIC_EXACT},
         }}},
         // Re-genotyping needs read phasing, so it is off without it, even where a preset turned it
         // on.
+        {"flat records", {"--flatten-records", "the read-likelihood genotyper",
+         [&] { return flatten_records; }, {
+            {"flatten-distance", required_argument, nullptr, OPT_FLATTEN_DISTANCE},
+        }}},
+        {"read consensus", {"--read-consensus", "the read-likelihood genotyper",
+         [&] { return read_consensus.enabled; }, {
+            {"consensus-min-gain", required_argument, nullptr, OPT_CONSENSUS_MIN_GAIN},
+        }}},
         {"re-genotyping", {"--regenotype", "the read-likelihood genotyper",
          [&] { return regenotype && read_phasing; }, {
             {"regeno-ceiling", required_argument, nullptr, OPT_REGENO_CEILING},
@@ -1292,6 +1342,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_MOSAIC_NESTED:
             mosaic_keep_nested = false;
+            break;
+        case OPT_MOSAIC_EXACT:
+            mosaic_exact = true;
             break;
         case OPT_MOSAIC_PATCH:
             mosaic_patch_gaps = true;
@@ -1400,6 +1453,18 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_ATOMIZE_BLOCKS:
             atomize_blocks = false;
+            break;
+        case OPT_FLATTEN_RECORDS:
+            flatten_records = true;
+            break;
+        case OPT_FLATTEN_DISTANCE:
+            flatten_distance = parse<size_t>(optarg);
+            break;
+        case OPT_READ_CONSENSUS:
+            read_consensus.enabled = true;
+            break;
+        case OPT_CONSENSUS_MIN_GAIN:
+            read_consensus.min_gain = parse<double>(optarg);
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
@@ -1801,6 +1866,12 @@ int main_call(int argc, char** argv) {
                            << "would stop being sample-independent" << endl;
         }
         atomize_blocks = false;
+    }
+
+    if (flatten_records && genotype_snarls) {
+        logger.error() << "--flatten-records cannot be combined with -a/--genotype-snarls: its "
+                       << "records depend on the called haplotypes, so the record set would stop "
+                       << "being sample-independent" << endl;
     }
 
     if (!vcf_filename.empty() && genotype_snarls) {
@@ -2518,6 +2589,16 @@ int main_call(int argc, char** argv) {
             likelihood_params.anchor_counters = &anchor_run_counters;
             anchor_params.counters = &anchor_run_counters;
             likelihood_params.collect_read_phasing = read_phasing;
+            if (read_consensus.enabled) {
+                // The read-consensus step tests the snarls whose reads lose enough under the
+                // call. The direct pass sums what each spanning read loses, up to one read's
+                // say, and keeps the gaps around the bounds of as many reads as can gain the
+                // step's least gain.
+                likelihood_params.span_rank =
+                    read_consensus.reads_needed(-std::log(min_mismap_prob));
+                likelihood_params.span_loss_cap = -std::log(min_mismap_prob);
+                likelihood_params.span_gap_reach = read_consensus.run_max_junction;
+            }
 
             auto owned_calculator = make_unique<GraphAlignedAlleleLikelihoodCalculator>(
                 *graph, *read_source, *qual_scorer, *plain_scorer,
@@ -2845,6 +2926,14 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    if (flatten_records && multipass_caller != nullptr) {
+        multipass_caller->set_flatten_records(true);
+        multipass_caller->set_flatten_distance(flatten_distance);
+    }
+    if (read_consensus.enabled && multipass_caller != nullptr) {
+        multipass_caller->set_read_consensus(read_consensus);
+    }
+
     if (nested_calling) {
         multipass_caller->set_nested_calling(true);
     }
@@ -2917,6 +3006,22 @@ int main_call(int argc, char** argv) {
             }
             phased_output = false;
         }
+        if (read_consensus.enabled && read_consensus.min_gain <= 0.0) {
+            logger.error() << "--consensus-min-gain must be more than 0" << endl;
+        }
+        if (read_consensus.enabled && !phased_output) {
+            // The step compares the reads of a strand with what the phase puts on it.
+            logger.error() << "--read-consensus needs the phase the linkage model gives each "
+                           << "site (--phased), which needs haplotype enumeration (-z or -g)"
+                           << endl;
+        }
+        if (flatten_records && !phased_output) {
+            // A flat record spells a strand, and the phase says which strand carries which
+            // allele at each site.
+            logger.error() << "--flatten-records needs the phase the linkage model gives each "
+                           << "site (--phased), which needs haplotype enumeration (-z or -g)"
+                           << endl;
+        }
         if (nested_calling && linkage_weight > 0.0 && !phased_output) {
             // Where the linkage model runs, a nested site's ploidy and strand come from its
             // parent's phased genotype, so nested calling needs phasing. An explicit --nested is
@@ -2975,6 +3080,7 @@ int main_call(int argc, char** argv) {
                     .patch_gaps = mosaic_patch_gaps,
                     .keep_nested = mosaic_keep_nested,
                     .connect_unexplained = mosaic_connect_unexplained,
+                    .exact = mosaic_exact,
                 });
             }
             if (show_progress) {

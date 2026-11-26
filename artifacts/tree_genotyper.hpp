@@ -5,6 +5,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <unordered_set>
 #include <string>
 #include <utility>
@@ -113,6 +114,37 @@ public:
      * @param candidates The off-panel candidates, sorted.
      */
     void genotype_top_level_edits(vector<EditCandidate> candidates);
+
+    /**
+     * Genotype the staged snarl `site` again from its reads, with the alleles it has now, at the
+     * ploidy it has now, and give it the new call.
+     *
+     * The alleles from `first_added` on were added after the direct pass genotyped the site. Each
+     * is a group of its own where groups choose the genotype. The site is not filed in the
+     * linkage model again.
+     *
+     * @return False, leaving the site's call as it was, if the site could not be genotyped.
+     */
+    bool regenotype(StagedSite& site, size_t first_added) const;
+
+    /**
+     * Make one site of a run of neighbouring staged snarls of one chain, and genotype it from
+     * its reads.
+     *
+     * The site is a merged site of the overlay of sites, from the start bound of `first`, the
+     * first snarl of the run, to the end bound of `last`, the last. It is named by those bounds,
+     * as a snarl is. It takes its place in the nesting tree, its place on the reference and its
+     * ploidy from `first`, and has no child sites. It is genotyped as `regenotype` genotypes a
+     * snarl. It is neither staged nor filed in the linkage model.
+     *
+     * @param alleles The alleles of the site, each with a walk from the start bound node of
+     * `first` to the end bound node of `last`.
+     * @param first_added The index of the first allele that is a group of its own where groups
+     * choose the genotype (see `regenotype`).
+     * @return The site, or nothing if it could not be genotyped.
+     */
+    optional<StagedSite> merged_site(const StagedSite& first, const StagedSite& last,
+                                     CandidateAlleles alleles, size_t first_added) const;
 
     /// Count the nodes whose free edit sites `genotype_top_level_edits` genotyped.
     size_t edit_nodes_after_pass() const { return placer.nodes_after_pass(); }

@@ -1,6 +1,9 @@
 #ifndef VG_ALLELE_SPLICER_HPP_INCLUDED
 #define VG_ALLELE_SPLICER_HPP_INCLUDED
 
+#include <functional>
+#include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -51,16 +54,95 @@ public:
     /// without a phase there is no strand to splice on. The sites must not move until `clear()`.
     void index(StagedSiteTable& staged_sites, bool phasing);
 
+    /// Index the staged sites under each site of `staged_sites` before the hand-off, while the
+    /// nested sites are in the gathered nested list.
+    ///
+    /// Index nothing unless the phase table has its render phases. The sites must not move
+    /// until `clear()`.
+    void index_before_hand_off(StagedSiteTable& staged_sites);
     /// Forget the index.
     void clear();
 
     /// Return true if any staged site is indexed under the site with record key `record_key`.
     bool has_children(size_t record_key) const;
 
+    /// Visit every staged site indexed under the site with record key `record_key`, at any
+    /// depth, parents before the sites under them.
+    void for_each_under(size_t record_key,
+                        const function<void(const StagedSite&)>& visit) const;
+
     /// Fill `out` with the alleles the record of `site` spells.
     ///
     /// @return False if no allele changed.
     bool splice(const StagedSite& site, SplicedAlleles& out) const;
+
+    /**
+     * Return the traversal of `site` that strand `strand` of its phase carries.
+     *
+     * A site with two strands has strands 0 and 1. A site with one strand has strand 0, unless
+     * it is a nested chain on one strand of its parent, when it has that strand of the parent.
+     *
+     * @return Nothing if the site has no phase, or the strand does not cross the site.
+     */
+    optional<int> strand_traversal(const StagedSite& site, int strand) const;
+
+    /**
+     * Return the sequence that strand `strand` of the phase of `site` spells, from the start
+     * bound node of the site through its end bound node.
+     *
+     * It is the allele the strand carries at the site, with every site staged under it spelled
+     * by the allele that strand carries there, recursively. A site under it that the strand does
+     * not cross, or that has no phase, leaves the bases of the allele above it as they are.
+     *
+     * @return Nothing if the site has no phase, or the strand does not cross the site.
+     */
+    optional<string> strand_sequence(const StagedSite& site, int strand) const;
+
+    /**
+     * Get the walk that strand `strand` of the phase of `site` takes, from the start bound node
+     * of the site through its end bound node, and the bases of each of its steps.
+     *
+     * It is the walk and the bases that `strand_sequence` spells.
+     *
+     * @param walk Set to the walk.
+     * @param steps Set to the bases of each step of `walk`, or left empty where every step has
+     * the bases of its node.
+     * @return False if the site has no phase, or the strand does not cross the site.
+     */
+    bool strand_walk(const StagedSite& site, int strand, Traversal& walk,
+                     StepSequences& steps) const;
+
+    /**
+     * Return the sequence that strand `strand` spells along the walk `along`, with each of the
+     * sites `on_walk` spelled by the allele the strand carries there.
+     *
+     * The sites are put on the walk as the sites staged under a site are put on its allele by
+     * `strand_sequence`: a snarl's allele in place of the walk from its start bound node to its
+     * end bound node, and the changes of an edit site's allele in the nodes of its walk.
+     *
+     * @param haploid Whether there is one strand, which every site of `on_walk` is on.
+     * @return Nothing if a site of `on_walk` has no allele on the strand, or its allele cannot
+     * be put on the walk.
+     */
+    optional<string> sequence_along(const Traversal& along,
+                                    const vector<const StagedSite*>& on_walk, int strand,
+                                    bool haploid) const;
+
+    /**
+     * Return the sequence of the reference allele of `site`, with every site staged under it
+     * spelled by its own reference allele, recursively.
+     *
+     * @return Nothing if the site has no reference allele.
+     */
+    optional<string> reference_sequence(const StagedSite& site) const;
+
+    /// Make the edits to the sequences of the steps, right to left within each step.
+    ///
+    /// Going right to left, an edit that changes the length does not move the offsets of those
+    /// before it. An edit that overlaps one already made to its right is skipped.
+    ///
+    /// @return True if any sequence changed.
+    static bool apply_step_edits(vector<StepEdit> step_edits, StepSequences& steps);
 
 private:
     /// The chosen allele of one child site on one strand, as the steps that replace the parent's
@@ -73,6 +155,10 @@ private:
         /// Whether the child lies inside nodes, so that its allele changes the bases of the
         /// parent's steps rather than replacing them.
         bool inside_node;
+        /// The changes the child's allele makes to the steps of `walk`, where `steps` are the
+        /// allele's own step sequences. Empty where its walk spells it, or a site under the
+        /// child changed `steps`.
+        vector<AlleleEdit> changes;
         /// The record key of the child.
         size_t key;
     };
@@ -82,49 +168,77 @@ private:
      * under it spelled by its chosen allele on that strand, recursively.
      *
      * @param haploid Whether the site has one strand, which all its one-copy children are on.
+     * @param reference Whether to spell each child by its reference allele instead, whatever
+     * the strand carries.
      * @param walk Set to the spliced walk.
      * @param steps Set to the sequence of each step of `walk`.
      * @return False, leaving `walk` and `steps` empty, if no child changes the allele.
      */
     bool spliced_allele(const StagedSite& site, int trav, int strand, bool haploid,
-                        Traversal& walk, StepSequences& steps) const;
+                        bool reference, Traversal& walk, StepSequences& steps) const;
+
+    /**
+     * Spell the walk `parent_walk` on strand `strand`, with each site of `kids` spelled by its
+     * chosen allele on that strand, as `spliced_allele` spells an allele of a site with the
+     * sites staged under it.
+     *
+     * @param alleles The alleles that `parent_walk` is walk `trav` of, for the bases of its
+     * steps, or null if each step has the bases of its node.
+     * @param skipped If not null, increased by the number of sites of `kids` whose allele was
+     * not put on the walk.
+     */
+    bool spliced_walk(const Traversal& parent_walk, const CandidateAlleles* alleles, int trav,
+                      const vector<const StagedSite*>& kids, int strand, bool haploid,
+                      bool reference, Traversal& walk, StepSequences& steps,
+                      size_t* skipped) const;
+
+    /// Return the sequence of allele `trav` of `site`, spliced as `spliced_allele` splices it.
+    string resolved_sequence(const StagedSite& site, int trav, int strand, bool haploid,
+                             bool reference) const;
 
     /**
      * Make the replacement of a child site's chosen allele on one strand of its parent's walk.
+     *
+     * With `reference`, the allele is the child's reference allele.
      *
      * @param first_visit The index in `parent_walk` of the first visit to each node.
      * @return False if the child has no chosen allele on the strand, or the parent's walk does
      * not cross it.
      */
-    bool chosen_replacement(const StagedSite& child, int strand, bool haploid,
+    bool chosen_replacement(const StagedSite& child, int strand, bool haploid, bool reference,
                             const Traversal& parent_walk,
                             const unordered_map<nid_t, int>& first_visit, Replacement& rep) const;
 
     /// Spell `parent_walk` into `walk` and `steps`, with each of `routes` in place of the visits
     /// it covers.
     ///
-    /// A route that overlaps one before it is skipped.
+    /// A route that begins on the last visit of the route before it, as the route of a site
+    /// does when the site before it in its chain shares a bound node with it, is spliced from its
+    /// second visit on. The shared visit takes the bases of whichever of the two routes changes
+    /// them. Any other route that overlaps one before it is skipped, and so is one that changes
+    /// the bases of the shared visit in another way than the route before it.
     ///
     /// @param own The step sequences of the parent's allele, or null if its walk spells it.
     /// @param routes Sorted by where they begin.
     /// @return True if any route changed the allele.
+    /// @param skipped If not null, increased by the number of routes skipped.
     bool splice_routes(const Traversal& parent_walk, const StepSequences* own,
                        const vector<Replacement>& routes, Traversal& walk,
-                       StepSequences& steps) const;
+                       StepSequences& steps, size_t* skipped) const;
 
     /// Find the changes that children inside nodes make to the steps of the spliced walk `walk`.
     ///
-    /// Each child changes the bases its allele differs from its nodes in, where `walk` first
-    /// visits its first node and then the rest of its walk, read the way `walk` reads them.
-    vector<StepEdit> step_edits_of(const vector<Replacement>& edits, const Traversal& walk) const;
+    /// Each child makes its changes where `walk` first visits its first node and then the rest
+    /// of its walk, read the way `walk` reads them. They are the changes its allele has
+    /// (`Replacement::changes`), at their own offsets, so that two changes to one node that
+    /// touch no base in common are both made. A child with none of those changes the bases its
+    /// step sequences differ from its nodes in.
+    ///
+    /// @param skipped If not null, increased by the number of children whose walk `walk` does
+    /// not have.
+    vector<StepEdit> step_edits_of(const vector<Replacement>& edits, const Traversal& walk,
+                                   size_t* skipped) const;
 
-    /// Make the edits to the sequences of the steps, right to left within each step.
-    ///
-    /// Going right to left, an edit that changes the length does not move the offsets of those
-    /// before it. An edit that overlaps one already made to its right is skipped.
-    ///
-    /// @return True if any sequence changed.
-    static bool apply_step_edits(vector<StepEdit> step_edits, StepSequences& steps);
 
     const HandleGraph& graph;
     /// The overlay of sites that the staged sites' net handles are in.
