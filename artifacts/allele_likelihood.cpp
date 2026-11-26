@@ -2948,21 +2948,21 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             sequences.fill_unaligned(read.row);
         }
     };
-    if (omp_in_parallel()) {
-#pragma omp taskgroup
-        {
-            for (size_t i = 0; i < pending.size(); ++i) {
-#pragma omp task firstprivate(i)
-                score_pending(i);
-            }
-        }
-    } else if (!pending.empty()) {
-#pragma omp parallel
-#pragma omp single
+    auto spawn = [&]() {
         for (size_t i = 0; i < pending.size(); ++i) {
 #pragma omp task firstprivate(i)
             score_pending(i);
         }
+    };
+    // Inside a parallel region, the threads of its team take the tasks; outside one, a team is
+    // made for them.
+    if (omp_in_parallel()) {
+#pragma omp taskgroup
+        spawn();
+    } else if (!pending.empty()) {
+#pragma omp parallel
+#pragma omp single
+        spawn();
     }
     for (const Pending& read : pending) {
         add_row(read.row, read.mismap, read.name, read.length,
