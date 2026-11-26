@@ -1100,7 +1100,9 @@ private:
         htsFile* file = nullptr;
     };
 
-    /// The most bytes of decompressed blocks each thread's handle keeps.
+    /// The most bytes of decompressed blocks each thread's handle keeps: 64 MiB for each
+    /// thread, so 4 GiB with 64 threads. On chr20 with 6 threads it saves about 68 CPU seconds
+    /// of a call with --read-consensus and --flatten-records.
     static constexpr int BLOCK_CACHE_BYTES = 64 << 20;
 
     /// Return this thread's state, opening its handle on first use.
