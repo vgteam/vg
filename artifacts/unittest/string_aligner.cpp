@@ -300,6 +300,39 @@ TEST_CASE("The guided aligner over every cell takes the alignment the banded ali
     }
 }
 
+TEST_CASE("The guided aligner aligns whatever its corners", "[string_aligner]") {
+    std::mt19937 generator(13);
+    const StringAlignerParams params{.mismatch = 40, .gap_open = 78, .gap_extend = 7,
+                                     .long_gap_open = 162, .long_gap_extend = 3};
+    const string shared = unittest::random_bases(50, generator);
+    const string first = shared + unittest::random_bases(300, generator) + shared;
+    string second = first;
+    second.insert(120, unittest::random_bases(40, generator));
+    second[250] = second[250] == 'A' ? 'C' : 'A';
+    const optional<StringAlignment> best = align_global(first, second, params);
+    REQUIRE(best);
+    const vector<vector<pair<size_t, size_t>>> guides{
+        // Corners that go back.
+        {{200, 240}, {100, 100}, {300, 280}},
+        // Corners inside the shared start and end.
+        {{10, 10}, {20, 20}, {390, 430}, {395, 435}},
+        // Corners far apart, whose bands do not meet without the margin.
+        {{50, 50}, {51, 300}, {300, 40}}};
+    for (const auto& corners : guides) {
+        for (const size_t margin : {size_t(0), size_t(8), size_t(512)}) {
+            const optional<StringAlignment> guided =
+                align_guided(first, second, corners, margin, params);
+            REQUIRE(guided);
+            unittest::require_spells(first, second, guided->runs);
+            REQUIRE(unittest::alignment_cost(guided->runs, params) == guided->cost);
+            REQUIRE(guided->cost >= best->cost);
+            if (margin == 512) {
+                REQUIRE(guided->cost == best->cost);
+            }
+        }
+    }
+}
+
 TEST_CASE("The wavefront aligner gives up an alignment that costs more than a bound",
           "[string_aligner]") {
     StringAlignerParams params;
