@@ -1750,9 +1750,6 @@ TabixGafSiteReadSource::ThreadState& TabixGafSiteReadSource::thread_state() cons
         if (state.file == nullptr) {
             throw runtime_error("could not open " + gaf_filename + " for reading");
         }
-        // Keep the blocks the thread decompressed, since neighbouring and overlapping fetches,
-        // as the read-consensus step makes, read many of the same blocks again.
-        bgzf_set_cache_size(hts_get_bgzfp(state.file), BLOCK_CACHE_BYTES);
     }
     return state;
 }
