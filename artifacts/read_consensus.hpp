@@ -59,11 +59,32 @@ struct ReadConsensusParams {
  * `params.seed_from_reads`, the rounds start again from the medoid read where it is nearer
  * the reads than `backbone` is.
  *
+ * The first round stops aligning reads once the rest cannot change the backbone, where the
+ * backbone lies within the lengths of the reads (see `consensus_round`), so the backbone can be
+ * returned where a read it did not align has no alignment within the limits of
+ * `params.aligner`.
+ *
  * @return Nothing if there are fewer than `params.min_reads` reads, or an alignment is not found
  * within the limits of `params.aligner`.
  */
 optional<string> read_consensus(const vector<string>& reads, const string& backbone,
                                 const ReadConsensusParams& params = ReadConsensusParams());
+
+/**
+ * Return one round of `read_consensus`: `backbone` with each base and each gap between bases set
+ * to what most of `reads` have there.
+ *
+ * With `settle`, return `backbone` as soon as the reads aligned so far show that the rest cannot
+ * change it: each base of the backbone leads every other vote by at least the number of reads
+ * left, and no gap has inserted bases in so many reads that the rest could make them more than
+ * half. That is the round's result where every read aligns. Where one of the rest has no
+ * alignment within the limits of `params.aligner`, the full round gives nothing, and the round
+ * with `settle` can still give `backbone`.
+ *
+ * @return Nothing if an alignment it makes is not found within the limits of `params.aligner`.
+ */
+optional<string> consensus_round(const vector<string>& reads, const string& backbone,
+                                 const ReadConsensusParams& params, bool settle);
 
 /**
  * Return `sequence` with each difference from `backbone` that only changes the length of a run of

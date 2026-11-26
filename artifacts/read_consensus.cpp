@@ -94,13 +94,7 @@ optional<Medoid> medoid_of(const vector<const string*>& strings, bool need_dista
     return Medoid{best, sums[best]};
 }
 
-/// Return the result of one round: `backbone` with each base and each gap between bases set
-/// to what most of `reads` have there. Nothing if an alignment is not found.
-///
-/// With `settle`, return `backbone` as soon as the reads aligned so far show that the rest
-/// cannot change it: each base of the backbone leads every other vote by at least the number
-/// of reads left, and no gap has inserted bases in so many reads that the rest could make them
-/// more than half.
+/// Return one round (see `consensus_round`).
 optional<string> vote(const vector<const string*>& reads, const string& backbone,
                       const ReadConsensusParams& params, bool settle = false) {
     vector<std::array<uint32_t, VOTES>> columns(backbone.size(), std::array<uint32_t, VOTES>{});
@@ -199,6 +193,16 @@ bool all_are(const string& bases, size_t from, size_t length, char base) {
     return true;
 }
 
+}
+
+optional<string> consensus_round(const vector<string>& reads, const string& backbone,
+                                 const ReadConsensusParams& params, bool settle) {
+    vector<const string*> all;
+    all.reserve(reads.size());
+    for (const string& read : reads) {
+        all.push_back(&read);
+    }
+    return vote(all, backbone, params, settle);
 }
 
 optional<int64_t> edit_distance(const string& first, const string& second) {

@@ -189,6 +189,35 @@ static int64_t median_of(vector<int64_t> values) {
 // the engine's consensus and from the backbone to the recorded one, with and without runs of one
 // base collapsed, and the summed edit distance from the reads to the engine's consensus and to
 // the recorded one. VG_CONSENSUS_SEED=0 turns off seeding from the reads.
+TEST_CASE("A round that settles early gives what the full round gives", "[read_consensus]") {
+    const ReadConsensusParams params;
+    const string backbone = "ACGTTGCAAGGCTTAACCGGTACG";
+    string changed = backbone;
+    changed[7] = 'T';
+    const string inserted = backbone.substr(0, 12) + "GGG" + backbone.substr(12);
+    const vector<vector<string>> cases{
+        // Every read agrees.
+        {backbone, backbone, backbone, backbone, backbone},
+        // A tie at one base, which the backbone keeps.
+        {backbone, changed, backbone, changed},
+        // An insertion in exactly half the reads, which is not made.
+        {inserted, backbone, inserted, backbone},
+        // A change in more than half, which is made.
+        {changed, changed, backbone, changed, changed}};
+    for (const vector<string>& reads : cases) {
+        REQUIRE(consensus_round(reads, backbone, params, true)
+                == consensus_round(reads, backbone, params, false));
+    }
+    // Where a later read has no alignment within the aligner's limits, the full round gives
+    // nothing, and the settled round can give the backbone before it reaches that read.
+    ReadConsensusParams bounded = params;
+    bounded.aligner.max_cost = 0;
+    const string distant(60, 'T');
+    const vector<string> failing{backbone, backbone, backbone, distant, distant};
+    REQUIRE(!consensus_round(failing, backbone, bounded, false));
+    REQUIRE(consensus_round(failing, backbone, bounded, true) == backbone);
+}
+
 TEST_CASE("The read consensus is compared with recorded consensuses", "[.][read_consensus_cases]") {
     const char* path = std::getenv("VG_CONSENSUS_CASES");
     REQUIRE(path != nullptr);
