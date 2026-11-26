@@ -1,10 +1,8 @@
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <limits>
 #include <memory>
 #include <numeric>
-#include <sstream>
 #include <tuple>
 #include <unordered_set>
 
@@ -31,8 +29,6 @@ struct ReadConsensusStep::Run {
     /// The nodes from each member's end bound to the next member's start bound, both included.
     /// It is the one node where the two share a bound.
     vector<vector<handle_t>> junctions;
-    /// For measurement: whether a run of one is a member of a run of several that is tested.
-    bool in_tested = false;
 };
 
 struct ReadConsensusStep::RunFinding {
@@ -399,27 +395,8 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
         if (clamp * (double)on.reads < options.min_gain) {
             continue;
         }
-        static const bool log_builds = getenv("VG_LOG_CONSENSUS") != nullptr;
-        ReadConsensusStats stats;
-        const auto began = std::chrono::steady_clock::now();
-        optional<string> consensus = read_consensus(bases, called[strand], options.consensus,
-                                                    log_builds ? &stats : nullptr);
-        // For measurement: one line for each consensus built, ended once its gain is known.
-        auto log_build = [&](const char* outcome) {
-            if (!log_builds) {
-                return;
-            }
-            std::ostringstream line;
-            line << "[consensus-build] " << count << " " << run.in_tested << " "
-                 << called[strand].size() << " " << stats.reads << " " << stats.rounds << " "
-                 << stats.cost << " "
-                 << std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
-                        .count()
-                 << " " << stats.first_seconds << " " << outcome << "\n";
-            cerr << line.str();
-        };
+        optional<string> consensus = read_consensus(bases, called[strand], options.consensus);
         if (!consensus || *consensus == called[strand]) {
-            log_build("unchanged");
             continue;
         }
         on.candidate = true;
@@ -444,7 +421,6 @@ ReadConsensusStep::RunFinding ReadConsensusStep::examine_run(const Parts& parts,
                 gain += consensus_first ? more : -more;
             }
         }
-        log_build(gain >= options.min_gain ? "accepted" : "rejected");
         if (gain >= options.min_gain) {
             on.consensus = std::move(consensus);
         }
@@ -750,7 +726,7 @@ size_t ReadConsensusStep::run(const Parts& parts) {
     vector<ReadConsensusCounts> entered_alone(snarls.size());
     // Test the site `i` on its own.
     auto treat_alone = [&](size_t i) {
-        found_alone[i] = treat_run(parts, splicer, snarls, Run{{i}, {}, run_of[i] != none},
+        found_alone[i] = treat_run(parts, splicer, snarls, Run{{i}, {}},
                                    merged_alone[i], entered_alone[i]);
     };
 #pragma omp parallel for schedule(dynamic, 1)

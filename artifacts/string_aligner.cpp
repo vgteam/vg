@@ -462,8 +462,6 @@ optional<StringAlignment> align_global(const string& first, const string& second
             return std::nullopt;
         }
         const int64_t cost = fill_band(a, n, b, m, band.low, band.high, params, &trace);
-        result.cells_filled += band.cells(n);
-        result.cells_traced = std::max(result.cells_traced, band.cells(n));
         if (!least && cost > cost_outside(band, n, m, params) && cost == narrower_cost) {
             // Doubling the band found nothing cheaper, so this is likely the least cost. Fill,
             // without tracing, the narrowest band that an alignment of this cost cannot leave.
@@ -484,8 +482,6 @@ optional<StringAlignment> align_global(const string& first, const string& second
                 return std::nullopt;
             }
             least = fill_band(a, n, b, m, proof.low, proof.high, params, nullptr);
-            result.cells_filled += proof.cells(n);
-            result.cells_proof += proof.cells(n);
         }
         if (cost <= cost_outside(band, n, m, params) || (least && cost == *least)) {
             const vector<AlignmentRun> middle = trace_back(trace, a, n, b, m, band.low,
@@ -579,8 +575,6 @@ optional<StringAlignment> align_guided(const string& first, const string& second
         add_run(result.runs, runs[r].op, runs[r].length);
     }
     add_run(result.runs, AlignmentOp::Match, suffix);
-    result.cells_filled = start[n + 1];
-    result.cells_traced = start[n + 1];
     return result;
 }
 

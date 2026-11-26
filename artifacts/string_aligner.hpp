@@ -86,11 +86,6 @@ struct StringAlignment {
     /// The number of diagonals on each side of those between the two corners that the last band
     /// held, or 0 if no band was needed.
     size_t band = 0;
-    /// The number of cells of every band filled to find it, and of the most traced at once.
-    size_t cells_filled = 0;
-    size_t cells_traced = 0;
-    /// The cells of those filled without a trace, to show the cost is the least.
-    size_t cells_proof = 0;
 };
 
 /**
