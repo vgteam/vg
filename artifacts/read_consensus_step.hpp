@@ -110,10 +110,11 @@ struct ReadConsensusCounts {
  * The caller then runs the linkage pass and read phasing again.
  *
  * Before any read is fetched, a snarl is left out where its reads cannot gain `min_gain` nats
- * by an allele. No allele explains a spanning read that, between the bounds, scores `min_gain`
- * nats or more below a sequence that spells it against the allele it fits best. The direct
- * pass counts those reads with each snarl's call (`SpanSummary::unexplained`). Each can gain
- * one read's say, and a snarl is tested where that sums to `min_gain`.
+ * by an allele. A spanning read loses what it scores, between the bounds, against the allele it
+ * fits best below a sequence that spells it. A read can gain no more by a new allele than it
+ * loses, and no more than one read's say, so the direct pass sums each spanning read's loss,
+ * up to one read's say, with each snarl's call (`SpanSummary::loss`), and a snarl is tested
+ * where that sum is `min_gain` or more: the quantity the acceptance sums.
  *
  * ## Runs
  *
@@ -132,7 +133,7 @@ struct ReadConsensusCounts {
  * the one's end bound to the other's start bound, both included, which are at most
  * `run_max_junction`.
  *
- * A snarl's signal is one read's say for each spanning read that no allele explains. A read's
+ * A snarl's signal is the sum of its spanning reads' losses, each up to one read's say. A read's
  * gap is a run of bases it inserts in a node or beside it, or a run of a node's bases it
  * lacks. Where `reads_needed` of the reads that span a snarl have a gap inside the node of a
  * bound that faces a neighbour, or in the nodes of their junction beyond it

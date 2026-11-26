@@ -2802,10 +2802,10 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     ReadScratch read_scratch;
     vector<double> row(traversals.size());
 
-    // The reads that span the snarl, and those of them that no allele explains, if a summary
-    // of them is kept.
+    // The reads that span the snarl, and the nats they lose under their best alleles, if a
+    // summary of them is kept.
     uint32_t spanning_reads = 0;
-    uint32_t unexplained_reads = 0;
+    double loss_nats = 0.0;
     // What the read at hand has between the bounds, if it spans the snarl: where its bases
     // there begin and end, and what its score on the two bound nodes charges for the bases it
     // inserts between the bounds.
@@ -2904,9 +2904,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             changes.adjust_row(read_steps, scored_aln->sequence(), read_scorer, plain_scorer,
                                params.insertion_gap_nats, row);
         }
-        if (spans && params.span_unexplained_nats > 0.0) {
-            // The read is unexplained where its best allele's score between the bounds is that
-            // many nats below the score of a read that an allele spells base for base there.
+        if (spans && params.span_loss_cap > 0.0) {
+            // The read loses what its best allele's score between the bounds is below the score
+            // of a read that an allele spells base for base there, up to the cap.
             // Its score between the bounds is its score less that on the two bound nodes.
             double bound_nats = 0.0;
             const int32_t bound_score =
@@ -2918,7 +2918,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                                - (log_base * (double)bound_score + bound_nats - edge_nats);
             const double spelled = log_base * (double)read_scorer.score_exact_match(
                                                   *scored_aln, span_from, span_to - span_from);
-            unexplained_reads += spelled - fit >= params.span_unexplained_nats ? 1 : 0;
+            loss_nats += std::min(params.span_loss_cap, std::max(0.0, spelled - fit));
         }
         optional<SpannedBases> spanned;
         if (sequences.aligned && sequences.spanned_by(read_steps)) {
@@ -2981,7 +2981,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     if (summarise_spans) {
         AlleleReadLikelihoods::SpanSummary summary;
         summary.reads = spanning_reads;
-        summary.unexplained = unexplained_reads;
+        summary.loss = loss_nats;
         if (start_gaps.size() >= params.span_rank) {
             std::ranges::nth_element(start_gaps, start_gaps.begin() + (params.span_rank - 1),
                                      std::greater<>());

@@ -151,7 +151,7 @@ Called call_graph(const function<void(bdsg::HashGraph&)>& make,
     scoring.collect_read_phasing = true;
     if (consensus) {
         scoring.span_rank = options.reads_needed(-std::log(scoring.min_mismap_prob));
-        scoring.span_unexplained_nats = options.min_gain;
+        scoring.span_loss_cap = -std::log(scoring.min_mismap_prob);
         scoring.span_gap_reach = options.run_max_junction;
     }
     GraphAlignedAlleleLikelihoodCalculator calculator(positioned, source, qual_scorer,
@@ -573,6 +573,37 @@ TEST_CASE("A run whose reads have bases inside the node between two snarls becom
         }
         const Called called = call_graph(make_long, THREE_PANEL, reads, options);
         require_first_two_merged(called, reads[0], reads[1]);
+    }
+}
+
+TEST_CASE("A snarl is tested where its reads' losses, each at most one read's say, reach the "
+          "least gain", "[read_consensus_step]") {
+    bdsg::HashGraph graph;
+    make_chain(graph);
+    // Strand 1 reads a base at node 6 that no allele has. That costs each such read a
+    // mismatch, less than the least gain, but more than one read's say.
+    auto reads_with = [&](size_t changed) {
+        vector<Alignment> reads;
+        for (size_t i = 0; i < 12; ++i) {
+            reads.push_back(read_with(graph, "x" + std::to_string(i), PANEL[0], {}));
+            reads.push_back(read_with(graph, "y" + std::to_string(i), PANEL[1], {},
+                                      i < changed ? map<nid_t, vector<size_t>>{{6, {0}}}
+                                                  : map<nid_t, vector<size_t>>{}));
+        }
+        return reads;
+    };
+    ReadConsensusOptions options;
+    options.enabled = true;
+
+    SECTION("twelve such reads reach the least gain, so the snarl is tested") {
+        const Called called = call_graph(make_chain, PANEL, reads_with(12), options);
+        REQUIRE(called.counts.tested == 1);
+        REQUIRE(called.counts.candidate_strands == 1);
+    }
+
+    SECTION("two such reads do not reach it, so no snarl is tested") {
+        const Called called = call_graph(make_chain, PANEL, reads_with(2), options);
+        REQUIRE(called.counts.tested == 0);
     }
 }
 

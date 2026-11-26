@@ -638,7 +638,9 @@ void help_call(char** argv) {
          << "                            add a consensus by which the reads of a" << endl
          << "                            haplotype gain N nats or more over what is" << endl
          << "                            called, each read counting at most the say" << endl
-         << "                            that --mismap-min leaves one read [9]" << endl
+         << "                            that --mismap-min leaves one read; test a snarl" << endl
+         << "                            where its spanning reads lose N nats in all under" << endl
+         << "                            the call, counted the same way [9]" << endl
          << "  read scoring:" << endl
          << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
          << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
@@ -2588,12 +2590,13 @@ int main_call(int argc, char** argv) {
             anchor_params.counters = &anchor_run_counters;
             likelihood_params.collect_read_phasing = read_phasing;
             if (read_consensus.enabled) {
-                // The read-consensus step tests the snarls whose reads no allele explains. The
-                // direct pass counts those reads, and keeps the gaps around the bounds of as
-                // many reads as can gain the step's least gain.
+                // The read-consensus step tests the snarls whose reads lose enough under the
+                // call. The direct pass sums what each spanning read loses, up to one read's
+                // say, and keeps the gaps around the bounds of as many reads as can gain the
+                // step's least gain.
                 likelihood_params.span_rank =
                     read_consensus.reads_needed(-std::log(min_mismap_prob));
-                likelihood_params.span_unexplained_nats = read_consensus.min_gain;
+                likelihood_params.span_loss_cap = -std::log(min_mismap_prob);
                 likelihood_params.span_gap_reach = read_consensus.run_max_junction;
             }
 

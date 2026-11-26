@@ -110,8 +110,9 @@ ReadConsensusStep::Alone ReadConsensusStep::measure(const Parts& parts,
     alone.measured = true;
     alone.start_gap = spans.start_gap;
     alone.end_gap = spans.end_gap;
-    // Each read that no allele explains can gain a new allele one read's say.
-    alone.signal = clamp * (double)spans.unexplained;
+    // Each read can gain a new allele what it loses under the call, up to one read's say, as
+    // the acceptance counts it.
+    alone.signal = spans.loss;
     alone.can_disagree = alone.signal >= options.min_gain;
     return alone;
 }
@@ -163,8 +164,8 @@ vector<ReadConsensusStep::Run> ReadConsensusStep::find_runs(const Parts& parts,
             by_start[parts.sites->get_site_start(snarls[i]->net)] = i;
         }
     }
-    // The signal of each site: the unexplained nats of its own span summary, or those of the
-    // gap its reads have in a node between it and a neighbour, if that is more.
+    // The signal of each site: the nats its spanning reads lose, from its own span summary, or
+    // those of the gap its reads have in a node between it and a neighbour, if that is more.
     vector<double> signal(snarls.size());
     const AlleleLikelihoodCalculator& calculator = parts.genotyper->calculator();
     // Return whether a gap of `bases` bases leaves a read unexplained: it costs the read

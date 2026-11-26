@@ -308,10 +308,10 @@ public:
     struct SpanSummary {
         /// The number of reads that span the snarl.
         uint32_t reads = 0;
-        /// The number of those reads that no allele explains: whose score between the bounds
-        /// under their best allele is at least `AlleleLikelihoodParams::span_unexplained_nats`
-        /// below the score of a read that an allele spells base for base there.
-        uint32_t unexplained = 0;
+        /// The nats those reads lose, in all: what each scores between the bounds under its
+        /// best allele below a read that an allele spells base for base there, each read
+        /// counting at most `AlleleLikelihoodParams::span_loss_cap`.
+        double loss = 0.0;
         /// The longest gap that the read with the `AlleleLikelihoodParams::span_rank`-th
         /// longest has inside the node of
         /// the start bound or in the nodes that every walk takes before that node, for up to
@@ -592,10 +592,10 @@ struct AlleleLikelihoodParams {
      */
     size_t span_rank = 0;
 
-    /// The nats by which a spanning read's score between a snarl's bounds, under its best
-    /// allele, is below that of a read an allele spells, for the summary to count the read as
-    /// one that no allele explains. 0 counts none.
-    double span_unexplained_nats = 0.0;
+    /// The most nats that one spanning read adds to `AlleleReadLikelihoods::SpanSummary::loss`:
+    /// what its score between a snarl's bounds, under its best allele, is below that of a read
+    /// an allele spells. 0 sums nothing.
+    double span_loss_cap = 0.0;
 
     /// The most bases of the nodes that every walk takes before a snarl's start bound, and
     /// after its end bound, in which a spanning read's gaps count towards

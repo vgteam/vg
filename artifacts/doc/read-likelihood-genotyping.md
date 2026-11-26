@@ -382,9 +382,10 @@ inside a snarl too large to be treated itself is a run of the snarls of a chain 
    nats, and each has a called
    sequence of no more bases than the scorer aligns of a read. Their **junction** is those
    nodes' bases, the bound nodes included, and has at most 1,000 bases.
-2. No allele **explains** a spanning read that, between the bounds, scores
-   `--consensus-min-gain` nats or more below a sequence that spells it against the allele it
-   fits best. A snarl's **signal** is one read's say for each such read. A read's **gap** is a
+2. A spanning read **loses** what it scores, between the bounds, against the allele it fits
+   best below a sequence that spells it. A snarl's **signal** is the sum of its spanning reads'
+   losses, each no more than one read's say: the most its reads could gain by a new allele, as
+   step 5 above sums their gains. A read's **gap** is a
    run of bases it inserts in a node or beside it, or a run of a node's bases it lacks. Where
    enough of the reads that span a snarl to gain `--consensus-min-gain` nats have a gap inside
    the node of its bound that faces a neighbour, or in the nodes of their junction beyond that
