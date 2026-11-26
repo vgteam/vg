@@ -277,6 +277,29 @@ TEST_CASE("The guided aligner finds the least cost inside its region", "[string_
     REQUIRE(!align_guided(string(50, 'A'), string(50, 'C'), {}, 8, small));
 }
 
+TEST_CASE("The guided aligner over every cell takes the alignment the banded aligner takes",
+          "[string_aligner]") {
+    // Pairs short enough that the banded aligner's first band holds every cell, with ties
+    // between alignments of the least cost.
+    const vector<pair<string, string>> pairs{
+        {"ACGTACGT", "ACGACGT"}, {"AAAA", "AA"}, {"ACAC", "CACA"}, {"GATTACA", "GATACA"},
+        {"CCAGGT", "CAGGTT"}, {"TTTT", "TTTTTTT"}, {"ACGT", "TGCA"}, {"AGAGAG", "GAGA"}};
+    for (const StringAlignerParams& params :
+         {StringAlignerParams(), StringAlignerParams{.mismatch = 40, .gap_open = 78,
+                                                     .gap_extend = 7, .long_gap_open = 162,
+                                                     .long_gap_extend = 3}}) {
+        for (const auto& [first, second] : pairs) {
+            const optional<StringAlignment> banded = align_global(first, second, params);
+            const optional<StringAlignment> guided =
+                align_guided(first, second, {}, first.size() + second.size(), params);
+            REQUIRE(banded);
+            REQUIRE(guided);
+            REQUIRE(guided->cost == banded->cost);
+            REQUIRE(guided->runs == banded->runs);
+        }
+    }
+}
+
 TEST_CASE("The wavefront aligner gives up an alignment that costs more than a bound",
           "[string_aligner]") {
     StringAlignerParams params;
