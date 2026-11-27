@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 52
+plan tests 56
 
 vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
 
@@ -268,3 +268,51 @@ is "$(vg stats -E sc-A2d1g.gfa)" "30" "One net edges clipped"
 is "$(vg stats -N sc-A2d1g.gfa)" "22" "No other nodes were clipped with net edge filter"
 
 rm -f sc-A2d1g.gfa
+
+# Compare the fused Cactus presets with the corresponding CLI stages.
+printf 'H\tVN:Z:1.0\nS\t1\tA\nS\t2\tCC\nS\t3\tG\nS\t4\tTT\n' > cactus-clip.gfa
+printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t1\t+\t4\t+\t0M\nL\t4\t+\t3\t+\t0M\nL\t3\t+\t1\t+\t0M\n' >> cactus-clip.gfa
+printf 'P\tREF#0#chr1\t1+,2+,3+\t*\nP\tALT#0#chr1\t1+,4+,3+\t*\n' >> cactus-clip.gfa
+vg convert -g -p cactus-clip.gfa > cactus-clip.vg
+
+# Sort plain GFA records to compare nodes, edges, and complete walks.
+cactus_clip_gfa() {
+    vg convert -f - | LC_ALL=C sort
+}
+(
+    set -e -o pipefail
+    vg mod -X 1024 cactus-clip.vg | vg paths -x - -n -Q REF -t 1 |
+        vg clip -d 1 - -P REF | vg ids -s - | cactus_clip_gfa > cactus-control.gfa
+    vg clip --cactus-full cactus-clip.vg -P REF | cactus_clip_gfa > cactus-fused.gfa
+    cmp cactus-control.gfa cactus-fused.gfa
+)
+is "$?" 0 "Cactus Full fusion matches the four serial steps"
+(
+    set -e -o pipefail
+    vg mod -X 1024 cactus-clip.vg | vg paths -x - -n -Q REF -t 1 |
+        vg clip -d 1 - -P REF | vg clip -Sk - -P REF |
+        vg ids -s - | cactus_clip_gfa > cactus-control.gfa
+    vg clip --cactus-full cactus-clip.vg -P REF -Sk | cactus_clip_gfa > cactus-fused.gfa
+    cmp cactus-control.gfa cactus-fused.gfa
+)
+is "$?" 0 "Cactus Full fusion preserves the optional connected reference-tip cleanup"
+(
+    set -e -o pipefail
+    vg clip -d 1 cactus-clip.vg -P REF | vg clip -sS - -P REF |
+        vg clip - -D 100 -P REF -c 10 -m 1 | cactus_clip_gfa > cactus-control.gfa
+    vg clip --cactus-clip cactus-clip.vg -D 100 -P REF -c 10 -m 1 |
+        cactus_clip_gfa > cactus-fused.gfa
+    cmp cactus-control.gfa cactus-fused.gfa
+)
+is "$?" 0 "Cactus Clip fusion matches depth, stub, and deletion clipping"
+(
+    set -e -o pipefail
+    vg clip cactus-clip.vg -d 2 -P REF -P ALT -m 1 |
+        vg clip -d 1 - -P REF -P ALT | vg clip -sS - -P REF |
+        cactus_clip_gfa > cactus-control.gfa
+    vg clip --cactus-filter cactus-clip.vg -d 2 -P REF -P ALT -m 1 |
+        cactus_clip_gfa > cactus-fused.gfa
+    cmp cactus-control.gfa cactus-fused.gfa
+)
+is "$?" 0 "Cactus Filter fusion preserves the reference scope of each step"
+rm -f cactus-clip.gfa cactus-clip.vg cactus-control.gfa cactus-fused.gfa

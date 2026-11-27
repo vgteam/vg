@@ -7,6 +7,9 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/alignment_emitter.hpp>
 #include "../clip.hpp"
+#include "../traversal_clusters.hpp"
+#include <handlegraph/algorithms/chop.hpp>
+#include <handlegraph/algorithms/topological_sort.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
@@ -63,6 +66,10 @@ void help_clip(char** argv) {
          << "  -c, --context N            search up to at most N steps from reference paths" << endl
          << "                             for candidate deletion edges [the -D value]" << endl
          << "general options: " << endl
+         << "      --cactus-clip          run depth 1, -sS, then -D clipping in one graph" << endl
+         << "      --cactus-filter        run -d N, depth 1, then -sS with the first -P" << endl
+         << "      --cactus-full          chop 1024, normalize first -P on one thread," << endl
+         << "                             depth 1, optional -Sk, then assign sorted IDs" << endl
          << "  -P, --path-prefix STR      do not clip out alleles on paths beginning with STR" << endl
          << "                             (specify such references with -P or -b; may repeat)" << endl
          << "  -m, --min-fragment-len N   don't write novel path fragment if < N bp long" << endl
@@ -89,6 +96,9 @@ int main_clip(int argc, char** argv) {
     bool stub_clipping = false;
     bool stubbify_reference = false;
     bool keep_connected = false;
+    bool cactus_clip = false;
+    bool cactus_filter = false;
+    bool cactus_full = false;
 
     size_t min_nodes = 0;
     size_t min_edges = 0;
@@ -112,6 +122,10 @@ int main_clip(int argc, char** argv) {
         return 1;
     }
     
+    constexpr int OPT_CACTUS_CLIP = 1000;
+    constexpr int OPT_CACTUS_FILTER = 1001;
+    constexpr int OPT_CACTUS_FULL = 1002;
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -142,6 +156,9 @@ int main_clip(int argc, char** argv) {
             {"output-bed", no_argument, 0, 'B'},
             {"threads", required_argument, 0, 't'},
             {"verbose", no_argument, 0, 'v'},
+            {"cactus-clip", no_argument, 0, OPT_CACTUS_CLIP},
+            {"cactus-filter", no_argument, 0, OPT_CACTUS_FILTER},
+            {"cactus-full", no_argument, 0, OPT_CACTUS_FULL},
             {0, 0, 0, 0}
 
         };
@@ -155,6 +172,16 @@ int main_clip(int argc, char** argv) {
 
         switch (c)
         {
+        case OPT_CACTUS_CLIP:
+            cactus_clip = true;
+            break;
+        case OPT_CACTUS_FILTER:
+            cactus_filter = true;
+            break;
+        case OPT_CACTUS_FULL:
+            cactus_full = true;
+            break;
+
 
         case '?':
         case 'h':
@@ -287,6 +314,22 @@ int main_clip(int argc, char** argv) {
         context_steps = max_deletion;
     }
 
+    if (cactus_full && (cactus_clip || cactus_filter || !bed_path.empty() || !snarls_path.empty() ||
+                        snarl_option || out_bed || stub_clipping || (stubbify_reference && !keep_connected) || min_depth >= 0 ||
+                        max_deletion >= 0 || min_fragment_len != 0 || ref_prefixes.size() != 1)) {
+        logger.error() << "--cactus-full requires one -P with optional -Sk" << endl;
+    }
+    if (cactus_clip && (cactus_filter || !bed_path.empty() || !snarls_path.empty() || snarl_option || out_bed ||
+                        stub_clipping || stubbify_reference || min_depth >= 0 ||
+                        max_deletion < 0 || ref_prefixes.empty())) {
+        logger.error() << "--cactus-clip requires -D and -P; it combines depth 1, -sS, then deletion clipping without BED/snarl options" << endl;
+    }
+    if (cactus_filter && (!bed_path.empty() || !snarls_path.empty() || snarl_option || out_bed ||
+                          stub_clipping || stubbify_reference || min_depth < 0 ||
+                          max_deletion >= 0 || ref_prefixes.empty())) {
+        logger.error() << "--cactus-filter requires -d and -P without BED/snarl/stub/deletion options" << endl;
+    }
+
     // load the graph
     string graph_path = get_input_file_name(optind, argc, argv);
     unique_ptr<MutablePathMutableHandleGraph> graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(graph_path);
@@ -299,7 +342,7 @@ int main_clip(int argc, char** argv) {
     vector<Region> bed_regions;
 
     // need the path positions unless we're doing depth, deletion or stub clipping without regions
-    bool need_pp = !(bed_path.empty() && (min_depth >= 0 || max_deletion >= 0 || stub_clipping || stubbify_reference));
+    bool need_pp = !cactus_full && !(bed_path.empty() && (min_depth >= 0 || max_deletion >= 0 || stub_clipping || stubbify_reference));
 
     // need snarls if input regions are provided, or doing snarl based clipping
     bool need_snarls = snarl_option || !bed_path.empty();
@@ -429,7 +472,47 @@ int main_clip(int argc, char** argv) {
         }
     }        
     
-    if (min_depth >= 0 && max_deletion < 0) {
+    if (cactus_full) {
+        // Exactly: mod -X 1024 | paths -n -Q REF -t 1 | clip -d 1 -P REF | (optional clip -Sk -P REF) | ids -s
+        auto* editable = dynamic_cast<MutablePathDeletableHandleGraph*>(graph.get());
+        if (!editable) throw std::runtime_error("--cactus-full needs a deletable path graph");
+        handlealgs::chop(*editable, 1024);
+        unordered_set<PathSense> senses{PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE};
+        unordered_set<path_handle_t> selected;
+        graph->for_each_path_matching(&senses, nullptr, nullptr, [&](const path_handle_t& p) {
+            if (graph->get_path_name(p).compare(0, ref_prefixes.front().size(), ref_prefixes.front()) == 0)
+                selected.insert(p);
+        });
+        if (selected.empty()) throw std::runtime_error("--cactus-full has no reference paths");
+        // Cactus's job.cores is one here. Preserve its normalization ordering.
+        omp_set_num_threads(1);
+        merge_equivalent_traversals_in_graph(graph.get(), selected, true);
+        clip_low_depth_nodes_and_edges(graph.get(), 1, ref_prefixes, 0, verbose);
+        if (stubbify_reference) {
+            stubbify_ref_paths(graph.get(), ref_prefixes, 0, true, verbose);
+        }
+        auto order = handlealgs::topological_order(graph.get());
+        hash_map<nid_t, nid_t> new_ids;
+        new_ids.reserve(order.size());
+        for (nid_t i = 1; i <= order.size(); ++i) new_ids[graph->get_id(order[i-1])] = i;
+        graph->reassign_node_ids([&](const nid_t& id) { return new_ids.at(id); });
+    } else if (cactus_clip) {
+        // Exact Cactus clip-phase order and stage-specific fragment/depth values:
+        // clip -d 1 -P REF | clip -sS -P REF | clip -D D -P REF -c C -m M
+        clip_low_depth_nodes_and_edges(graph.get(), 1, ref_prefixes, 0, verbose);
+        stubbify_ref_paths(graph.get(), ref_prefixes, 0, false, verbose);
+        clip_stubs(graph.get(), ref_prefixes, 0, verbose);
+        clip_deletion_edges(graph.get(), max_deletion, context_steps, -1,
+                            ref_prefixes, min_fragment_len, verbose);
+    } else if (cactus_filter) {
+        // The filter phase protects all references in the depth passes, but
+        // only the first reference in its final stubbify/stub pass.
+        clip_low_depth_nodes_and_edges(graph.get(), min_depth, ref_prefixes, min_fragment_len, verbose);
+        clip_low_depth_nodes_and_edges(graph.get(), 1, ref_prefixes, 0, verbose);
+        std::vector<std::string> primary_reference{ref_prefixes.front()};
+        stubbify_ref_paths(graph.get(), primary_reference, 0, false, verbose);
+        clip_stubs(graph.get(), primary_reference, 0, verbose);
+    } else if (min_depth >= 0 && max_deletion < 0) {
         // run the depth clipping       
         if (bed_regions.empty()) {            
             // do the whole graph
