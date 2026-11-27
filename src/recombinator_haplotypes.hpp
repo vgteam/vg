@@ -11,6 +11,8 @@
 
 #include <functional>
 #include <iostream>
+#include <limits>
+#include <optional>
 
 namespace vg {
 
@@ -105,6 +107,10 @@ public:
     /// ordered by their indices.
     void for_each_kmer(size_t sequence, const std::function<void(size_t, bool)>& callback) const;
 
+    /// Set `row` to the kmer presence bits of the given sequence: kmer `i` is bit
+    /// `i % 64` of word `i / 64`, and there are `ceil(get_num_kmers() / 64)` words.
+    void presence_row(size_t sequence, std::vector<std::uint64_t>& row) const;
+
     /// Scores every sequence in the subchain. The score of a sequence is the sum of
     /// `(present : 1 : -1) * kmer.second` over `kmers`. It is reported by calling
     /// `sequence_score(sequence, score)` in an arbitrary order.
@@ -117,11 +123,36 @@ public:
         const std::function<void(size_t, double)>& sequence_score
     ) const;
 
-    /// Scores a pair of sequences in the subchain. The score is the sum of
-    /// `1 - abs(expected - observed)` over the kmers.
-    std::int64_t diploid_score(
-        size_t first, size_t second,
-        const std::vector<std::pair<kmer_classification, double>>& kmers
+    /// Scores one sequence, with the same floating point additions in the same order
+    /// as `score_sequences()`, so the score is the same.
+    double score_sequence(size_t sequence, const std::vector<std::pair<kmer_classification, double>>& kmers) const;
+
+    /// The differences of the child sequences from their parents, decoded once for
+    /// scoring the sequences many times. Children of the same parent with the same
+    /// differences share a list, and their score is computed once.
+    struct ScoringPlan {
+        /// For each sequence, its list of differences, or `PARENT` for a parent.
+        std::vector<std::uint32_t> list_of;
+
+        /// For each list, the range of `differences` it takes.
+        std::vector<std::pair<size_t, size_t>> lists;
+
+        /// The kmer ids where the children differ from their parents, in increasing
+        /// order within a list. A kmer the parent has is stored as `-1 - id`.
+        std::vector<std::int32_t> differences;
+
+        constexpr static std::uint32_t PARENT = std::numeric_limits<std::uint32_t>::max();
+    };
+
+    /// Returns the scoring plan of the matrix, or nothing if the plan would have more
+    /// than `max_differences` differences or a kmer id does not fit in a plan entry.
+    std::optional<ScoringPlan> scoring_plan(size_t max_differences) const;
+
+    /// Scores every sequence as `score_sequences()` does, giving the same scores, with
+    /// the plan of this matrix.
+    void score_sequences(
+        const std::vector<std::pair<kmer_classification, double>>& kmers, const ScoringPlan& plan,
+        const std::function<void(size_t, double)>& sequence_score
     ) const;
 
     /// Serializes the object to a stream in the Simple-SDS format.
@@ -162,6 +193,15 @@ private:
         }
         return (this->parent(rank) != this->parent(rank - 1));
     }
+
+    // Returns the score of the parent stored from `parent_start` in `parents`.
+    double parent_score(size_t parent_start, const std::vector<std::pair<kmer_classification, double>>& kmers) const;
+
+    // Returns `score` plus the score changes of the kmers in which the child sequence
+    // differs from its parent, which is stored from `parent_start` in `parents`.
+    double add_child_differences(
+        size_t rank, size_t parent_start, double score, const std::vector<std::pair<kmer_classification, double>>& kmers
+    ) const;
 
     // An iterator over all kmers in a sequence.
     // If the sequence is a parent, `child_iter` is at the end and never matches.
@@ -222,15 +262,26 @@ private:
  * sequences. Each sequence is defined by a bitvector marking the kmers that are
  * present.
  *
- * At the moment, the kmers are minimizers with a single occurrence in the graph.
+ * By default, the kmers are minimizers with a single occurrence in the graph.
  * The requirement is that each kmer is specific to a single subchain and does
  * not occur anywhere else in either orientation. (If no haplotype crosses a
  * snarl, that snarl is broken into a suffix and a prefix, and those subchains
  * may share kmers.)
  *
+ * An index built with subchain kmers instead uses the minimizers whose every
+ * occurrence in the graph is on a node that the haplotypes crossing the subchain
+ * visit. Such a kmer may occur more than once in a haplotype, and the subchain
+ * stores the number of copies of each kmer in each sequence.
+ *
  * NOTE: This assumes that the top-level chains are linear, not cyclical.
  *
  * Versions:
+ *
+ * * Version 8: Subchains store the number of copies of each kmer in each
+ *   sequence, the median bases of the walks of the sequences through the
+ *   subchain, and the N bases of each walk. In an index built without subchain
+ *   kmers, the copies and the N bases are empty and the median is 0. Versions 5
+ *   to 7 can still be read.
  *
  * * Version 7: Work in progress.
  *   Compressed kmer presence matrices, with faster haplotype scoring by
@@ -285,7 +336,8 @@ public:
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 7;
+        constexpr static std::uint32_t VERSION = 8;
+        constexpr static std::uint32_t COPIES_VERSION = 8;
         constexpr static std::uint32_t COMPRESSED_VERSION = 7;
         constexpr static std::uint32_t VERSION_WITH_TAGS = 6;
         constexpr static std::uint32_t MIN_VERSION = 5;
@@ -362,10 +414,72 @@ public:
         /// A matrix indicating which kmers are present in which sequences.
         KmerPresenceMatrix kmers_present;
 
+        /// The kmers with more than one copy in a sequence, as (kmer id, copies) ordered
+        /// by kmer id. A present kmer that is not listed has one copy.
+        typedef std::vector<std::pair<std::uint32_t, std::uint32_t>> kmer_copies_type;
+
+        /// The number of copies of the kmers that occur more than once in a sequence,
+        /// in an index built with subchain kmers; empty otherwise. For sequence `i`,
+        /// entries `copy_offsets[i]` to `copy_offsets[i + 1] - 1` of `copy_kmers`
+        /// (kmer ids in increasing order) and `copy_values` (numbers of copies, at most
+        /// `MAX_COPIES`) list those kmers. A present kmer that is not listed has one copy.
+        sdsl::int_vector<0> copy_offsets = sdsl::int_vector<0>();
+        sdsl::int_vector<0> copy_kmers = sdsl::int_vector<0>();
+        sdsl::int_vector<0> copy_values = sdsl::int_vector<0>();
+
+        /// The largest number of copies of a kmer that is stored.
+        constexpr static size_t MAX_COPIES = 5;
+
+        /// The median bases over the walks of the sequences through the subchain
+        /// (`SubchainWalk`), where the bases of a walk are those of the distinct nodes it
+        /// visits, boundary nodes included. Set when the subchain has copies, and 0 otherwise.
+        double median_walk_bases = 0.0;
+
+        /// For each sequence, the N bases in its walk through the subchain. Set when the
+        /// subchain has copies, and empty otherwise.
+        sdsl::int_vector<0> walk_n_bases = sdsl::int_vector<0>();
+
+        /// Return `true` if the subchain stores the number of copies of its kmers.
+        bool has_copies() const { return !this->copy_offsets.empty(); }
+
+        /// Set the median bases of the walks and the N bases of each walk, in the order
+        /// of the sequences. Throws `std::invalid_argument` unless there are N bases for
+        /// each sequence.
+        void set_walk_bases(double median, const std::vector<size_t>& n_bases);
+
+        /// Throw `sdsl::simple_sds::InvalidData` unless the copies match the subchain:
+        /// the offsets do not decrease, each sequence lists kmer ids of the subchain in
+        /// increasing order, and each number of copies is from 2 to `MAX_COPIES`.
+        void check_copies() const;
+
+        /// Set the copies of the kmers in each sequence. The values are stored as given,
+        /// in fields wide enough for them and for the kmers of the subchain, and they
+        /// are not checked (see `check_copies()`).
+        void set_copies(const std::vector<kmer_copies_type>& copies);
+
+        /// Return (kmer id, copies) for each kmer with more than one copy in the given
+        /// sequence, ordered by kmer id.
+        kmer_copies_type get_copies(size_t sequence) const {
+            kmer_copies_type result;
+            if (!this->has_copies()) {
+                return result;
+            }
+            for (size_t i = this->copy_offsets[sequence]; i < this->copy_offsets[sequence + 1]; i++) {
+                result.emplace_back(this->copy_kmers[i], this->copy_values[i]);
+            }
+            return result;
+        }
+
         /// Calls `callback(kmer_id, is_present)` for each kmer in the given sequence,
         /// ordered by their indices.
         void for_each_kmer(size_t sequence, const std::function<void(size_t, bool)>& callback) const {
             this->kmers_present.for_each_kmer(sequence, callback);
+        }
+
+        /// Set `row` to the kmer presence bits of the given sequence: kmer `i` is
+        /// bit `i % 64` of word `i / 64`.
+        void presence_row(size_t sequence, std::vector<std::uint64_t>& row) const {
+            this->kmers_present.presence_row(sequence, row);
         }
 
         /// Scores every sequence in the subchain. The score of a sequence is the sum of
@@ -378,13 +492,26 @@ public:
             this->kmers_present.score_sequences(kmers, haplotype_score);
         }
 
-        /// Scores a pair of sequences in the subchain. The score is the sum of
-        /// `1 - abs(expected - observed)` over the kmers.
-        std::int64_t diploid_score(
-            size_t first, size_t second,
-            const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
+        /// Returns the scoring plan of the kmer presence matrix, or nothing if it is too large.
+        std::optional<KmerPresenceMatrix::ScoringPlan> scoring_plan(size_t max_differences) const {
+            return this->kmers_present.scoring_plan(max_differences);
+        }
+
+        /// Scores every sequence in the subchain with the scoring plan of the subchain,
+        /// giving the scores `score_sequences()` gives.
+        void score_sequences(
+            const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers,
+            const KmerPresenceMatrix::ScoringPlan& plan,
+            const std::function<void(size_t, double)>& haplotype_score
         ) const {
-            return this->kmers_present.diploid_score(first, second, kmers);
+            this->kmers_present.score_sequences(kmers, plan, haplotype_score);
+        }
+
+        /// Scores one sequence in the subchain, giving the score `score_sequences()` gives.
+        double score_sequence(
+            size_t sequence, const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
+        ) const {
+            return this->kmers_present.score_sequence(sequence, kmers);
         }
 
         /// Returns the number of haplotype sequences in the subchain.
@@ -467,6 +594,12 @@ public:
         /// Subchains in the order they appear in.
         std::vector<Subchain> subchains;
 
+        /// Returns `true` if the chain is one subchain of full haplotypes, as a chain
+        /// without snarls is.
+        bool has_full_haplotypes() const {
+            return this->subchains.size() == 1 && this->subchains.front().type == Subchain::full_haplotype;
+        }
+
         /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
@@ -509,6 +642,10 @@ public:
       * counts cannot be used.
      */
     hash_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file, Verbosity verbosity) const;
+
+    /// Returns `true` if a subchain stores kmer copies, which an index built with
+    /// subchain kmers does.
+    bool has_copies() const;
 
     /// Serializes the object to a stream in the Simple-SDS format.
     /// I/O errors can be detected by checking the stream state.

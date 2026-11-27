@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 102
+plan tests 128
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -178,6 +178,103 @@ vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --preset ont -g diplo
 is $? 0 "diploid sampling with --preset ont"
 cmp diploid_ignore.gbz diploid_ont.gbz
 is $? 0 "the outputs are identical"
+
+# Subchain kmers, the selection limits, threading by similarity, and the model pair
+vg haplotypes --validate --subchain-length 300 --subchain-kmers -H subchain.hapl full.gbz
+is $? 0 "generating haplotype information with subchain kmers"
+SUBCHAIN_SAMPLING="-i subchain.hapl -k haplotype-sampling/HG003.kff --num-haplotypes 8"
+# What --preset model sets, apart from the number of haplotypes.
+MODEL_OPTIONS="--include-reference --continuity-bonus 2 --max-new-bp 1000 --bp-escape 300 --max-n-bp 0 --similar-threading --model-pair"
+vg haplotypes --validate -t 4 ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS} -g model_pair.gbz full.gbz
+is $? 0 "sampling with the model pair"
+is $(vg gbwt -C -Z model_pair.gbz) 2 "2 contigs"
+is $(vg gbwt -H -Z model_pair.gbz) 10 "8 generated + 2 reference haplotypes"
+vg haplotypes -t 1 ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS} -g model_pair_t1.gbz full.gbz
+cmp -s model_pair.gbz model_pair_t1.gbz
+is $? 0 "the model pair does not depend on the number of threads"
+vg haplotypes --preset model ${SUBCHAIN_SAMPLING} -g preset_model.gbz full.gbz
+cmp -s model_pair.gbz preset_model.gbz
+is $? 0 "the model preset sets the model pair options"
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --preset model -g /dev/null full.gbz 2> preset_log.txt
+is $? 1 "the model preset needs an index with subchain kmers"
+is $(grep -c "the model preset needs haplotype information built with --subchain-kmers" preset_log.txt) 1 "an appropriate error message is printed"
+# The next three runs each leave out one of the model options.
+vg haplotypes ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS/ --model-pair} -g no_model_pair.gbz full.gbz
+cmp -s model_pair.gbz no_model_pair.gbz
+is $? 1 "the model pair changes the output"
+vg haplotypes ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS/ --similar-threading} -g no_similar.gbz full.gbz
+cmp -s model_pair.gbz no_similar.gbz
+is $? 1 "threading by similarity changes the output"
+vg haplotypes ${SUBCHAIN_SAMPLING} ${MODEL_OPTIONS/ --continuity-bonus 2} -g no_bonus.gbz full.gbz
+cmp -s model_pair.gbz no_bonus.gbz
+is $? 1 "the continuity bonus changes the output"
+vg haplotypes ${SUBCHAIN_SAMPLING} --include-reference -g no_limit.gbz full.gbz
+vg haplotypes ${SUBCHAIN_SAMPLING} --include-reference --max-new-bp 10 -g bp_limit.gbz full.gbz
+cmp -s no_limit.gbz bp_limit.gbz
+is $? 1 "the new-bp limit changes the output"
+vg haplotypes ${SUBCHAIN_SAMPLING} --include-reference --max-new-bp 10 --bp-escape 10 -g bp_escape.gbz full.gbz
+cmp -s bp_limit.gbz bp_escape.gbz
+is $? 1 "the bp escape changes the output"
+vg haplotypes ${SUBCHAIN_SAMPLING} --max-new-bp 10 -g bp_limit_no_ref.gbz full.gbz
+cmp -s <(vg paths -F -x bp_limit.gbz -Q recombination) <(vg paths -F -x bp_limit_no_ref.gbz -Q recombination)
+is $? 0 "the reference paths do not change the generated haplotypes"
+# The generated haplotypes on chr6 in FASTA.
+generated_on_chr6() { vg paths -F -x "$1" -Q recombination | awk '/^>/ { keep = /#chr6/ } keep'; }
+vg haplotypes ${SUBCHAIN_SAMPLING} --high-cov-contig chr6 -g hicov_subchain.gbz full.gbz
+vg haplotypes ${SUBCHAIN_SAMPLING} --high-cov-contig chr6 --model-pair -g hicov_model_pair.gbz full.gbz
+cmp -s <(generated_on_chr6 hicov_subchain.gbz) <(generated_on_chr6 hicov_model_pair.gbz)
+is $? 0 "a high-coverage contig gets no model pairs"
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --num-haplotypes 4 --model-pair -g model_pair_unique.gbz full.gbz
+is $? 0 "the model pair works with minimizers with a single occurrence"
+vg haplotypes -i full.hapl -k haplotype-sampling/HG003.kff --bp-escape 300 -g /dev/null full.gbz 2> escape_log.txt
+is $? 1 "the bp escape needs a new-bp limit"
+is $(grep -c "bp escape needs a new-bp limit" escape_log.txt) 1 "an appropriate error message is printed"
+
+# The subchains of all chains are built as one set of tasks, and a large subchain uses
+# all threads by itself. Selection without a continuity bonus is parallel as well. None of
+# it may depend on the number of threads. OMP_NUM_THREADS lets vg use 4 threads on a
+# machine with fewer cores.
+vg haplotypes -t 1 --subchain-length 300 --subchain-kmers -H full_t1.hapl full.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 --subchain-length 300 --subchain-kmers -H full_t4.hapl full.gbz
+cmp -s full_t1.hapl full_t4.hapl
+is $? 0 "subchain kmers do not depend on the number of threads"
+vg haplotypes -t 1 --subchain-length 300 -H full_unique_t1.hapl full.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 --subchain-length 300 -H full_unique_t4.hapl full.gbz
+cmp -s full_unique_t1.hapl full_unique_t4.hapl
+is $? 0 "minimizers with a single occurrence do not depend on the number of threads"
+# The nodes up to 61718199 are the micb component of the test graph. With long
+# subchains, some of its subchains are large enough to use all threads.
+awk -F '\t' '{ split($7, w, /[<>]/) } $1 == "H" || ($1 == "S" && $2 <= 61718199) || ($1 == "L" && $2 <= 61718199) || ($1 == "W" && w[2] <= 61718199)' \
+    haplotype-sampling/micb-kir3dl1.gfa > micb.gfa
+vg gbwt -G micb.gfa --gbz-format -g micb.gbz -r micb.ri
+vg index -j micb.dist micb.gbz
+vg haplotypes -t 1 --subchain-length 5000 --subchain-kmers -H micb_t1.hapl micb.gbz
+OMP_NUM_THREADS=4 vg haplotypes -v 2 -t 4 --subchain-length 5000 --subchain-kmers -H micb_t4.hapl micb.gbz 2> micb_log.txt
+is $(grep -c "large subchains with all threads" micb_log.txt) 1 "some subchains are built with all threads"
+cmp -s micb_t1.hapl micb_t4.hapl
+is $? 0 "large subchains with subchain kmers do not depend on the number of threads"
+vg haplotypes -t 1 --subchain-length 5000 -H micb_unique_t1.hapl micb.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 --subchain-length 5000 -H micb_unique_t4.hapl micb.gbz
+cmp -s micb_unique_t1.hapl micb_unique_t4.hapl
+is $? 0 "large subchains with minimizers with a single occurrence do not depend on the number of threads"
+vg haplotypes -t 1 ${SUBCHAIN_SAMPLING} --include-reference -g parallel_t1.gbz full.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 ${SUBCHAIN_SAMPLING} --include-reference -g parallel_t4.gbz full.gbz
+cmp -s parallel_t1.gbz parallel_t4.gbz
+is $? 0 "selection without a continuity bonus does not depend on the number of threads"
+vg haplotypes -t 1 -i full.hapl -k haplotype-sampling/HG003.kff --diploid-sampling -g diploid_t1.gbz full.gbz
+OMP_NUM_THREADS=4 vg haplotypes -t 4 -i full.hapl -k haplotype-sampling/HG003.kff --diploid-sampling -g diploid_t4.gbz full.gbz
+cmp -s diploid_t1.gbz diploid_t4.gbz
+is $? 0 "diploid sampling does not depend on the number of threads"
+
+# An index with subchain kmers stores the N bases of the walk of each sequence. Node
+# 61717542, which more than one but not every haplotype visits, is all N, so the stored counts
+# differ between sequences, and validation checks that each count is stored with its
+# sequence.
+awk -F '\t' -v OFS='\t' '$1 == "S" && $2 == "61717542" { gsub(/./, "N", $3); found = 1 } { print } END { exit !found }' micb.gfa > micb_n.gfa &&
+    vg gbwt -G micb_n.gfa --gbz-format -g micb_n.gbz -r micb_n.ri &&
+    vg index -j micb_n.dist micb_n.gbz &&
+    vg haplotypes --validate --subchain-length 300 --subchain-kmers -H micb_n.hapl micb_n.gbz
+is $? 0 "the N bases of the walks are stored with their sequences"
 
 # Sampling with a gref reference. Build a gref version of the test graph; -l 1 keeps
 # every fragment so the length filter has something to act on.
@@ -373,6 +470,12 @@ rm -f exclude.gbz exclude_pansn.gbz exclude_log.txt
 rm -f wrap.gbz wrap_base.gbz wrap_pansn.gbz wrap_log.txt wrap_exclude_log.txt
 rm -f diploid.gbz diploid2.gbz diploid3.gbz
 rm -f diploid_ignore.gbz diploid_ont.gbz
+rm -f subchain.hapl model_pair.gbz model_pair_t1.gbz preset_model.gbz no_model_pair.gbz no_similar.gbz no_bonus.gbz
+rm -f no_limit.gbz bp_limit.gbz bp_escape.gbz bp_limit_no_ref.gbz model_pair_unique.gbz
+rm -f hicov_subchain.gbz hicov_model_pair.gbz preset_log.txt escape_log.txt
+rm -f micb.gfa micb.gbz micb.ri micb.dist micb_t1.hapl micb_t4.hapl micb_log.txt micb_unique_t1.hapl micb_unique_t4.hapl
+rm -f full_t1.hapl full_t4.hapl full_unique_t1.hapl full_unique_t4.hapl parallel_t1.gbz parallel_t4.gbz diploid_t1.gbz diploid_t4.gbz
+rm -f micb_n.gfa micb_n.gbz micb_n.ri micb_n.dist micb_n.hapl
 rm -f gref.pg gref.gfa gref.gbz gref.ri gref.dist gref.hapl gref.fa
 rm -f gref_base.gbz gref_ref.gbz gref_ref.fa gref_long.gbz
 rm -f gref_ref.ri gref_ref.dist gref_ref2.gbz gref_ref2.fa
