@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 33
+plan tests 37
 
 # canonical_kmers K FASTA...: every canonical k-mer of the sequences (the smaller of the
 # k-mer and its reverse complement), one per line.  The test graphs have random sequence,
@@ -146,6 +146,31 @@ is "$(grep '^>' order.fa | cut -f 2 -d ' ' | cut -f 1 -d ',' | tr '\n' ' ')" "gr
 
 is "$(tail -1 order.gaf | cut -f 14)" "gr:Z:*:20I" "the GAF has a tig with no base on the gref as one insertion"
 
+# Two tigs of hapB that leave or join an alt contig short of its end.  Each alt contig is
+# 20 bp: gref_x_1_alt is node 2 (12 bp) then node 3 (8 bp), and gref_x_2_alt is node 6
+# (8 bp) then node 7 (12 bp).  Nodes 4 and 8 are on hapB and on no gref path.  With k = 11,
+# a tig over node 4 or node 8 has 10 bp on the node before it and 10 bp on the node after.
+# The first tig visits nodes 2, 4 and 5.  Node 4 is as long as node 3 and differs from it
+# at its fifth base.  Its bases replace the last 8 bases of gref_x_1_alt base for base, so
+# the CIGAR has 10 matches on node 2, then 4 matches, a mismatch and 3 matches.
+# The second tig visits nodes 5, 8 and 7.  Node 8 is 6 bp.  Its bases replace the first 8
+# bases of gref_x_2_alt, as a deletion of 8 and an insertion of 6.
+vg gbwt -G nesting/variants_at_alt_contig_ends.gfa --gbz-format -g ends.gbz
+vg unitigs -r -k 11 -g ends.gaf ends.gbz > /dev/null
+is "$(grep -c 'gr:Z:gref_x_1_alt:3-20:+:14=1X3=,gref_x:21-30:+:10=$' ends.gaf)" "1" "a variant as long as the end of the alt contig it replaces aligns base for base"
+
+is "$(grep -c 'gr:Z:gref_x:31-40:+:10=,gref_x_2_alt:1-18:+:8D6I10=$' ends.gaf)" "1" "a shorter variant at the start of an alt contig is a deletion and an insertion"
+
+# The same graph with both alt contigs reversed: gref_x_1_alt is 3-,2- and gref_x_2_alt
+# is 7-,6-.  The tigs are the same and read the alt contigs in reverse.  Each region is on
+# the - strand and counts from the other end of its contig, and each CIGAR, which reads
+# from START to END, is the reverse of the one above.
+vg gbwt -G nesting/variants_at_reversed_alt_contig_ends.gfa --gbz-format -g rends.gbz
+vg unitigs -r -k 11 -g rends.gaf rends.gbz > /dev/null
+is "$(grep -c 'gr:Z:gref_x_1_alt:1-18:-:3=1X14=,gref_x:21-30:+:10=$' rends.gaf)" "1" "a variant at the end of a reversed alt contig aligns to the complement of the contig"
+
+is "$(grep -c 'gr:Z:gref_x:31-40:+:10=,gref_x_2_alt:3-20:-:10=6I8D$' rends.gaf)" "1" "a variant at the start of a reversed alt contig comes last in the CIGAR"
+
 # A haplotype that visits one node in both orientations, so a unitig starts and
 # ends on the same node.  Which end is canonical then turns on the offset into
 # that node, not only on the nodes the two k-mers visit.  k is 3 because the
@@ -166,4 +191,4 @@ rm -f ins.gbz ins.paths.fa ins.gref.vg ins.gref.gfa ins.gref.gbz ins.gref.fa ins
 rm -f snp.gref.vg snp.gref.gfa snp.gref.gbz snp.jt.gaf del.gref.vg del.gref.gfa del.gref.gbz del.jt.gaf
 rm -f ins.gref.paths.fa ins.plain.fa nohaps.gfa nohaps.gbz nohaps.err long.fa
 rm -f inv.gbz inv.paths.fa inv.gref.vg inv.gref.gfa inv.gref.gbz inv.gref.fa inv.tigs.fa
-rm -f hp.gbz hp.tigs.fa order.gbz order.fa order.gaf
+rm -f hp.gbz hp.tigs.fa order.gbz order.fa order.gaf ends.gbz ends.gaf rends.gbz rends.gaf

@@ -66,7 +66,7 @@ private:
 
     /// Find the one-node extensions of the state. Returns true if some
     /// occurrences cannot be extended, because their haplotype ends there.
-    bool extend(const gbwt::BidirectionalState& state, bool backward, std::vector<Extension>& extensions) const {
+    bool find_extensions(const gbwt::BidirectionalState& state, bool backward, std::vector<Extension>& extensions) const {
         extensions.clear();
         gbwt::size_type extended = 0;
         graph.follow_paths(cache, state, backward, [&](const gbwt::BidirectionalState& next) {
@@ -84,7 +84,7 @@ private:
     /// The state is for the whole walk.
     bool starts_unitig(const std::vector<handle_t>& walk, size_t length, const gbwt::BidirectionalState& state,
                        std::vector<Extension>& extensions) const {
-        if (extend(state, true, extensions) || extensions.size() != 1) {
+        if (find_extensions(state, true, extensions) || extensions.size() != 1) {
             return true;
         }
         // The predecessor is unique. It can only branch if it ends at the end of a
@@ -94,7 +94,7 @@ private:
         }
         std::vector<handle_t> predecessor { extensions.front().handle };
         predecessor.insert(predecessor.end(), walk.begin(), walk.end() - 1);
-        return extend(graph.bd_find(cache, predecessor), false, extensions) || extensions.size() != 1;
+        return find_extensions(graph.bd_find(cache, predecessor), false, extensions) || extensions.size() != 1;
     }
 
     /**
@@ -128,7 +128,7 @@ private:
                 report(frame.walk, frame.length, frame.state, extensions);
                 continue;
             }
-            extend(frame.state, backward, extensions);
+            find_extensions(frame.state, backward, extensions);
             for (const Extension& extension : extensions) {
                 Frame next { frame.walk, frame.length + graph.get_length(extension.handle), extension.state };
                 next.walk.insert(backward ? next.walk.begin() : next.walk.end(), extension.handle);
@@ -164,7 +164,7 @@ private:
                 return;
             }
             std::vector<handle_t> predecessor(walk.begin(), walk.end() - 1);
-            if (extend(graph.bd_find(cache, predecessor), false, extensions) || extensions.size() != 1) {
+            if (find_extensions(graph.bd_find(cache, predecessor), false, extensions) || extensions.size() != 1) {
                 trace(walk, offset);
             }
         });
@@ -200,7 +200,7 @@ private:
             uint64_t next_node = after < walk.steps().size() ? walk.steps()[after].start : walk.length();
             last = std::min<size_t>(walk.length() - k, next_node - 1);
             if (last + k == walk.length()) {
-                if (extend(state_of(walk, last), false, extensions) || extensions.size() != 1) {
+                if (find_extensions(state_of(walk, last), false, extensions) || extensions.size() != 1) {
                     return last;
                 }
                 walk.push_back(graph, extensions.front().handle);
@@ -208,7 +208,7 @@ private:
             // A successor that starts at the start of a node can have another
             // predecessor, which would end the unitig here.
             if (walk.steps()[walk.step_at(last + 1)].start == last + 1 &&
-                (extend(state_of(walk, last + 1), true, extensions) || extensions.size() != 1)) {
+                (find_extensions(state_of(walk, last + 1), true, extensions) || extensions.size() != 1)) {
                 return last;
             }
             last++;

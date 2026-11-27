@@ -1936,16 +1936,6 @@ std::vector<GrefIndex::Run> GrefIndex::runs(const WalkInterval& interval) const 
 
 namespace {
 
-char complement(char base) {
-    switch (std::toupper(base)) {
-    case 'A': return 'T';
-    case 'C': return 'G';
-    case 'G': return 'C';
-    case 'T': return 'A';
-    default: return 'N';
-    }
-}
-
 /// A placement of part of an interval on one gref path.
 struct Segment {
     uint32_t path;
@@ -2122,7 +2112,7 @@ private:
             int64_t coord = segment.is_reverse ? first_coord - int64_t(t) : first_coord + int64_t(t);
             char gref_base = gref.base(segment.path, coord);
             if (segment.is_reverse) {
-                gref_base = complement(gref_base);
+                gref_base = gbwtgraph::complement(gref_base);
             }
             segment.add(1, std::toupper(sequence[from + t]) == std::toupper(gref_base) ? '=' : 'X');
         }

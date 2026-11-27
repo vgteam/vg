@@ -393,28 +393,8 @@ protected:
 };
 
 
-/// Where a walk interval lies on the gref. See GrefIndex::place().
-struct GrefPlacement {
-    /// Comma-separated PATH:START-END:STRAND:CIGAR segments (1-based,
-    /// inclusive, CIGAR in path order), or *:<length>I if no base is on the gref.
-    std::string text;
-    /// The segments of the text without their CIGARs, each as
-    /// PATH:START-END:STRAND, or * if no base is on the gref. PATH has no
-    /// subrange, and START and END are on the full path.
-    std::string regions;
-    /// The path of the first segment, or GrefIndex::NO_PATH if no base is on the gref.
-    uint32_t path = std::numeric_limits<uint32_t>::max();
-    /// The lowest coordinate of the first segment. Placements sort along the
-    /// gref by path, then coord, and a placement with no path sorts last.
-    uint64_t coord = 0;
-    /// Number of bases on gref paths that the paths read forward.
-    size_t forward_bases = 0;
-    /// Number of bases on gref paths that the paths read in reverse.
-    size_t reverse_bases = 0;
-    /// True if the whole interval lies along one gref path, so that the gref
-    /// path visits it.
-    bool along_one_path = false;
-};
+// Defined after GrefIndex, because it uses GrefIndex::NO_PATH.
+struct GrefPlacement;
 
 /**
  * An index of where the gref paths lie in the graph.
@@ -567,6 +547,29 @@ private:
     /// Index in paths of each gref path, by name with and without its subrange.
     std::unordered_map<std::string, uint32_t> path_ranks;
     size_t repeats = 0;
+};
+
+/// Where a walk interval lies on the gref. See GrefIndex::place().
+struct GrefPlacement {
+    /// Comma-separated PATH:START-END:STRAND:CIGAR segments (1-based,
+    /// inclusive, CIGAR in path order), or *:<length>I if no base is on the gref.
+    std::string text;
+    /// The segments of the text without their CIGARs, each as
+    /// PATH:START-END:STRAND, or * if no base is on the gref. PATH has no
+    /// subrange, and START and END are on the full path.
+    std::string regions;
+    /// The path of the first segment, or GrefIndex::NO_PATH if no base is on the gref.
+    uint32_t path = GrefIndex::NO_PATH;
+    /// The lowest coordinate of the first segment. Placements sort along the
+    /// gref by path, then coord, and a placement with no path sorts last.
+    uint64_t coord = 0;
+    /// Number of bases on gref paths that the paths read forward.
+    size_t forward_bases = 0;
+    /// Number of bases on gref paths that the paths read in reverse.
+    size_t reverse_bases = 0;
+    /// True if the whole interval lies along one gref path, so that the gref
+    /// path visits it.
+    bool along_one_path = false;
 };
 
 /**
