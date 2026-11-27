@@ -720,6 +720,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     // Minimizers sorted by position
     std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
+    // Add any minimizers from sequences standing in for the read
+    this->add_stand_in_minimizers(aln, minimizers_in_read, funnel);
     // Flag minimizers as being in repetitive regions of the read or not
     this->flag_repetitive_minimizers(minimizers_in_read);
     // Indexes of minimizers, sorted into score order, best score first
