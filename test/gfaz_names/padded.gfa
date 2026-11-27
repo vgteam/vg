@@ -1,0 +1,11 @@
+H	VN:Z:1.1
+S	utg000001l	GATT
+S	utg000002l	A
+S	utg000003l	C
+S	utg000004l	ACA
+L	utg000001l	+	utg000002l	+	0M
+L	utg000001l	+	utg000003l	+	0M
+L	utg000002l	+	utg000004l	+	0M
+L	utg000003l	+	utg000004l	+	0M
+P	ref	utg000001l+,utg000002l+,utg000004l+	*
+W	sample	1	chr1	0	8	>utg000001l>utg000003l>utg000004l

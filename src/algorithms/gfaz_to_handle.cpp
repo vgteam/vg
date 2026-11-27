@@ -39,6 +39,7 @@ bool GFAzParser::looks_like_gfaz(const string& filename) {
 void GFAzParser::prepare_decode() {
     pending_rgfa_visits.clear();
     rgfa_path_ranks.clear();
+    segment_node_ids.clear();
 
     auto& map_info = id_map();
     map_info.numeric_mode = true;
@@ -75,13 +76,68 @@ void GFAzParser::on_header(const string& header_line) {
     }
 }
 
-void GFAzParser::on_segment(uint32_t id, const string& sequence,
-                            const gfaz::GfaTagList& tags) {
+/// Return true if the name is the canonical decimal form of the number.
+static bool is_number(const string& name, uint32_t number) {
+    if (name.empty() || name.size() > 10 || name[0] == '0') {
+        return false;
+    }
+    uint64_t value = 0;
+    for (char c : name) {
+        if (c < '0' || c > '9') {
+            return false;
+        }
+        value = value * 10 + (c - '0');
+    }
+    return value == number;
+}
+
+nid_t GFAzParser::node_id_for(uint32_t segment) const {
+    if (segment_node_ids.empty()) {
+        return static_cast<nid_t>(segment);
+    }
+    if (segment >= segment_node_ids.size()) {
+        throw GFAFormatError("GFAz record refers to unknown segment " +
+                             to_string(segment));
+    }
+    return segment_node_ids[segment];
+}
+
+nid_t GFAzParser::assign_node_id(uint32_t segment, const string& name) {
     auto& map_info = id_map();
-    map_info.max_id = max(map_info.max_id, static_cast<nid_t>(id));
+    if (segment_node_ids.empty()) {
+        if (is_number(name, segment)) {
+            // Still named 1..N: the numbers are the IDs and need no map.
+            map_info.max_id = segment;
+            return static_cast<nid_t>(segment);
+        }
+        // This is the first segment not named after its number. Go back and
+        // put the earlier ones through the same ID assignment a text GFA
+        // gets, so that the rest of the names are handled as they would be
+        // there.
+        map_info.direct_numeric_lookup = false;
+        map_info.max_id = 0;
+        segment_node_ids.reserve(segment + 1);
+        segment_node_ids.push_back(0);
+        for (uint32_t earlier = 1; earlier < segment; ++earlier) {
+            segment_node_ids.push_back(
+                assign_new_sequence_id(to_string(earlier), map_info));
+        }
+    }
+    nid_t id = assign_new_sequence_id(name, map_info);
+    if (id == 0) {
+        throw GFAFormatError("Duplicate sequence name " + name);
+    }
+    segment_node_ids.push_back(id);
+    return id;
+}
+
+void GFAzParser::on_named_segment(uint32_t segment, const string& name,
+                                  const string& sequence,
+                                  const gfaz::GfaTagList& tags) {
+    const nid_t id = assign_node_id(segment, name);
 
     for (auto& listener : node_listeners) {
-        listener(static_cast<nid_t>(id), as_chars(sequence), tags);
+        listener(id, as_chars(sequence), tags);
     }
 
     if (max_rgfa_rank < 0 || tags.size() < 3) {
@@ -110,7 +166,7 @@ void GFAzParser::on_segment(uint32_t id, const string& sequence,
                              to_string(found->second));
     }
 
-    pending_rgfa_visits.push_back({static_cast<nid_t>(id), offset,
+    pending_rgfa_visits.push_back({id, offset,
                                    sequence.size(), path_name, path_rank});
 }
 
@@ -119,15 +175,15 @@ void GFAzParser::on_link(uint32_t from_id, bool from_is_reverse,
                          const string& overlap,
                          const gfaz::GfaTagList& tags) {
     for (auto& listener : edge_listeners) {
-        listener(static_cast<nid_t>(from_id), from_is_reverse,
-                 static_cast<nid_t>(to_id), to_is_reverse,
+        listener(node_id_for(from_id), from_is_reverse,
+                 node_id_for(to_id), to_is_reverse,
                  as_chars(overlap), tags);
     }
 }
 
 GFAParser::visit_source_t
-GFAzParser::make_visit_source(const vector<NodeId>& visits) {
-    return [visits](const visit_iteratee_t& visit_step) {
+GFAzParser::make_visit_source(const vector<NodeId>& visits) const {
+    return [this, visits](const visit_iteratee_t& visit_step) {
         if (visits.empty()) {
             visit_step(-1, 0, false);
             return;
@@ -135,9 +191,8 @@ GFAzParser::make_visit_source(const vector<NodeId>& visits) {
         for (size_t i = 0; i < visits.size(); ++i) {
             const NodeId visit = visits[i];
             const bool is_reverse = visit < 0;
-            const nid_t node_id = is_reverse
-                                      ? -static_cast<nid_t>(visit)
-                                      : static_cast<nid_t>(visit);
+            const nid_t node_id = node_id_for(
+                static_cast<uint32_t>(is_reverse ? -visit : visit));
             if (!visit_step(i, node_id, is_reverse)) {
                 return;
             }

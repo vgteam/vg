@@ -33,6 +33,7 @@
 #include "../io/converted_hash_graph.hpp"
 #include "../io/save_handle_graph.hpp"
 #include "../gbzgraph.hpp"
+#include <GFAz/handlegraph_adapter/gfaz_handle_graph.hpp>
 #include "../progressive.hpp"
 #include "../traversal_finder.hpp"
 
@@ -500,6 +501,9 @@ int main_stats(int argc, char** argv) {
             format_string = "HashGraph";
         } else if (dynamic_cast<GBZGraph*>(graph) != nullptr) {
             format_string = "GBZ";
+        } else if (dynamic_cast<gfaz::GfazHandleGraph*>(graph) != nullptr) {
+            // A GFAZ file read in place, not converted.
+            format_string = "GFAZ";
         } else {
             format_string = "Unknown";
         }
