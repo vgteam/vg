@@ -260,6 +260,27 @@ bool HaplotypePartitioner::contains_reversals(handle_t handle) const {
     return false;
 }
 
+// Returns the number of haplotype paths that visit the node: paths that are not
+// reference paths, generic paths, or gref covers. A path that visits the node
+// more than once, in either orientation, counts once.
+size_t haplotype_paths(handle_t handle, const HaplotypePartitioner& partitioner) {
+    const gbwt::GBWT& index = partitioner.gbz.index;
+    bool has_names = index.hasMetadata() && index.metadata.hasPathNames();
+    std::vector<gbwt::size_type> da = partitioner.r_index.decompressDA(gbwtgraph::GBWTGraph::handle_to_node(handle));
+    std::vector<gbwt::size_type> path_ids;
+    for (gbwt::size_type sequence_id : da) {
+        gbwt::size_type path_id = gbwt::Path::id(sequence_id);
+        // Named paths are the reference and generic paths.
+        bool is_reference = has_names && (partitioner.gbz.graph.id_to_path.find(path_id) != partitioner.gbz.graph.id_to_path.end() ||
+            is_gref_path(index.metadata.fullPath(path_id)));
+        if (!is_reference) {
+            path_ids.push_back(path_id);
+        }
+    }
+    gbwt::removeDuplicates(path_ids, false);
+    return path_ids.size();
+}
+
 std::vector<HaplotypePartitioner::Subchain>
 HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const Parameters& parameters) const {
     std::vector<Subchain> result;
@@ -275,9 +296,15 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
     // so cannot step over a snarl that no walk crosses. Such snarls are split
     // below.
     net_handle_t chain_end = this->distance_index.get_bound(chain.chain, true, false);
+    // The first and last nodes of the chain.
+    handle_t first_node = empty_gbwtgraph_handle(), last_node = empty_gbwtgraph_handle();
     this->distance_index.for_each_child(chain.chain, [&](const net_handle_t& curr) -> bool {
         if (this->distance_index.is_node(curr)) {
             handle_t handle = this->distance_index.get_handle(curr, &this->gbz.graph);
+            if (first_node == empty_gbwtgraph_handle()) {
+                first_node = handle;
+            }
+            last_node = handle;
             if (was_snarl) {
                 if (!has_start) {
                     // If the chain starts with a snarl, we take it as a prefix.
@@ -349,6 +376,62 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
             distance, extra_snarls
         });
         head = tail + 1;
+    }
+
+    // Open chain ends. If no haplotype visits the first node of the chain or the start node of the first subchain
+    // (the first node of the chain, or the last node of the unary path the chain starts with), no haplotype can
+    // cross that subchain, but a reference path may (for example, one that ends in a tip of its own, as vg clip -Sk
+    // makes). As the only candidate, it would then be taken for every sampled haplotype. We turn such a subchain
+    // into a prefix, whose candidates are the sequences that reach its inner boundary, so that each sampled
+    // haplotype keeps the chosen sequence's own start. The same goes for the last node of the chain, the end node
+    // of the last subchain, and a suffix. Reference paths, generic paths, and gref covers are not haplotypes here.
+    // Where a haplotype visits either node, nothing changes. An open chain end only takes the candidates whose
+    // prefix (suffix) stays in it (see get_sequences()), and remembers the boundary of the subchain it replaces.
+    if (!result.empty()) {
+        bool open_start = (result.front().type == Haplotypes::Subchain::normal && haplotype_paths(result.front().start, *this) == 0 &&
+            (first_node == result.front().start || haplotype_paths(first_node, *this) == 0));
+        bool open_end = (result.back().type == Haplotypes::Subchain::normal && haplotype_paths(result.back().end, *this) == 0 &&
+            (last_node == result.back().end || haplotype_paths(last_node, *this) == 0));
+        bool opened = false;
+        if (result.size() == 1 && open_start && open_end) {
+            // A single subchain with both ends open becomes a prefix and a suffix that meet at the chain node
+            // between its snarls that the most haplotype paths visit, as if it had been two subchains. All the
+            // snarls are normal and in this subchain. Without such a node, the subchain stays as it is.
+            handle_t middle = empty_gbwtgraph_handle();
+            size_t max_paths = 0;
+            for (size_t i = 0; i + 1 < snarls.size(); i++) {
+                size_t paths = haplotype_paths(snarls[i].end, *this);
+                if (paths > max_paths) {
+                    middle = snarls[i].end;
+                    max_paths = paths;
+                }
+            }
+            if (max_paths > 0) {
+                handle_t start = result.front().start, end = result.front().end;
+                result = {
+                    { Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), middle, 0, 0, start },
+                    { Haplotypes::Subchain::suffix, middle, empty_gbwtgraph_handle(), 0, 0, end }
+                };
+                opened = true;
+            }
+        } else {
+            if (open_start) {
+                result.front() = { Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), result.front().end, 0, 0, result.front().start };
+                opened = true;
+            }
+            if (open_end) {
+                result.back() = { Haplotypes::Subchain::suffix, result.back().start, empty_gbwtgraph_handle(), 0, 0, result.back().end };
+                opened = true;
+            }
+        }
+        if ((open_start || open_end) && this->verbosity >= Haplotypes::verbosity_debug) {
+            #pragma omp critical
+            {
+                std::cerr << "Chain " << chain.offset << ": no haplotype reaches its" << (open_start ? " start" : "")
+                    << (open_start && open_end ? " or" : "") << (open_end ? " end" : "")
+                    << (opened ? "; opened as a prefix / suffix" : "; no chain node inside to split the subchain at") << std::endl;
+            }
+        }
     }
 
     return result;
@@ -517,16 +600,60 @@ std::vector<HaplotypePartitioner::sequence_type> match_visits(
     return result;
 }
 
+hash_set<nid_t> open_end_nodes(const HandleGraph& graph, handle_t boundary, bool is_prefix) {
+    hash_set<nid_t> result;
+    result.insert(graph.get_id(boundary));
+    std::vector<handle_t> active;
+    graph.follow_edges(boundary, is_prefix, [&](const handle_t& next) {
+        active.push_back(next);
+    });
+    while (!active.empty()) {
+        handle_t handle = active.back(); active.pop_back();
+        if (!result.insert(graph.get_id(handle)).second) {
+            continue;
+        }
+        graph.follow_edges(handle, false, [&](const handle_t& next) {
+            active.push_back(next);
+        });
+        graph.follow_edges(handle, true, [&](const handle_t& prev) {
+            active.push_back(prev);
+        });
+    }
+    return result;
+}
+
 std::vector<HaplotypePartitioner::sequence_type> HaplotypePartitioner::get_sequences(Subchain subchain) const {
     if (subchain.type == Haplotypes::Subchain::prefix) {
         // NOTE: If a sequence flips after this subchain and returns to it, we will
         // take the initial prefix that exits the subchain multiple times.
-        return this->get_sequences(subchain.end);
+        // An open chain end only takes the sequences that stay within it.
+        auto result = this->get_sequences(subchain.end);
+        if (subchain.is_open_end()) {
+            // A haplotype that turns back past the boundary, for example one that folds back at the end of a
+            // chromosome, would take the rest of the chain into the prefix, with kmers from other subchains.
+            hash_set<nid_t> nodes = open_end_nodes(this->gbz.graph, subchain.end, true);
+            gbwt::node_type boundary = gbwtgraph::GBWTGraph::handle_to_node(subchain.end);
+            gbwt::CachedGBWT cached_gbwt(this->gbz.index);
+            result.erase(std::remove_if(result.begin(), result.end(), [&](sequence_type sequence) -> bool {
+                return !within_open_end(cached_gbwt, nodes, sequence.first, boundary, sequence.second, true);
+            }), result.end());
+        }
+        return result;
     }
     if (subchain.type == Haplotypes::Subchain::suffix) {
         // NOTE: If the sequence flips, exits the subchain, and later returns to it,
         // some of the haplotypes will overlap the preceding subchain(s).
-        return this->get_sequences(subchain.start);
+        // An open chain end only takes the sequences that stay within it.
+        auto result = this->get_sequences(subchain.start);
+        if (subchain.is_open_end()) {
+            hash_set<nid_t> nodes = open_end_nodes(this->gbz.graph, subchain.start, false);
+            gbwt::node_type boundary = gbwtgraph::GBWTGraph::handle_to_node(subchain.start);
+            gbwt::CachedGBWT cached_gbwt(this->gbz.index);
+            result.erase(std::remove_if(result.begin(), result.end(), [&](sequence_type sequence) -> bool {
+                return !within_open_end(cached_gbwt, nodes, sequence.first, boundary, sequence.second, false);
+            }), result.end());
+        }
+        return result;
     }
     auto from = get_sequence_visits(subchain.start, this->r_index);
     auto to = get_sequence_visits(subchain.end, this->r_index);
@@ -768,9 +895,15 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
 
     // Convert the subchains to actual subchains.
     size_t fragmented_subchains = 0, fragmented_sequences = 0, additional_fragments = 0;
-    for (const Subchain& subchain : subchains) {
+    for (Subchain subchain : subchains) {
         std::vector<std::pair<Subchain, std::vector<sequence_type>>> to_process;
         auto sequences = this->get_sequences(subchain);
+        if (sequences.empty() && subchain.is_open_end()) {
+            // Every sequence that reaches the inner boundary of the open chain end
+            // leaves it, so we use the normal subchain it replaced.
+            subchain = subchain.closed();
+            sequences = this->get_sequences(subchain);
+        }
         if (sequences.empty()) {
             // There are no haplotypes crossing the subchain, so we break it into
             // a suffix and a prefix.

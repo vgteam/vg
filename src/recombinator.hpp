@@ -77,6 +77,21 @@ public:
         /// within the subchain.
         std::uint32_t extra_snarls;
 
+        /// For a prefix (suffix) that replaces the normal outermost subchain of a
+        /// top-level chain whose end no haplotype reaches (an open chain end), the
+        /// start (end) node of that normal subchain. Empty otherwise.
+        handle_t open_from = empty_gbwtgraph_handle();
+
+        /// Returns `true` if this is an open chain end.
+        bool is_open_end() const { return (this->open_from != empty_gbwtgraph_handle()); }
+
+        /// Returns the normal subchain an open chain end replaces.
+        Subchain closed() const {
+            return (this->type == Haplotypes::Subchain::prefix ?
+                Subchain { Haplotypes::Subchain::normal, this->open_from, this->end, 0, 0 } :
+                Subchain { Haplotypes::Subchain::normal, this->start, this->open_from, 0, 0 });
+        }
+
         /// Returns `true` if the subchain has a start node.
         bool has_start() const { return (this->type == Haplotypes::Subchain::normal || this->type == Haplotypes::Subchain::suffix); }
 
@@ -160,7 +175,9 @@ private:
     // Get all GBWT sequences crossing the subchain.
     //
     // * If the subchain is a prefix (suffix), the sequences will be at the end
-    //   (start) of the subchain.
+    //   (start) of the subchain. For an open chain end, only the sequences whose
+    //   prefix (suffix) stays outside the end (start) node are included (see
+    //   open_end_nodes()).
     // * If the subchain is normal, the sequences will be at the start and
     //   correspond to minimal end-to-end visits to the subchain. A sequence
     //   that ends within the subchain may be selected if subsequent fragments
@@ -482,6 +499,41 @@ private:
     Statistics copy_chain(const Haplotypes::TopLevelChain& chain,
         gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata) const;
 };
+
+//------------------------------------------------------------------------------
+
+/**
+ * The nodes of an open chain end: a prefix (suffix) that replaces the outermost
+ * normal subchain of a top-level chain whose end no haplotype reaches. These are
+ * the boundary node (the end node of a prefix, the start node of a suffix) and
+ * the nodes reachable from its outer side without passing through it, which, for
+ * a chain end, are the nodes between the boundary and the end of the chain.
+ */
+hash_set<nid_t> open_end_nodes(const HandleGraph& graph, handle_t boundary, bool is_prefix);
+
+/**
+ * Returns `true` if the prefix (suffix) of the GBWT sequence that visits the
+ * boundary node at the given offset of its record stays within the nodes: from
+ * the start of the sequence to the visit (from the visit to the end of the
+ * sequence). An open chain end takes only such sequences as candidates. The
+ * index is a `gbwt::GBWT` or a `gbwt::CachedGBWT`.
+ */
+template<class Index>
+bool within_open_end(const Index& index, const hash_set<nid_t>& nodes,
+    gbwt::size_type sequence_id, gbwt::node_type boundary, gbwt::size_type offset, bool is_prefix) {
+    gbwt::edge_type visit(boundary, offset);
+    gbwt::edge_type pos = (is_prefix ? index.start(sequence_id) : visit);
+    while (pos.first != gbwt::ENDMARKER) {
+        if (is_prefix && pos == visit) {
+            return true;
+        }
+        if (nodes.find(gbwt::Node::id(pos.first)) == nodes.end()) {
+            return false;
+        }
+        pos = index.LF(pos);
+    }
+    return !is_prefix;
+}
 
 //------------------------------------------------------------------------------
 
