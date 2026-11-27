@@ -274,8 +274,12 @@ protected:
     // the reference block or every "idx < num_ref_intervals" test silently becomes wrong.
     void filter_short_intervals(int64_t minimum_length);
 
-    // Build the cover: enumerate the maximal runs of uncovered nodes along every candidate
-    // source path, then claim them longest-first.  This is the whole cover.
+    // Build the cover: enumerate the maximal runs of uncovered nodes along every source
+    // path, then claim them longest-first.  Every path outside the gref namespace is a
+    // source path.  Runs of equal length are claimed forward before reverse, then lowest
+    // path name first, then earliest on the path first.  No two runs tie, so the graph alone
+    // fixes the order of claims, and with it the cover and the numbering of its fragments.
+    // This is the whole cover.
     void fill_uncovered_nodes(int64_t minimum_length);
 
     // Search back to the reference and return <distance, node_id> when found.

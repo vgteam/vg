@@ -1,0 +1,9 @@
+H	VN:Z:1.0
+S	1	ACGTACGT
+S	2	TTTTTTTT
+S	3	CAGTCAGT
+L	1	+	2	+	0M
+L	1	+	3	+	0M
+L	2	+	3	+	0M
+P	x	1+,3+	*
+P	asm_1_alt	1+,2+,3+	*

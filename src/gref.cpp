@@ -109,9 +109,6 @@ void GrefCover::compute(const PathHandleGraph* graph,
     this->interval_snarl_bounds.clear();
     this->node_to_interval.clear();
     this->graph = graph;
-    // Rank by name only (ignoring coverage) produces fewer, longer intervals
-    // in practice: adjacent snarls tend to pick the same path, so same-path
-    // merging succeeds more often during the fold.
     // start with the reference paths
     for (const path_handle_t& ref_path_handle : reference_paths) {
         // A reference contig whose own name ends in _{N}_alt puts its gref copy into the same
@@ -176,11 +173,17 @@ void GrefCover::compute(const PathHandleGraph* graph,
     // changed in 8c42f5b54 (+36% fragments genome-wide).  Whole-path runs are maximal by
     // construction, so nothing needs reassembling.
     //
-    // That also makes the candidate set complete rather than merely large: every admissible
-    // fragment is contiguous on one source path, single-orientation, free of repeated node
-    // ids and free of reference nodes, which is exactly what a maximal run is maximal under.
-    // So every admissible fragment is a sub-run of exactly one enumerated run, and no other
-    // candidate generator can beat it.
+    // An admissible fragment is contiguous on one source path, single-orientation, free of
+    // repeated node IDs, and free of reference nodes and of withheld nodes.  The runs are
+    // cut wherever one of those rules would break, so an admissible fragment is a sub-run
+    // of one enumerated run, with one exception.  Where a path visits a node twice with
+    // none of the other cuts between the visits, the run is cut at the second visit.  A
+    // fragment that starts after the first visit and goes on through the second is then in
+    // no run.  A path that visits a b c a d gives the runs [a b c] and [a d], and never
+    // offers [b c a d], which covers all four nodes.
+    // TODO: In that case the cover uses two fragments where one would do, and the length
+    // filter can drop the shorter one.  Offer the fragments that straddle a second visit
+    // as well.
 
     // Build the cover.  minimum_length is deferred: a run that is too short on its own may
     // still be the longest thing available for its nodes, and filtering before selection
@@ -225,17 +228,13 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
                 string path_name = graph->get_path_name(path_handle);
                 // Skip existing gref paths: covering a fragment with a copy of itself would
                 // make the cover depend on whether one was already there.
-                if (!is_gref_name(path_name)) {
+                if (!is_gref_derived(path_name)) {
                     candidate_paths[path_name] = path_handle;
                 }
                 return true;
             });
         }
     });
-
-    if (uncovered_nodes.empty()) {
-        return;
-    }
 
     // Enumerate every maximal uncovered run on every candidate path, then select from all of
     // them at once, longest first.
@@ -250,6 +249,7 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
         int64_t length;
         bool reverse;
         const string* name;
+        int64_t start_index;  // index, along the path, of the step at start
         step_handle_t start;
         step_handle_t end;   // one past the last step
         bool operator<(const FillRun& other) const {   // max-heap: "worse than"
@@ -261,16 +261,28 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
             if (this->reverse != other.reverse) {
                 return this->reverse;
             }
-            return *this->name > *other.name;   // flipped: low name wins
+            int name_order = this->name->compare(*other.name);
+            if (name_order != 0) {
+                return name_order > 0;   // flipped: low name wins
+            }
+            // Two runs of one path never share a step, so no two runs compare equal.  The
+            // order of claims, and with it the numbering of the fragments, then depends on
+            // the runs alone and not on how the heap orders equal elements.
+            return this->start_index > other.start_index;   // flipped: the earlier run wins
         }
     };
 
     // Split one path into maximal runs of currently-uncovered nodes, breaking at orientation
-    // flips and at a repeated node id so no run can contain a cycle.
+    // flips and at a repeated node id so no run can contain a cycle.  The break at a repeated
+    // node loses some fragments; see the TODO in compute().
+    // TODO: A run that takes in every step of a circular path ends at the step it starts
+    // at, so it reads as empty and its nodes are never claimed.
     auto enumerate_runs = [&](const string& path_name, path_handle_t path_handle,
                               vector<FillRun>& out) {
         bool in_run = false;
         step_handle_t run_start;
+        int64_t run_start_index = 0;
+        int64_t step_index = 0;
         int64_t run_length = 0;
         bool run_reverse = false;
         unordered_set<nid_t> run_nodes;
@@ -279,7 +291,7 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
         auto close_run = [&]() {
             if (in_run) {
                 if (run_length >= minimum_length) {
-                    out.push_back({run_length, run_reverse, &path_name, run_start, run_end});
+                    out.push_back({run_length, run_reverse, &path_name, run_start_index, run_start, run_end});
                 }
                 // Guarded: this is called for every already-covered step, which on a
                 // haplotype means every reference node it walks.  clear() memsets the whole
@@ -305,12 +317,14 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
                 if (!in_run) {
                     in_run = true;
                     run_start = step;
+                    run_start_index = step_index;
                     run_reverse = is_reverse;
                 }
                 run_end = graph->get_next_step(step);
                 run_length += graph->get_length(handle);
                 run_nodes.insert(node_id);
             }
+            ++step_index;
             return true;
         });
         close_run();
@@ -335,13 +349,14 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
         bool in_piece = false;
         step_handle_t piece_start;
         step_handle_t piece_end;
+        int64_t piece_start_index = 0;
         int64_t piece_length = 0;
         unordered_set<nid_t> piece_nodes;
         vector<FillRun> pieces;
         auto close_piece = [&]() {
             if (in_piece) {
                 if (piece_length >= minimum_length) {
-                    pieces.push_back({piece_length, best.reverse, best.name, piece_start, piece_end});
+                    pieces.push_back({piece_length, best.reverse, best.name, piece_start_index, piece_start, piece_end});
                 }
                 // Guarded for the same reason as close_run() above: called once per
                 // already-claimed step, and an unguarded clear() is O(bucket count).
@@ -350,7 +365,8 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
             in_piece = false;
             piece_length = 0;
         };
-        for (step_handle_t step = best.start; step != best.end; step = graph->get_next_step(step)) {
+        int64_t step_index = best.start_index;
+        for (step_handle_t step = best.start; step != best.end; step = graph->get_next_step(step), ++step_index) {
             handle_t handle = graph->get_handle_of_step(step);
             nid_t node_id = graph->get_id(handle);
             if (!uncovered_nodes.count(node_id) || piece_nodes.count(node_id)) {
@@ -365,6 +381,7 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
             if (!in_piece) {
                 in_piece = true;
                 piece_start = step;
+                piece_start_index = step_index;
             }
             piece_end = graph->get_next_step(step);
             piece_length += graph->get_length(handle);
@@ -396,10 +413,22 @@ void GrefCover::fill_uncovered_nodes(int64_t minimum_length) {
         }
     }
 
-#ifdef debug
-#pragma omp critical(cerr)
-    cerr << "[gref] fill_uncovered_nodes: " << uncovered_nodes.size() << " nodes still uncovered" << endl;
-#endif
+    if (verbose) {
+        // The nodes left are in no run that was claimed.  With a minimum_length of 1, which
+        // is what compute() passes, every run is claimed, whole or in pieces, so they are
+        // the nodes on no source path.  A larger minimum_length also leaves the nodes of
+        // the runs, and of the pieces of runs, that are shorter than it.
+        int64_t unclaimed_bp = 0;
+        for (nid_t node_id : uncovered_nodes) {
+            unclaimed_bp += graph->get_length(graph->get_handle(node_id));
+        }
+        cerr << "[gref] " << uncovered_nodes.size() << " nodes (" << unclaimed_bp
+             << " bp) are on no source path";
+        if (minimum_length > 1) {
+            cerr << " or only in runs shorter than " << minimum_length << " bp";
+        }
+        cerr << endl;
+    }
 }
 
 
@@ -593,17 +622,33 @@ void GrefCover::filter_short_intervals(int64_t minimum_length) {
         kept.push_back(this->gref_intervals[i]);
         kept_bounds.push_back(this->interval_snarl_bounds[i]);
     }
+    int64_t dropped_fragments = 0;
+    int64_t dropped_nodes = 0;
+    int64_t dropped_bp = 0;
     for (int64_t i = this->num_ref_intervals; i < (int64_t)this->gref_intervals.size(); ++i) {
         const pair<step_handle_t, step_handle_t>& interval = this->gref_intervals[i];
         int64_t length = 0;
+        // A fragment visits no node twice, so the number of its steps is the number of
+        // its nodes.
+        int64_t nodes = 0;
         for (step_handle_t step = interval.first; step != interval.second;
              step = graph->get_next_step(step)) {
             length += graph->get_length(graph->get_handle_of_step(step));
+            ++nodes;
         }
         if (length >= minimum_length) {
             kept.push_back(interval);
             kept_bounds.push_back(this->interval_snarl_bounds[i]);
+        } else {
+            ++dropped_fragments;
+            dropped_nodes += nodes;
+            dropped_bp += length;
         }
+    }
+    if (verbose) {
+        cerr << "[gref] Length filter (min " << minimum_length << " bp): dropped "
+             << dropped_fragments << " fragments (" << dropped_nodes << " nodes, "
+             << dropped_bp << " bp)" << endl;
     }
 
     this->gref_intervals = std::move(kept);
@@ -839,6 +884,9 @@ void GrefCover::enforce_top_level_anchoring(const bdsg::SnarlDistanceIndex& dist
     int64_t bridging_snarls = 0;
     vector<string> failures;
     const int64_t max_reported_failures = 5;
+    // TODO: Where the index holds a root snarl, as for two cycles that share a node, this
+    // throws std::out_of_range.  The index throws it when it reads the record of a chain
+    // that for_each_child() on the root gave for the root snarl.
     net_handle_t root = distance_index.get_root();
     distance_index.for_each_child(root, [&](net_handle_t top_chain) {
         distance_index.for_each_child(top_chain, [&](net_handle_t child) {
@@ -1193,32 +1241,16 @@ void GrefCover::assign_top_level_snarls(const bdsg::SnarlDistanceIndex& distance
         }
     };
 
-    // Top-level chains are the children of the root, except that disconnected components
-    // joined in the root hang one level deeper, under a root snarl.
+    // Top-level chains are the children of the root.  Where the index holds a root snarl,
+    // for_each_child() on the root gives the chains of that root snarl in its place, and it
+    // gives a lone node as a chain, so every child here is a chain.
     net_handle_t root = distance_index.get_root();
-    distance_index.for_each_child(root, [&](net_handle_t child) {
-        if (distance_index.is_root_snarl(child)) {
-            distance_index.for_each_child(child, [&](net_handle_t grandchild) {
-                if (distance_index.is_chain(grandchild)) {
-                    ++stats.top_level_chains;
-                    distance_index.for_each_child(grandchild, [&](net_handle_t c) {
-                        handle_chain_child(c);
-                        return true;
-                    });
-                } else {
-                    handle_chain_child(grandchild);
-                }
-                return true;
-            });
-        } else if (distance_index.is_chain(child)) {
-            ++stats.top_level_chains;
-            distance_index.for_each_child(child, [&](net_handle_t c) {
-                handle_chain_child(c);
-                return true;
-            });
-        } else {
+    distance_index.for_each_child(root, [&](net_handle_t top_chain) {
+        ++stats.top_level_chains;
+        distance_index.for_each_child(top_chain, [&](net_handle_t child) {
             handle_chain_child(child);
-        }
+            return true;
+        });
         return true;
     });
 
@@ -1485,7 +1517,7 @@ void GrefCover::write_gref_segments(ostream& os) {
     // repeated parse_path_name/create_path_name per interval.
     // Stores (display_name, subrange_offset) per source path.
     unordered_map<path_handle_t, pair<string, int64_t>> source_display_cache;
-    // Subrange offset of each reference path, for columns 6-7.
+    // Subrange offset of each reference path, for columns 8-9.
     unordered_map<path_handle_t, int64_t> ref_offset_cache;
 
     // One pass: skip what apply() skips, name each surviving interval as we go.
@@ -1546,7 +1578,7 @@ void GrefCover::write_gref_segments(ostream& os) {
             // The window comes from this fragment's own source path: the last place it
             // touches this reference contig before the fragment and the first at or after
             // it.  Anchors on any other contig are skipped -- the window has to be measured
-            // on the contig named in column 4.
+            // on the contig named in column 7.
             //
             // interval_snarl_bounds now holds the containing top-level snarl, and it is
             // deliberately NOT used here.  A top-level snarl is a child of the top-level
@@ -1620,7 +1652,7 @@ void GrefCover::write_gref_segments(ostream& os) {
         // reason the source coordinates above carry the source path's: ref_node_positions is
         // built by walking the reference interval from zero, so on a graph whose reference is
         // a subpath (GRCh38#0#chr1[1000-1260]) the offsets are relative to the subpath while
-        // both vg deconstruct and vg call add the offset to POS.  Without this, columns 6-7
+        // both vg deconstruct and vg call add the offset to POS.  Without this, columns 8-9
         // are shifted by the offset against every coordinate in the VCF they are meant to be
         // read beside.  No current corpus has subranged reference paths, so this changes
         // nothing today and prevents a silent shift the first time one does.
