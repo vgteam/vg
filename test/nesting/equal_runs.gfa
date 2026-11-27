@@ -1,0 +1,29 @@
+H	VN:Z:1.0
+S	1	ACGTACGT
+S	2	TTTT
+S	3	CAGTCAGT
+S	4	GGGG
+S	5	TGCATGCA
+S	6	AAAA
+S	7	GATCGATC
+S	8	CCCC
+S	9	CTAGCTAG
+S	10	TATA
+S	11	AGCTAGCT
+L	1	+	2	+	0M
+L	1	+	3	+	0M
+L	2	+	3	+	0M
+L	3	+	4	+	0M
+L	3	+	5	+	0M
+L	4	+	5	+	0M
+L	5	+	6	+	0M
+L	5	+	7	+	0M
+L	6	+	7	+	0M
+L	7	+	8	+	0M
+L	7	+	9	+	0M
+L	8	+	9	+	0M
+L	9	+	10	+	0M
+L	9	+	11	+	0M
+L	10	+	11	+	0M
+P	x	1+,3+,5+,7+,9+,11+	*
+P	hap	1+,2+,3+,4+,5+,6+,7+,8+,9+,10+,11+	*

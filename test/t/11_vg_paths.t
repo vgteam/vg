@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 131
+plan tests 136
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -157,6 +157,10 @@ is $(vg paths -x triple_gref.vg -L | grep "_alt$" | wc -l) 2 "correct number of 
 # Test minimum length filter
 vg paths -x nesting/triple_nested.gfa -Q x --compute-gref --min-gref-len 100 > triple_gref_long.vg
 is $(vg paths -x triple_gref_long.vg -L | grep "_alt$" | wc -l) 0 "min-gref-len filters out short fragments"
+
+# The cover of cross_path_merge.gfa has two fragments: nodes 2,3,4,9 (20 bp) from a#3#y2,
+# which is kept, and nodes 5,6,7 (12 bp) from a#2#y1, which is too short.
+is "$(vg paths -x nesting/cross_path_merge.gfa -Q x --compute-gref --min-gref-len 13 --progress 2>&1 > /dev/null | grep -c 'Length filter (min 13 bp): dropped 1 fragments (3 nodes, 12 bp)')" "1" "progress output counts what min-gref-len drops"
 
 # Test second pass coverage of dangling nodes (nodes outside snarls but on haplotype paths)
 vg paths -x nesting/dangling_node.gfa -Q x --compute-gref --min-gref-len 1 > dangling_gref.vg
@@ -391,7 +395,31 @@ is $(grep -c "not covered by gref paths" unpathed.err) 1 "an unpathed node is re
 
 is $(vg paths -x unpathed.vg -L | grep -c "_alt$") 1 "the pathed off-reference node is still covered"
 
+# With a minimum length above 1 there is no warning, and the progress output is the only
+# report.  The 8 bp fragment on node 2 is dropped as too short, and is not counted here.
+is "$(vg paths -x nesting/unpathed_node.gfa -Q x --compute-gref --min-gref-len 9 --progress 2>&1 > /dev/null | grep -c '1 nodes (8 bp) are on no source path$')" "1" "progress output counts the sequence on no source path"
+
 rm -f unpathed.vg unpathed.err
+
+# One haplotype with five insertions of the same length.  The cover claims runs longest
+# first, then forward before reverse, then by path name, and these five tie on all three.
+# They are numbered in the order the haplotype visits them.  The check sorts the rows of
+# the fragment table by where they start on the haplotype (column 2) and lists the fragment
+# names (column 4).
+vg paths -x nesting/equal_runs.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs equal_runs.segs > /dev/null
+is "$(grep -v '^#' equal_runs.segs | sort -k2,2n | cut -f4 | tr '\n' ' ')" "gref_x_1_alt gref_x_2_alt gref_x_3_alt gref_x_4_alt gref_x_5_alt " "runs of one path that tie are numbered in path order"
+
+# The same for the pieces of a run that another path has partly claimed.  The run of big
+# over nodes 3,10,5,11,7 is 56 bp, longer than the 40 bp run of hap over nodes 2 to 8, so it
+# is claimed first.  That leaves hap the four 4 bp nodes 2, 4, 6 and 8, which tie.
+vg paths -x nesting/chopped_equal_runs.gfa -Q x --compute-gref --min-gref-len 1 --gref-segs chopped_runs.segs > /dev/null
+is "$(grep '^hap' chopped_runs.segs | sort -k2,2n | cut -f4 | tr '\n' ' ')" "gref_x_2_alt gref_x_3_alt gref_x_4_alt gref_x_5_alt " "pieces of one run that tie are numbered in path order"
+
+rm -f equal_runs.segs chopped_runs.segs
+
+# A source path may itself have a name with the _{N}_alt suffix of a fragment name.  It is
+# still a source.  Only paths in the gref namespace are left out.
+is "$(vg paths -x nesting/source_named_like_fragment.gfa -Q x --compute-gref --min-gref-len 1 | vg paths -x - -L | grep -c '^gref_x_1_alt$')" "1" "a path named like a gref fragment can still source a fragment"
 
 # Cross-path merging must be refused when the two paths diverge inside the
 # stretch being merged.  cross_path_merge.gfa covers the accept case; here
