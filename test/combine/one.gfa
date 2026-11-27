@@ -1,0 +1,5 @@
+H	VN:Z:1.1	RS:Z:GRCh38
+S	1	AAAA
+S	2	CCC
+L	1	+	2	+	0M
+P	GRCh38#0#chr1[0-7]	1+,2+	*
