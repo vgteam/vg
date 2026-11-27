@@ -38,6 +38,7 @@
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
 #include <Fasta.h>
+#include <htslib/hts.h>
 #include <htslib/tbx.h>
 
 #include "vg.hpp"
@@ -409,6 +410,28 @@ static void init_in_out(fstream& strm, const string& name) {
     }
 }
 
+/// Return the KMC input format flag for a read file.
+/// Exit with an error if KMC cannot read the file.
+static string find_kmc_format(const string& filepath) {
+    htsFormat format = detect_file_format(context, filepath);
+    bool readable_compression = format.compression == no_compression
+        || format.compression == gzip || format.compression == bgzf;
+    if (readable_compression && format.format == fasta_format) {
+        // Use -fm for normal, multi-line FASTA
+        return "-fm";
+    }
+    if (readable_compression && format.format == fastq_format) {
+        return "-fq";
+    }
+    char* description_buffer = hts_format_description(&format);
+    string description = description_buffer;
+    free(description_buffer);
+    error(context) << "Cannot count k-mers from " << filepath << ", which is " << description
+                   << "; KMC needs plain or gzipped FASTA or FASTQ" << endl;
+    // error() exits, so this is unreachable.
+    return "";
+}
+
 static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> {
     unique_ptr<MutablePathDeletableHandleGraph> graph;
     switch (IndexingParameters::mut_graph_impl) {
@@ -637,6 +660,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Haplotype-Sampled GBZ", "sampled.gbz");
     registry.register_index("Top Level Chain Distance Index", "tcdist");
     registry.register_index("r Index", "ri");
+    // Read files given for haplotype sampling. Each may be FASTA or FASTQ,
+    // gzipped or not.
     registry.register_index("FASTQ", "fastq");
     registry.register_index("Haplotype Index", "hapl");
     registry.register_index("KFF Kmer Counts", "kff");
@@ -4418,6 +4443,20 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // Create a temp directory for kmc intermediate files.
         string tmp_dir = temp_file::create_directory();
 
+        // Find the format of the reads to tell KMC. KMC takes one format for
+        // all its inputs.
+        // TODO: Add recipes that convert reads vg can read but KMC cannot,
+        // such as a mix of FASTA and FASTQ files, into a form KMC takes. That
+        // is a lot of fiddly work in the recipe system, so for now we just
+        // fail.
+        string kmc_format = find_kmc_format(fastq_filenames.front());
+        for (size_t i = 1; i < fastq_filenames.size(); i++) {
+            if (find_kmc_format(fastq_filenames[i]) != kmc_format) {
+                error(context) << "Cannot count k-mers from a mix of FASTA and FASTQ read files: "
+                               << fastq_filenames.front() << " and " << fastq_filenames[i] << " differ" << endl;
+            }
+        }
+
         // Total up the read file size in bytes
         std::uintmax_t total_read_bytes = 0;
 
@@ -4475,7 +4514,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             "-k" + to_string(IndexingParameters::haplotype_sampling_minimizer_k),
             "-m128",
             "-okff",
-            "-hp"
+            "-hp",
+            kmc_format
         };
 
         if (kmc_gb != std::numeric_limits<size_t>::max()) {

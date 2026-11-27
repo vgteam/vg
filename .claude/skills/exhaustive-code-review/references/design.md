@@ -201,7 +201,8 @@ ones. For each new part that does a recognizable job:
 - **One function, two jobs.** If the doc comment cannot describe it as one
   coherent operation, it is two functions.
 - **Requirement or detail?** A doc comment that mixes what callers may rely on
-  with how it happens to work, so neither can be told apart.
+  with how it happens to work, so neither can be told apart. Fix it by cutting
+  the detail, not by promoting it into the contract.
 - **Unstated or unenforced preconditions.** Say what inputs are allowed; then
   either check them (and throw) or name them as preconditions.
 - **Relaxed invariants.** An implementation that loosens an interface's

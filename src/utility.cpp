@@ -818,6 +818,24 @@ string ensure_writable(const Logger& logger, const string& filename) {
     }
     return filename;
 }
+
+htsFormat detect_file_format(const Logger& logger, const string& filename) {
+    if (filename == "-") {
+        logger.error() << "Cannot detect the format of standard input" << endl;
+    }
+    hFILE* file = hopen(filename.c_str(), "r");
+    if (!file) {
+        logger.error() << "Failed to open " << filename << endl;
+    }
+    htsFormat format;
+    if (hts_detect_format2(file, filename.c_str(), &format) < 0) {
+        logger.error() << "Failed to read " << filename << endl;
+    }
+    if (hclose(file) != 0) {
+        logger.error() << "Failed to close " << filename << endl;
+    }
+    return format;
+}
     
 void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
     // Set the ref allele

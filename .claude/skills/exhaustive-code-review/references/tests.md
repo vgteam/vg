@@ -39,7 +39,15 @@ skill lists test shapes that reviewers have pushed back on; read it first.
   wins" misleads.
 - When a test changes subject partway through, it should be a separate test or
   say so.
-- Is the logic of an elaborate test (several moving parts, a built graph)
-  explained in a comment?
+- Judge comments in tests by the "Too much" section of `comments.md`. A step
+  needs a one-line label, not an argument for its expectation.
+- Can an elaborate test (several moving parts, a built graph) be made
+  simpler? Ask that before asking for a comment that explains it.
 - Inputs: committed files or heredocs, not strings assembled in code (see
   `vg-code-review`).
+- An input derived from another at run time by a program written for the test
+  (an awk, sed or Python script that parses a file format). Find a tool vg or
+  the tests already use that does the job: a vg subcommand, samtools, bcftools,
+  jq, or a standard Unix text tool. Search `test/t/*.t`, the `Dockerfile` and
+  the `Brewfile`, and name the tool in the finding. That committing the
+  derived file would be bulky does not excuse the script.
