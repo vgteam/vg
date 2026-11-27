@@ -8,6 +8,7 @@
 #include <limits>
 #include <iomanip>
 #include <cctype>
+#include <tuple>
 
 //#define debug
 
@@ -1770,10 +1771,25 @@ GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) 
         positions.resize(graph.max_node_id() - min_id + 1);
     }
 
+    // Put the gref paths in order along the gref. Each key holds the name
+    // without its _<N>_alt suffix, the length of the suffix, the suffix, the
+    // start on the full path, and the GBWT path. A name with no suffix has a
+    // suffix of length 0, which puts it before the alt contigs named for it.
+    // A longer suffix has a larger N, and suffixes of one length are in order
+    // of N, because N has no leading zeros.
+    std::vector<std::tuple<std::string, size_t, std::string, uint64_t, gbwt::size_type>> found;
     for_each_path_start(gbz.index, [&](gbwt::size_type path_id, const std::string& name, uint64_t start) {
         if (name.compare(0, name_prefix.size(), name_prefix) != 0) {
             return;
         }
+        std::string base = GrefCover::parse_base_path(name);
+        std::string suffix = name.substr(base.size());
+        found.emplace_back(std::move(base), suffix.size(), std::move(suffix), start, path_id);
+    });
+    std::sort(found.begin(), found.end());
+
+    for (const auto& [base, suffix_length, suffix, start, path_id] : found) {
+        std::string name = base + suffix;
         auto rank = static_cast<uint32_t>(paths.size());
         PathSteps steps(graph, path_id);
         // Alt contigs have fragment names, which end in _<N>_alt.
@@ -1786,11 +1802,12 @@ GrefIndex::GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix) 
                 position.is_reverse = graph.get_is_reverse(step.handle);
                 position.offset = step.start;
             } else {
-                // The gref should be node-disjoint. Keep the first visit.
+                // The gref should be node-disjoint. Keep the visit of the
+                // path that comes first along the gref.
                 repeats++;
             }
         }
-    });
+    }
 
     // Find each path by the names vg paths gives a path with a subrange,
     // NAME[START] and NAME[START-END], and by NAME alone where it is unique.
@@ -1959,12 +1976,19 @@ struct Segment {
         high = std::max(high, coord);
     }
 
-    /// Return the placement as PATH:START-END:STRAND:CIGAR, 1-based and
-    /// inclusive, with the CIGAR in path order.
-    std::string text(const GrefIndex& gref) const {
+    /// Return the part of the path that the segment lies on, and the strand,
+    /// as PATH:START-END:STRAND. PATH has no subrange. START and END are
+    /// 1-based, inclusive coordinates on the full path.
+    std::string region(const GrefIndex& gref) const {
         uint64_t shift = gref.path_shift(path) + 1;
-        std::string result = gref.path_name(path) + ':' + std::to_string(low + shift) + '-' +
-                             std::to_string(high + shift) + ':' + (is_reverse ? '-' : '+') + ':';
+        return gref.path_name(path) + ':' + std::to_string(low + shift) + '-' +
+               std::to_string(high + shift) + ':' + (is_reverse ? '-' : '+');
+    }
+
+    /// Return the placement as PATH:START-END:STRAND:CIGAR, with the CIGAR in
+    /// path order.
+    std::string text(const GrefIndex& gref) const {
+        std::string result = region(gref) + ':';
         std::vector<std::pair<size_t, char>> path_order = cigar;
         if (is_reverse) {
             std::reverse(path_order.begin(), path_order.end());
@@ -2019,6 +2043,7 @@ public:
     void finish(GrefPlacement& placement) {
         if (segments.empty()) {
             placement.text = "*:" + std::to_string(interval.length) + "I";
+            placement.regions = "*";
             return;
         }
         position = replace_tail(segments.back(), *previous, interval.length);
@@ -2028,8 +2053,10 @@ public:
         for (const Segment& segment : segments) {
             if (!placement.text.empty()) {
                 placement.text += ',';
+                placement.regions += ',';
             }
             placement.text += segment.text(gref);
+            placement.regions += segment.region(gref);
         }
     }
 

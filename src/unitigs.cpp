@@ -300,6 +300,8 @@ std::vector<Tig> haplotype_unitigs(const GBWTGraph& graph, size_t k, const GrefI
         result = std::vector<Tig>();
     }
     // Sort along the gref, then by the walk, so that the order does not depend on threads.
+    // The gref index numbers its paths in order along the gref. A tig with no base on the
+    // gref has NO_PATH, the largest number, so it comes last.
     std::sort(tigs.begin(), tigs.end(), [](const Tig& a, const Tig& b) {
         if (a.placement.path != b.placement.path) {
             return a.placement.path < b.placement.path;

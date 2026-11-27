@@ -398,10 +398,14 @@ struct GrefPlacement {
     /// Comma-separated PATH:START-END:STRAND:CIGAR segments (1-based,
     /// inclusive, CIGAR in path order), or *:<length>I if no base is on the gref.
     std::string text;
+    /// The segments of the text without their CIGARs, each as
+    /// PATH:START-END:STRAND, or * if no base is on the gref. PATH has no
+    /// subrange, and START and END are on the full path.
+    std::string regions;
     /// The path of the first segment, or GrefIndex::NO_PATH if no base is on the gref.
     uint32_t path = std::numeric_limits<uint32_t>::max();
     /// The lowest coordinate of the first segment. Placements sort along the
-    /// gref by path, then coord.
+    /// gref by path, then coord, and a placement with no path sorts last.
     uint64_t coord = 0;
     /// Number of bases on gref paths that the paths read forward.
     size_t forward_bases = 0;
@@ -421,7 +425,15 @@ struct GrefPlacement {
  */
 class GrefIndex {
 public:
-    /// Index the GBWT paths whose name starts with the given prefix.
+    /**
+     * Index the GBWT paths whose name starts with the given prefix.
+     *
+     * The paths are numbered in order along the gref. They are in byte order
+     * of their names without any _<N>_alt suffix. Among the paths that share
+     * such a name, the path with no suffix comes first and the alt contigs
+     * follow in order of N. Paths with the same name are in order of where
+     * they start on the full path.
+     */
     GrefIndex(const gbwtgraph::GBZ& gbz, const std::string& name_prefix);
 
     static constexpr uint32_t NO_PATH = std::numeric_limits<uint32_t>::max();

@@ -42,7 +42,7 @@ struct Tig {
     WalkInterval interval;
     /// Number of haplotype occurrences of each of its k-mers, in either orientation.
     size_t support = 0;
-    /// Where it lies on the gref. Empty text without a gref.
+    /// Where it lies on the gref. Its text and regions are empty without a gref.
     GrefPlacement placement;
 };
 
@@ -50,8 +50,13 @@ struct Tig {
  * Find the haplotype unitigs of order k (k >= 2) in the graph, which must have
  * a bidirectional GBWT. With a gref, leave out the k-mers that lie along a gref
  * path, and cut the unitigs into the tigs between them. Each tig is reported
- * once, in the orientation with the most bases on forward gref strands. Uses
- * OpenMP threads.
+ * once, in the orientation with the most bases on forward gref strands.
+ *
+ * The tigs come sorted along the gref. The order is by the path of the first
+ * segment of the placement, as the GrefIndex numbers its paths, then by the
+ * lowest coordinate of that segment. Tigs with no base on the gref come last.
+ * Tigs that tie, and all tigs when there is no gref, are in order of their
+ * walk intervals. Uses OpenMP threads.
  *
  * @param unitig_count If not null, receives the number of unitigs found,
  * before the cutting that turns them into the returned tigs.
