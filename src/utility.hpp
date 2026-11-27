@@ -622,7 +622,8 @@ inline vector<size_t> range_vector(size_t end) {
     return range_vector(0, end);
 }
 
-/// Get the index permutation that sorts the given items with the given comparator instead of <
+/// Get the index permutation that sorts the given items with the given comparator instead of <.
+/// The sort is stable: items that compare equal keep their original relative order.
 template<typename Iterator>
 std::vector<size_t> sort_permutation(const Iterator& begin,
                                      const Iterator& end,
@@ -630,14 +631,14 @@ std::vector<size_t> sort_permutation(const Iterator& begin,
     // Start with all numbers in number order.
     std::vector<size_t> indexes = range_vector(end - begin);
     // Then sort them using the comparator
-    std::sort(indexes.begin(), indexes.end(), [&](size_t a, size_t b) {
+    std::stable_sort(indexes.begin(), indexes.end(), [&](size_t a, size_t b) {
         return comparator(*(begin + a), *(begin + b));
     });
     // And return
     return indexes;
 }
 
-/// Get the index permutation that sorts the given items ascending using <
+/// Get the index permutation that stably sorts the given items ascending using <
 template<typename Iterator>
 std::vector<size_t> sort_permutation(const Iterator& begin, const Iterator& end) {
     return sort_permutation(begin, end, [](const typename Iterator::value_type& a, const typename Iterator::value_type& b) {

@@ -299,7 +299,7 @@ void match_backward(GaplessExtension& match, const std::string& seq, std::string
 // full-length alignments, remove duplicates, and return the best extensions
 // that have sufficiently low overlap.
 void handle_full_length(const HandleGraph& graph, std::vector<GaplessExtension>& result, double overlap_threshold) {
-    std::sort(result.begin(), result.end(), [](const GaplessExtension& a, const GaplessExtension& b) -> bool {
+    std::stable_sort(result.begin(), result.end(), [](const GaplessExtension& a, const GaplessExtension& b) -> bool {
         if (a.full() && b.full()) {
             return (a.internal_score < b.internal_score);
         }
@@ -348,7 +348,7 @@ void remove_duplicates(std::vector<GaplessExtension>& result) {
         }
         return (a.offset < b.offset);
     };
-    std::sort(result.begin(), result.end(), sort_order);
+    std::stable_sort(result.begin(), result.end(), sort_order);
     size_t tail = 0;
     for (size_t i = 0; i < result.size(); i++) {
         if (result[i].empty()) {
