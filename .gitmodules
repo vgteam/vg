@@ -124,12 +124,6 @@
 [submodule "deps/GFAz"]
 	path = deps/GFAz
 	url = https://github.com/babyplutokurt/GFAz.git
-[submodule "deps/cairo"]
-	path = deps/cairo
-	url = https://gitlab.freedesktop.org/cairo/cairo.git
-[submodule "deps/pixman"]
-	path = deps/pixman
-	url = https://gitlab.freedesktop.org/pixman/pixman.git
 [submodule "deps/elfutils"]
 	path = deps/elfutils
 	url = https://github.com/vgteam/elfutils.git
