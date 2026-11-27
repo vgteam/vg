@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 95
+plan tests 101
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -498,3 +498,40 @@ vg convert --gam-to-gaf read.gam reference.vg | grep -v "^@" > read.gaf
 cmp read.gaf v1.0.gaf
 is $? 0 "GAF version 1.1 was parsed correctly"
 rm -f reference.gfa reference.vg v1.1.gaf v1.0.gaf read.gam read.gaf
+
+# The fused import uses the same unchop algorithm as the two-command pipeline.
+printf 'H\tVN:Z:1.0\nS\t1\tGAT\nS\t2\tTACA\nL\t1\t+\t2\t+\t0M\nP\tref\t1+,2+\t*\n' > unchop-input.gfa
+vg convert -g -p unchop-input.gfa | vg mod -u - > unchop-pipe.vg
+vg convert -g -p --unchop unchop-input.gfa > unchop-fused.vg
+diff <(vg convert -f unchop-pipe.vg | sort) <(vg convert -f unchop-fused.vg | sort)
+is $? 0 "fused GFA import and unchop match the two-step graph"
+vg convert -g -p --unchop -T unchop-trans.tsv unchop-input.gfa > /dev/null 2>&1
+isnt $? 0 "fused unchop rejects an import-time translation"
+(
+    set -e -o pipefail
+    vg convert -g -a unchop-input.gfa > unchop-input.hash
+    vg mod -u unchop-input.hash | vg convert -f - | sort > unchop-expected.gfa
+    vg convert -g -a --unchop -t 2 unchop-input.gfa | vg convert -f - | sort > unchop-observed.gfa
+    cmp unchop-expected.gfa unchop-observed.gfa
+)
+is "$?" 0 "GFA to HashGraph unchop matches the two-step conversion"
+(
+    set -e -o pipefail
+    vg convert -p unchop-input.hash | vg mod -u - | vg convert -f - | sort > unchop-expected.gfa
+    vg convert -p --unchop -t 2 unchop-input.hash | vg convert -f - | sort > unchop-observed.gfa
+    cmp unchop-expected.gfa unchop-observed.gfa
+)
+is "$?" 0 "HashGraph to PackedGraph unchop matches the two-step conversion"
+(
+    set -e -o pipefail
+    printf 'H\tVN:Z:1.1\nS\t1\tGAT\nS\t2\tTACA\nL\t1\t+\t2\t+\t0M\nW\tSAMPLE\t1\tchr1\t0\t7\t>1>2\n' > unchop-input.gfa
+    vg gbwt -G unchop-input.gfa --gbz-format -g unchop-input.gbz
+    vg convert -a unchop-input.gbz | vg mod -u - | vg convert -f - | sort > unchop-expected.gfa
+    vg convert -a --unchop -t 2 unchop-input.gbz | vg convert -f - | sort > unchop-observed.gfa
+    cmp unchop-expected.gfa unchop-observed.gfa
+)
+is "$?" 0 "GBZ to HashGraph unchop matches the two-step conversion"
+vg convert -x --unchop unchop-input.hash > /dev/null 2>&1
+isnt "$?" 0 "unchop rejects immutable XG output"
+rm -f unchop-input.gfa unchop-pipe.vg unchop-fused.vg unchop-trans.tsv \
+    unchop-input.hash unchop-input.gbz unchop-expected.gfa unchop-observed.gfa
