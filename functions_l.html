@@ -74,6 +74,7 @@ $(function() {
 <li>last
 : <a class="el" href="structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a1f9f68c932a97214ed914c8ba2c882f2">vg::Counts</a>
 , <a class="el" href="structvg_1_1FeatureSet_1_1Feature.html#a9fb23b0b9affcc51a2610bb287b2082b">vg::FeatureSet::Feature</a>
+, <a class="el" href="structvg_1_1GrefIndex_1_1Run.html#a38fd18c58ff57d6857f0f78b01cfb8ca">vg::GrefIndex::Run</a>
 </li>
 <li>last_checkin
 : <a class="el" href="structvg_1_1Watchdog_1_1thread__state__t.html#ad54ba05d09be7a40b4e9504b8d020ea6">vg::Watchdog::thread_state_t</a>
@@ -87,11 +88,17 @@ $(function() {
 <li>last_group_min_id
 : <a class="el" href="classvg_1_1StreamIndexBase.html#aef3a7bd46aeb49185a8cd6a9a261e883">vg::StreamIndexBase</a>
 </li>
+<li>last_handle()
+: <a class="el" href="classvg_1_1GrefIndex.html#a0d22b05683565e174ec83b723ceb3921">vg::GrefIndex</a>
+</li>
 <li>last_node_length
 : <a class="el" href="structvg_1_1PathIndex.html#ac64a3532df12093eeccf3201184ea4d9">vg::PathIndex</a>
 </li>
 <li>last_progress
 : <a class="el" href="classvg_1_1Progressive.html#a4984481e2b887e5fb78ea40728f1b97f">vg::Progressive</a>
+</li>
+<li>last_step
+: <a class="el" href="structvg_1_1GrefIndex_1_1Run.html#afad5c0652859f673c24628855f8fedc7">vg::GrefIndex::Run</a>
 </li>
 <li>last_tagged_stage()
 : <a class="el" href="classvg_1_1Funnel.html#ab53e816bd740407417b0bd8d14d5237c">vg::Funnel</a>
@@ -175,10 +182,12 @@ $(function() {
 , <a class="el" href="classvg_1_1MEMAccelerator.html#a32cb183aeee38c64432c8ea66ff167d6">vg::MEMAccelerator</a>
 , <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#afd3e1c8befad3a1911504cfbd3f54ccd">vg::MinimizerMapper::Minimizer</a>
 , <a class="el" href="structvg_1_1Path.html#ac512f92c7b82e38265062cd3fdc90acf">vg::Path</a>
+, <a class="el" href="classvg_1_1PathSteps.html#a513c75e87780c2cc50bd3d7e436ba24a">vg::PathSteps</a>
 , <a class="el" href="structvg_1_1PieceLocation.html#aac62ec6522233a2887774c446e768736">vg::PieceLocation</a>
 , <a class="el" href="structvg_1_1Primer.html#a8e1a21430a3fb665335992b36290bf12">vg::Primer</a>
 , <a class="el" href="structvg_1_1SortedVCFWriter_1_1ReferenceContig.html#ac8dc2a5f315efd3657cdf8cfea04e111">vg::SortedVCFWriter::ReferenceContig</a>
 , <a class="el" href="classvg_1_1VG.html#a23641dedefa2b6d573939515fcf5974c">vg::VG</a>
+, <a class="el" href="structvg_1_1WalkInterval.html#aea5dc20bec6bef0365e7d0c9d9ace0ca">vg::WalkInterval</a>
 , <a class="el" href="structvg_1_1WFAAlignment.html#a742372d503ae6c788b263ec474507b68">vg::WFAAlignment</a>
 , <a class="el" href="structvg_1_1WFANode.html#a9f70c59baed78d97644100b45cf865cd">vg::WFANode</a>
 , <a class="el" href="structvg_1_1ZipCode_1_1chain__code__t.html#a794a822da9c5425158d1ed42da500c03">vg::ZipCode::chain_code_t</a>
@@ -192,7 +201,7 @@ $(function() {
 : <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a368340de267064b485b898da2331dc97">vg::FragmentLengthDistribution</a>
 </li>
 <li>less_than()
-: <a class="el" href="classvg_1_1StreamSorter.html#a4ebd8489bcf1ea8c3155c1aa202ab2e2">vg::StreamSorter&lt; Message &gt;</a>
+: <a class="el" href="classvg_1_1StreamSorter.html#a243723f25750130a537550ac111be9ed">vg::StreamSorter&lt; Message &gt;</a>
 </li>
 <li>likelihood
 : <a class="el" href="structvg_1_1Genotype.html#afac9953bdbfbc0e3991e1b8a6e7e8c36">vg::Genotype</a>
@@ -352,7 +361,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MCMCGenotyper.html#a4622c5efee68d8f148b961a92a1abc62">vg::MCMCGenotyper</a>
 </li>
 <li>LoggedGapAlignmentScorer()
-: <a class="el" href="classvg_1_1LoggedGapAlignmentScorer.html#a6e57720d879f659c4dc2853e390ad739">vg::LoggedGapAlignmentScorer</a>
+: <a class="el" href="classvg_1_1LoggedGapAlignmentScorer.html#a1c0b94094ba8fc86adf3f0fa1621f0e7">vg::LoggedGapAlignmentScorer</a>
 </li>
 <li>logger
 : <a class="el" href="structGBWTConfig.html#aa18d8eac0712e940826ada17fafbb9eb">GBWTConfig</a>
@@ -398,11 +407,11 @@ $(function() {
 <li>long_read_minimizer_k
 : <a class="el" href="structvg_1_1IndexingParameters.html#ac8e9a153245b64380d773561d8534c51">vg::IndexingParameters</a>
 </li>
-<li>long_read_minimizer_W
-: <a class="el" href="structvg_1_1IndexingParameters.html#aca76950e194d8a550b71ffcee55aa8df">vg::IndexingParameters</a>
-</li>
 <li>long_read_minimizer_w
 : <a class="el" href="structvg_1_1IndexingParameters.html#a7cf3ea634d6c4b3f45bf2d11867ab70c">vg::IndexingParameters</a>
+</li>
+<li>long_read_minimizer_W
+: <a class="el" href="structvg_1_1IndexingParameters.html#aca76950e194d8a550b71ffcee55aa8df">vg::IndexingParameters</a>
 </li>
 <li>long_ref_contig
 : <a class="el" href="classvg_1_1Deconstructor.html#a6341c9416e41420f60f9faf7ea942d07">vg::Deconstructor</a>

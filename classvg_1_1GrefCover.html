@@ -123,6 +123,8 @@ Static Public Member Functions</h2></td></tr>
 <tr class="separator:a28f40e61aabf32d4f2b7416fce5312bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adec5d721d1d3baf49ae8874349249a5f"><td class="memItemLeft" align="right" valign="top">static int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GrefCover.html#adec5d721d1d3baf49ae8874349249a5f">parse_gref_index</a> (const string &amp;gref_name)</td></tr>
 <tr class="separator:adec5d721d1d3baf49ae8874349249a5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab61a59afc88ff8813c841173c63d675c"><td class="memItemLeft" align="right" valign="top">static unordered_map&lt; string, string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GrefCover.html#ab61a59afc88ff8813c841173c63d675c">read_top_level_snarls</a> (istream &amp;is)</td></tr>
+<tr class="separator:ab61a59afc88ff8813c841173c63d675c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
@@ -703,6 +705,40 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab61a59afc88ff8813c841173c63d675c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab61a59afc88ff8813c841173c63d675c">&#9670;&nbsp;</a></span>read_top_level_snarls()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt; string, string &gt; vg::GrefCover::read_top_level_snarls </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>is</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Read the top-level snarl of each gref contig from a table that <a class="el" href="classvg_1_1GrefCover.html#ae54204b112e3705732d5870410fe9956">write_gref_segments()</a> wrote, or from several such tables concatenated.</p>
+<dl class="section return"><dt>Returns</dt><dd>The top_level_snarl of each contig, by gref_contig name. Contigs in no snarl are left out. </dd></dl>
+<dl class="exception"><dt>Exceptions</dt><dd>
+  <table class="exception">
+    <tr><td class="paramname">std::runtime_error</td><td>if the table names no gref_contig or top_level_snarl column, or if a row lacks one of them. </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>

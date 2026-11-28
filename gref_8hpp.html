@@ -68,13 +68,20 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">gref.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &lt;bdsg/snarl_distance_index.hpp&gt;</code><br />
+<code>#include &lt;gbwtgraph/gbz.h&gt;</code><br />
+<code>#include &lt;cstdint&gt;</code><br />
+<code>#include &lt;limits&gt;</code><br />
+<code>#include &lt;optional&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="walk__interval_8hpp.html">walk_interval.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -82,11 +89,29 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GrefCover_1_1TopLevelSnarlStats.html">vg::GrefCover::TopLevelSnarlStats</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GrefIndex.html">vg::GrefIndex</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GrefIndex_1_1Position.html">vg::GrefIndex::Position</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GrefIndex_1_1Run.html">vg::GrefIndex::Run</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A stretch of a walk interval that lies contiguously along one gref path.  <a href="structvg_1_1GrefIndex_1_1Run.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GrefIndex_1_1Path.html">vg::GrefIndex::Path</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A gref path.  <a href="structvg_1_1GrefIndex_1_1Path.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GrefPlacement.html">vg::GrefPlacement</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Where a walk interval lies on the gref. See <a class="el" href="classvg_1_1GrefIndex.html#a5b3165b4c84e73be8b46479565e41bdf">GrefIndex::place()</a>.  <a href="structvg_1_1GrefPlacement.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:a0b6f5f091a6eaf348fbee1df718d3bd0"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; std::string, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0b6f5f091a6eaf348fbee1df718d3bd0">vg::unsupported_gref_paths</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;name_prefix)</td></tr>
+<tr class="separator:a0b6f5f091a6eaf348fbee1df718d3bd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Interface for computing and querying graph reference path covers.</p>
@@ -98,7 +123,7 @@ Namespaces</h2></td></tr>
 <li>etc.</li>
 </ul>
 <p>The naming is a convention, not an option: because the prefix lands on the sample, a graph carries both references at once, "is this a gref path/sample" is a prefix test, and the base path a gref path came from is recoverable by dropping the prefix.</p>
-<p>The data structures used in this class are always relative to the original paths in the graph. The REFERENCE-sense fragments the cover is written as are output only; nothing reads them back. </p>
+<p>The data structures of GrefCover are always relative to the original paths in the graph. GrefCover only writes the REFERENCE-sense fragments of the cover. GrefIndex reads them back from a GBZ, to place walk intervals on the gref. </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

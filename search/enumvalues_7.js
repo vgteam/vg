@@ -1,9 +1,9 @@
 var searchData=
 [
-  ['half_5fcoverage_5fscoring_15470',['half_coverage_scoring',['../structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaa11516e95ce144dd7c66da29a3ff8da53',1,'vg::Recombinator::Parameters']]],
-  ['haplotype_15471',['HAPLOTYPE',['../namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271ca00c31e80a8b69bfe7bd279f2bfa4b3ba',1,'handlegraph']]],
-  ['hashgraph_15472',['HashGraph',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10a88fe737c0668785017687666e0aa74a8',1,'vg::IndexingParameters']]],
-  ['heterozygous_15473',['heterozygous',['../classvg_1_1KmerPresenceMatrix.html#a17f0f8bc4babac8bed067be2161b5466ac2eae49f99729c9e4ef259d54aeb0743',1,'vg::KmerPresenceMatrix']]],
-  ['hidden_15474',['Hidden',['../classvg_1_1SiteEmitter.html#ad861c185502aa290def2376e9c2f7d5ba7acdf85c69cc3c5305456a293524386e',1,'vg::SiteEmitter']]],
-  ['high_5fcoverage_5fscoring_15475',['high_coverage_scoring',['../structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaad11075637509d31f85329829c9ac8d46',1,'vg::Recombinator::Parameters']]]
+  ['half_5fcoverage_5fscoring_15587',['half_coverage_scoring',['../structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaa11516e95ce144dd7c66da29a3ff8da53',1,'vg::Recombinator::Parameters']]],
+  ['haplotype_15588',['HAPLOTYPE',['../namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271ca00c31e80a8b69bfe7bd279f2bfa4b3ba',1,'handlegraph']]],
+  ['hashgraph_15589',['HashGraph',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10a88fe737c0668785017687666e0aa74a8',1,'vg::IndexingParameters']]],
+  ['heterozygous_15590',['heterozygous',['../classvg_1_1KmerPresenceMatrix.html#a17f0f8bc4babac8bed067be2161b5466ac2eae49f99729c9e4ef259d54aeb0743',1,'vg::KmerPresenceMatrix']]],
+  ['hidden_15591',['Hidden',['../classvg_1_1SiteEmitter.html#ad861c185502aa290def2376e9c2f7d5ba7acdf85c69cc3c5305456a293524386e',1,'vg::SiteEmitter']]],
+  ['high_5fcoverage_5fscoring_15592',['high_coverage_scoring',['../structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaad11075637509d31f85329829c9ac8d46',1,'vg::Recombinator::Parameters']]]
 ];
