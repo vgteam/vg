@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+
+BASH_TAP_ROOT=../deps/bash-tap
+. ../deps/bash-tap/bash-tap-bootstrap
+
+PATH=../bin:$PATH # for vg
+
+export LC_ALL="C" # force a consistent sort order
+
+plan tests 37
+
+# canonical_kmers K FASTA...: every canonical k-mer of the sequences (the smaller of the
+# k-mer and its reverse complement), one per line.  The test graphs have random sequence,
+# so k-mers that are equal as sequences are also the same graph positions.  It writes no
+# files, because diff runs two copies of it at once.
+canonical_kmers() {
+    local k=$1
+    shift
+    cat "$@" | awk '/^>/ { if (seq != "") print seq; seq = ""; next } { seq = seq $0 } END { if (seq != "") print seq }' \
+        | awk -v k=$k 'BEGIN { c["A"] = "T"; c["C"] = "G"; c["G"] = "C"; c["T"] = "A" }
+            {
+                for (i = 1; i <= length($0) - k + 1; i++) {
+                    s = substr($0, i, k)
+                    r = ""
+                    for (j = k; j >= 1; j--) {
+                        r = r c[substr(s, j, 1)]
+                    }
+                    print (s < r) ? s : r
+                }
+            }'
+}
+
+# Plain unitigs on a graph with a triallelic SNP and no gref
+vg gbwt -G nesting/core_snp_in_flanks.gfa --gbz-format -g snp.gbz
+vg paths -x snp.gbz -F > snp.paths.fa
+vg unitigs -k 11 -g snp.gaf snp.gbz > snp.tigs.fa
+is $? 0 "vg unitigs runs on a GBZ"
+
+is "$(grep -c '^>' snp.tigs.fa)" "5" "a triallelic SNP gives two flanking unitigs and one per allele"
+
+is "$(grep -v '^>' snp.tigs.fa | awk 'length($0) == 21 { n++ } END { print n + 0 }')" "3" "each allele's unitig is 2k-1 bp"
+
+diff <(canonical_kmers 11 snp.paths.fa | sort -u) <(canonical_kmers 11 snp.tigs.fa | sort -u) > /dev/null
+is $? 0 "the unitigs contain exactly the k-mers of the paths"
+
+is "$(canonical_kmers 11 snp.tigs.fa | sort | uniq -d | awk 'END { print NR }')" "0" "no k-mer is in two unitigs"
+
+is "$(grep -vc '^@' snp.gaf)" "5" "the GAF has one line per unitig"
+
+is "$(grep -c '^@RN' snp.gaf) $(grep -c $'^@CO\tvg unitigs -k 11 -g snp.gaf snp.gbz$' snp.gaf)" "1 1" "the GAF header names the graph and the command"
+
+is "$(cut -f 13 snp.gaf | grep -c '^sp:i:')" "5" "every GAF line has the haplotype support"
+
+is "$(cut -f 13 snp.gaf | grep -c '^sp:i:3$') $(cut -f 13 snp.gaf | grep -c '^sp:i:1$')" "2 3" "all three haplotypes read the flanks and one reads each allele"
+
+vg unitigs -k 11 -t 1 snp.gbz > snp.t1.fa
+vg unitigs -k 11 -t 4 snp.gbz > snp.t4.fa
+cmp -s snp.t1.fa snp.t4.fa
+is $? 0 "the output does not depend on the thread count"
+
+is "$(vg unitigs -k 11 -n k11_ snp.gbz | head -1)" ">k11_1" "tig names can have a prefix"
+
+vg unitigs -k 1 snp.gbz > /dev/null 2>&1
+is $? 1 "k below 2 is rejected"
+
+vg unitigs -r -k 11 snp.gbz 2>&1 > /dev/null | grep -q "no gref paths"
+is $? 0 "--gref on a graph without gref paths is an error"
+
+# Junction tigs on a gref with a 50 bp insertion, which gets its own _alt path
+vg gbwt -G nesting/core_ins50.gfa --gbz-format -g ins.gbz
+vg paths -x ins.gbz -F > ins.paths.fa
+vg paths -x nesting/core_ins50.gfa -Q x --compute-gref > ins.gref.vg
+vg convert -f ins.gref.vg > ins.gref.gfa
+vg gbwt -G ins.gref.gfa --gbz-format -g ins.gref.gbz
+vg paths -x ins.gref.gbz -F -Q gref_ > ins.gref.fa
+vg unitigs -r -k 11 -g ins.tigs.gaf ins.gref.gbz > ins.tigs.fa 2> ins.tigs.err
+is $? 0 "vg unitigs --gref runs on a GBZ with gref paths"
+
+diff <(canonical_kmers 11 ins.paths.fa | sort -u) <(canonical_kmers 11 ins.gref.fa ins.tigs.fa | sort -u) > /dev/null
+is $? 0 "the gref and the junction tigs together contain exactly the k-mers of the paths"
+
+is "$(canonical_kmers 11 ins.gref.fa ins.tigs.fa | sort | uniq -d | awk 'END { print NR }')" "0" "no k-mer is in both the gref and a junction tig"
+
+is "$(grep -c '^>.* gref_x:61-70:+,gref_x_1_alt:1-10:+$' ins.tigs.fa)" "1" "the FASTA header of a junction tig has its regions on the reference and the alt path"
+
+is "$(grep -c 'gr:Z:gref_x:61-70:+:10=,gref_x_1_alt:1-10:+:10=$' ins.tigs.gaf)" "1" "the GAF gives each region of a junction tig its own CIGAR"
+
+is "$(grep -c 'not contained in any other path' ins.tigs.err)" "0" "no warning while every gref path is contained in its source path"
+
+# The GAF gives each region a CIGAR, which has small variants as edits against the reference
+vg paths -x nesting/core_snp_in_flanks.gfa -Q x --compute-gref > snp.gref.vg
+vg convert -f snp.gref.vg > snp.gref.gfa
+vg gbwt -G snp.gref.gfa --gbz-format -g snp.gref.gbz
+vg unitigs -r -k 11 -g snp.jt.gaf snp.gref.gbz > /dev/null
+is "$(grep -c 'gr:Z:gref_x:91-111:+:10=1X10=$' snp.jt.gaf)" "2" "each SNP allele off the reference is a substitution"
+
+vg paths -x nesting/core_del61.gfa -Q x --compute-gref > del.gref.vg
+vg convert -f del.gref.vg > del.gref.gfa
+vg gbwt -G del.gref.gfa --gbz-format -g del.gref.gbz
+vg unitigs -r -k 11 -g del.jt.gaf del.gref.gbz > /dev/null
+is "$(grep -c 'gr:Z:gref_x:31-110:+:10=60D10=$' del.jt.gaf) $(grep -c 'gr:Z:gref_x:31-111:+:10=61D10=$' del.jt.gaf)" "1 1" "each deletion allele is a deletion"
+
+# Plain unitigs count every path as a haplotype, gref paths included
+vg paths -x ins.gref.gbz -F > ins.gref.paths.fa
+vg unitigs -k 11 ins.gref.gbz > ins.plain.fa
+diff <(canonical_kmers 11 ins.paths.fa | sort -u) <(canonical_kmers 11 ins.plain.fa | sort -u) > /dev/null
+is $? 0 "plain unitigs on a gref GBZ have the same k-mers as the paths"
+
+# A gref whose source paths are gone, as after subsampling: its k-mers are in no haplotype
+grep -v -E "^(P|W)"$'\t'"hap" ins.gref.gfa > nohaps.gfa
+vg gbwt -G nohaps.gfa --gbz-format -g nohaps.gbz
+vg unitigs -r -k 11 nohaps.gbz > /dev/null 2> nohaps.err
+is $? 0 "vg unitigs still runs when the gref outlives its source paths"
+
+is "$(grep -c 'not contained in any other path' nohaps.err)" "1" "a gref path that no other path contains is reported"
+
+is "$(grep -c 'gref_x_1_alt' nohaps.err)" "1" "the report names an unsupported gref path"
+
+# An inverted allele, where a junction tig reads the gref backwards
+vg gbwt -G nesting/inv30_in_flanks.gfa --gbz-format -g inv.gbz
+vg paths -x inv.gbz -F > inv.paths.fa
+vg paths -x nesting/inv30_in_flanks.gfa -Q x --compute-gref > inv.gref.vg
+vg convert -f inv.gref.vg > inv.gref.gfa
+vg gbwt -G inv.gref.gfa --gbz-format -g inv.gref.gbz
+vg paths -x inv.gref.gbz -F -Q gref_ > inv.gref.fa
+vg unitigs -r -k 11 inv.gref.gbz > inv.tigs.fa
+is $? 0 "vg unitigs --gref runs on a graph with an inversion"
+
+diff <(canonical_kmers 11 inv.paths.fa | sort -u) <(canonical_kmers 11 inv.gref.fa inv.tigs.fa | sort -u) > /dev/null
+is $? 0 "the gref and the junction tigs of an inversion hold exactly the k-mers of the paths"
+
+is "$(grep -c '^>.* gref_x:91-100:+,gref_x:121-130:-$' inv.tigs.fa)" "1" "the tig over the left junction of an inversion reads the gref forwards, then backwards"
+
+is "$(grep -c '^>.* gref_x:101-110:-,gref_x:131-140:+$' inv.tigs.fa)" "1" "the tig over the right junction reads the gref backwards, then forwards"
+
+# The tigs are numbered along the gref, whatever order the GBZ holds the gref paths in.
+# This graph lists gref_y and its alt contig before the paths of gref_x, and the alt
+# contigs of gref_x, numbered 10 and 2, before gref_x itself.  Each reference node is
+# 20 bp and each alt contig is one 12 bp node, so there is one tig over each junction
+# where a haplotype leaves or joins a reference path.  A tig sorts by its first region,
+# which is on the path it leaves.  Node 9 is on a haplotype and on no gref path, so its
+# tig has no base on the gref.
+vg gbwt -G nesting/gref_paths_out_of_order.gfa --gbz-format -g order.gbz
+vg unitigs -r -k 11 -g order.gaf order.gbz > order.fa
+is "$(grep '^>' order.fa | cut -f 2 -d ' ' | cut -f 1 -d ',' | tr '\n' ' ')" "gref_x:11-20:+ gref_x:31-40:+ gref_x_2_alt:3-12:+ gref_x_10_alt:3-12:+ gref_y:11-20:+ gref_y_1_alt:3-12:+ * " "tigs are numbered along each reference path, then its alt contigs in number order, and tigs off the gref come last"
+
+is "$(tail -1 order.gaf | cut -f 14)" "gr:Z:*:20I" "the GAF has a tig with no base on the gref as one insertion"
+
+# Two tigs of hapB that leave or join an alt contig short of its end.  Each alt contig is
+# 20 bp: gref_x_1_alt is node 2 (12 bp) then node 3 (8 bp), and gref_x_2_alt is node 6
+# (8 bp) then node 7 (12 bp).  Nodes 4 and 8 are on hapB and on no gref path.  With k = 11,
+# a tig over node 4 or node 8 has 10 bp on the node before it and 10 bp on the node after.
+# The first tig visits nodes 2, 4 and 5.  Node 4 is as long as node 3 and differs from it
+# at its fifth base.  Its bases replace the last 8 bases of gref_x_1_alt base for base, so
+# the CIGAR has 10 matches on node 2, then 4 matches, a mismatch and 3 matches.
+# The second tig visits nodes 5, 8 and 7.  Node 8 is 6 bp.  Its bases replace the first 8
+# bases of gref_x_2_alt, as a deletion of 8 and an insertion of 6.
+vg gbwt -G nesting/variants_at_alt_contig_ends.gfa --gbz-format -g ends.gbz
+vg unitigs -r -k 11 -g ends.gaf ends.gbz > /dev/null
+is "$(grep -c 'gr:Z:gref_x_1_alt:3-20:+:14=1X3=,gref_x:21-30:+:10=$' ends.gaf)" "1" "a variant as long as the end of the alt contig it replaces aligns base for base"
+
+is "$(grep -c 'gr:Z:gref_x:31-40:+:10=,gref_x_2_alt:1-18:+:8D6I10=$' ends.gaf)" "1" "a shorter variant at the start of an alt contig is a deletion and an insertion"
+
+# The same graph with both alt contigs reversed: gref_x_1_alt is 3-,2- and gref_x_2_alt
+# is 7-,6-.  The tigs are the same and read the alt contigs in reverse.  Each region is on
+# the - strand and counts from the other end of its contig, and each CIGAR, which reads
+# from START to END, is the reverse of the one above.
+vg gbwt -G nesting/variants_at_reversed_alt_contig_ends.gfa --gbz-format -g rends.gbz
+vg unitigs -r -k 11 -g rends.gaf rends.gbz > /dev/null
+is "$(grep -c 'gr:Z:gref_x_1_alt:1-18:-:3=1X14=,gref_x:21-30:+:10=$' rends.gaf)" "1" "a variant at the end of a reversed alt contig aligns to the complement of the contig"
+
+is "$(grep -c 'gr:Z:gref_x:31-40:+:10=,gref_x_2_alt:3-20:-:10=6I8D$' rends.gaf)" "1" "a variant at the start of a reversed alt contig comes last in the CIGAR"
+
+# A haplotype that visits one node in both orientations, so a unitig starts and
+# ends on the same node.  Which end is canonical then turns on the offset into
+# that node, not only on the nodes the two k-mers visit.  k is 3 because the
+# turn is on a 2 bp node, and the sequence is too short and too repetitive for
+# the k-mer comparisons above.
+vg gbwt -G nesting/hairpin.gfa --gbz-format -g hp.gbz
+vg unitigs -k 3 hp.gbz > hp.tigs.fa
+
+is "$(grep -c '^ACGTAG$' hp.tigs.fa)" "1" "a unitig that starts and ends on one node is reported from the end whose first k-mer starts earlier in that node"
+
+# Long k, where no unitig can form, gives an empty cover
+vg unitigs -k 1000 snp.gbz > long.fa
+[ -s long.fa ]
+is $? 1 "k longer than every path gives no unitigs"
+
+rm -f snp.gbz snp.paths.fa snp.tigs.fa snp.gaf snp.t1.fa snp.t4.fa
+rm -f ins.gbz ins.paths.fa ins.gref.vg ins.gref.gfa ins.gref.gbz ins.gref.fa ins.tigs.fa ins.tigs.gaf ins.tigs.err
+rm -f snp.gref.vg snp.gref.gfa snp.gref.gbz snp.jt.gaf del.gref.vg del.gref.gfa del.gref.gbz del.jt.gaf
+rm -f ins.gref.paths.fa ins.plain.fa nohaps.gfa nohaps.gbz nohaps.err long.fa
+rm -f inv.gbz inv.paths.fa inv.gref.vg inv.gref.gfa inv.gref.gbz inv.gref.fa inv.tigs.fa
+rm -f hp.gbz hp.tigs.fa order.gbz order.fa order.gaf ends.gbz ends.gaf rends.gbz rends.gaf

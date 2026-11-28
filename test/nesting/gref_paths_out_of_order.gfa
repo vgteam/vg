@@ -1,0 +1,29 @@
+H	VN:Z:1.0
+S	1	GCTAAAGACAATTACATAAC
+S	2	ATACACGTCAGC
+S	3	ACGAAACTTGTTGGCCCAGT
+S	4	GTGAATCGCTTA
+S	5	AGGGTTAAGTAAGTGTGATG
+S	6	CATACGCCTTTACTTGCTGT
+S	7	GTCCACCCCATC
+S	8	GGACTGGCATTTTTATTACA
+S	9	CTCAGAAACAGAACTCGGGT
+L	1	+	2	+	0M
+L	2	+	3	+	0M
+L	1	+	3	+	0M
+L	3	+	4	+	0M
+L	4	+	5	+	0M
+L	3	+	5	+	0M
+L	6	+	7	+	0M
+L	7	+	8	+	0M
+L	6	+	8	+	0M
+P	gref_y_1_alt	7+	*
+P	gref_y	6+,8+	*
+P	gref_x_10_alt	4+	*
+P	gref_x_2_alt	2+	*
+P	hapx	1+,2+,3+,4+,5+	*
+P	hapy	6+,7+,8+	*
+P	off	9+	*
+P	x	1+,3+,5+	*
+P	y	6+,8+	*
+P	gref_x	1+,3+,5+	*
