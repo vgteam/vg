@@ -10,7 +10,7 @@ cmds = ['align', 'annotate', 'augment', 'autoindex', 'bench-dist-query',
         'describe', 'dotplot', 'filter', 'find', 'gamcompare', 'gampcompare',
         'gamsort', 'gbwt', 'giraffe', 'giraffe-server', 'haplotypes', 'help',
         'ids',
-        'index', 'inject', 'map', 'mask', 'minimizer', 'mod', 'mpmap',
+        'index', 'inject', 'lift', 'map', 'mask', 'minimizer', 'mod', 'mpmap',
         'pack', 'paths', 'primers', 'prune', 'rna', 'sim', 'simplify', 'snarls',
         'stats', 'surject', 'test', 'trace', 'unitigs', 'validate', 'vectorize', 'version',
         'view', 'zipcode'
