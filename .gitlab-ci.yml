@@ -136,7 +136,8 @@ local-build-test-job:
     - nvm install
     - nvm use
     - npm ci
-    - CI=true npm run test
+    # Jest's default 5000 ms per-test limit is too short on the CI machines
+    - CI=true npm run test -- --testTimeout=60000
   after_script:
     - echo "Don't do anything"
   variables:
